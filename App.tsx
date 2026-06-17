@@ -807,7 +807,8 @@ const handleWatchVideoReward = useCallback((playerShare: number, communityShare:
     },
     parkCommunityScore: prev.parkCommunityScore + 10,
     legacyTokens: prev.legacyTokens + 50,
-    adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 }
+    adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 },
+    boostUntil: Date.now() + AD_BOOST_DURATION_MS,  // ← ADD THIS
   }));
 
   setShowAdOverlay(false);
