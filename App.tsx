@@ -1163,7 +1163,14 @@ const handleWatchVideoReward = useCallback((playerShare: number, communityShare:
           </div>
         )}
 
-        {showAdOverlay && <AdOverlay onComplete={handleWatchVideoReward} onClose={() => setShowAdOverlay(false)} isDark={isDark} />}
+{showAdOverlay && (
+  <AdOverlay
+    onRewardEarned={handleWatchVideoReward}
+    onClose={() => setShowAdOverlay(false)}
+    adCount={state.adUsage.count}
+    maxAds={MAX_ADS_PER_HOUR}
+  />
+)}
       </div>
     </div>
   );
