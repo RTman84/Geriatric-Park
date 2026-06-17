@@ -55,7 +55,6 @@ import {
   AD_BOOST_DURATION_MS,
   OFFLINE_CAP_MS,
   SHUFFLEBOARD_KING_BOOST,
-  INITIAL_PENSION_RATE,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
