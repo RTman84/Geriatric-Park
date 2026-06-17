@@ -228,29 +228,54 @@ const App: React.FC = () => {
     alert(`You bought a ${rarity} parcel! Pension rate increased.`);
   }, [state.currentLocation, state.legacyTokens, state.ownedParcels, state.settings.sfxEnabled]);
 
-  // Pension accumulation loop
-  useEffect(() => {
-    if (!state.hasStarted) return;
-    const timer = setInterval(() => {
-      setState(prev => {
-        const isBoosted = Date.now() < prev.boostUntil;
-        const multiplier = isBoosted ? 2 : 1;
-        const kingMultiplier = prev.shuffleboard.currentKing?.id === 'player' ? 1.25 : 1;
-        const totalMultiplier = multiplier * kingMultiplier;
-        const increment = prev.pensionRate * totalMultiplier;
-        
-        return {
-          ...prev,
-          pensionBalance: prev.pensionBalance + increment,
-          earningsBreakdown: {
-            ...prev.earningsBreakdown,
-            passive: prev.earningsBreakdown.passive + increment
-          }
-        };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [state.hasStarted]);
+// Passive income tick — runs every 30 seconds
+useEffect(() => {
+  if (!state.hasStarted) return;
+
+  const interval = setInterval(() => {
+    setState(prev => {
+      const now = Date.now();
+      const elapsedMs = now - prev.lastActiveTime;
+      const earned = calculatePassiveIncome(prev, elapsedMs);
+      return {
+        ...prev,
+        pensionBalance: prev.pensionBalance + earned,
+        earningsBreakdown: {
+          ...prev.earningsBreakdown,
+          passive: prev.earningsBreakdown.passive + earned,
+        },
+        lastActiveTime: now,
+      };
+    });
+  }, PASSIVE_TICK_MS);
+
+  return () => clearInterval(interval);
+}, [state.hasStarted]);
+
+// Offline catchup — credits earnings since last session
+useEffect(() => {
+  if (!state.hasStarted) return;
+
+  setState(prev => {
+    const now = Date.now();
+    const elapsedMs = now - prev.lastActiveTime;
+    if (elapsedMs < 60 * 1000) return prev; // ignore if under 1 min
+
+    const earned = calculatePassiveIncome(prev, elapsedMs);
+    const offlineHours = Math.min(elapsedMs / (60 * 60 * 1000), 8).toFixed(1);
+    console.log(`[Passive] Away ${offlineHours}hrs — credited $${earned.toFixed(5)}`);
+
+    return {
+      ...prev,
+      pensionBalance: prev.pensionBalance + earned,
+      earningsBreakdown: {
+        ...prev.earningsBreakdown,
+        passive: prev.earningsBreakdown.passive + earned,
+      },
+      lastActiveTime: now,
+    };
+  });
+}, [state.hasStarted]);
 
   // Ad reset check
   useEffect(() => {
