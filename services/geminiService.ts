@@ -1,7 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = (window as any).API_KEY || (window as any).GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 export const generateBattleDialogue = async (elderName: string, elderType: string, action: string) => {
   try {
