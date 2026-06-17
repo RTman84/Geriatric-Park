@@ -787,8 +787,6 @@ const handleWatchVideoReward = useCallback((playerShare: number, communityShare:
 
   setShowAdOverlay(false);
 }, [state.settings.sfxEnabled]);
-    alert(`Reward Claimed! (70/20 split: +$${playerShare.toFixed(3)} to Pension, +$${reserveShare.toFixed(3)} to Shared Pool)`);
-  }, [state.settings.sfxEnabled]);
 
   const handleClaimMail = useCallback((id: string) => {
     setState(prev => {
