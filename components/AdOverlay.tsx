@@ -21,7 +21,7 @@ declare global {
 // REPLACE WITH YOUR REAL IDs FROM GOOGLE ADSENSE
 // ─────────────────────────────────────────────
 const ADSENSE_PUBLISHER_ID = 'ca-pub-4749065898882415';
-const ADSENSE_REWARDED_SLOT  = 'XXXXXXXXXX';            // your rewarded ad unit slot ID
+const ADSENSE_REWARDED_SLOT  = '1422136727';            // your rewarded ad unit slot ID
 
 interface AdOverlayProps {
   onRewardEarned: (playerShare: number, communityShare: number) => void;
