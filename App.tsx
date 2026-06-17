@@ -730,27 +730,24 @@ const App: React.FC = () => {
     }, 2000);
   }, [state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
-  const handleWatchVideoReward = useCallback(() => {
-    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    
-    // Revenue split logic: $0.10 total revenue
-    // 70% to Player ($0.07), 20% to Reserve ($0.02), 10% to Dev ($0.01)
-    const playerShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;
-    const reserveShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community;
+const handleWatchVideoReward = useCallback((playerShare: number, communityShare: number) => {
+  if (state.settings.sfxEnabled) audioManager.playSFX('victory');
 
-    setState(prev => ({
-      ...prev,
-      pensionBalance: prev.pensionBalance + playerShare,
-      communityReserve: prev.communityReserve + reserveShare,
-      earningsBreakdown: {
-        ...prev.earningsBreakdown,
-        sponsorship: prev.earningsBreakdown.sponsorship + playerShare
-      },
-      parkCommunityScore: prev.parkCommunityScore + 10,
-      legacyTokens: prev.legacyTokens + 50,
-      adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 }
-    }));
-    setShowAdOverlay(false);
+  setState(prev => ({
+    ...prev,
+    pensionBalance: prev.pensionBalance + playerShare,
+    communityReserve: prev.communityReserve + communityShare,
+    earningsBreakdown: {
+      ...prev.earningsBreakdown,
+      sponsorship: prev.earningsBreakdown.sponsorship + playerShare
+    },
+    parkCommunityScore: prev.parkCommunityScore + 10,
+    legacyTokens: prev.legacyTokens + 50,
+    adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 }
+  }));
+
+  setShowAdOverlay(false);
+}, [state.settings.sfxEnabled]);
     alert(`Reward Claimed! (70/20 split: +$${playerShare.toFixed(3)} to Pension, +$${reserveShare.toFixed(3)} to Shared Pool)`);
   }, [state.settings.sfxEnabled]);
 
