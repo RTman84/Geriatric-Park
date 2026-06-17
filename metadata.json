@@ -1,0 +1,5 @@
+{
+  "name": "Geriatric Park",
+  "description": "A humorous RPG where you find, assist, and recruit legendary elders to build the world's most comfortable retirement community.",
+  "requestFramePermissions": ["geolocation"]
+}
