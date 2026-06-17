@@ -103,13 +103,14 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
         </p>
       </div>
 
-      {showAd && (
-        <AdOverlay 
-          isDark={false} 
-          onComplete={handleAdComplete} 
-          onClose={() => setShowAd(false)} 
-        />
-      )}
+{showAd && (
+  <AdOverlay 
+    onRewardEarned={() => handleAdComplete()}
+    onClose={() => setShowAd(false)}
+    adCount={0}
+    maxAds={10}
+  />
+)}
     </div>
   );
 };
