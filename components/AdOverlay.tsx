@@ -20,7 +20,7 @@ declare global {
 // ─────────────────────────────────────────────
 // REPLACE WITH YOUR REAL IDs FROM GOOGLE ADSENSE
 // ─────────────────────────────────────────────
-const ADSENSE_PUBLISHER_ID = 'ca-pub-XXXXXXXXXXXXXXXX'; // e.g. ca-pub-1234567890123456
+const ADSENSE_PUBLISHER_ID = 'ca-pub-4749065898882415';
 const ADSENSE_REWARDED_SLOT  = 'XXXXXXXXXX';            // your rewarded ad unit slot ID
 
 interface AdOverlayProps {
