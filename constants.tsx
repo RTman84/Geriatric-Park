@@ -33,6 +33,14 @@ export const REVENUE_SPLIT = {
   developer: 0.10   
 };
 
+export const PASSIVE_TICK_MS         = 30 * 1000;
+export const ELDER_COMFORT_RATE      = 0.000008;
+export const PARCEL_RENT_RATE        = 0.000005;
+export const AD_BOOST_MULTIPLIER     = 2.0;
+export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
+export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
+export const SHUFFLEBOARD_KING_BOOST = 1.5;
+
 export const INVESTMENT_TIERS = [
   {
     category: 'Community Micro-Assets',
