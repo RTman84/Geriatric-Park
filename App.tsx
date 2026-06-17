@@ -47,8 +47,48 @@ import {
   SEASON_XP_PER_LEVEL,
   WITHDRAWAL_MINIMUM,
   DAILY_REWARDS,
-  INVESTMENT_TIERS
+  INVESTMENT_TIERS,
+  PASSIVE_TICK_MS,
+  ELDER_COMFORT_RATE,
+  PARCEL_RENT_RATE,
+  AD_BOOST_MULTIPLIER,
+  AD_BOOST_DURATION_MS,
+  OFFLINE_CAP_MS,
+  SHUFFLEBOARD_KING_BOOST,
+  INITIAL_PENSION_RATE,
 } from './constants';
+
+function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
+  // Cap elapsed time to prevent huge offline windfalls
+  const cappedMs = Math.min(elapsedMs, OFFLINE_CAP_MS);
+  const ticks    = cappedMs / PASSIVE_TICK_MS;
+
+  // 1. Base pension rate
+  let rate = INITIAL_PENSION_RATE + state.pensionRate;
+
+  // 2. Add per-Elder comfort generation (only captured Elders on Team or Porch)
+  const activeElders = state.allElders.filter(
+    e => e.captured && (e.status === 'Team' || e.status === 'Porch')
+  );
+  rate += activeElders.reduce((sum, e) => sum + (e.comfortGeneration * ELDER_COMFORT_RATE), 0);
+
+  // 3. Add per-parcel rent
+  rate += state.ownedParcels.length * PARCEL_RENT_RATE;
+
+  // 4. Apply Shuffleboard King bonus
+  const isShuffleboardKing = state.shuffleboard.currentKing?.id === 'player';
+  if (isShuffleboardKing) {
+    rate *= SHUFFLEBOARD_KING_BOOST;
+  }
+
+  // 5. Apply Ad boost multiplier if active
+  const isAdBoosted = state.boostUntil > Date.now();
+  if (isAdBoosted) {
+    rate *= AD_BOOST_MULTIPLIER;
+  }
+
+  return rate * ticks;
+}
 
 const SAVE_KEY = 'geriatric_park_v17_save';
 const NAMES = ["Arthur", "Ethel", "Barnaby", "Mildred", "Harold", "Gertrude", "Mabel", "Otis", "Edith", "Clarence", "Mortimer", "Gladys", "Cecil"];
