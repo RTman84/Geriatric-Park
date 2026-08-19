@@ -81,6 +81,28 @@ function buildSession(body: any): AuthSession {
   };
 }
 
+async function hydrateOAuthRedirect(): Promise<void> {
+  if (!accountConfig || !window.location.hash.includes('access_token=')) return;
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if (!accessToken || !refreshToken) return;
+
+  try {
+    const response = await fetch(authUrl('/user'), { headers: headers(accessToken) });
+    const user = await parseResponse(response);
+    saveSession({
+      accessToken,
+      refreshToken,
+      expiresAt: Date.now() + Number(params.get('expires_in') || 3600) * 1000,
+      user: normalizeUser(user)
+    });
+    window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+  } catch {
+    // Leave the URL untouched so the failed auth can be retried rather than inventing a session.
+  }
+}
+
 export async function signUpWithEmail(email: string, password: string): Promise<{ session: AuthSession | null; needsConfirmation: boolean }> {
   const response = await fetch(authUrl('/signup'), {
     method: 'POST',
@@ -142,6 +164,7 @@ export async function refreshSession(): Promise<AuthSession | null> {
 
 export async function getCurrentSession(): Promise<AuthSession | null> {
   if (!accountConfig) return null;
+  await hydrateOAuthRedirect();
   const session = await refreshSession();
   if (!session) return null;
 
