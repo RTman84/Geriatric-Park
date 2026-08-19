@@ -1,0 +1,52 @@
+name: Security and build gate
+
+on:
+  push:
+    branches: [main, 'security/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Check repository for exposed credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -nE 'AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY|GEMINI_API_KEY[[:space:]]*[:=][[:space:]]*["'"']?[A-Za-z0-9_-]{20,}' -- . ':!package-lock.json'; then
+            echo 'Potential credential found in tracked source.'
+            exit 1
+          fi
+
+      - name: Check built output for Gemini key markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -nE 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY' dist 2>/dev/null; then
+            echo 'Potential Gemini credential leaked into production bundle.'
+            exit 1
+          fi
