@@ -7,12 +7,8 @@ export interface CloudSaveRecord {
   updated_at: string;
 }
 
-function apiUrl(path: string): string {
-  return path;
-}
-
-function authHeaders(): HeadersInit {
-  const token = getAccessToken();
+async function authHeaders(): Promise<HeadersInit> {
+  const token = await getAccessToken();
   if (!token) throw new Error('Account sign-in required.');
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
@@ -24,10 +20,12 @@ async function parse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchCloudSave(): Promise<CloudSaveRecord | null> {
-  return (await parse<{ save: CloudSaveRecord | null }>(await fetch(apiUrl('/api/account/save'), {
-    headers: authHeaders(),
+  const headers = await authHeaders();
+  const response = await fetch('/api/account/save', {
+    headers,
     cache: 'no-store',
-  }))).save;
+  });
+  return (await parse<{ save: CloudSaveRecord | null }>(response)).save;
 }
 
 export async function uploadCloudSave(
@@ -35,10 +33,11 @@ export async function uploadCloudSave(
   clientRevision: number,
   saveData: Record<string, unknown>,
 ): Promise<CloudSaveRecord> {
-  const result = await parse<{ save: CloudSaveRecord }>(await fetch(apiUrl('/api/account/save'), {
+  const headers = await authHeaders();
+  const response = await fetch('/api/account/save', {
     method: 'PUT',
-    headers: authHeaders(),
+    headers,
     body: JSON.stringify({ schemaVersion, clientRevision, saveData }),
-  }));
-  return result.save;
+  });
+  return (await parse<{ save: CloudSaveRecord }>(response)).save;
 }
