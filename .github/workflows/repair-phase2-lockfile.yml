@@ -1,0 +1,32 @@
+name: Repair Phase 2 lockfile
+
+on:
+  push:
+    branches:
+      - phase2/account-backend-foundation-clean
+
+permissions:
+  contents: write
+
+jobs:
+  repair-lockfile:
+    if: "!contains(github.event.head_commit.message, 'chore: sync package lockfile')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Commit updated lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'package-lock.json is already synchronized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'chore: sync package lockfile'
+          git push
