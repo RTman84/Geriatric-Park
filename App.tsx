@@ -7,6 +7,8 @@ import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
+import { isCloudAccountsConfigured, supabase } from './services/authService';
+import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon
 } from '@heroicons/react/24/solid';
@@ -341,6 +343,30 @@ const App: React.FC = () => {
     finally { setIsLoaded(true); }
   }, []);
 
+  // Cloud save sync: pull the cloud save on sign-in (initial session or later),
+  // and keep whichever copy (local vs cloud) has the higher revision number.
+  const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
+  const syncFromCloud = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    try {
+      const cloudSave = await fetchCloudSave();
+      if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
+        cloudRevisionRef.current = cloudSave.client_revision;
+        localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
+        setState({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION });
+      }
+    } catch (e) { console.error('Cloud save fetch failed', e); }
+  }, []);
+
+  useEffect(() => {
+    if (!isCloudAccountsConfigured() || !supabase) return;
+    void syncFromCloud();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') void syncFromCloud();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [syncFromCloud]);
+
   useEffect(() => {
     if (state.hasStarted) {
       audioManager.setMusicEnabled(state.settings.musicEnabled);
@@ -353,6 +379,14 @@ const App: React.FC = () => {
       if (isLoaded && state.hasStarted) {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
         catch (e) { console.error("Save failed", e); }
+
+        if (isCloudAccountsConfigured()) {
+          const revision = Date.now();
+          cloudRevisionRef.current = revision;
+          localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
+          uploadCloudSave(1, revision, state as unknown as Record<string, unknown>)
+            .catch(e => console.error('Cloud save upload failed', e));
+        }
       }
     }, 2000);
     return () => clearTimeout(timer);
