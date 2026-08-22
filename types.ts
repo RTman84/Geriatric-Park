@@ -153,6 +153,9 @@ export interface GameState {
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
   settings: GameSettings;
+  tournamentScore: number;
+  tournamentEndsAt: number;
+  passiveMatchAt: number;
 }
 
 export interface Elder {

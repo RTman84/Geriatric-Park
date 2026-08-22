@@ -129,7 +129,10 @@ const INITIAL_STATE: GameState = {
     darkTheme: false,
     musicEnabled: true,
     sfxEnabled: true
-  }
+  },
+  tournamentScore: 0,
+  tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000,
+  passiveMatchAt: Date.now(),
 };
 
 const App: React.FC = () => {
@@ -144,11 +147,9 @@ const App: React.FC = () => {
   const [isEventPlaying, setIsEventPlaying] = useState(false);
   const [eventResult, setEventResult] = useState<string | null>(null);
   const [showAdOverlay, setShowAdOverlay] = useState(false);
+  // Shuffleboard tournament score/timers now live in `state` (see GameState)
+  // so they persist across reloads and cloud sync instead of resetting.
 
-  // Shuffleboard state
-  const [tournamentScore, setTournamentScore] = useState(0);
-  const [tournamentEndsAt] = useState(Date.now() + 24 * 60 * 60 * 1000);
-  const [passiveMatchAt, setPassiveMatchAt] = useState(Date.now());
 
   // Geolocation tracking
   useEffect(() => {
@@ -329,6 +330,15 @@ const App: React.FC = () => {
     }
   }, [state.hasStarted, state.nearbyItems.length, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
 
+  // If the daily tournament window has expired, reset score and start a
+  // fresh 24h window. Applied whenever state is loaded (local or cloud).
+  const applyTournamentRollover = (s: GameState): GameState => {
+    if (s.tournamentEndsAt <= Date.now()) {
+      return { ...s, tournamentScore: 0, tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000 };
+    }
+    return s;
+  };
+
   // Load save
   useEffect(() => {
     try {
@@ -336,7 +346,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          setState({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION });
+          setState(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION }));
         }
       }
     } catch (e) { console.error("Load failed", e); }
@@ -353,7 +363,7 @@ const App: React.FC = () => {
       if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
-        setState({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION });
+        setState(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION }));
       }
     } catch (e) { console.error('Cloud save fetch failed', e); }
   }, []);
@@ -597,15 +607,19 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + tokensEarned,
       xp: prev.xp + (won ? 100 : 25),
       parkCommunityScore: prev.parkCommunityScore + (won ? 15 : 5),
+      passiveMatchAt: Date.now() + 10 * 60 * 1000,
     }));
-    setPassiveMatchAt(Date.now() + 10 * 60 * 1000);
     handleQuestProgress('shuffleboard');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleTournamentPlay = useCallback((score: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    setTournamentScore(prev => Math.max(prev, score));
-    setState(prev => ({ ...prev, xp: prev.xp + 75, legacyTokens: prev.legacyTokens + 10 }));
+    setState(prev => ({
+      ...prev,
+      tournamentScore: Math.max(prev.tournamentScore, score),
+      xp: prev.xp + 75,
+      legacyTokens: prev.legacyTokens + 10,
+    }));
     handleQuestProgress('tournament');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
@@ -980,9 +994,9 @@ const App: React.FC = () => {
               onPassiveResult={handlePassiveShuffleResult}
               onTournamentPlay={handleTournamentPlay}
               onChallenge={handleShuffleboardChallenge}
-              tournamentScore={tournamentScore}
-              tournamentEndsAt={tournamentEndsAt}
-              passiveMatchAt={passiveMatchAt}
+              tournamentScore={state.tournamentScore}
+              tournamentEndsAt={state.tournamentEndsAt}
+              passiveMatchAt={state.passiveMatchAt}
             />
           )}
         </main>
