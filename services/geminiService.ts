@@ -1,68 +1,58 @@
+type BattleDialogueRequest = {
+  action: 'battleDialogue';
+  elderName: string;
+  elderType: string;
+  actionText: string;
+};
 
-import { GoogleGenAI, Type } from "@google/genai";
+type ElderBioRequest = {
+  action: 'elderBio';
+  type: string;
+  name: string;
+};
 
-const apiKey = (window as any).API_KEY || (window as any).GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({ apiKey: apiKey });
+type DailyMissionRequest = {
+  action: 'dailyMission';
+  level: number;
+};
+
+type GeminiRequest = BattleDialogueRequest | ElderBioRequest | DailyMissionRequest;
+
+const callGemini = async (request: GeminiRequest): Promise<any> => {
+  const response = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) throw new Error(`Gemini request failed: ${response.status}`);
+  return response.json();
+};
 
 export const generateBattleDialogue = async (elderName: string, elderType: string, action: string) => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Generate a funny, elderly-themed battle quote for a character named ${elderName} (${elderType}). 
-      The action is: ${action}. The quote should be cheeky, involves things like 'back in my day', dentures, bingo, or general grumpiness. 1 short sentence max.`,
-      config: { 
-        maxOutputTokens: 50,
-        // Set thinkingBudget when using maxOutputTokens to ensure room for the final output
-        thinkingConfig: { thinkingBudget: 25 }
-      }
-    });
-    return response.text || "I've had enough of this malarkey!";
-  } catch (error) {
-    return "Where did I put my glasses?";
+    const data = await callGemini({ action: 'battleDialogue', elderName, elderType, actionText: action });
+    return data.text || 'Where did I put my glasses?';
+  } catch {
+    return 'Where did I put my glasses?';
   }
 };
 
 export const generateElderBio = async (type: string, name: string) => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Generate a short, hilarious, 2-sentence bio for a character in a game called 'Geriatric Park'. 
-      Character name: ${name}. Character archetype: ${type}. 
-      The tone should be cheeky and humorous but lighthearted.`,
-      config: { 
-        maxOutputTokens: 100,
-        // Set thinkingBudget when using maxOutputTokens to ensure room for the final output
-        thinkingConfig: { thinkingBudget: 50 }
-      }
-    });
-    return response.text || "Just here for the early bird special.";
-  } catch (error) {
-    return "Once wrestled a goose for a stale bagel.";
+    const data = await callGemini({ action: 'elderBio', type, name });
+    return data.text || 'Once wrestled a goose for a stale bagel.';
+  } catch {
+    return 'Once wrestled a goose for a stale bagel.';
   }
 };
 
 export const generateDailyMission = async (level: number) => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Create a funny RPG quest title and a one-sentence description for a game called 'Geriatric Park'. 
-      The player is level ${level}. Focus on stereotypical funny elder activities.
-      Return as JSON with 'title' and 'description' keys.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            description: { type: Type.STRING }
-          },
-          required: ["title", "description"]
-        }
-      }
-    });
-    // Ensure the JSON string is trimmed as per Google GenAI best practices
-    return JSON.parse(response.text.trim());
-  } catch (error) {
-    return { title: "Denture Hunt", description: "Find the lost teeth in the community garden." };
+    const data = await callGemini({ action: 'dailyMission', level });
+    if (typeof data.title !== 'string' || typeof data.description !== 'string') throw new Error('Invalid AI response');
+    return { title: data.title, description: data.description };
+  } catch {
+    return { title: 'Denture Hunt', description: 'Find the lost teeth in the community garden.' };
   }
 };

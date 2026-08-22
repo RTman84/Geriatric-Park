@@ -7,6 +7,8 @@ import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
+import { isCloudAccountsConfigured, supabase } from './services/authService';
+import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon
 } from '@heroicons/react/24/solid';
@@ -75,6 +77,17 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
 const SAVE_KEY = 'geriatric_park_v17_save';
 const NAMES = ["Arthur", "Ethel", "Barnaby", "Mildred", "Harold", "Gertrude", "Mabel", "Otis", "Edith", "Clarence", "Mortimer", "Gladys", "Cecil"];
 
+// Applies an XP gain and rolls over into level-ups, so every XP source
+// uses identical leveling math (previously several handlers added XP
+// without ever checking for a level-up, so the bar could fill without
+// the level actually increasing).
+function applyXpGain(xp: number, level: number, amount: number): { xp: number; level: number } {
+  let nextXp = xp + amount;
+  let nextLevel = level;
+  while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
+  return { xp: nextXp, level: nextLevel };
+}
+
 const INITIAL_STATE: GameState = {
   version: GAME_VERSION,
   isLinkedToGoogle: false,
@@ -127,7 +140,10 @@ const INITIAL_STATE: GameState = {
     darkTheme: false,
     musicEnabled: true,
     sfxEnabled: true
-  }
+  },
+  tournamentScore: 0,
+  tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000,
+  passiveMatchAt: Date.now(),
 };
 
 const App: React.FC = () => {
@@ -142,11 +158,9 @@ const App: React.FC = () => {
   const [isEventPlaying, setIsEventPlaying] = useState(false);
   const [eventResult, setEventResult] = useState<string | null>(null);
   const [showAdOverlay, setShowAdOverlay] = useState(false);
+  // Shuffleboard tournament score/timers now live in `state` (see GameState)
+  // so they persist across reloads and cloud sync instead of resetting.
 
-  // Shuffleboard state
-  const [tournamentScore, setTournamentScore] = useState(0);
-  const [tournamentEndsAt] = useState(Date.now() + 24 * 60 * 60 * 1000);
-  const [passiveMatchAt, setPassiveMatchAt] = useState(Date.now());
 
   // Geolocation tracking
   useEffect(() => {
@@ -327,6 +341,15 @@ const App: React.FC = () => {
     }
   }, [state.hasStarted, state.nearbyItems.length, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
 
+  // If the daily tournament window has expired, reset score and start a
+  // fresh 24h window. Applied whenever state is loaded (local or cloud).
+  const applyTournamentRollover = (s: GameState): GameState => {
+    if (s.tournamentEndsAt <= Date.now()) {
+      return { ...s, tournamentScore: 0, tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000 };
+    }
+    return s;
+  };
+
   // Load save
   useEffect(() => {
     try {
@@ -334,12 +357,36 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          setState({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION });
+          setState(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION }));
         }
       }
     } catch (e) { console.error("Load failed", e); }
     finally { setIsLoaded(true); }
   }, []);
+
+  // Cloud save sync: pull the cloud save on sign-in (initial session or later),
+  // and keep whichever copy (local vs cloud) has the higher revision number.
+  const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
+  const syncFromCloud = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    try {
+      const cloudSave = await fetchCloudSave();
+      if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
+        cloudRevisionRef.current = cloudSave.client_revision;
+        localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
+        setState(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION }));
+      }
+    } catch (e) { console.error('Cloud save fetch failed', e); }
+  }, []);
+
+  useEffect(() => {
+    if (!isCloudAccountsConfigured() || !supabase) return;
+    void syncFromCloud();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') void syncFromCloud();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [syncFromCloud]);
 
   useEffect(() => {
     if (state.hasStarted) {
@@ -353,9 +400,40 @@ const App: React.FC = () => {
       if (isLoaded && state.hasStarted) {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
         catch (e) { console.error("Save failed", e); }
+
+        if (isCloudAccountsConfigured()) {
+          const revision = Date.now();
+          cloudRevisionRef.current = revision;
+          localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
+          uploadCloudSave(1, revision, state as unknown as Record<string, unknown>)
+            .catch(e => console.error('Cloud save upload failed', e));
+        }
       }
     }, 2000);
     return () => clearTimeout(timer);
+  }, [state, isLoaded]);
+
+  // Flush an immediate save when the tab is hidden/closed, so a quick
+  // reload right after an action doesn't lose anything still waiting
+  // on the 2s debounce above.
+  useEffect(() => {
+    const flush = () => {
+      if (!isLoaded || !state.hasStarted) return;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+      if (isCloudAccountsConfigured()) {
+        const revision = Date.now();
+        cloudRevisionRef.current = revision;
+        localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
+        uploadCloudSave(1, revision, state as unknown as Record<string, unknown>).catch(() => { /* ignore */ });
+      }
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
   }, [state, isLoaded]);
 
   const triggerTab = (id: string) => {
@@ -517,13 +595,15 @@ const App: React.FC = () => {
       setState(prev => {
         if (success) {
           const isAlreadyHeld = prev.heldStructureIds.includes(activeEvent.id);
+          const { xp, level } = applyXpGain(prev.xp, prev.level, 100);
           return {
-            ...prev, legacyTokens: prev.legacyTokens - 20, xp: prev.xp + 100,
+            ...prev, legacyTokens: prev.legacyTokens - 20, xp, level,
             heldStructureIds: isAlreadyHeld ? prev.heldStructureIds : [...prev.heldStructureIds, activeEvent.id],
             shuffleboard: { currentKing: { id: 'player', name: 'Your Squad', elderIcon: '🧑‍🦽', heldSince: Date.now(), teamIds: team.map(e => e.id) } }
           };
         } else {
-          return { ...prev, legacyTokens: prev.legacyTokens - 20, xp: prev.xp + 25 };
+          const { xp, level } = applyXpGain(prev.xp, prev.level, 25);
+          return { ...prev, legacyTokens: prev.legacyTokens - 20, xp, level };
         }
       });
       handleQuestProgress('shuffleboard');
@@ -535,31 +615,44 @@ const App: React.FC = () => {
   // Shuffleboard panel handlers
   const handlePassiveShuffleResult = useCallback((won: boolean, tokensEarned: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
-    setState(prev => ({
-      ...prev,
-      legacyTokens: prev.legacyTokens + tokensEarned,
-      xp: prev.xp + (won ? 100 : 25),
-      parkCommunityScore: prev.parkCommunityScore + (won ? 15 : 5),
-    }));
-    setPassiveMatchAt(Date.now() + 10 * 60 * 1000);
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? 100 : 25);
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens + tokensEarned,
+        xp, level,
+        parkCommunityScore: prev.parkCommunityScore + (won ? 15 : 5),
+        passiveMatchAt: Date.now() + 10 * 60 * 1000,
+      };
+    });
     handleQuestProgress('shuffleboard');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleTournamentPlay = useCallback((score: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    setTournamentScore(prev => Math.max(prev, score));
-    setState(prev => ({ ...prev, xp: prev.xp + 75, legacyTokens: prev.legacyTokens + 10 }));
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
+      return {
+        ...prev,
+        tournamentScore: Math.max(prev.tournamentScore, score),
+        xp, level,
+        legacyTokens: prev.legacyTokens + 10,
+      };
+    });
     handleQuestProgress('tournament');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleShuffleboardChallenge = useCallback((stakeTokens: number, won: boolean) => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
-    setState(prev => ({
-      ...prev,
-      legacyTokens: prev.legacyTokens + (won ? stakeTokens : -stakeTokens),
-      xp: prev.xp + (won ? 150 : 30),
-      parkCommunityScore: prev.parkCommunityScore + (won ? 20 : 5),
-    }));
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? 150 : 30);
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens + (won ? stakeTokens : -stakeTokens),
+        xp, level,
+        parkCommunityScore: prev.parkCommunityScore + (won ? 20 : 5),
+      };
+    });
     handleQuestProgress('challenge');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
@@ -572,7 +665,8 @@ const App: React.FC = () => {
       if (state.settings.sfxEnabled) audioManager.playSFX(success ? 'collect' : 'hit');
       setState(prev => {
         const nextInventory = success ? [...prev.inventory, { id: 'garden_' + Date.now(), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, slot: poolItem.slot as any || 'Accessory', description: poolItem.description || '' }] : prev.inventory;
-        return { ...prev, legacyTokens: prev.legacyTokens - 10, xp: prev.xp + 50, inventory: nextInventory };
+        const { xp, level } = applyXpGain(prev.xp, prev.level, 50);
+        return { ...prev, legacyTokens: prev.legacyTokens - 10, xp, level, inventory: nextInventory };
       });
       setEventResult(success ? `You found a ${poolItem.name}!` : "You only found some weeds today.");
       setIsEventPlaying(false);
@@ -586,10 +680,8 @@ const App: React.FC = () => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const xpGain = 250;
       setState(prev => {
-        let nextXp = prev.xp + xpGain;
-        let nextLevel = prev.level;
-        while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
-        return { ...prev, legacyTokens: prev.legacyTokens - 15, xp: nextXp, level: nextLevel };
+        const { xp, level } = applyXpGain(prev.xp, prev.level, xpGain);
+        return { ...prev, legacyTokens: prev.legacyTokens - 15, xp, level };
       });
       setEventResult(`Great workout! Your squad gained ${xpGain} XP.`);
       setIsEventPlaying(false);
@@ -602,7 +694,10 @@ const App: React.FC = () => {
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const scoreGain = 50;
-      setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens - 10, parkCommunityScore: prev.parkCommunityScore + scoreGain, xp: prev.xp + 50 }));
+      setState(prev => {
+        const { xp, level } = applyXpGain(prev.xp, prev.level, 50);
+        return { ...prev, legacyTokens: prev.legacyTokens - 10, parkCommunityScore: prev.parkCommunityScore + scoreGain, xp, level };
+      });
       setEventResult(`The potluck was a hit! Community Score +${scoreGain}.`);
       setIsEventPlaying(false);
     }, 1500);
@@ -621,7 +716,8 @@ const App: React.FC = () => {
           const stat = ['strength', 'wit', 'agility', 'tenacity'][Math.floor(Math.random() * 4)] as keyof Elder;
           return { ...e, [stat]: (e[stat] as number) + 2 };
         });
-        return { ...prev, legacyTokens: prev.legacyTokens - 30, allElders: nextElders, xp: prev.xp + 75 };
+        const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
+        return { ...prev, legacyTokens: prev.legacyTokens - 30, allElders: nextElders, xp, level };
       });
       setEventResult("Fresh produce! Your squad's stats have been boosted.");
       setIsEventPlaying(false);
@@ -636,11 +732,14 @@ const App: React.FC = () => {
       const success = Math.random() > 0.6;
       const prize = success ? 50 : 5;
       if (state.settings.sfxEnabled) audioManager.playSFX(success ? 'victory' : 'hit');
-      setState(prev => ({
-        ...prev, legacyTokens: prev.legacyTokens - 10 + prize,
-        xp: prev.xp + (success ? 100 : 20),
-        parkCommunityScore: prev.parkCommunityScore + (success ? 10 : 2)
-      }));
+      setState(prev => {
+        const { xp, level } = applyXpGain(prev.xp, prev.level, success ? 100 : 20);
+        return {
+          ...prev, legacyTokens: prev.legacyTokens - 10 + prize,
+          xp, level,
+          parkCommunityScore: prev.parkCommunityScore + (success ? 10 : 2)
+        };
+      });
       setEventResult(success ? `BINGO! You won ${prize} 🎟️ and boosted the park score!` : `No luck this time. You got a consolation prize of ${prize} 🎟️.`);
       setIsEventPlaying(false);
       handleQuestProgress('bingo');
@@ -923,9 +1022,9 @@ const App: React.FC = () => {
               onPassiveResult={handlePassiveShuffleResult}
               onTournamentPlay={handleTournamentPlay}
               onChallenge={handleShuffleboardChallenge}
-              tournamentScore={tournamentScore}
-              tournamentEndsAt={tournamentEndsAt}
-              passiveMatchAt={passiveMatchAt}
+              tournamentScore={state.tournamentScore}
+              tournamentEndsAt={state.tournamentEndsAt}
+              passiveMatchAt={state.passiveMatchAt}
             />
           )}
         </main>

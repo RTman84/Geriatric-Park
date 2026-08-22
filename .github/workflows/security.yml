@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git grep -nE 'AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY|GEMINI_API_KEY[[:space:]]*[:=][[:space:]]*["'"']?[A-Za-z0-9_-]{20,}' -- . ':!package-lock.json'; then
+          if git grep -nE "AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY|GEMINI_API_KEY[[:space:]]*[:=][[:space:]]*[\"'][A-Za-z0-9_-]{20,}[\"']" -- . ':!package-lock.json'; then
             echo 'Potential credential found in tracked source.'
             exit 1
           fi

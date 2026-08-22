@@ -439,8 +439,8 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               { name: 'MallWalker99', score: Math.max(tournamentScore - 30, 180) },
             ].sort((a, b) => b.score - a.score).map((entry, i) => (
               <div key={entry.name} className={`flex items-center gap-3 p-3 rounded-xl ${entry.name === 'You' ? 'bg-indigo-50 border border-indigo-200' : isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <span className="text-[10px] font-black w-5">{i + 1}.</span>
-                <span className="text-[10px] font-black flex-1 uppercase">{entry.name}</span>
+                <span className={`text-[10px] font-black w-5 ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
+                <span className={`text-[10px] font-black flex-1 uppercase ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{entry.name}</span>
                 <span className="text-[10px] font-black text-indigo-500">{entry.score} pts</span>
               </div>
             ))}
@@ -856,7 +856,7 @@ export const BasePanel: React.FC<{
               {elders.map(e => (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-indigo-500`}>
                   <span className="text-4xl">{ELDER_AVATARS[e.type][0]}</span>
-                  <div className="flex-1 text-left min-w-0 text-[12px] font-black uppercase text-slate-800">{e.name}</div>
+                  <div className={`flex-1 text-left min-w-0 text-[12px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
                 </button>
               ))}
             </div>
