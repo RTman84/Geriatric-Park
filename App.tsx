@@ -392,6 +392,29 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [state, isLoaded]);
 
+  // Flush an immediate save when the tab is hidden/closed, so a quick
+  // reload right after an action doesn't lose anything still waiting
+  // on the 2s debounce above.
+  useEffect(() => {
+    const flush = () => {
+      if (!isLoaded || !state.hasStarted) return;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+      if (isCloudAccountsConfigured()) {
+        const revision = Date.now();
+        cloudRevisionRef.current = revision;
+        localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
+        uploadCloudSave(1, revision, state as unknown as Record<string, unknown>).catch(() => { /* ignore */ });
+      }
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [state, isLoaded]);
+
   const triggerTab = (id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setActiveTab(id);
