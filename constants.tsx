@@ -38,7 +38,9 @@ export const ELDER_COMFORT_RATE      = 0.000008;
 export const PARCEL_RENT_RATE        = 0.000005;
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
-export const ITEM_RESPAWN_COOLDOWN_MS = 5 * 60 * 1000; // min time before a fully-collected item batch refreshes in place
+export const ITEM_RESPAWN_COOLDOWN_MS = 10 * 60 * 1000; // min time before a fully-collected item batch refreshes in place
+export const ITEM_SPAWN_COUNT = 14; // items in a fresh batch (was 50 — made rarer)
+export const ITEM_RESPAWN_CHECK_MS = 15 * 1000; // how often we check whether it's time to refresh, independent of movement
 export const SCRAP_BASE_PP           = 0.25;
 export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
   Common: 1, Rare: 2, Epic: 4, Legendary: 8,
@@ -206,15 +208,15 @@ export const STRUCTURE_TEMPLATES = [
 ];
 
 export const ITEM_POOL = [
-  { name: 'Straw Hat', icon: '👒', type: 'Equipment', boost: 2, slot: 'Head', description: 'Increases Wit by 2.' },
-  { name: 'Speedy Sneakers', icon: '👟', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Hearing Aid Plus', icon: '👂', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength and Agility.' },
-  { name: 'Hard Candy', icon: '🍬', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
+  { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 2, slot: 'Head', description: 'Increases Wit by 2.' },
+  { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
+  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength and Agility.' },
+  { name: 'Hard Candy', icon: '🍭', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
   { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases stats via nostalgic vibes.' },
-  { name: 'Lost Dentures', icon: '🦷', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
+  { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
-  { name: 'Lawn Gnome', icon: '🍄', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Antique Pocket Watch', icon: '⌚', type: 'Equipment', boost: 5, slot: 'Accessory', description: 'A classic piece that boosts efficiency.' }
+  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
+  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Accessory', description: 'A classic piece that boosts efficiency.' }
 ];
 
 export const SHOP_ITEMS = [

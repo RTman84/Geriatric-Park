@@ -57,6 +57,8 @@ import {
   OFFLINE_CAP_MS,
   SHUFFLEBOARD_KING_BOOST,
   ITEM_RESPAWN_COOLDOWN_MS,
+  ITEM_SPAWN_COUNT,
+  ITEM_RESPAWN_CHECK_MS,
   SCRAP_BASE_PP,
   SCRAP_RARITY_MULTIPLIER,
 } from './constants';
@@ -323,27 +325,19 @@ const App: React.FC = () => {
       const firstItem = state.nearbyItems[0];
       const dist = Math.sqrt(Math.pow(firstItem.lat - lat, 2) + Math.pow(firstItem.lng - lng, 2));
       if (dist > 0.05) {
-        setState(prev => ({ ...prev, nearbyItems: [], nearbyStructures: [] }));
+        setState(prev => ({ ...prev, nearbyItems: [], nearbyStructures: [], itemsLastSpawnedAt: 0 }));
         setWildElders([]);
         return;
       }
     }
-    if (state.nearbyItems.length === 0) {
-      const sinceLastSpawn = Date.now() - state.itemsLastSpawnedAt;
-      const movedFromLastSpawn = Math.sqrt(
-        Math.pow(state.itemsLastSpawnLat - lat, 2) + Math.pow(state.itemsLastSpawnLng - lng, 2)
-      );
-      const onCooldown = state.itemsLastSpawnedAt !== 0
-        && sinceLastSpawn < ITEM_RESPAWN_COOLDOWN_MS
-        && movedFromLastSpawn < 0.02;
-      if (!onCooldown) {
-        const newItems = Array.from({ length: 50 }, (_, i) => {
-          const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-          const radius = i < 20 ? 0.005 : 0.02;
-          return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
-        });
-        setState(prev => ({ ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
-      }
+    if (state.itemsLastSpawnedAt === 0) {
+      // First-ever spawn for this session — populate immediately.
+      const newItems = Array.from({ length: ITEM_SPAWN_COUNT }, (_, i) => {
+        const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+        const radius = i < Math.ceil(ITEM_SPAWN_COUNT * 0.4) ? 0.005 : 0.02;
+        return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
+      });
+      setState(prev => ({ ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
     }
     if (state.nearbyStructures.length === 0) {
       const newStructures = Array.from({ length: 12 }, (_, i) => {
@@ -354,7 +348,29 @@ const App: React.FC = () => {
       });
       setState(prev => ({ ...prev, nearbyStructures: newStructures }));
     }
-  }, [state.hasStarted, state.nearbyItems.length, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
+  }, [state.hasStarted, state.nearbyItems.length, state.itemsLastSpawnedAt, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
+
+  // Refresh a collected-out item batch on a real timer, not on movement/collection —
+  // guarantees the cooldown is actually honored instead of firing on the next GPS jitter.
+  useEffect(() => {
+    if (!state.hasStarted) return;
+    const interval = setInterval(() => {
+      setState(prev => {
+        if (prev.nearbyItems.length > 0) return prev;
+        if (prev.itemsLastSpawnedAt === 0) return prev; // handled by the spawn effect above
+        const sinceLastSpawn = Date.now() - prev.itemsLastSpawnedAt;
+        if (sinceLastSpawn < ITEM_RESPAWN_COOLDOWN_MS) return prev;
+        const { lat, lng } = prev.currentLocation;
+        const newItems = Array.from({ length: ITEM_SPAWN_COUNT }, (_, i) => {
+          const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+          const radius = i < Math.ceil(ITEM_SPAWN_COUNT * 0.4) ? 0.005 : 0.02;
+          return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
+        });
+        return { ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng };
+      });
+    }, ITEM_RESPAWN_CHECK_MS);
+    return () => clearInterval(interval);
+  }, [state.hasStarted]);
 
   // If the daily tournament window has expired, reset score and start a
   // fresh 24h window. Applied whenever state is loaded (local or cloud).
