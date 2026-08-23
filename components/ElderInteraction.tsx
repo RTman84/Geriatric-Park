@@ -76,7 +76,7 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
                 <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Pension Contribution</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-green-600">+${elder.comfortGeneration.toFixed(3)}</span>
+                  <span className="text-2xl font-bold text-green-600">+{elder.comfortGeneration.toFixed(3)} PP</span>
                   <span className="text-xs text-slate-500">/sec</span>
                 </div>
               </div>

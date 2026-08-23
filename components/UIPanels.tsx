@@ -7,7 +7,7 @@ import {
   SHUFFLEBOARD_KING_BOOST
 } from '../constants';
 import { 
-  HeartIcon, StarIcon, CheckCircleIcon, CurrencyDollarIcon, 
+  HeartIcon, StarIcon, CheckCircleIcon, 
   ShoppingBagIcon, TicketIcon, BoltIcon as BoltSolid, 
   LightBulbIcon, LifebuoyIcon, ShieldCheckIcon as ShieldSolid,
   CalendarDaysIcon, GiftIcon, BellIcon, SparklesIcon,
@@ -116,23 +116,23 @@ export const BankPanel: React.FC<{
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
-        <h2 className="text-[11px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Your Pension Fund</h2>
-        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">${balance.toFixed(2)}</div>
+        <h2 className="text-[11px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
+        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(2)} PP</div>
         <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[10px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
-          <CurrencyDollarIcon className="w-4 h-4" /> Withdraw Personal Balance
+          <SparklesIcon className="w-4 h-4" /> Redeem Pension Points
         </button>
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
             <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Rate/hr</span>
-            <span className="text-xs font-black tabular-nums block">${(rate * 3600).toFixed(4)}</span>
+            <span className="text-xs font-black tabular-nums block">{(rate * 3600).toFixed(4)} PP</span>
           </div>
           <div>
             <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Passive</span>
-            <span className="text-xs font-black tabular-nums block">${breakdown.passive.toFixed(4)}</span>
+            <span className="text-xs font-black tabular-nums block">{breakdown.passive.toFixed(4)} PP</span>
           </div>
           <div className="text-right">
             <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Sponsorship</span>
-            <span className="text-xs font-black tabular-nums block">${breakdown.sponsorship.toFixed(4)}</span>
+            <span className="text-xs font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} PP</span>
           </div>
         </div>
       </div>
@@ -141,7 +141,7 @@ export const BankPanel: React.FC<{
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
-          <span className="text-emerald-500 font-black text-sm">${reserve.toFixed(3)}</span>
+          <span className="text-emerald-500 font-black text-sm">{reserve.toFixed(3)} PP</span>
         </div>
         <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">20% of all ad revenue funds the weekly prize pool</p>
       </div>
@@ -169,7 +169,7 @@ export const BankPanel: React.FC<{
           disabled={adsLeft <= 0}
           className={`w-full font-black py-4 rounded-2xl uppercase text-[10px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-indigo-600 text-white active:scale-95' : 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed'}`}
         >
-          {adsLeft > 0 ? 'Watch Local Sponsor (+$0.07 Net + 2x Passive Boost!)' : 'Slots Recharging...'}
+          {adsLeft > 0 ? 'Watch Local Sponsor (+0.07 PP + 2x Passive Boost!)' : 'Slots Recharging...'}
         </button>
         <p className="mt-4 text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic">
           Watching an ad also activates 2x passive income for 1 hour!
@@ -201,9 +201,9 @@ export const BankPanel: React.FC<{
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <h5 className="font-black text-sm uppercase text-slate-800 truncate">{item.name}</h5>
-                        <span className="text-indigo-600 font-black text-xs">${item.cost.toFixed(2)}</span>
+                        <span className="text-indigo-600 font-black text-xs">{item.cost.toFixed(2)} PP</span>
                       </div>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">+${(item.rateBoost * 3600).toFixed(4)}/hr passive</p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
                     </div>
                   </button>
                 ))}
@@ -462,7 +462,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">⚔️</div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge</h3>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">Stake tokens and challenge a rival Elder. Winner takes all!</p>
+            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">Stake Tickets and challenge a rival Elder. Winner takes all!</p>
           </div>
 
           <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
@@ -501,7 +501,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             disabled={isPlaying || team.length === 0 || tokens < stakeAmount}
             className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${!isPlaying && team.length > 0 && tokens >= stakeAmount ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
           >
-            {isPlaying ? 'Dueling...' : tokens < stakeAmount ? 'Not enough tokens!' : team.length === 0 ? 'Assign squad first!' : `⚔️ Challenge! (Stake ${stakeAmount} 🎟️)`}
+            {isPlaying ? 'Dueling...' : tokens < stakeAmount ? 'Not enough Tickets!' : team.length === 0 ? 'Assign squad first!' : `⚔️ Challenge! (Stake ${stakeAmount} 🎟️)`}
           </button>
         </div>
       )}
@@ -766,15 +766,15 @@ export const BasePanel: React.FC<{
             <div className="space-y-1">
               <div className="flex justify-between text-[9px] font-black">
                 <span className="opacity-60">Base Rate</span>
-                <span>${(passiveBreakdown.base * 3600).toFixed(4)}/hr</span>
+                <span>{(passiveBreakdown.base * 3600).toFixed(4)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[9px] font-black">
                 <span className="opacity-60">Elder Comfort</span>
-                <span className="text-indigo-300">${(passiveBreakdown.elders * 3600).toFixed(4)}/hr</span>
+                <span className="text-indigo-300">{(passiveBreakdown.elders * 3600).toFixed(4)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[9px] font-black">
                 <span className="opacity-60">Parcel Rent</span>
-                <span className="text-emerald-300">${(passiveBreakdown.parcels * 3600).toFixed(4)}/hr</span>
+                <span className="text-emerald-300">{(passiveBreakdown.parcels * 3600).toFixed(4)} PP/hr</span>
               </div>
               {isKing && (
                 <div className="flex justify-between text-[9px] font-black">

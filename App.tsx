@@ -115,7 +115,7 @@ const INITIAL_STATE: GameState = {
     { id: 'q5', type: 'Daily', title: 'Bingo Night', description: 'Participate in 2 Bingo sessions.', progress: 0, target: 2, completed: false, rewardXP: 150, rewardTokens: 35 },
     { id: 'q6', type: 'Weekly', title: 'Bingo Marathon', description: 'Participate in 5 Bingo Blitz sessions.', progress: 0, target: 5, completed: false, rewardXP: 1000, rewardTokens: 250 },
     { id: 'q7', type: 'Weekly', title: 'Court Dominator', description: 'Win 10 shuffleboard matches.', progress: 0, target: 10, completed: false, rewardXP: 1500, rewardTokens: 400 },
-    { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn $0.50 in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500 },
+    { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500 },
   ],
   achievements: INITIAL_ACHIEVEMENTS,
   season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000 },
@@ -238,7 +238,7 @@ const App: React.FC = () => {
       if (elapsedMs < 60 * 1000) return prev;
       const earned = calculatePassiveIncome(prev, elapsedMs);
       const offlineHours = Math.min(elapsedMs / (60 * 60 * 1000), 8).toFixed(1);
-      console.log(`[Passive] Away ${offlineHours}hrs — credited $${earned.toFixed(5)}`);
+      console.log(`[Passive] Away ${offlineHours}hrs — credited ${earned.toFixed(5)} PP`);
       return {
         ...prev,
         pensionBalance: prev.pensionBalance + earned,
@@ -539,7 +539,7 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + tokenBonus,
       earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + totalPayout }
     }));
-    alert(`Successfully claimed a Park Dividend of $${totalPayout.toFixed(3)} and ${tokenBonus} 🎟️!`);
+    alert(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(3)} PP and ${tokenBonus} 🎟️!`);
   }, [state.lastDividendClaim, state.communityReserve, state.parkCommunityScore, state.settings.sfxEnabled]);
 
   const handleInvest = useCallback((investment: any) => {
@@ -551,7 +551,7 @@ const App: React.FC = () => {
       pensionRate: prev.pensionRate + investment.rateBoost,
       parkCommunityScore: prev.parkCommunityScore + Math.floor(investment.cost * 10)
     }));
-    alert(`Investment confirmed! Your Pension Rate has increased by $${(investment.rateBoost * 3600).toFixed(4)}/hour.`);
+    alert(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * 3600).toFixed(4)} PP/hour.`);
   }, [state.pensionBalance, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
@@ -1008,8 +1008,8 @@ const App: React.FC = () => {
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={state.pensionRate} onWithdraw={() => {
-            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum withdrawal is $10.00");
-            alert(`$${state.pensionBalance.toFixed(2)} withdrawn to your pension account!`);
+            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
+            alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} />}
           {activeTab === 'shuffleboard' && (

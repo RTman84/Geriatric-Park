@@ -104,7 +104,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'a1', title: 'Early Bird', description: 'Recruit your first Elder.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00001, icon: '🌅' },
   { id: 'a2', title: 'Community Pillar', description: 'Reach Park Community Score 100.', completed: false, rewardType: 'Tokens', rewardValue: 50, icon: '🏛️' },
   { id: 'a3', title: 'Debate Champion', description: 'Win 5 Wild Battles.', completed: false, rewardType: 'CommunityScore', rewardValue: 20, icon: '🗣️' },
-  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of $1.00.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00005, icon: '💎' },
+  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of 1.00 PP.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00005, icon: '💎' },
 ];
 
 export const DAILY_REWARDS = [

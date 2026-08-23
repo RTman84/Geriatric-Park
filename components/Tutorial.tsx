@@ -29,8 +29,8 @@ const STEPS: TutorialStep[] = [
     icon: <UserGroupIcon className="w-12 h-12 text-orange-500" />
   },
   {
-    title: "The Pension Fund",
-    description: "Each resident contributes to your Pension Fund. Reach $10.00 to withdraw real value or spend tokens to upgrade your park.",
+    title: "Pension Points",
+    description: "Each resident contributes Pension Points over time. Redeem them or spend Tickets from Bingo and Shuffleboard to upgrade your park.",
     icon: <CurrencyDollarIcon className="w-12 h-12 text-yellow-500" />
   }
 ];

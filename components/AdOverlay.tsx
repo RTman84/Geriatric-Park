@@ -39,8 +39,8 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const adPushed       = useRef(false);
 
-  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // $0.07
-  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // $0.02
+  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // 0.07 PP
+  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // 0.02 PP
 
   // Cleanup on unmount
   useEffect(() => {
@@ -115,15 +115,15 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 </p>
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">💰 Your pension</span>
-                    <span className="font-bold text-green-600">+${playerShare.toFixed(3)}</span>
+                    <span className="text-slate-500">💰 Your Pension Points</span>
+                    <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">🏘️ Community pool</span>
-                    <span className="font-bold text-blue-500">+${communityShare.toFixed(3)}</span>
+                    <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">🎟️ Legacy tokens</span>
+                    <span className="text-slate-500">🎟️ Tickets</span>
                     <span className="font-bold text-purple-500">+50</span>
                   </div>
                 </div>
@@ -186,15 +186,15 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               </p>
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-sm space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Your pension</span>
-                  <span className="font-bold text-green-600">+${playerShare.toFixed(3)}</span>
+                  <span className="text-slate-500">Your Pension Points</span>
+                  <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Community pool</span>
-                  <span className="font-bold text-blue-500">+${communityShare.toFixed(3)}</span>
+                  <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Legacy tokens</span>
+                  <span className="text-slate-500">Tickets</span>
                   <span className="font-bold text-purple-500">+50 🎟️</span>
                 </div>
               </div>
