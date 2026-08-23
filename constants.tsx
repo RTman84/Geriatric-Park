@@ -47,6 +47,23 @@ export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legen
 };
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
+export const LEVEL_UP_PP_BASE        = 0.05;  // PP reward per level, scaled by the new level
+export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained
+export const RANK_TIERS: { minLevel: number, title: string, icon: string }[] = [
+  { minLevel: 1,  title: 'Newcomer', icon: '🌱' },
+  { minLevel: 5,  title: 'Regular',  icon: '🎯' },
+  { minLevel: 10, title: 'Veteran',  icon: '🏅' },
+  { minLevel: 15, title: 'Champion', icon: '🏆' },
+  { minLevel: 20, title: 'Legend',   icon: '👑' },
+  { minLevel: 30, title: 'Park Icon', icon: '⭐' },
+];
+export function getRankForLevel(level: number): { title: string, icon: string } {
+  let rank = RANK_TIERS[0];
+  for (const tier of RANK_TIERS) {
+    if (level >= tier.minLevel) rank = tier;
+  }
+  return rank;
+}
 
 export const INVESTMENT_TIERS = [
   {

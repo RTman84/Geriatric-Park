@@ -61,6 +61,10 @@ import {
   ITEM_SPAWN_INTERVAL_MS,
   SCRAP_BASE_PP,
   SCRAP_RARITY_MULTIPLIER,
+  LEVEL_UP_PP_BASE,
+  LEVEL_UP_TICKET_REWARD,
+  RANK_TIERS,
+  getRankForLevel,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -395,6 +399,28 @@ const App: React.FC = () => {
     finally { setIsLoaded(true); }
   }, []);
 
+  // Level-up rewards: fires whenever state.level increases from ANY XP source,
+  // rather than threading a payout through every individual handler. Guarded by
+  // isLoaded so restoring a save at level 8 doesn't look like "leveling up".
+  const prevLevelRef = useRef<number>(state.level);
+  useEffect(() => {
+    if (!isLoaded) { prevLevelRef.current = state.level; return; }
+    if (state.level > prevLevelRef.current) {
+      const levelsGained = state.level - prevLevelRef.current;
+      const ppReward = LEVEL_UP_PP_BASE * state.level * levelsGained;
+      const ticketReward = LEVEL_UP_TICKET_REWARD * levelsGained;
+      setState(prev => ({
+        ...prev,
+        pensionBalance: prev.pensionBalance + ppReward,
+        legacyTokens: prev.legacyTokens + ticketReward,
+      }));
+      if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+      const rank = getRankForLevel(state.level);
+      alert(`🎉 Level ${state.level}! ${rank.icon} ${rank.title}\n+${ppReward.toFixed(2)} PP, +${ticketReward} 🎟️`);
+    }
+    prevLevelRef.current = state.level;
+  }, [state.level, isLoaded]);
+
   // Cloud save sync: pull the cloud save on sign-in (initial session or later),
   // and keep whichever copy (local vs cloud) has the higher revision number.
   const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
@@ -500,9 +526,7 @@ const App: React.FC = () => {
     setState(prev => {
       const q = prev.quests.find(x => x.id === id);
       if (!q || q.progress < q.target || q.completed) return prev;
-      let nextXp = prev.xp + q.rewardXP;
-      let nextLevel = prev.level;
-      while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
+      const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, q.rewardXP);
       return {
         ...prev, xp: nextXp, level: nextLevel,
         legacyTokens: prev.legacyTokens + q.rewardTokens,
@@ -517,7 +541,7 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
     handleQuestProgress('collect');
     setState(prev => {
-      let nextXp = prev.xp + 25;
+      let xpGain = 25;
       let nextTokens = prev.legacyTokens;
       let nextInventory = [...prev.inventory];
       let nextElders = [...prev.allElders];
@@ -532,20 +556,19 @@ const App: React.FC = () => {
           if (targetIdx !== -1) { nextElders[targetIdx].strength += 1; nextElders[targetIdx].wit += 1; }
         }
       } else if (item.type === 'Snack') {
-        if (item.name === 'Old Map') { nextXp += (item.boost || 50); }
+        if (item.name === 'Old Map') { xpGain += (item.boost || 50); }
         else if (item.name === 'Hard Candy') {
           const team = nextElders.filter(e => e.status === 'Team');
           const target = team.find(e => e.hp < e.maxHp) || team[0];
           if (target) target.hp = Math.min(target.maxHp, target.hp + (item.boost || 15));
         }
       }
-      let nextLevel = prev.level;
-      while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
+      const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, xpGain);
       return {
         ...prev, level: nextLevel, xp: nextXp, legacyTokens: nextTokens,
         inventory: nextInventory, allElders: nextElders,
         nearbyItems: prev.nearbyItems.filter(i => i.id !== item.id),
-        season: { ...prev.season, xp: prev.season.xp + 25 }
+        season: { ...prev.season, xp: prev.season.xp + xpGain }
       };
     });
   };
@@ -918,9 +941,7 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const opponent = battleOpponent?.elder;
     setState(prev => {
-      let nextXp = prev.xp + 300;
-      let nextLevel = prev.level;
-      while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
+      const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, 300);
       let nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
       if (opponent && !prev.allElders.find(e => e.id === opponent.id)) {
         nextAllElders.push({ ...opponent, captured: true, status: 'Base', isRoaming: false });
@@ -1003,10 +1024,11 @@ const App: React.FC = () => {
       <div className={`w-full max-w-lg h-full flex flex-col shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`}>GP</div>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`} title={getRankForLevel(state.level).title}>{getRankForLevel(state.level).icon}</div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black uppercase">LVL {state.level}</span>
+                <span className="text-[8px] font-black uppercase text-indigo-500 tracking-widest">{getRankForLevel(state.level).title}</span>
                 <button onClick={() => setShowSettings(true)} className="p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
               </div>
               <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
