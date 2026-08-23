@@ -649,12 +649,17 @@ export const QuestPanel: React.FC<{
 
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`p-8 rounded-[3rem] border shadow-sm mb-6 flex justify-between items-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-        <div className="min-w-0 flex-1">
-          <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Tasks</h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
+      <div className={`p-8 rounded-[3rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="flex justify-between items-center">
+          <div className="min-w-0 flex-1">
+            <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Tasks</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
+          </div>
+          <div className="text-3xl font-black text-indigo-500 ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
-        <div className="text-3xl font-black text-indigo-500 ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
+        <div className={`mt-4 pt-4 border-t text-[9px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-100 text-slate-500'}`}>
+          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-indigo-500 font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
+        </div>
       </div>
 
       {/* Tab selector */}
@@ -715,7 +720,7 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
   <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${q.completed ? 'opacity-40 grayscale' : ''}`}>
     <div className="flex justify-between items-start mb-2">
       <div className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[8px] font-black uppercase mb-1">{q.type}</div>
-      <div className="text-[9px] font-black text-emerald-500">+{q.rewardXP} XP / +{q.rewardTokens} 🎟️</div>
+      <div className="text-[9px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} 🎟️<br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
     </div>
     <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{q.title}</h4>
     <p className="text-[10px] text-slate-500 mb-4">{q.description}</p>
@@ -745,8 +750,9 @@ export const BasePanel: React.FC<{
   isDark: boolean,
   shuffleboardKing?: any,
   passiveBreakdown?: { elders: number, parcels: number, base: number },
-  onScrapElder?: (id: string) => void
-}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder }) => {
+  onScrapElder?: (id: string) => void,
+  parkScore?: number
+}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0 }) => {
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const isKing = shuffleboardKing?.id === 'player';
@@ -835,6 +841,7 @@ export const BasePanel: React.FC<{
           <div>
             <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Dividend</h3>
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Passive reward for management</p>
+            <p className="text-[8px] text-amber-500 font-black uppercase tracking-widest mt-1">{parkScore} ⭐ boosts this payout</p>
           </div>
           <StarIcon className={`w-8 h-8 ${canClaim ? 'text-amber-500' : 'text-slate-300'}`} />
         </div>

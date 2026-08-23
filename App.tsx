@@ -116,14 +116,14 @@ const INITIAL_STATE: GameState = {
   itemsLastSpawnLng: 0,
   heldStructureIds: [],
   quests: [
-    { id: 'q1', type: 'Daily', title: 'Neighborhood Watch', description: 'Collect 5 items from the map.', progress: 0, target: 5, completed: false, rewardXP: 150, rewardTokens: 25 },
-    { id: 'q2', type: 'Daily', title: 'Gentle Persuasion', description: 'Win 2 arguments with wild residents.', progress: 0, target: 2, completed: false, rewardXP: 200, rewardTokens: 50 },
-    { id: 'q3', type: 'Daily', title: 'Court Presence', description: 'Play 3 shuffleboard matches.', progress: 0, target: 3, completed: false, rewardXP: 175, rewardTokens: 40 },
-    { id: 'q4', type: 'Daily', title: 'Sponsor Support', description: 'Watch 3 sponsor videos.', progress: 0, target: 3, completed: false, rewardXP: 100, rewardTokens: 30 },
-    { id: 'q5', type: 'Daily', title: 'Bingo Night', description: 'Participate in 2 Bingo sessions.', progress: 0, target: 2, completed: false, rewardXP: 150, rewardTokens: 35 },
-    { id: 'q6', type: 'Weekly', title: 'Bingo Marathon', description: 'Participate in 5 Bingo Blitz sessions.', progress: 0, target: 5, completed: false, rewardXP: 1000, rewardTokens: 250 },
-    { id: 'q7', type: 'Weekly', title: 'Court Dominator', description: 'Win 10 shuffleboard matches.', progress: 0, target: 10, completed: false, rewardXP: 1500, rewardTokens: 400 },
-    { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500 },
+    { id: 'q1', type: 'Daily', title: 'Neighborhood Watch', description: 'Collect 5 items from the map.', progress: 0, target: 5, completed: false, rewardXP: 150, rewardTokens: 25, rewardStars: 5 },
+    { id: 'q2', type: 'Daily', title: 'Gentle Persuasion', description: 'Win 2 arguments with wild residents.', progress: 0, target: 2, completed: false, rewardXP: 200, rewardTokens: 50, rewardStars: 8 },
+    { id: 'q3', type: 'Daily', title: 'Court Presence', description: 'Play 3 shuffleboard matches.', progress: 0, target: 3, completed: false, rewardXP: 175, rewardTokens: 40, rewardStars: 6 },
+    { id: 'q4', type: 'Daily', title: 'Sponsor Support', description: 'Watch 3 sponsor videos.', progress: 0, target: 3, completed: false, rewardXP: 100, rewardTokens: 30, rewardStars: 4 },
+    { id: 'q5', type: 'Daily', title: 'Bingo Night', description: 'Participate in 2 Bingo sessions.', progress: 0, target: 2, completed: false, rewardXP: 150, rewardTokens: 35, rewardStars: 6 },
+    { id: 'q6', type: 'Weekly', title: 'Bingo Marathon', description: 'Participate in 5 Bingo Blitz sessions.', progress: 0, target: 5, completed: false, rewardXP: 1000, rewardTokens: 250, rewardStars: 25 },
+    { id: 'q7', type: 'Weekly', title: 'Court Dominator', description: 'Win 10 shuffleboard matches.', progress: 0, target: 10, completed: false, rewardXP: 1500, rewardTokens: 400, rewardStars: 35 },
+    { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500, rewardStars: 40 },
   ],
   achievements: INITIAL_ACHIEVEMENTS,
   season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000 },
@@ -506,6 +506,7 @@ const App: React.FC = () => {
       return {
         ...prev, xp: nextXp, level: nextLevel,
         legacyTokens: prev.legacyTokens + q.rewardTokens,
+        parkCommunityScore: prev.parkCommunityScore + q.rewardStars,
         season: { ...prev.season, xp: prev.season.xp + q.rewardXP },
         quests: prev.quests.map(x => x.id === id ? { ...x, completed: true } : x)
       };
@@ -1042,7 +1043,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return alert("Not enough tokens!");
             if (item.id === 's1') {

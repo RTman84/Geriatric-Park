@@ -45,6 +45,7 @@ export interface Quest {
   completed: boolean;
   rewardXP: number;
   rewardTokens: number;
+  rewardStars: number;
 }
 
 export interface Season {
