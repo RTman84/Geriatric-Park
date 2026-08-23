@@ -206,7 +206,7 @@ export const ITEM_POOL = [
   { name: 'Hearing Aid Plus', icon: '👂', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength and Agility.' },
   { name: 'Hard Candy', icon: '🍬', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
   { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases stats via nostalgic vibes.' },
-  { name: 'Lost Dentures', icon: '🦷', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Legacy Tokens.' },
+  { name: 'Lost Dentures', icon: '🦷', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
   { name: 'Lawn Gnome', icon: '🍄', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
   { name: 'Antique Pocket Watch', icon: '⌚', type: 'Equipment', boost: 5, slot: 'Accessory', description: 'A classic piece that boosts efficiency.' }
