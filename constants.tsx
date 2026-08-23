@@ -38,6 +38,11 @@ export const ELDER_COMFORT_RATE      = 0.000008;
 export const PARCEL_RENT_RATE        = 0.000005;
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
+export const ITEM_RESPAWN_COOLDOWN_MS = 5 * 60 * 1000; // min time before a fully-collected item batch refreshes in place
+export const SCRAP_BASE_PP           = 0.25;
+export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 1, Rare: 2, Epic: 4, Legendary: 8,
+};
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
 

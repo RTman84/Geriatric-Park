@@ -56,6 +56,9 @@ import {
   AD_BOOST_DURATION_MS,
   OFFLINE_CAP_MS,
   SHUFFLEBOARD_KING_BOOST,
+  ITEM_RESPAWN_COOLDOWN_MS,
+  SCRAP_BASE_PP,
+  SCRAP_RARITY_MULTIPLIER,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -106,6 +109,9 @@ const INITIAL_STATE: GameState = {
   nearbyFriends: [],
   nearbyItems: [],
   nearbyStructures: [],
+  itemsLastSpawnedAt: 0,
+  itemsLastSpawnLat: 0,
+  itemsLastSpawnLng: 0,
   heldStructureIds: [],
   quests: [
     { id: 'q1', type: 'Daily', title: 'Neighborhood Watch', description: 'Collect 5 items from the map.', progress: 0, target: 5, completed: false, rewardXP: 150, rewardTokens: 25 },
@@ -323,12 +329,21 @@ const App: React.FC = () => {
       }
     }
     if (state.nearbyItems.length === 0) {
-      const newItems = Array.from({ length: 50 }, (_, i) => {
-        const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-        const radius = i < 20 ? 0.005 : 0.02;
-        return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
-      });
-      setState(prev => ({ ...prev, nearbyItems: newItems }));
+      const sinceLastSpawn = Date.now() - state.itemsLastSpawnedAt;
+      const movedFromLastSpawn = Math.sqrt(
+        Math.pow(state.itemsLastSpawnLat - lat, 2) + Math.pow(state.itemsLastSpawnLng - lng, 2)
+      );
+      const onCooldown = state.itemsLastSpawnedAt !== 0
+        && sinceLastSpawn < ITEM_RESPAWN_COOLDOWN_MS
+        && movedFromLastSpawn < 0.02;
+      if (!onCooldown) {
+        const newItems = Array.from({ length: 50 }, (_, i) => {
+          const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+          const radius = i < 20 ? 0.005 : 0.02;
+          return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
+        });
+        setState(prev => ({ ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
+      }
     }
     if (state.nearbyStructures.length === 0) {
       const newStructures = Array.from({ length: 12 }, (_, i) => {
@@ -573,6 +588,24 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, allElders: prev.allElders.map(e => e.id === id ? { ...e, status: 'Base' } : e) }));
   }, [state.settings.sfxEnabled]);
 
+  const handleScrapElder = useCallback((id: string) => {
+    const elder = state.allElders.find(e => e.id === id);
+    if (!elder) return;
+    if (state.allElders.filter(e => e.status === 'Team').length <= 1 && elder.status === 'Team') {
+      alert("You can't scrap your last active squad member!");
+      return;
+    }
+    const payout = SCRAP_BASE_PP * elder.level * SCRAP_RARITY_MULTIPLIER[elder.rarity];
+    if (state.settings.sfxEnabled) audioManager.playSFX('click');
+    setState(prev => ({
+      ...prev,
+      pensionBalance: prev.pensionBalance + payout,
+      earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + payout },
+      allElders: prev.allElders.filter(e => e.id !== id),
+    }));
+    alert(`${elder.name} was scrapped for ${payout.toFixed(2)} PP.`);
+  }, [state.allElders, state.settings.sfxEnabled]);
+
   const handleHealSquad = useCallback(() => {
     if (state.legacyTokens < 25) return alert("Need 25 Tokens!");
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -710,16 +743,19 @@ const App: React.FC = () => {
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+      const statNames: Record<'strength' | 'wit' | 'agility' | 'tenacity', string> = {
+        strength: 'Strength', wit: 'Wit', agility: 'Agility', tenacity: 'Tenacity',
+      };
+      const boostedStat = (['strength', 'wit', 'agility', 'tenacity'] as const)[Math.floor(Math.random() * 4)];
       setState(prev => {
         const nextElders = prev.allElders.map(e => {
           if (e.status !== 'Team') return e;
-          const stat = ['strength', 'wit', 'agility', 'tenacity'][Math.floor(Math.random() * 4)] as keyof Elder;
-          return { ...e, [stat]: (e[stat] as number) + 2 };
+          return { ...e, [boostedStat]: (e[boostedStat] as number) + 2 };
         });
         const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
         return { ...prev, legacyTokens: prev.legacyTokens - 30, allElders: nextElders, xp, level };
       });
-      setEventResult("Fresh produce! Your squad's stats have been boosted.");
+      setEventResult(`Fresh produce! Your whole squad's ${statNames[boostedStat]} +2.`);
       setIsEventPlaying(false);
     }, 1500);
   }, [state.legacyTokens, state.allElders, state.settings.sfxEnabled]);
@@ -756,7 +792,7 @@ const App: React.FC = () => {
       parkCommunityScore: prev.parkCommunityScore + 10,
       legacyTokens: prev.legacyTokens + 50,
       adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 },
-      boostUntil: Date.now() + AD_BOOST_DURATION_MS,
+      boostUntil: Math.max(Date.now(), prev.boostUntil) + AD_BOOST_DURATION_MS,
     }));
     handleQuestProgress('ad');
     setShowAdOverlay(false);
@@ -967,7 +1003,10 @@ const App: React.FC = () => {
               {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-black text-white">{unreadMailCount}</div>}
             </button>
             <div className="text-right">
-              <div className="text-[10px] font-black uppercase text-indigo-500 leading-none">{state.legacyTokens} 🎟️</div>
+              <div className="flex items-center gap-2 justify-end">
+                <span className="text-[10px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(2)} PP</span>
+                <span className="text-[10px] font-black uppercase text-indigo-500 leading-none">{state.legacyTokens} 🎟️</span>
+              </div>
               <div className="text-[8px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
             </div>
           </div>
@@ -987,7 +1026,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return alert("Not enough tokens!");
             if (item.id === 's1') {
@@ -1011,7 +1050,7 @@ const App: React.FC = () => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
             alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
-          }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} />}
+          }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil} />}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
               isDark={isDark}

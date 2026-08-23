@@ -130,6 +130,9 @@ export interface GameState {
   nearbyFriends: Friend[];
   nearbyItems: MapItem[];
   nearbyStructures: Structure[];
+  itemsLastSpawnedAt: number;
+  itemsLastSpawnLat: number;
+  itemsLastSpawnLng: number;
   heldStructureIds: string[];
   quests: Quest[];
   achievements: Achievement[];

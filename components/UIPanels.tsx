@@ -109,10 +109,23 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
 export const BankPanel: React.FC<{ 
   balance: number, reserve: number, breakdown: any, rate: number, 
   onWithdraw: () => void, adCount: number, onWatchAdTrigger: () => void, 
-  onInvest: (item: any) => void, isDark: boolean,
+  onInvest: (item: any) => void, isDark: boolean, boostUntil?: number,
   onWatchAd?: (playerShare: number, communityShare: number) => void
-}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark }) => {
+}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil }) => {
   const adsLeft = MAX_ADS_PER_HOUR - adCount;
+  const [boostRemaining, setBoostRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBoostRemaining(Math.max(0, (boostUntil || 0) - Date.now()));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [boostUntil]);
+
+  const boostActive = boostRemaining > 0;
+  const boostMinutes = Math.floor(boostRemaining / 60000);
+  const boostSeconds = Math.floor((boostRemaining % 60000) / 1000);
+
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
@@ -171,9 +184,16 @@ export const BankPanel: React.FC<{
         >
           {adsLeft > 0 ? 'Watch Local Sponsor (+0.07 PP + 2x Passive Boost!)' : 'Slots Recharging...'}
         </button>
-        <p className="mt-4 text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic">
-          Watching an ad also activates 2x passive income for 1 hour!
-        </p>
+        {boostActive ? (
+          <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">
+            <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">2x Boost Active</span>
+            <span className="text-[10px] font-black tabular-nums text-emerald-500">{String(boostMinutes).padStart(2, '0')}:{String(boostSeconds).padStart(2, '0')}</span>
+          </div>
+        ) : (
+          <p className="mt-4 text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic">
+            Watching an ad also activates 2x passive income for 1 hour! Watching again while boosted extends the timer.
+          </p>
+        )}
       </div>
 
       {/* Investment Tiers */}
@@ -724,8 +744,9 @@ export const BasePanel: React.FC<{
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
   isDark: boolean,
   shuffleboardKing?: any,
-  passiveBreakdown?: { elders: number, parcels: number, base: number }
-}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown }) => {
+  passiveBreakdown?: { elders: number, parcels: number, base: number },
+  onScrapElder?: (id: string) => void
+}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder }) => {
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const isKing = shuffleboardKing?.id === 'player';
@@ -882,6 +903,14 @@ export const BasePanel: React.FC<{
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>Bench</button> 
                       : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[9px] font-black uppercase bg-indigo-600 text-white shadow-lg shadow-indigo-900/10">Assign to Squad</button>
                     }
+                    {onScrapElder && (
+                      <button
+                        onClick={() => { if (window.confirm(`Scrap ${e.name} for PP? This can't be undone.`)) onScrapElder(e.id); }}
+                        className="py-2 px-3 rounded-xl text-[9px] font-black uppercase bg-rose-100 text-rose-600"
+                      >
+                        Scrap
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
