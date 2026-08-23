@@ -56,9 +56,9 @@ import {
   AD_BOOST_DURATION_MS,
   OFFLINE_CAP_MS,
   SHUFFLEBOARD_KING_BOOST,
-  ITEM_RESPAWN_COOLDOWN_MS,
-  ITEM_SPAWN_COUNT,
-  ITEM_RESPAWN_CHECK_MS,
+  MAX_NEARBY_ITEMS,
+  INITIAL_ITEM_SEED,
+  ITEM_SPAWN_INTERVAL_MS,
   SCRAP_BASE_PP,
   SCRAP_RARITY_MULTIPLIER,
 } from './constants';
@@ -330,14 +330,16 @@ const App: React.FC = () => {
         return;
       }
     }
-    if (state.itemsLastSpawnedAt === 0) {
-      // First-ever spawn for this session — populate immediately.
-      const newItems = Array.from({ length: ITEM_SPAWN_COUNT }, (_, i) => {
+    if (state.nearbyItems.length === 0 && state.itemsLastSpawnedAt === 0) {
+      // First load, or just arrived in a fresh area — seed a small starter batch so the map
+      // isn't empty. The rest trickles in gradually via the interval effect below, capped at
+      // MAX_NEARBY_ITEMS, instead of dumping a big batch all at once.
+      const seedItems = Array.from({ length: INITIAL_ITEM_SEED }, () => {
         const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-        const radius = i < Math.ceil(ITEM_SPAWN_COUNT * 0.4) ? 0.005 : 0.02;
+        const radius = 0.01;
         return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
       });
-      setState(prev => ({ ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
+      setState(prev => ({ ...prev, nearbyItems: seedItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
     }
     if (state.nearbyStructures.length === 0) {
       const newStructures = Array.from({ length: 12 }, (_, i) => {
@@ -350,25 +352,23 @@ const App: React.FC = () => {
     }
   }, [state.hasStarted, state.nearbyItems.length, state.itemsLastSpawnedAt, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
 
-  // Refresh a collected-out item batch on a real timer, not on movement/collection —
-  // guarantees the cooldown is actually honored instead of firing on the next GPS jitter.
+  // Trickle new items in one at a time, up to MAX_NEARBY_ITEMS, on a real timer — never a
+  // sudden reappearance of a full batch. Runs independently of GPS jitter/collection events.
   useEffect(() => {
     if (!state.hasStarted) return;
     const interval = setInterval(() => {
       setState(prev => {
-        if (prev.nearbyItems.length > 0) return prev;
-        if (prev.itemsLastSpawnedAt === 0) return prev; // handled by the spawn effect above
+        if (prev.nearbyItems.length >= MAX_NEARBY_ITEMS) return prev;
+        if (prev.itemsLastSpawnedAt === 0) return prev; // area not seeded yet — handled by the effect above
         const sinceLastSpawn = Date.now() - prev.itemsLastSpawnedAt;
-        if (sinceLastSpawn < ITEM_RESPAWN_COOLDOWN_MS) return prev;
+        if (sinceLastSpawn < ITEM_SPAWN_INTERVAL_MS) return prev;
         const { lat, lng } = prev.currentLocation;
-        const newItems = Array.from({ length: ITEM_SPAWN_COUNT }, (_, i) => {
-          const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-          const radius = i < Math.ceil(ITEM_SPAWN_COUNT * 0.4) ? 0.005 : 0.02;
-          return { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
-        });
-        return { ...prev, nearbyItems: newItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng };
+        const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+        const radius = 0.015;
+        const newItem = { id: 'item_' + Math.random().toString(36).substr(2, 9), ...poolItem, lat: lat + (Math.random() - 0.5) * radius, lng: lng + (Math.random() - 0.5) * radius } as MapItem;
+        return { ...prev, nearbyItems: [...prev.nearbyItems, newItem], itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng };
       });
-    }, ITEM_RESPAWN_CHECK_MS);
+    }, 10 * 1000);
     return () => clearInterval(interval);
   }, [state.hasStarted]);
 

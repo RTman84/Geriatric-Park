@@ -38,9 +38,9 @@ export const ELDER_COMFORT_RATE      = 0.000008;
 export const PARCEL_RENT_RATE        = 0.000005;
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
-export const ITEM_RESPAWN_COOLDOWN_MS = 10 * 60 * 1000; // min time before a fully-collected item batch refreshes in place
-export const ITEM_SPAWN_COUNT = 14; // items in a fresh batch (was 50 — made rarer)
-export const ITEM_RESPAWN_CHECK_MS = 15 * 1000; // how often we check whether it's time to refresh, independent of movement
+export const MAX_NEARBY_ITEMS       = 14;      // hard cap on items visible on the map at once
+export const INITIAL_ITEM_SEED      = 5;       // items placed immediately on entering a new area, so the map isn't empty
+export const ITEM_SPAWN_INTERVAL_MS = 45 * 1000; // trickle: one new item added at most this often, only while under the cap
 export const SCRAP_BASE_PP           = 0.25;
 export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
   Common: 1, Rare: 2, Epic: 4, Legendary: 8,
