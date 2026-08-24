@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
+import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import SocialPanel from './components/SocialPanel';
 import { TutorialOverlay } from './components/Tutorial';
@@ -160,6 +161,7 @@ const INITIAL_STATE: GameState = {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('map');
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
+  const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [wildElders, setWildElders] = useState<Elder[]>([]);
@@ -942,15 +944,15 @@ const App: React.FC = () => {
     } catch (err) { alert("Failed to decode Sync Code."); }
   };
 
+  // Winning just means winning — the resident is defeated and comes off the map, same as a
+  // Pokemon Go raid boss disappearing after the fight. It does NOT guarantee they join the
+  // park; that's decided by the separate "Guide to Geriatric Park" screen that opens next.
   const handleBattleWin = useCallback((updatedTeam: Elder[]) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const opponent = battleOpponent?.elder;
     setState(prev => {
       const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, 300);
       let nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
-      if (opponent && !prev.allElders.find(e => e.id === opponent.id)) {
-        nextAllElders.push({ ...opponent, captured: true, status: 'Base', isRoaming: false });
-      }
       return {
         ...prev, level: nextLevel, xp: nextXp, allElders: nextAllElders,
         parkCommunityScore: prev.parkCommunityScore + 10,
@@ -961,8 +963,20 @@ const App: React.FC = () => {
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
     handleQuestProgress('battle');
-    if (opponent) alert(`You won the argument! ${opponent.name} agreed to join your park.`);
+    if (opponent) setGuideTarget(opponent);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
+
+  const handleGuideSuccess = useCallback((guidedElder: Elder) => {
+    setState(prev => {
+      if (prev.allElders.find(e => e.id === guidedElder.id)) return prev; // already added, guard against double-fire
+      return { ...prev, allElders: [...prev.allElders, { ...guidedElder, status: 'Base', isRoaming: false }] };
+    });
+    setGuideTarget(null);
+  }, []);
+
+  const handleGuideFail = useCallback(() => {
+    setGuideTarget(null);
+  }, []);
 
   // Losing means the resident loses patience and wanders off — they're removed from the
   // map (not captured) and the player's team keeps whatever HP damage they took, so a loss
@@ -1198,6 +1212,10 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
             <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} sfxEnabled={state.settings.sfxEnabled} />
           </div>
+        )}
+
+        {guideTarget && (
+          <ElderInteraction elder={guideTarget} onSuccess={handleGuideSuccess} onFail={handleGuideFail} onClose={handleGuideFail} />
         )}
 
         {activeEvent && (

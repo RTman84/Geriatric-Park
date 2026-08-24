@@ -152,7 +152,6 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
   return (
     <div className="flex flex-col items-center justify-start min-h-full w-full p-4 bg-slate-900 overflow-y-auto custom-scrollbar">
       <div className="relative w-full max-w-lg flex flex-col pt-4 pb-24 gap-8">
-        <div className="text-center text-white/30 text-[8px] font-black uppercase tracking-[0.3em]">🧭 Guide to Geriatric Park</div>
         <div className="flex justify-between items-center z-10 px-2 sticky top-0 bg-slate-900/80 backdrop-blur py-2 rounded-xl">
           <div className="flex gap-2">
             <div className="bg-white/10 backdrop-blur px-4 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/5">

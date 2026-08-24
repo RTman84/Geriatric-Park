@@ -42,6 +42,9 @@ export const MAX_NEARBY_ITEMS       = 14;      // hard cap on items visible on t
 export const INITIAL_ITEM_SEED      = 5;       // items placed immediately on entering a new area, so the map isn't empty
 export const ITEM_SPAWN_INTERVAL_MS = 45 * 1000; // trickle: one new item added at most this often, only while under the cap
 export const SCRAP_BASE_TICKETS      = 4;    // Tickets earned per level x rarity multiplier when scrapping — PP-free, see App.tsx handleScrapElder
+export const GUIDE_SUCCESS_RATE: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 0.85, Rare: 0.65, Epic: 0.45, Legendary: 0.25,
+};
 export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
   Common: 1, Rare: 2, Epic: 4, Legendary: 8,
 };
