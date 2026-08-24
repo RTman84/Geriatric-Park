@@ -123,8 +123,8 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                     <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">🎟️ Tickets</span>
-                    <span className="font-bold text-purple-500">+50</span>
+                    <span className="text-slate-500">⭐ Park Stars</span>
+                    <span className="font-bold text-purple-500">+10</span>
                   </div>
                 </div>
               </div>
@@ -194,8 +194,8 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                   <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Tickets</span>
-                  <span className="font-bold text-purple-500">+50 🎟️</span>
+                  <span className="text-slate-500">Park Stars</span>
+                  <span className="font-bold text-purple-500">+10 ⭐</span>
                 </div>
               </div>
               <button

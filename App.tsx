@@ -59,12 +59,12 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_BASE_PP,
   SCRAP_RARITY_MULTIPLIER,
   LEVEL_UP_PP_BASE,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
+  SCRAP_BASE_TICKETS,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -635,15 +635,17 @@ const App: React.FC = () => {
       alert("You can't scrap your last active squad member!");
       return;
     }
-    const payout = SCRAP_BASE_PP * elder.level * SCRAP_RARITY_MULTIPLIER[elder.rarity];
+    // Tickets only — PP stays strictly limited to ad-revenue-backed sources (ad-watch share +
+    // Dividend claims), so scrapping an Elder never creates PP out of thin air.
+    const scale = elder.level * SCRAP_RARITY_MULTIPLIER[elder.rarity];
+    const ticketPayout = Math.round(SCRAP_BASE_TICKETS * scale);
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setState(prev => ({
       ...prev,
-      pensionBalance: prev.pensionBalance + payout,
-      earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + payout },
+      legacyTokens: prev.legacyTokens + ticketPayout,
       allElders: prev.allElders.filter(e => e.id !== id),
     }));
-    alert(`${elder.name} was scrapped for ${payout.toFixed(2)} PP.`);
+    alert(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
   }, [state.allElders, state.settings.sfxEnabled]);
 
   const handleHealSquad = useCallback(() => {
@@ -822,6 +824,11 @@ const App: React.FC = () => {
     }, 2000);
   }, [state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
+  // PP is the real-money-shaped currency (WITHDRAWAL_MINIMUM = 10 PP), so it should only ever
+  // be created by things traceable to real ad revenue: the ad-watch share below, and Dividend
+  // claims (which are hard-capped by the Community Reserve, itself funded by that same revenue).
+  // Ads reward PP + Stars here — Tickets deliberately are NOT part of the ad payout, so Tickets
+  // stay tied to actual gameplay (Bingo, Shuffleboard, Tasks, Scrap) rather than passive watching.
   const handleWatchVideoReward = useCallback((playerShare: number, communityShare: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
@@ -830,7 +837,6 @@ const App: React.FC = () => {
       communityReserve: prev.communityReserve + communityShare,
       earningsBreakdown: { ...prev.earningsBreakdown, sponsorship: prev.earningsBreakdown.sponsorship + playerShare },
       parkCommunityScore: prev.parkCommunityScore + 10,
-      legacyTokens: prev.legacyTokens + 50,
       adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 },
       boostUntil: Math.max(Date.now(), prev.boostUntil) + AD_BOOST_DURATION_MS,
     }));
