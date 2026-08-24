@@ -47,8 +47,7 @@ export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legen
 };
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
-export const LEVEL_UP_PP_BASE        = 0.05;  // PP reward per level, scaled by the new level
-export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained
+export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
 export const RANK_TIERS: { minLevel: number, title: string, icon: string }[] = [
   { minLevel: 1,  title: 'Newcomer', icon: '🌱' },
   { minLevel: 5,  title: 'Regular',  icon: '🎯' },

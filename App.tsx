@@ -60,7 +60,6 @@ import {
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
   SCRAP_RARITY_MULTIPLIER,
-  LEVEL_UP_PP_BASE,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -402,21 +401,21 @@ const App: React.FC = () => {
   // Level-up rewards: fires whenever state.level increases from ANY XP source,
   // rather than threading a payout through every individual handler. Guarded by
   // isLoaded so restoring a save at level 8 doesn't look like "leveling up".
+  // Tickets only — PP stays limited to ad-watch share + Dividend claims, so leveling
+  // up (an XP-driven, unbounded-frequency event) never creates PP out of thin air.
   const prevLevelRef = useRef<number>(state.level);
   useEffect(() => {
     if (!isLoaded) { prevLevelRef.current = state.level; return; }
     if (state.level > prevLevelRef.current) {
       const levelsGained = state.level - prevLevelRef.current;
-      const ppReward = LEVEL_UP_PP_BASE * state.level * levelsGained;
       const ticketReward = LEVEL_UP_TICKET_REWARD * levelsGained;
       setState(prev => ({
         ...prev,
-        pensionBalance: prev.pensionBalance + ppReward,
         legacyTokens: prev.legacyTokens + ticketReward,
       }));
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const rank = getRankForLevel(state.level);
-      alert(`🎉 Level ${state.level}! ${rank.icon} ${rank.title}\n+${ppReward.toFixed(2)} PP, +${ticketReward} 🎟️`);
+      alert(`🎉 Level ${state.level}! ${rank.icon} ${rank.title}\n+${ticketReward} 🎟️`);
     }
     prevLevelRef.current = state.level;
   }, [state.level, isLoaded]);

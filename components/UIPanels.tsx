@@ -912,7 +912,7 @@ export const BasePanel: React.FC<{
                     }
                     {onScrapElder && (
                       <button
-                        onClick={() => { if (window.confirm(`Scrap ${e.name} for PP? This can't be undone.`)) onScrapElder(e.id); }}
+                        onClick={() => { if (window.confirm(`Scrap ${e.name} for Tickets? This can't be undone.`)) onScrapElder(e.id); }}
                         className="py-2 px-3 rounded-xl text-[9px] font-black uppercase bg-rose-100 text-rose-600"
                       >
                         Scrap
