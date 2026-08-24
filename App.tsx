@@ -961,7 +961,32 @@ const App: React.FC = () => {
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
     handleQuestProgress('battle');
+    if (opponent) alert(`You won the argument! ${opponent.name} agreed to join your park.`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
+
+  // Losing means the resident loses patience and wanders off — they're removed from the
+  // map (not captured) and the player's team keeps whatever HP damage they took, so a loss
+  // has a real cost. Distinct from fleeing, which is a clean retreat with no consequence.
+  const handleBattleLose = useCallback((updatedTeam: Elder[]) => {
+    if (state.settings.sfxEnabled) audioManager.playSFX('hit');
+    const opponent = battleOpponent?.elder;
+    setState(prev => ({
+      ...prev,
+      allElders: prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; }),
+    }));
+    if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
+    setBattleOpponent(null);
+    if (opponent) alert(`${opponent.name} lost patience and wandered off!`);
+  }, [battleOpponent, state.settings.sfxEnabled]);
+
+  // Wheelchair Away: a deliberate mid-battle retreat. No HP consequence and the resident
+  // stays put on the map — the player can come back and try again later.
+  const handleBattleFlee = useCallback(() => {
+    if (state.settings.sfxEnabled) audioManager.playSFX('click');
+    const opponent = battleOpponent?.elder;
+    setBattleOpponent(null);
+    if (opponent) alert(`You wheeled away safely. ${opponent.name} is still nearby.`);
+  }, [battleOpponent, state.settings.sfxEnabled]);
 
   // Elder movement
   useEffect(() => {
@@ -1171,7 +1196,7 @@ const App: React.FC = () => {
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
-            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={() => setBattleOpponent(null)} sfxEnabled={state.settings.sfxEnabled} />
+            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} sfxEnabled={state.settings.sfxEnabled} />
           </div>
         )}
 

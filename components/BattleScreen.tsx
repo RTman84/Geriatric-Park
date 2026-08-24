@@ -18,12 +18,12 @@ interface BattleScreenProps {
   opponentElder: Elder;
   onWin: (updatedTeam: Elder[]) => void;
   onLose: (updatedTeam: Elder[]) => void;
-  onSkip?: () => void;
+  onFlee?: () => void;
   isFriendBattle?: boolean;
   sfxEnabled?: boolean;
 }
 
-const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onSkip, isFriendBattle, sfxEnabled }) => {
+const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onFlee, isFriendBattle, sfxEnabled }) => {
   const [teamState, setTeamState] = useState<Elder[]>(JSON.parse(JSON.stringify(playerTeam)));
   const [activeIndex, setActiveIndex] = useState(0);
   const [oppHp, setOppHp] = useState(opponentElder.hp);
@@ -152,6 +152,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
   return (
     <div className="flex flex-col items-center justify-start min-h-full w-full p-4 bg-slate-900 overflow-y-auto custom-scrollbar">
       <div className="relative w-full max-w-lg flex flex-col pt-4 pb-24 gap-8">
+        <div className="text-center text-white/30 text-[8px] font-black uppercase tracking-[0.3em]">🧭 Guide to Geriatric Park</div>
         <div className="flex justify-between items-center z-10 px-2 sticky top-0 bg-slate-900/80 backdrop-blur py-2 rounded-xl">
           <div className="flex gap-2">
             <div className="bg-white/10 backdrop-blur px-4 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/5">
@@ -164,9 +165,9 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
               <CpuChipIcon className="w-3 h-3" /> {isAuto ? 'AUTO ON' : 'AUTO OFF'}
             </button>
           </div>
-          {onSkip && !battleFinished && (
-            <button onClick={onSkip} className="bg-white/10 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border border-white/5">
-              Skip
+          {onFlee && !battleFinished && (
+            <button onClick={onFlee} className="bg-white/10 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border border-white/5">
+              🦽 Wheelchair Away
             </button>
           )}
         </div>
