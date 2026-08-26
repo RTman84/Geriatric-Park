@@ -945,8 +945,12 @@ const App: React.FC = () => {
   };
 
   // Winning just means winning — the resident is defeated and comes off the map, same as a
-  // Pokemon Go raid boss disappearing after the fight. It does NOT guarantee they join the
-  // park; that's decided by the separate "Guide to Geriatric Park" screen that opens next.
+  // Pokemon Go raid boss disappearing after the fight. Guiding them to the park is a
+  // deliberate mid-battle action (the "Guide" button, see BattleScreen.tsx) — it's the ONLY
+  // way to actually obtain a resident. Winning through combat alone does not add them; there's
+  // no post-battle screen for it. (ElderInteraction.tsx / handleGuideSuccess still exist,
+  // unused for now — kept as ready-made scaffolding for a future limited-time/seasonal
+  // resident encounter that might want its own dedicated catch screen.)
   const handleBattleWin = useCallback((updatedTeam: Elder[]) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const opponent = battleOpponent?.elder;
@@ -963,7 +967,7 @@ const App: React.FC = () => {
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
     handleQuestProgress('battle');
-    if (opponent) setGuideTarget(opponent);
+    if (opponent) alert(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleGuideSuccess = useCallback((guidedElder: Elder) => {
