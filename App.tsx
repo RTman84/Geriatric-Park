@@ -978,6 +978,24 @@ const App: React.FC = () => {
     setGuideTarget(null);
   }, []);
 
+  // Mid-battle guide success (fight was skipped, not won) — adds the resident directly,
+  // no post-battle modal needed since the guide already happened, and no combat-win rewards
+  // since no combat was actually finished.
+  const handleMidBattleGuideSuccess = useCallback((updatedTeam: Elder[]) => {
+    const opponent = battleOpponent?.elder;
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => {
+      const nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
+      if (opponent && !nextAllElders.find(e => e.id === opponent.id)) {
+        nextAllElders.push({ ...opponent, captured: true, status: 'Base', isRoaming: false });
+      }
+      return { ...prev, allElders: nextAllElders };
+    });
+    if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
+    setBattleOpponent(null);
+    if (opponent) alert(`You guided ${opponent.name} to the park!`);
+  }, [battleOpponent, state.settings.sfxEnabled]);
+
   // Losing means the resident loses patience and wanders off — they're removed from the
   // map (not captured) and the player's team keeps whatever HP damage they took, so a loss
   // has a real cost. Distinct from fleeing, which is a clean retreat with no consequence.
@@ -1210,7 +1228,7 @@ const App: React.FC = () => {
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
-            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} sfxEnabled={state.settings.sfxEnabled} />
+            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} sfxEnabled={state.settings.sfxEnabled} />
           </div>
         )}
 

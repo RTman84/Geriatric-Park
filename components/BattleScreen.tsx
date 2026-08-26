@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Elder, PowerType } from '../types';
-import { ELDER_AVATARS, POWER_ADVANTAGE, ELDER_TYPE_STYLING } from '../constants';
+import { ELDER_AVATARS, POWER_ADVANTAGE, ELDER_TYPE_STYLING, GUIDE_SUCCESS_RATE } from '../constants';
 import { generateBattleDialogue } from '../services/geminiService';
 import { audioManager } from '../services/audioManager';
 import { PlayIcon, ArrowsRightLeftIcon, CpuChipIcon } from '@heroicons/react/24/solid';
@@ -19,11 +19,12 @@ interface BattleScreenProps {
   onWin: (updatedTeam: Elder[]) => void;
   onLose: (updatedTeam: Elder[]) => void;
   onFlee?: () => void;
+  onGuideSuccess?: (updatedTeam: Elder[]) => void;
   isFriendBattle?: boolean;
   sfxEnabled?: boolean;
 }
 
-const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onFlee, isFriendBattle, sfxEnabled }) => {
+const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onFlee, onGuideSuccess, isFriendBattle, sfxEnabled }) => {
   const [teamState, setTeamState] = useState<Elder[]>(JSON.parse(JSON.stringify(playerTeam)));
   const [activeIndex, setActiveIndex] = useState(0);
   const [oppHp, setOppHp] = useState(opponentElder.hp);
@@ -135,6 +136,57 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
     setIsAnimating(false);
   };
 
+  // Mid-battle attempt to guide the resident to the park instead of finishing the fight —
+  // uses the same odds as the post-win screen. A failed attempt costs a turn (opponent gets
+  // a free hit), same real stakes as a normal round. Not available while auto-battling, to
+  // avoid an unattended run accidentally giving up a fight partway through.
+  const attemptGuide = async () => {
+    if (isAnimating || battleFinished || showSwitchMenu || isAuto) return;
+    setIsAnimating(true);
+    if (sfxEnabled) audioManager.playSFX('click');
+    const chance = GUIDE_SUCCESS_RATE[opponentElder.rarity];
+    const success = Math.random() < chance;
+    addLog(success ? `You guided ${opponentElder.name} toward the park!` : `${opponentElder.name} wasn't convinced yet...`);
+    await new Promise(r => setTimeout(r, 700));
+
+    if (success) {
+      setBattleFinished(true);
+      setTimeout(() => (onGuideSuccess || onWin)(teamState), 1200);
+      return;
+    }
+
+    // Failed attempt — opponent gets a free hit, same as a normal turn's second half.
+    const oAttack = calculateDamage(opponentElder, activeElder);
+    setShaking('player');
+    addFloatingText(`-${oAttack.damage}`, 'player');
+    if (sfxEnabled) audioManager.playSFX('hit');
+    const nextTeamState = teamState.map((e, i) =>
+      i === activeIndex ? { ...e, hp: Math.max(0, e.hp - oAttack.damage) } : e
+    );
+    setTeamState(nextTeamState);
+
+    if (nextTeamState[activeIndex].hp <= 0) {
+      addLog(`${activeElder.name} is taking a nap...`);
+      const nextAvailable = nextTeamState.findIndex(e => e.hp > 0);
+      if (nextAvailable === -1) {
+        addLog("Your whole team is exhausted!");
+        setBattleFinished(true);
+        setTimeout(() => onLose(nextTeamState), 1500);
+        setIsAnimating(false);
+        return;
+      } else {
+        addLog(`${nextTeamState[nextAvailable].name} steps up!`);
+        if (sfxEnabled) audioManager.playSFX('victory');
+        setActiveIndex(nextAvailable);
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 800));
+    setShaking(null);
+    setRound(r => r + 1);
+    setIsAnimating(false);
+  };
+
   useEffect(() => {
     if (isAuto && !isAnimating && !battleFinished && !showSwitchMenu) {
       const timer = setTimeout(handleTurn, 500);
@@ -227,6 +279,16 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           >
             {isAnimating ? 'Debating...' : 'Cast Doubt'}
           </button>
+          {!isFriendBattle && (
+            <button
+              onClick={attemptGuide}
+              disabled={isAnimating || battleFinished || isAuto}
+              className="w-24 bg-orange-600 hover:bg-orange-500 text-white rounded-3xl flex flex-col items-center justify-center active:scale-95 transition-all shadow-xl border-b-8 border-orange-900 disabled:opacity-50"
+            >
+              <span className="text-xl mb-1">🧭</span>
+              <span className="text-[7px] font-black uppercase">Guide</span>
+            </button>
+          )}
           <button 
             onClick={() => { if(sfxEnabled) audioManager.playSFX('click'); setShowSwitchMenu(true); }}
             disabled={isAnimating || battleFinished}
