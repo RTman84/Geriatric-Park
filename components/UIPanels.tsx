@@ -250,12 +250,15 @@ interface ShuffleboardProps {
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
+  leaderboard: { top: { display_name: string; score: number }[]; mine: { display_name: string; score: number } | null; day: string } | null;
+  leaderboardAvailable: boolean;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   isDark, elders, tokens, shuffleboardKing, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge,
-  tournamentScore, tournamentEndsAt, passiveMatchAt
+  tournamentScore, tournamentEndsAt, passiveMatchAt,
+  leaderboard, leaderboardAvailable
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
@@ -449,21 +452,34 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             </div>
           </div>
 
-          {/* Simulated leaderboard */}
+          {/* Real daily leaderboard, server-backed — grouped by player and by score */}
           <div className="mb-6 space-y-2">
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Today's Leaderboard</p>
-            {[
-              { name: 'BingoQueen47', score: Math.max(tournamentScore + 150, 380) },
-              { name: 'GrumpyGus', score: Math.max(tournamentScore + 80, 310) },
-              { name: 'You', score: tournamentScore },
-              { name: 'MallWalker99', score: Math.max(tournamentScore - 30, 180) },
-            ].sort((a, b) => b.score - a.score).map((entry, i) => (
-              <div key={entry.name} className={`flex items-center gap-3 p-3 rounded-xl ${entry.name === 'You' ? 'bg-indigo-50 border border-indigo-200' : isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <span className={`text-[10px] font-black w-5 ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
-                <span className={`text-[10px] font-black flex-1 uppercase ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{entry.name}</span>
-                <span className="text-[10px] font-black text-indigo-500">{entry.score} pts</span>
-              </div>
-            ))}
+            {!leaderboardAvailable ? (
+              <p className="text-[9px] text-slate-400 font-bold text-center py-4">Sign in to see how you rank against other players.</p>
+            ) : !leaderboard ? (
+              <p className="text-[9px] text-slate-400 font-bold text-center py-4">Loading leaderboard...</p>
+            ) : (
+              <>
+                {leaderboard.top.length === 0 && (
+                  <p className="text-[9px] text-slate-400 font-bold text-center py-4">No scores yet today — be the first!</p>
+                )}
+                {leaderboard.top.map((entry, i) => (
+                  <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                    <span className={`text-[10px] font-black w-5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
+                    <span className={`text-[10px] font-black flex-1 uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{entry.display_name}</span>
+                    <span className="text-[10px] font-black text-indigo-500">{entry.score} pts</span>
+                  </div>
+                ))}
+                {leaderboard.mine && !leaderboard.top.some(e => e.display_name === leaderboard.mine!.display_name) && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200">
+                    <span className="text-[10px] font-black w-5 text-indigo-900">-</span>
+                    <span className="text-[10px] font-black flex-1 uppercase text-indigo-900">{leaderboard.mine.display_name} (You)</span>
+                    <span className="text-[10px] font-black text-indigo-500">{leaderboard.mine.score} pts</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <button

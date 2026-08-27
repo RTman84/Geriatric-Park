@@ -10,6 +10,7 @@ import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel,
 import { audioManager } from './services/audioManager';
 import { isCloudAccountsConfigured, supabase } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
+import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon
 } from '@heroicons/react/24/solid';
@@ -163,6 +164,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('map');
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
   const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [wildElders, setWildElders] = useState<Elder[]>([]);
@@ -460,14 +462,27 @@ const App: React.FC = () => {
     } catch (e) { console.error('Cloud save fetch failed', e); }
   }, []);
 
+  // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
+  // Signed-out players simply see no leaderboard data (fetchLeaderboard throws on missing
+  // auth token; caught and ignored here, since there's no stable cross-device identity to
+  // rank an anonymous local player against others).
+  const refreshLeaderboard = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    try {
+      const data = await fetchLeaderboard();
+      setLeaderboard(data);
+    } catch (e) { /* not signed in, or offline — leaderboard just stays empty */ }
+  }, []);
+
   useEffect(() => {
     if (!isCloudAccountsConfigured() || !supabase) return;
     void syncFromCloud();
+    void refreshLeaderboard();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') void syncFromCloud();
+      if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); }
     });
     return () => sub.subscription.unsubscribe();
-  }, [syncFromCloud]);
+  }, [syncFromCloud, refreshLeaderboard]);
 
   useEffect(() => {
     if (state.hasStarted) {
@@ -741,17 +756,22 @@ const App: React.FC = () => {
 
   const handleTournamentPlay = useCallback((score: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    let newBest = state.tournamentScore;
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
+      newBest = Math.max(prev.tournamentScore, score);
       return {
         ...prev,
-        tournamentScore: Math.max(prev.tournamentScore, score),
+        tournamentScore: newBest,
         xp, level,
         legacyTokens: prev.legacyTokens + 10,
       };
     });
     handleQuestProgress('tournament');
-  }, [state.settings.sfxEnabled, handleQuestProgress]);
+    if (isCloudAccountsConfigured()) {
+      submitTournamentScore(newBest).then(() => refreshLeaderboard()).catch(() => {});
+    }
+  }, [state.settings.sfxEnabled, state.tournamentScore, handleQuestProgress, refreshLeaderboard]);
 
   const handleShuffleboardChallenge = useCallback((stakeTokens: number, won: boolean) => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
@@ -1204,6 +1224,8 @@ const App: React.FC = () => {
               tournamentScore={state.tournamentScore}
               tournamentEndsAt={state.tournamentEndsAt}
               passiveMatchAt={state.passiveMatchAt}
+              leaderboard={leaderboard}
+              leaderboardAvailable={isCloudAccountsConfigured()}
             />
           )}
         </main>
