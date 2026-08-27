@@ -606,32 +606,44 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
 
 // ─── Elder Pass Panel ─────────────────────────────────────────────────────────
 
-export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean }> = ({ season, isDark }) => {
-  const currentLevel = Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1;
+export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim: (level: number) => void }> = ({ season, isDark, onClaim }) => {
+  const currentLevel = Math.min(Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
   const levelXP = season.xp % SEASON_XP_PER_LEVEL;
+  const daysLeft = Math.max(0, Math.ceil((season.endDate - Date.now()) / (24 * 60 * 60 * 1000)));
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
         <h2 className="text-[12px] font-black text-indigo-400 uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
         <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
-        <div className="mt-8 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
+        <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
+        <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
           <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
         </div>
         <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
       </div>
       <div className="space-y-4">
-        {SEASONAL_REWARDS.map((reward, i) => (
-          <div key={i} className={`p-6 rounded-[2.5rem] border flex items-center justify-between shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${reward.level > currentLevel ? 'opacity-40 grayscale' : ''}`}>
-            <div className="flex items-center gap-5 min-w-0">
-              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
-              <div>
-                <span className="block text-[8px] font-black text-slate-500 uppercase mb-1">Rank {reward.level}</span>
-                <span className={`text-[11px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
+        {SEASONAL_REWARDS.map((reward, i) => {
+          const unlocked = reward.level <= currentLevel;
+          const claimed = season.claimedLevels.includes(reward.level);
+          return (
+            <div key={i} className={`p-6 rounded-[2.5rem] border flex items-center justify-between shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${!unlocked ? 'opacity-40 grayscale' : ''}`}>
+              <div className="flex items-center gap-5 min-w-0">
+                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
+                <div>
+                  <span className="block text-[8px] font-black text-slate-500 uppercase mb-1">Rank {reward.level}</span>
+                  <span className={`text-[11px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
+                </div>
               </div>
+              {claimed ? (
+                <CheckCircleIcon className="w-7 h-7 text-emerald-500" />
+              ) : unlocked ? (
+                <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Claim</button>
+              ) : (
+                <span className="text-[8px] font-black uppercase text-slate-400">Locked</span>
+              )}
             </div>
-            {reward.level <= currentLevel && <CheckCircleIcon className="w-7 h-7 text-emerald-500" />}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

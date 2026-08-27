@@ -246,14 +246,14 @@ export const SHOP_ITEMS = [
 ];
 
 export const SEASONAL_REWARDS = [
-  { level: 1, icon: '🎟️', name: 'Starter Kit', free: '100 Tokens' },
-  { level: 2, icon: '🍬', name: 'Sweet Treat', free: 'Hard Candy' },
-  { level: 3, icon: '🌅', name: 'Morning Badge', free: 'Early Bird Badge' },
-  { level: 4, icon: '👟', name: 'Fast Feet', free: 'Speedy Sneakers' },
-  { level: 5, icon: '💎', name: 'Token Cache', free: '500 Tokens' },
-  { level: 6, icon: '👒', name: 'Sun Protection', free: 'Straw Hat' },
-  { level: 7, icon: '📻', name: 'Broadcast', free: 'Vintage Radio' },
-  { level: 8, icon: '🦷', name: 'Artifact', free: 'Shiny Dentures' },
-  { level: 9, icon: '🥢', name: 'Crafting', free: 'Knitting Needles' },
-  { level: 10, icon: '🏆', name: 'Grand Prize', free: '1000 Tokens' }
+  { level: 1, icon: '🎟️', name: 'Starter Kit', free: '100 Tickets', tickets: 100 },
+  { level: 2, icon: '🍭', name: 'Sweet Treat', free: '15 Tickets', tickets: 15 },
+  { level: 3, icon: '🌅', name: 'Morning Badge', free: '20 Tickets', tickets: 20 },
+  { level: 4, icon: '🥿', name: 'Fast Feet', free: '25 Tickets', tickets: 25 },
+  { level: 5, icon: '💎', name: 'Ticket Cache', free: '500 Tickets', tickets: 500 },
+  { level: 6, icon: '🧢', name: 'Sun Protection', free: '20 Tickets', tickets: 20 },
+  { level: 7, icon: '📻', name: 'Broadcast', free: '30 Tickets', tickets: 30 },
+  { level: 8, icon: '💎', name: 'Artifact', free: '40 Tickets', tickets: 40 },
+  { level: 9, icon: '🍀', name: 'Crafting', free: '35 Tickets', tickets: 35 },
+  { level: 10, icon: '🏆', name: 'Grand Prize', free: '1000 Tickets', tickets: 1000 }
 ];

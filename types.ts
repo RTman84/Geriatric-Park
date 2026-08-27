@@ -55,6 +55,7 @@ export interface Season {
   isPremium: boolean;
   startDate: number;
   endDate: number;
+  claimedLevels: number[];
 }
 
 export interface Gear {

@@ -47,6 +47,7 @@ import {
   ELDER_TYPE_STYLING,
   SHOP_ITEMS,
   SEASON_XP_PER_LEVEL,
+  SEASONAL_REWARDS,
   WITHDRAWAL_MINIMUM,
   DAILY_REWARDS,
   INVESTMENT_TIERS,
@@ -130,7 +131,7 @@ const INITIAL_STATE: GameState = {
     { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500, rewardStars: 40 },
   ],
   achievements: INITIAL_ACHIEVEMENTS,
-  season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000 },
+  season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000, claimedLevels: [] },
   hasStarted: false,
   inventory: [],
   friends: [],
@@ -386,6 +387,28 @@ const App: React.FC = () => {
     return s;
   };
 
+  const SEASON_NAMES = ["Autumn Gathering", "Winter Warmth", "Spring Bloom", "Summer Social"];
+  const applySeasonRollover = (s: GameState): GameState => {
+    // Guard against saves from before claimedLevels existed on Season.
+    const season = s.season.claimedLevels ? s.season : { ...s.season, claimedLevels: [] };
+    if (season.endDate <= Date.now()) {
+      const nextId = season.id + 1;
+      return {
+        ...s,
+        season: {
+          id: nextId,
+          name: SEASON_NAMES[(nextId - 1) % SEASON_NAMES.length],
+          xp: 0,
+          isPremium: false,
+          startDate: Date.now(),
+          endDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+          claimedLevels: [],
+        },
+      };
+    }
+    return { ...s, season };
+  };
+
   // Load save
   useEffect(() => {
     try {
@@ -393,7 +416,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          setState(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION }));
+          setState(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION })));
         }
       }
     } catch (e) { console.error("Load failed", e); }
@@ -432,7 +455,7 @@ const App: React.FC = () => {
       if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
-        setState(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION }));
+        setState(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION })));
       }
     } catch (e) { console.error('Cloud save fetch failed', e); }
   }, []);
@@ -521,6 +544,18 @@ const App: React.FC = () => {
       })
     }));
   }, []);
+
+  const handleClaimSeasonReward = useCallback((level: number) => {
+    const currentLevel = Math.min(Math.floor(state.season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
+    const reward = SEASONAL_REWARDS.find(r => r.level === level);
+    if (!reward || level > currentLevel || state.season.claimedLevels.includes(level)) return;
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => ({
+      ...prev,
+      legacyTokens: prev.legacyTokens + reward.tickets,
+      season: { ...prev.season, claimedLevels: [...prev.season.claimedLevels, level] },
+    }));
+  }, [state.season, state.settings.sfxEnabled]);
 
   const handleClaimQuest = useCallback((id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1150,7 +1185,7 @@ const App: React.FC = () => {
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
-          {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} />}
+          {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={state.pensionRate} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
             alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
