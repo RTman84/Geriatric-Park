@@ -1,4 +1,4 @@
-import { isAccountContext, requireAccount, serverJson } from '../_accountServer';
+import { isAccountContext, requireAccount, serverJson } from '../../lib/accountServer';
 
 const MAX_SAVE_BYTES = 350_000;
 const MAX_SCHEMA_VERSION = 100;

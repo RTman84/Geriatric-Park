@@ -1,4 +1,4 @@
-import { isAccountContext, requireAccount, serverJson } from '../_accountServer';
+import { isAccountContext, requireAccount, serverJson } from '../../lib/accountServer';
 
 const MAX_EVENT_BYTES = 32_000;
 const MAX_EVENT_TYPE = 100;

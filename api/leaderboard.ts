@@ -1,4 +1,4 @@
-import { isAccountContext, requireAccount, serverJson } from './_accountServer';
+import { isAccountContext, requireAccount, serverJson } from '../lib/accountServer';
 
 const MAX_SCORE = 1_000_000;
 const TOP_N = 10;
