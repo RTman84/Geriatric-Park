@@ -756,20 +756,19 @@ const App: React.FC = () => {
 
   const handleTournamentPlay = useCallback((score: number) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    let newBest = state.tournamentScore;
+    const newBest = Math.max(state.tournamentScore, score);
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
-      newBest = Math.max(prev.tournamentScore, score);
       return {
         ...prev,
-        tournamentScore: newBest,
+        tournamentScore: Math.max(prev.tournamentScore, score),
         xp, level,
         legacyTokens: prev.legacyTokens + 10,
       };
     });
     handleQuestProgress('tournament');
     if (isCloudAccountsConfigured()) {
-      submitTournamentScore(newBest).then(() => refreshLeaderboard()).catch(() => {});
+      submitTournamentScore(newBest).then(() => refreshLeaderboard()).catch(e => console.error('Leaderboard submit failed', e));
     }
   }, [state.settings.sfxEnabled, state.tournamentScore, handleQuestProgress, refreshLeaderboard]);
 
