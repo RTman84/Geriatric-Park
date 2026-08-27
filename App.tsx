@@ -165,6 +165,7 @@ const App: React.FC = () => {
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
   const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
+  const [leaderboardError, setLeaderboardError] = useState(false);
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [wildElders, setWildElders] = useState<Elder[]>([]);
@@ -471,7 +472,11 @@ const App: React.FC = () => {
     try {
       const data = await fetchLeaderboard();
       setLeaderboard(data);
-    } catch (e) { /* not signed in, or offline — leaderboard just stays empty */ }
+      setLeaderboardError(false);
+    } catch (e) {
+      console.error('Leaderboard fetch failed', e);
+      setLeaderboardError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -1225,6 +1230,8 @@ const App: React.FC = () => {
               passiveMatchAt={state.passiveMatchAt}
               leaderboard={leaderboard}
               leaderboardAvailable={isCloudAccountsConfigured()}
+              leaderboardError={leaderboardError}
+              onRetryLeaderboard={refreshLeaderboard}
             />
           )}
         </main>

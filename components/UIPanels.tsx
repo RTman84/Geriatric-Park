@@ -252,13 +252,15 @@ interface ShuffleboardProps {
   passiveMatchAt: number;
   leaderboard: { top: { display_name: string; score: number }[]; mine: { display_name: string; score: number } | null; day: string } | null;
   leaderboardAvailable: boolean;
+  leaderboardError: boolean;
+  onRetryLeaderboard: () => void;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   isDark, elders, tokens, shuffleboardKing, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
-  leaderboard, leaderboardAvailable
+  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
@@ -457,6 +459,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Today's Leaderboard</p>
             {!leaderboardAvailable ? (
               <p className="text-[9px] text-slate-400 font-bold text-center py-4">Sign in to see how you rank against other players.</p>
+            ) : leaderboardError ? (
+              <div className="text-center py-4">
+                <p className="text-[9px] text-rose-500 font-bold mb-2">Couldn't load the leaderboard.</p>
+                <button onClick={onRetryLeaderboard} className="text-[9px] font-black uppercase text-indigo-500 underline">Retry</button>
+              </div>
             ) : !leaderboard ? (
               <p className="text-[9px] text-slate-400 font-bold text-center py-4">Loading leaderboard...</p>
             ) : (
