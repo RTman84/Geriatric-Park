@@ -19,19 +19,19 @@ async function authHeaders(): Promise<HeadersInit> {
 
 async function parse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || 'Leaderboard request failed.');
+  if (!response.ok) throw new Error(body.detail || body.error || `Leaderboard request failed (${response.status}).`);
   return body as T;
 }
 
 export async function fetchLeaderboard(): Promise<LeaderboardData> {
   const headers = await authHeaders();
-  const response = await fetch('/api/leaderboard', { headers, cache: 'no-store' });
+  const response = await fetch('/api/tournament-board', { headers, cache: 'no-store' });
   return parse<LeaderboardData>(response);
 }
 
 export async function submitTournamentScore(score: number): Promise<LeaderboardEntry> {
   const headers = await authHeaders();
-  const response = await fetch('/api/leaderboard', {
+  const response = await fetch('/api/tournament-board', {
     method: 'PUT',
     headers,
     body: JSON.stringify({ score }),
