@@ -419,7 +419,9 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          setState(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION })));
+          const hydrated = applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION }));
+          prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
+          setState(hydrated);
         }
       }
     } catch (e) { console.error("Load failed", e); }
@@ -428,7 +430,12 @@ const App: React.FC = () => {
 
   // Level-up rewards: fires whenever state.level increases from ANY XP source,
   // rather than threading a payout through every individual handler. Guarded by
-  // isLoaded so restoring a save at level 8 doesn't look like "leveling up".
+  // isLoaded so restoring a save at level 8 doesn't look like "leveling up". The
+  // load/sync effects also directly set prevLevelRef.current the moment they hydrate
+  // state, since local-storage load and cloud sync can each complete at different
+  // times — without that, a later cloud restore bumping the level past whatever the
+  // ref was left at (e.g. 1, from a fresh tab with no local save) would fire this as
+  // if the player had just leveled up 20 times.
   // Tickets only — PP stays limited to ad-watch share + Dividend claims, so leveling
   // up (an XP-driven, unbounded-frequency event) never creates PP out of thin air.
   const prevLevelRef = useRef<number>(state.level);
@@ -451,6 +458,7 @@ const App: React.FC = () => {
   // Cloud save sync: pull the cloud save on sign-in (initial session or later),
   // and keep whichever copy (local vs cloud) has the higher revision number.
   const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
+  const [cloudCheckDone, setCloudCheckDone] = useState(!isCloudAccountsConfigured());
   const syncFromCloud = useCallback(async () => {
     if (!isCloudAccountsConfigured()) return;
     try {
@@ -458,9 +466,12 @@ const App: React.FC = () => {
       if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
-        setState(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION })));
+        const hydrated = applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION }));
+        prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
+        setState(hydrated);
       }
     } catch (e) { console.error('Cloud save fetch failed', e); }
+    finally { setCloudCheckDone(true); }
   }, []);
 
   // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
@@ -483,10 +494,14 @@ const App: React.FC = () => {
     if (!isCloudAccountsConfigured() || !supabase) return;
     void syncFromCloud();
     void refreshLeaderboard();
+    // Safety net: never let a slow/hung cloud check trap the player on the
+    // "Initializing..." screen forever — fall through to local/fresh state if it
+    // takes too long, same as if no cloud save existed.
+    const timeout = setTimeout(() => setCloudCheckDone(true), 8000);
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); }
     });
-    return () => sub.subscription.unsubscribe();
+    return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); };
   }, [syncFromCloud, refreshLeaderboard]);
 
   useEffect(() => {
@@ -1125,7 +1140,7 @@ const App: React.FC = () => {
     };
   }, [state.allElders, state.pensionRate, state.ownedParcels]);
 
-  if (!isLoaded) return (
+  if (!isLoaded || !cloudCheckDone) return (
     <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-white font-black uppercase tracking-widest gap-6">
       <div className="animate-pulse">Initializing...</div>
       <button onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} className="text-[10px] opacity-40 hover:opacity-100 transition-opacity border border-white/20 px-4 py-2 rounded-xl">Clear Save & Reset</button>
