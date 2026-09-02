@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Elder, ElderType, PowerType } from '../types';
-import { ELDER_AVATARS, GAME_VERSION } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GAME_VERSION } from '../constants';
 import { AdOverlay } from './AdOverlay';
 
 interface StarterSelectionProps {
@@ -64,8 +64,8 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
               onClick={() => handleSelection(s)} 
               className="bg-white p-6 rounded-[32px] border-b-8 border-slate-200 hover:border-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-6 group text-left shadow-lg active:scale-95"
             >
-              <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center text-5xl group-hover:scale-110 transition-transform flex-shrink-0">
-                {ELDER_AVATARS[s.type!][0]}
+              <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0 overflow-hidden">
+                <ElderAvatarImg type={s.type!} fill className="rounded-2xl" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-black text-slate-800 text-lg uppercase leading-none truncate">{s.name}</h3>

@@ -107,13 +107,69 @@ export const ELDER_TYPE_STYLING: Record<ElderType, { color: string; bg: string; 
   [ElderType.KNITTING_NINJA]: { color: 'text-teal-700', bg: 'bg-teal-100', border: 'border-teal-300', label: 'STITCH' },
 };
 
+// Index 0 = base art, actively served from public/assets/elders/.
+// Index 1/2 are evolution-stage art for backlog item 2 (not built yet, nothing
+// reads these indices today). The source files live in /art-source/elders_evolution/
+// (kept out of public/ so they aren't shipped to players unused) -- when evolution
+// is implemented, move those two files per type into public/assets/elders/ first.
 export const ELDER_AVATARS: Record<ElderType, string[]> = {
-  [ElderType.BINGO_WARRIOR]: ['🧙‍♂️', '👵', '🧓'],
-  [ElderType.GRUMPY_GARDENER]: ['👨‍🌾', '👩‍🌾', '🌵'],
-  [ElderType.STORYTELLER]: ['👴', '🧓', '📜'],
-  [ElderType.TECH_WIZARD]: ['👓', '🕹️', '📟'],
-  [ElderType.MALL_WALKER]: ['👟', '🚶‍♀️', '🚶‍♂️'],
-  [ElderType.KNITTING_NINJA]: ['🧶', '🥢', '🧤'],
+  [ElderType.BINGO_WARRIOR]: ['/assets/elders/bingo_warrior_stage1.png', '/assets/elders/bingo_warrior_stage2.png', '/assets/elders/bingo_warrior_stage3.png'],
+  [ElderType.GRUMPY_GARDENER]: ['/assets/elders/grumpy_gardener_stage1.png', '/assets/elders/grumpy_gardener_stage2.png', '/assets/elders/grumpy_gardener_stage3.png'],
+  [ElderType.STORYTELLER]: ['/assets/elders/storyteller_stage1.png', '/assets/elders/storyteller_stage2.png', '/assets/elders/storyteller_stage3.png'],
+  [ElderType.TECH_WIZARD]: ['/assets/elders/tech_wizard_stage1.png', '/assets/elders/tech_wizard_stage2.png', '/assets/elders/tech_wizard_stage3.png'],
+  [ElderType.MALL_WALKER]: ['/assets/elders/mall_walker_stage1.png', '/assets/elders/mall_walker_stage2.png', '/assets/elders/mall_walker_stage3.png'],
+  [ElderType.KNITTING_NINJA]: ['/assets/elders/knitting_ninja_stage1.png', '/assets/elders/knitting_ninja_stage2.png', '/assets/elders/knitting_ninja_stage3.png'],
+};
+
+// Shared avatar renderer so every call site gets the same img/rounding/fallback
+// behavior instead of re-implementing <img> markup 9+ times.
+// - fill=true: image fills its parent container (parent must set width/height).
+// - fill=false: image uses the explicit `size` (px) itself.
+export const ElderAvatarImg: React.FC<{
+  type: ElderType;
+  stage?: number;
+  size?: number;
+  fill?: boolean;
+  className?: string;
+}> = ({ type, stage = 0, size = 48, fill = false, className = '' }) => (
+  <img
+    src={ELDER_AVATARS[type][stage]}
+    alt={type}
+    draggable={false}
+    className={`object-cover rounded-full select-none ${fill ? 'w-full h-full' : ''} ${className}`}
+    style={fill ? undefined : { width: size, height: size, minWidth: size, minHeight: size }}
+  />
+);
+
+// Keyed by item id (not emoji) so unrelated items that happen to reuse the same
+// emoji (e.g. multiple 🍀 items) never accidentally get the wrong art.
+export const ITEM_ICON_ASSETS: Record<string, string> = {
+  s1: '/assets/items/bran_muffin.png',       // High-Fiber Muffin
+  s2: '/assets/items/walker_tennis_ball.png', // Tennis Ball Walker
+  s3: '/assets/items/reading_glasses.png',    // Reading Glasses
+  s4: '/assets/items/bingo_luck_charm.png',   // Bingo Lucky Charm
+};
+
+export const ItemIcon: React.FC<{
+  id?: string;
+  icon: string;
+  size?: number;
+  fill?: boolean;
+  className?: string;
+}> = ({ id, icon, size = 32, fill = false, className = '' }) => {
+  const src = id ? ITEM_ICON_ASSETS[id] : undefined;
+  if (!src) {
+    return <span className={className} style={fill ? undefined : { fontSize: size }}>{icon}</span>;
+  }
+  return (
+    <img
+      src={src}
+      alt={icon}
+      draggable={false}
+      className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className}`}
+      style={fill ? undefined : { width: size, height: size }}
+    />
+  );
 };
 
 export const NAV_ITEMS = [

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Elder } from '../types';
 import { generateElderBio } from '../services/geminiService';
-import { ELDER_AVATARS, GUIDE_SUCCESS_RATE } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GUIDE_SUCCESS_RATE } from '../constants';
 
 interface ElderInteractionProps {
   elder: Elder;
@@ -64,8 +64,8 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
               <div className="absolute top-4 left-4 px-3 py-1 bg-black/20 rounded-full text-white text-[9px] font-black uppercase tracking-widest backdrop-blur-sm">
                 🧭 Guide to Geriatric Park
               </div>
-              <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-7xl shadow-inner animate-pulse">
-                {ELDER_AVATARS[elder.type][0]}
+              <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-inner animate-pulse overflow-hidden">
+                <ElderAvatarImg type={elder.type} fill />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/40 text-white">
                 <h2 className="text-2xl font-bold">{elder.name}</h2>

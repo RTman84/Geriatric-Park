@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
-  ELDER_AVATARS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
+  ELDER_AVATARS, ElderAvatarImg, ItemIcon, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
   SHUFFLEBOARD_KING_BOOST
@@ -422,7 +422,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Active Lineup</p>
             {team.slice(0, 3).map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <span className="text-2xl">{ELDER_AVATARS[e.type][0]}</span>
+                <ElderAvatarImg type={e.type} size={32} />
                 <span className="text-[10px] font-black uppercase flex-1">{e.name}</span>
                 <span className="text-[9px] text-indigo-500 font-black">PWR {e.strength + e.tenacity}</span>
               </div>
@@ -606,7 +606,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
             disabled={tokens < item.price}
             className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-500 shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
           >
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>{item.icon}</div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon id={item.id} icon={item.icon} fill className="p-2" /></div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
                 <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name}</h4>
@@ -900,7 +900,7 @@ export const BasePanel: React.FC<{
             <div className="grid grid-cols-3 gap-3">
               {inventory.map(item => (
                 <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-indigo-600 border-indigo-400 text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
-                  <span className="text-3xl mb-1">{item.icon}</span>
+                  <ItemIcon id={item.id} icon={item.icon} size={32} className="mb-1" />
                   <span className={`text-[7px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-indigo-100' : 'opacity-60'}`}>{item.name}</span>
                 </button>
               ))}
@@ -912,13 +912,13 @@ export const BasePanel: React.FC<{
       {selectedItem && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
           <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-slate-100'}`}>
-            <div className="text-6xl text-center mb-6 animate-bounce">{selectedItem.icon}</div>
+            <div className="flex justify-center mb-6 animate-bounce"><ItemIcon id={selectedItem.id} icon={selectedItem.icon} size={72} /></div>
             <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
             <p className="text-[10px] text-center mb-4 text-indigo-400 uppercase font-black tracking-widest">{selectedItem.description}</p>
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
               {elders.map(e => (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-indigo-500`}>
-                  <span className="text-4xl">{ELDER_AVATARS[e.type][0]}</span>
+                  <ElderAvatarImg type={e.type} size={48} />
                   <div className={`flex-1 text-left min-w-0 text-[12px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
                 </button>
               ))}
@@ -935,7 +935,7 @@ export const BasePanel: React.FC<{
           {elders.map(e => (
             <div key={e.id} className={`p-6 rounded-[3rem] border shadow-sm flex flex-col gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-5xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>{ELDER_AVATARS[e.type][0]}</div>
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} fill className="rounded-2xl" /></div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
@@ -977,7 +977,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
         {team.map(e => (
           <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-indigo-500/20' : 'bg-white border-indigo-100'}`}>
             <div className="flex items-center gap-6">
-              <div className="text-5xl flex-shrink-0 relative">{ELDER_AVATARS[e.type][0]}</div>
+              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} fill /></div>
               <div className="flex-1 min-w-0 text-left">
                 <h4 className="font-black text-base uppercase leading-none truncate">{e.name}</h4>
                 <p className="text-[9px] text-slate-400 mt-1">Comfort Gen: {e.comfortGeneration.toFixed(4)}</p>

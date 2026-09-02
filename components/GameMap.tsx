@@ -85,10 +85,15 @@ const GameMap: React.FC<GameMapProps> = ({
   const [zoom, setZoom] = useState(18);
   const [isFollowing, setIsFollowing] = useState(true);
 
-  const createCustomIcon = (emoji: string, size: number = 40, color: string = 'white', isRoaming: boolean = false) => {
+  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false) => {
     const glow = isRoaming ? 'box-shadow: 0 0 15px #4f46e5, 0 0 5px #4f46e5;' : 'box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
+    const isImage = emojiOrSrc.startsWith('/assets/');
+    const content = isImage
+      ? `<img src="${emojiOrSrc}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" draggable="false" />`
+      : emojiOrSrc;
+    const innerStyle = isImage ? '' : `font-size: ${size}px;`;
     return L.divIcon({
-      html: `<div style="font-size: ${size}px; background: ${color}; border-radius: 50%; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; ${glow}">${emoji}</div>`,
+      html: `<div style="${innerStyle} background: ${color}; border-radius: 50%; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>`,
       className: 'custom-div-icon',
       iconSize: [size + 12, size + 12],
       iconAnchor: [(size + 12) / 2, (size + 12) / 2],
