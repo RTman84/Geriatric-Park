@@ -100,7 +100,7 @@ const GameMap: React.FC<GameMapProps> = ({
     });
   };
 
-  const playerIcon = createCustomIcon('🧑‍🦽', 50, '#4f46e5', true);
+  const playerIcon = createCustomIcon('/assets/player/player_marker.png', 50, '#4f46e5', true);
 
   const getParcelColor = (type: string) => {
     switch (type) {
