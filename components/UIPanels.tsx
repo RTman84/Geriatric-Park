@@ -606,7 +606,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
             disabled={tokens < item.price}
             className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-500 shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
           >
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon id={item.id} icon={item.icon} fill className="p-2" /></div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon name={item.name} icon={item.icon} fill className="p-2" /></div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
                 <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name}</h4>
@@ -900,7 +900,7 @@ export const BasePanel: React.FC<{
             <div className="grid grid-cols-3 gap-3">
               {inventory.map(item => (
                 <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-indigo-600 border-indigo-400 text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
-                  <ItemIcon id={item.id} icon={item.icon} size={32} className="mb-1" />
+                  <ItemIcon name={item.name} icon={item.icon} size={32} className="mb-1" />
                   <span className={`text-[7px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-indigo-100' : 'opacity-60'}`}>{item.name}</span>
                 </button>
               ))}
@@ -912,7 +912,7 @@ export const BasePanel: React.FC<{
       {selectedItem && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
           <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-slate-100'}`}>
-            <div className="flex justify-center mb-6 animate-bounce"><ItemIcon id={selectedItem.id} icon={selectedItem.icon} size={72} /></div>
+            <div className="flex justify-center mb-6 animate-bounce"><ItemIcon name={selectedItem.name} icon={selectedItem.icon} size={72} /></div>
             <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
             <p className="text-[10px] text-center mb-4 text-indigo-400 uppercase font-black tracking-widest">{selectedItem.description}</p>
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">

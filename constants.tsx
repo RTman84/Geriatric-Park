@@ -141,23 +141,38 @@ export const ElderAvatarImg: React.FC<{
   />
 );
 
-// Keyed by item id (not emoji) so unrelated items that happen to reuse the same
-// emoji (e.g. multiple 🍀 items) never accidentally get the wrong art.
+// Keyed by item NAME, not id: SHOP_ITEMS ids (s1-s4) only exist in the shop
+// browsing list -- once an item is purchased or collected from the map, App.tsx
+// gives it a fresh runtime id ('shop_'+Date.now() / 'garden_'+Date.now()), so an
+// id-keyed lookup would silently stop matching the moment it enters inventory.
+// `name` is the one field that survives spawn -> purchase/collection -> inventory
+// -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
 export const ITEM_ICON_ASSETS: Record<string, string> = {
-  s1: '/assets/items/bran_muffin.png',       // High-Fiber Muffin
-  s2: '/assets/items/walker_tennis_ball.png', // Tennis Ball Walker
-  s3: '/assets/items/reading_glasses.png',    // Reading Glasses
-  s4: '/assets/items/bingo_luck_charm.png',   // Bingo Lucky Charm
+  // SHOP_ITEMS (s1-s4)
+  'High-Fiber Muffin': '/assets/items/bran_muffin.png',
+  'Tennis Ball Walker': '/assets/items/walker_tennis_ball.png',
+  'Reading Glasses': '/assets/items/reading_glasses.png',
+  'Bingo Lucky Charm': '/assets/items/bingo_luck_charm.png',
+  // ITEM_POOL (map pickups / found items)
+  'Straw Sunhat': '/assets/items/sunhat.png',
+  'Comfy Loafers': '/assets/items/comfy_loafers.png',
+  'Hearing Aid Plus': '/assets/items/hearing_aid.png',
+  'Hard Candy': '/assets/items/hard_candy.png',
+  'Vintage Radio': '/assets/items/transistor_radio.png',
+  'Lost Dentures': '/assets/items/lost_retainer.png',
+  'Old Map': '/assets/items/treasure_map.png',
+  'Garden Charm': '/assets/items/good_luck_charm.png',
+  'Antique Pocket Watch': '/assets/items/pocket_watch.png',
 };
 
 export const ItemIcon: React.FC<{
-  id?: string;
+  name?: string;
   icon: string;
   size?: number;
   fill?: boolean;
   className?: string;
-}> = ({ id, icon, size = 32, fill = false, className = '' }) => {
-  const src = id ? ITEM_ICON_ASSETS[id] : undefined;
+}> = ({ name, icon, size = 32, fill = false, className = '' }) => {
+  const src = name ? ITEM_ICON_ASSETS[name] : undefined;
   if (!src) {
     return <span className={className} style={fill ? undefined : { fontSize: size }}>{icon}</span>;
   }
