@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
-  ELDER_AVATARS, ElderAvatarImg, ItemIcon, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
+  ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
   SHUFFLEBOARD_KING_BOOST
@@ -217,7 +217,11 @@ export const BankPanel: React.FC<{
                     disabled={balance < item.cost}
                     className={`p-6 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${balance >= item.cost ? 'bg-white border-slate-100 shadow-sm hover:border-indigo-500' : 'opacity-40 grayscale bg-slate-50 border-slate-200 cursor-not-allowed'}`}
                   >
-                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl">{item.icon}</div>
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl overflow-hidden">
+                      {PARCEL_ICON_ASSETS[item.id] ? (
+                        <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" />
+                      ) : item.icon}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <h5 className="font-black text-sm uppercase text-slate-800 truncate">{item.name}</h5>

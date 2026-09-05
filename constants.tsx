@@ -187,6 +187,30 @@ export const ItemIcon: React.FC<{
   );
 };
 
+// Keyed by `type` -- the one field on STRUCTURE_TEMPLATES that's stable and
+// unique (unlike a runtime id, these templates are read directly from this
+// array, never regenerated).
+export const STRUCTURE_ICON_ASSETS: Record<string, string> = {
+  Blitz: '/assets/structures/bingo_blitz_hall.png',
+  Heal: '/assets/structures/silver_springs_rehab.png',
+  Shuffleboard: '/assets/structures/grand_shuffle_court.png',
+  Market: '/assets/structures/farmers_market.png',
+  Garden: '/assets/structures/community_garden.png',
+  Walk: '/assets/structures/mall_circuit.png',
+  Pavilion: '/assets/structures/potluck_pavilion.png',
+};
+
+// Keyed by id -- INVESTMENT_TIERS items are read directly from this array
+// (unlike shop/pool items, they never get a fresh runtime id), so id is safe.
+export const PARCEL_ICON_ASSETS: Record<string, string> = {
+  i1: '/assets/parcels/garden_plot.png',
+  i2: '/assets/parcels/park_bench_sponsor.png',
+  i3: '/assets/parcels/bingo_hall_equity.png',
+  i4: '/assets/parcels/shuttle_van_fleet.png',
+  i5: '/assets/parcels/the_golden_wing.png',
+  i6: '/assets/parcels/park_directorship.png',
+};
+
 export const NAV_ITEMS = [
   { id: 'map', label: 'Map', icon: <MapIcon className="w-6 h-6" /> },
   { id: 'team', label: 'Team', icon: <UserGroupIcon className="w-6 h-6" /> },

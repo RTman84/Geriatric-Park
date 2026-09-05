@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
-import { ELDER_AVATARS, ITEM_ICON_ASSETS, WORLD_PATHS } from '../constants';
+import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, WORLD_PATHS } from '../constants';
 import { 
   PlusCircleIcon, 
   MinusCircleIcon, 
@@ -209,7 +209,7 @@ const GameMap: React.FC<GameMapProps> = ({
             <Marker 
               key={st.id} 
               position={[st.lat, st.lng]} 
-              icon={createCustomIcon(st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'))}
+              icon={createCustomIcon(STRUCTURE_ICON_ASSETS[st.type] || st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'))}
               eventHandlers={{ click: () => onEventClick(st) }}
             >
               <Popup>
