@@ -440,7 +440,7 @@ const App: React.FC = () => {
   // up (an XP-driven, unbounded-frequency event) never creates PP out of thin air.
   const prevLevelRef = useRef<number>(state.level);
   useEffect(() => {
-    if (!isLoaded) { prevLevelRef.current = state.level; return; }
+    if (!isLoaded) return; // load/cloud-sync effects already set prevLevelRef.current themselves the moment they hydrate state -- touching it here too would clobber that with this effect's own stale pre-hydration closure value
     if (state.level > prevLevelRef.current) {
       const levelsGained = state.level - prevLevelRef.current;
       const ticketReward = LEVEL_UP_TICKET_REWARD * levelsGained;

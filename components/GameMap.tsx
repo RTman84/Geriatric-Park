@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
 import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, WORLD_PATHS } from '../constants';
@@ -85,15 +85,22 @@ const GameMap: React.FC<GameMapProps> = ({
   const [zoom, setZoom] = useState(18);
   const [isFollowing, setIsFollowing] = useState(true);
 
-  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false) => {
+  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false, shape: 'circle' | 'square' = 'circle') => {
     const glow = isRoaming ? 'box-shadow: 0 0 15px #4f46e5, 0 0 5px #4f46e5;' : 'box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
     const isImage = emojiOrSrc.startsWith('/assets/');
+    const outerRadius = shape === 'circle' ? '50%' : '18px';
+    const innerRadius = shape === 'circle' ? '50%' : '12px';
+    // Circle badges (elders/player) use cover -- portraits are centered and cropping the
+    // edges is fine. Square badges (items/structures) use contain so nothing is ever
+    // clipped -- important for irregular shapes (a shoe, a hearing aid) and for
+    // buildings, where cropping corners off a rectangular structure makes it unrecognizable.
+    const fit = shape === 'circle' ? 'cover' : 'contain';
     const content = isImage
-      ? `<img src="${emojiOrSrc}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" draggable="false" />`
+      ? `<img src="${emojiOrSrc}" style="width: 100%; height: 100%; object-fit: ${fit}; border-radius: ${innerRadius};" draggable="false" />`
       : emojiOrSrc;
     const innerStyle = isImage ? '' : `font-size: ${size}px;`;
     return L.divIcon({
-      html: `<div style="${innerStyle} background: ${color}; border-radius: 50%; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>`,
+      html: `<div style="${innerStyle} background: ${color}; border-radius: ${outerRadius}; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>`,
       className: 'custom-div-icon',
       iconSize: [size + 12, size + 12],
       iconAnchor: [(size + 12) / 2, (size + 12) / 2],
@@ -169,7 +176,7 @@ const GameMap: React.FC<GameMapProps> = ({
         ))}
 
         {/* Player Marker */}
-        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={playerIcon} eventHandlers={{ click: onPlayerClick }} />
+        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={playerIcon} zIndexOffset={1000} eventHandlers={{ click: onPlayerClick }} />
 
         {/* Elders */}
         {nearbyElders.map(elder => (
@@ -196,7 +203,7 @@ const GameMap: React.FC<GameMapProps> = ({
           <Marker 
             key={item.id} 
             position={[item.lat, item.lng]} 
-            icon={createCustomIcon(ITEM_ICON_ASSETS[item.name] || item.icon, 32, '#fbbf24')}
+            icon={createCustomIcon(ITEM_ICON_ASSETS[item.name] || item.icon, 32, '#fbbf24', false, 'square')}
             zIndexOffset={500}
             eventHandlers={{ click: () => onItemClick(item) }}
           />
@@ -209,9 +216,12 @@ const GameMap: React.FC<GameMapProps> = ({
             <Marker 
               key={st.id} 
               position={[st.lat, st.lng]} 
-              icon={createCustomIcon(STRUCTURE_ICON_ASSETS[st.type] || st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'))}
+              icon={createCustomIcon(STRUCTURE_ICON_ASSETS[st.type] || st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'), false, 'square')}
               eventHandlers={{ click: () => onEventClick(st) }}
             >
+              <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">
+                {st.name}
+              </Tooltip>
               <Popup>
                 <div className="p-2 text-center">
                   <h3 className="font-black uppercase text-sm">{st.name}</h3>
