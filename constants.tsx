@@ -150,13 +150,18 @@ export const ElderAvatarImg: React.FC<{
 export const ITEM_ICON_ASSETS: Record<string, string> = {
   // SHOP_ITEMS (s1-s4)
   'High-Fiber Muffin': '/assets/items/bran_muffin.png',
-  'Tennis Ball Walker': '/assets/items/walker_tennis_ball.png',
+  // Renamed with _v2 suffix -- these 4 shipped with a cropping bug under their
+  // original filenames in an earlier deploy, and since /public assets aren't
+  // content-hashed by Vite, browsers/CDN edges that cached the old bytes at
+  // that URL would keep serving them forever even after the source file was
+  // fixed. Renaming forces a URL that was never cached under the bad version.
+  'Tennis Ball Walker': '/assets/items/walker_tennis_ball_v2.png',
+  'Straw Sunhat': '/assets/items/sunhat_v2.png',
+  'Comfy Loafers': '/assets/items/comfy_loafers_v2.png',
+  'Hearing Aid Plus': '/assets/items/hearing_aid_v2.png',
   'Reading Glasses': '/assets/items/reading_glasses.png',
   'Bingo Lucky Charm': '/assets/items/bingo_luck_charm.png',
   // ITEM_POOL (map pickups / found items)
-  'Straw Sunhat': '/assets/items/sunhat.png',
-  'Comfy Loafers': '/assets/items/comfy_loafers.png',
-  'Hearing Aid Plus': '/assets/items/hearing_aid.png',
   'Hard Candy': '/assets/items/hard_candy.png',
   'Vintage Radio': '/assets/items/transistor_radio.png',
   'Lost Dentures': '/assets/items/lost_retainer.png',
