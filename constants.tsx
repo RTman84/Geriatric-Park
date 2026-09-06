@@ -12,6 +12,53 @@ import {
 } from '@heroicons/react/24/outline';
 import { ElderType, PowerType, Achievement } from './types';
 
+// Every image below is imported (not referenced by a hardcoded /public path).
+// Vite content-hashes imported assets at build time -- e.g.
+// comfy_loafers.png becomes /assets/comfy_loafers-a1b2c3d4.png -- so any time
+// the source PNG's pixels change, the built URL automatically changes too.
+// No manual "_v2" renaming and no risk of a browser/CDN cache serving stale
+// bytes under an unchanged filename, ever again. When adding or replacing
+// game art going forward: drop the file in game-assets/<category>/, import
+// it here, done -- never edit a file already referenced in public/.
+import bingoWarriorStage1 from './game-assets/elders/bingo_warrior_stage1.png';
+import grumpyGardenerStage1 from './game-assets/elders/grumpy_gardener_stage1.png';
+import knittingNinjaStage1 from './game-assets/elders/knitting_ninja_stage1.png';
+import mallWalkerStage1 from './game-assets/elders/mall_walker_stage1.png';
+import storytellerStage1 from './game-assets/elders/storyteller_stage1.png';
+import techWizardStage1 from './game-assets/elders/tech_wizard_stage1.png';
+
+import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
+import branMuffinImg from './game-assets/items/bran_muffin.png';
+import comfyLoafersImg from './game-assets/items/comfy_loafers.png';
+import goodLuckCharmImg from './game-assets/items/good_luck_charm.png';
+import hardCandyImg from './game-assets/items/hard_candy.png';
+import hearingAidImg from './game-assets/items/hearing_aid.png';
+import lostRetainerImg from './game-assets/items/lost_retainer.png';
+import pocketWatchImg from './game-assets/items/pocket_watch.png';
+import readingGlassesImg from './game-assets/items/reading_glasses.png';
+import sunhatImg from './game-assets/items/sunhat.png';
+import transistorRadioImg from './game-assets/items/transistor_radio.png';
+import treasureMapImg from './game-assets/items/treasure_map.png';
+import walkerTennisBallImg from './game-assets/items/walker_tennis_ball.png';
+
+import bingoBlitzHallImg from './game-assets/structures/bingo_blitz_hall.png';
+import communityGardenImg from './game-assets/structures/community_garden.png';
+import farmersMarketImg from './game-assets/structures/farmers_market.png';
+import grandShuffleCourtImg from './game-assets/structures/grand_shuffle_court.png';
+import mallCircuitImg from './game-assets/structures/mall_circuit.png';
+import potluckPavilionImg from './game-assets/structures/potluck_pavilion.png';
+import silverSpringsRehabImg from './game-assets/structures/silver_springs_rehab.png';
+
+import gardenPlotImg from './game-assets/parcels/garden_plot.png';
+import parkBenchSponsorImg from './game-assets/parcels/park_bench_sponsor.png';
+import bingoHallEquityImg from './game-assets/parcels/bingo_hall_equity.png';
+import shuttleVanFleetImg from './game-assets/parcels/shuttle_van_fleet.png';
+import theGoldenWingImg from './game-assets/parcels/the_golden_wing.png';
+import parkDirectorshipImg from './game-assets/parcels/park_directorship.png';
+
+import playerMarkerImg from './game-assets/player/player_marker.png';
+export const PLAYER_MARKER_IMG = playerMarkerImg;
+
 export const GAME_VERSION = '1.7.0';
 export const TEAM_SIZE_LIMIT = 6;
 export const BASE_POPULATION_LIMIT = 100;
@@ -113,12 +160,12 @@ export const ELDER_TYPE_STYLING: Record<ElderType, { color: string; bg: string; 
 // (kept out of public/ so they aren't shipped to players unused) -- when evolution
 // is implemented, move those two files per type into public/assets/elders/ first.
 export const ELDER_AVATARS: Record<ElderType, string[]> = {
-  [ElderType.BINGO_WARRIOR]: ['/assets/elders/bingo_warrior_stage1.png', '/assets/elders/bingo_warrior_stage2.png', '/assets/elders/bingo_warrior_stage3.png'],
-  [ElderType.GRUMPY_GARDENER]: ['/assets/elders/grumpy_gardener_stage1.png', '/assets/elders/grumpy_gardener_stage2.png', '/assets/elders/grumpy_gardener_stage3.png'],
-  [ElderType.STORYTELLER]: ['/assets/elders/storyteller_stage1.png', '/assets/elders/storyteller_stage2.png', '/assets/elders/storyteller_stage3.png'],
-  [ElderType.TECH_WIZARD]: ['/assets/elders/tech_wizard_stage1.png', '/assets/elders/tech_wizard_stage2.png', '/assets/elders/tech_wizard_stage3.png'],
-  [ElderType.MALL_WALKER]: ['/assets/elders/mall_walker_stage1.png', '/assets/elders/mall_walker_stage2.png', '/assets/elders/mall_walker_stage3.png'],
-  [ElderType.KNITTING_NINJA]: ['/assets/elders/knitting_ninja_stage1.png', '/assets/elders/knitting_ninja_stage2.png', '/assets/elders/knitting_ninja_stage3.png'],
+  [ElderType.BINGO_WARRIOR]: [bingoWarriorStage1, bingoWarriorStage1, bingoWarriorStage1],
+  [ElderType.GRUMPY_GARDENER]: [grumpyGardenerStage1, grumpyGardenerStage1, grumpyGardenerStage1],
+  [ElderType.STORYTELLER]: [storytellerStage1, storytellerStage1, storytellerStage1],
+  [ElderType.TECH_WIZARD]: [techWizardStage1, techWizardStage1, techWizardStage1],
+  [ElderType.MALL_WALKER]: [mallWalkerStage1, mallWalkerStage1, mallWalkerStage1],
+  [ElderType.KNITTING_NINJA]: [knittingNinjaStage1, knittingNinjaStage1, knittingNinjaStage1],
 };
 
 // Shared avatar renderer so every call site gets the same img/rounding/fallback
@@ -149,25 +196,20 @@ export const ElderAvatarImg: React.FC<{
 // -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
 export const ITEM_ICON_ASSETS: Record<string, string> = {
   // SHOP_ITEMS (s1-s4)
-  'High-Fiber Muffin': '/assets/items/bran_muffin.png',
-  // Renamed with _v2 suffix -- these 4 shipped with a cropping bug under their
-  // original filenames in an earlier deploy, and since /public assets aren't
-  // content-hashed by Vite, browsers/CDN edges that cached the old bytes at
-  // that URL would keep serving them forever even after the source file was
-  // fixed. Renaming forces a URL that was never cached under the bad version.
-  'Tennis Ball Walker': '/assets/items/walker_tennis_ball_v2.png',
-  'Straw Sunhat': '/assets/items/sunhat_v2.png',
-  'Comfy Loafers': '/assets/items/comfy_loafers_v2.png',
-  'Hearing Aid Plus': '/assets/items/hearing_aid_v2.png',
-  'Reading Glasses': '/assets/items/reading_glasses.png',
-  'Bingo Lucky Charm': '/assets/items/bingo_luck_charm.png',
+  'High-Fiber Muffin': branMuffinImg,
+  'Tennis Ball Walker': walkerTennisBallImg,
+  'Straw Sunhat': sunhatImg,
+  'Comfy Loafers': comfyLoafersImg,
+  'Hearing Aid Plus': hearingAidImg,
+  'Reading Glasses': readingGlassesImg,
+  'Bingo Lucky Charm': bingoLuckCharmImg,
   // ITEM_POOL (map pickups / found items)
-  'Hard Candy': '/assets/items/hard_candy.png',
-  'Vintage Radio': '/assets/items/transistor_radio.png',
-  'Lost Dentures': '/assets/items/lost_retainer.png',
-  'Old Map': '/assets/items/treasure_map.png',
-  'Garden Charm': '/assets/items/good_luck_charm.png',
-  'Antique Pocket Watch': '/assets/items/pocket_watch.png',
+  'Hard Candy': hardCandyImg,
+  'Vintage Radio': transistorRadioImg,
+  'Lost Dentures': lostRetainerImg,
+  'Old Map': treasureMapImg,
+  'Garden Charm': goodLuckCharmImg,
+  'Antique Pocket Watch': pocketWatchImg,
 };
 
 export const ItemIcon: React.FC<{
@@ -196,24 +238,24 @@ export const ItemIcon: React.FC<{
 // unique (unlike a runtime id, these templates are read directly from this
 // array, never regenerated).
 export const STRUCTURE_ICON_ASSETS: Record<string, string> = {
-  Blitz: '/assets/structures/bingo_blitz_hall.png',
-  Heal: '/assets/structures/silver_springs_rehab.png',
-  Shuffleboard: '/assets/structures/grand_shuffle_court.png',
-  Market: '/assets/structures/farmers_market.png',
-  Garden: '/assets/structures/community_garden.png',
-  Walk: '/assets/structures/mall_circuit.png',
-  Pavilion: '/assets/structures/potluck_pavilion.png',
+  Blitz: bingoBlitzHallImg,
+  Heal: silverSpringsRehabImg,
+  Shuffleboard: grandShuffleCourtImg,
+  Market: farmersMarketImg,
+  Garden: communityGardenImg,
+  Walk: mallCircuitImg,
+  Pavilion: potluckPavilionImg,
 };
 
 // Keyed by id -- INVESTMENT_TIERS items are read directly from this array
 // (unlike shop/pool items, they never get a fresh runtime id), so id is safe.
 export const PARCEL_ICON_ASSETS: Record<string, string> = {
-  i1: '/assets/parcels/garden_plot.png',
-  i2: '/assets/parcels/park_bench_sponsor.png',
-  i3: '/assets/parcels/bingo_hall_equity.png',
-  i4: '/assets/parcels/shuttle_van_fleet.png',
-  i5: '/assets/parcels/the_golden_wing.png',
-  i6: '/assets/parcels/park_directorship.png',
+  i1: gardenPlotImg,
+  i2: parkBenchSponsorImg,
+  i3: bingoHallEquityImg,
+  i4: shuttleVanFleetImg,
+  i5: theGoldenWingImg,
+  i6: parkDirectorshipImg,
 };
 
 export const NAV_ITEMS = [

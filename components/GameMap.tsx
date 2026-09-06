@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
-import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, WORLD_PATHS } from '../constants';
+import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, PLAYER_MARKER_IMG, WORLD_PATHS } from '../constants';
 import { 
   PlusCircleIcon, 
   MinusCircleIcon, 
@@ -87,7 +87,7 @@ const GameMap: React.FC<GameMapProps> = ({
 
   const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false, shape: 'circle' | 'square' = 'circle') => {
     const glow = isRoaming ? 'box-shadow: 0 0 15px #4f46e5, 0 0 5px #4f46e5;' : 'box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
-    const isImage = emojiOrSrc.startsWith('/assets/');
+    const isImage = /^(\/|https?:|data:)/.test(emojiOrSrc);
     const outerRadius = shape === 'circle' ? '50%' : '18px';
     const innerRadius = shape === 'circle' ? '50%' : '12px';
     // Circle badges (elders/player) use cover -- portraits are centered and cropping the
@@ -107,7 +107,7 @@ const GameMap: React.FC<GameMapProps> = ({
     });
   };
 
-  const playerIcon = createCustomIcon('/assets/player/player_marker.png', 50, '#4f46e5', true);
+  const playerIcon = createCustomIcon(PLAYER_MARKER_IMG, 50, '#4f46e5', true);
 
   const getParcelColor = (type: string) => {
     switch (type) {
