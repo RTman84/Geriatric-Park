@@ -610,7 +610,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
             disabled={tokens < item.price}
             className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-500 shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
           >
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon name={item.name} icon={item.icon} fill className="p-2" /></div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden p-2 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon name={item.name} icon={item.icon} fill /></div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
                 <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name}</h4>
