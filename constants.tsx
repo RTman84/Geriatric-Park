@@ -59,6 +59,20 @@ import parkDirectorshipImg from './game-assets/parcels/park_directorship.png';
 import playerMarkerImg from './game-assets/player/player_marker.png';
 export const PLAYER_MARKER_IMG = playerMarkerImg;
 
+import earlyBirdImg from './game-assets/achievements/early_bird.png';
+import communityPillarImg from './game-assets/achievements/community_pillar.png';
+import debateChampionImg from './game-assets/achievements/debate_champion.png';
+import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
+
+// Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
+// and only ever have `.completed` toggled, never cloned with a new id.
+export const ACHIEVEMENT_ICON_ASSETS: Record<string, string> = {
+  a1: earlyBirdImg,
+  a2: communityPillarImg,
+  a3: debateChampionImg,
+  a4: wealthyPensionerImg,
+};
+
 export const GAME_VERSION = '1.7.0';
 export const TEAM_SIZE_LIMIT = 6;
 export const BASE_POPULATION_LIMIT = 100;

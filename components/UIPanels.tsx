@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
-  ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
+  ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
   SHUFFLEBOARD_KING_BOOST
@@ -740,7 +740,11 @@ export const QuestPanel: React.FC<{
           {achievements.map(a => (
             <div key={a.id} className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${a.completed ? '' : 'opacity-50 grayscale'}`}>
               <div className="flex items-center gap-4">
-                <span className="text-3xl">{a.icon}</span>
+                {ACHIEVEMENT_ICON_ASSETS[a.id] ? (
+                  <img src={ACHIEVEMENT_ICON_ASSETS[a.id]} alt={a.title} className="w-14 h-14 object-contain flex-shrink-0" />
+                ) : (
+                  <span className="text-3xl">{a.icon}</span>
+                )}
                 <div className="flex-1">
                   <h4 className={`font-black text-sm uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{a.title}</h4>
                   <p className="text-[10px] text-slate-500">{a.description}</p>
