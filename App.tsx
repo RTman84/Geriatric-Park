@@ -12,7 +12,7 @@ import { isCloudAccountsConfigured, supabase } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { 
-  Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon
+  Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon
 } from '@heroicons/react/24/solid';
 import { 
   Elder, 
@@ -66,6 +66,9 @@ import {
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
+  getUnlockedCosmetics,
+  resolveProfileDisplay,
+  isImagePath,
   SCRAP_BASE_TICKETS,
 } from './constants';
 
@@ -145,6 +148,8 @@ const INITIAL_STATE: GameState = {
   adUsage: { count: 0, lastReset: Date.now() },
   profileColor: '#4f46e5',
   parkTheme: 'Classic',
+  selectedAccountIcon: '',
+  selectedTitle: '',
   mailbox: [
     { id: 'm1', sender: 'Park Admin', subject: 'Park Keys!', body: 'Welcome to the management team. Here is your starter bonus!', reward: { type: 'Tokens', value: 50 }, claimed: false, timestamp: Date.now() }
   ],
@@ -171,6 +176,7 @@ const App: React.FC = () => {
   const [wildElders, setWildElders] = useState<Elder[]>([]);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProfilePicker, setShowProfilePicker] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isEventPlaying, setIsEventPlaying] = useState(false);
   const [eventResult, setEventResult] = useState<string | null>(null);
@@ -1164,17 +1170,30 @@ const App: React.FC = () => {
       <div className={`w-full max-w-lg h-full flex flex-col shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`} title={getRankForLevel(state.level).title}>{getRankForLevel(state.level).icon}</div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase">LVL {state.level}</span>
-                <span className="text-[8px] font-black uppercase text-indigo-500 tracking-widest">{getRankForLevel(state.level).title}</span>
-                <button onClick={() => setShowSettings(true)} className="p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
-              </div>
-              <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                <div className="h-full bg-indigo-500" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
-              </div>
-            </div>
+            {(() => {
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle);
+              return (
+                <>
+                  <button
+                    onClick={() => setShowProfilePicker(true)}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg overflow-hidden ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`}
+                    title="Change profile icon & title"
+                  >
+                    {isImagePath(display.icon) ? <img src={display.icon} alt={display.title} className="w-full h-full object-cover" /> : display.icon}
+                  </button>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase">LVL {state.level}</span>
+                      <button onClick={() => setShowProfilePicker(true)} className="text-[8px] font-black uppercase text-indigo-500 tracking-widest">{display.title}</button>
+                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
+                    </div>
+                    <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                      <div className="h-full bg-indigo-500" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
@@ -1307,6 +1326,54 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {showProfilePicker && (() => {
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements);
+          const currentRank = getRankForLevel(state.level);
+          const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
+          const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
+          return (
+            <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+              <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">Profile</h2>
+                  <button onClick={() => setShowProfilePicker(false)} className="text-slate-400 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                </div>
+
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">Icon</h3>
+                <div className="grid grid-cols-4 gap-3 mb-8">
+                  {unlocked.map(c => (
+                    <button
+                      key={`icon-${c.key}`}
+                      onClick={() => setState(p => ({ ...p, selectedAccountIcon: c.key }))}
+                      title={c.title}
+                      className={`aspect-square rounded-2xl flex items-center justify-center text-2xl overflow-hidden border-2 transition-all ${activeIconKey === c.key ? 'border-indigo-500 ring-2 ring-indigo-500' : isDark ? 'border-slate-800 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}
+                    >
+                      {isImagePath(c.icon) ? <img src={c.icon} alt={c.title} className="w-full h-full object-cover" /> : c.icon}
+                    </button>
+                  ))}
+                </div>
+
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">Title</h3>
+                <div className="space-y-2 mb-4">
+                  {unlocked.map(c => (
+                    <button
+                      key={`title-${c.key}`}
+                      onClick={() => setState(p => ({ ...p, selectedTitle: c.key }))}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600'}`}
+                    >
+                      {c.title}
+                      {activeTitleKey === c.key && <CheckCircleIcon className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-[10px] text-slate-500 mb-6">Unlocked by reaching ranks and completing achievements. Icon and title can be mixed independently.</p>
+                <button onClick={() => setShowProfilePicker(false)} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
+              </div>
+            </div>
+          );
+        })()}
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">

@@ -154,6 +154,10 @@ export interface GameState {
   };
   profileColor: string;
   parkTheme: string;
+  // '' means "use current rank" (default, no regression for existing players).
+  // Otherwise a cosmetic key from getUnlockedCosmetics, e.g. 'achievement:a1'.
+  selectedAccountIcon: string;
+  selectedTitle: string;
   mailbox: MailMessage[];
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;

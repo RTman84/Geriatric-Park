@@ -112,6 +112,10 @@ export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legen
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
 export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
+export function isImagePath(src: string): boolean {
+  return /^(\/|https?:|data:)/.test(src);
+}
+
 export const RANK_TIERS: { minLevel: number, title: string, icon: string }[] = [
   { minLevel: 1,  title: 'Newcomer', icon: '🌱' },
   { minLevel: 5,  title: 'Regular',  icon: '🎯' },
@@ -126,6 +130,42 @@ export function getRankForLevel(level: number): { title: string, icon: string } 
     if (level >= tier.minLevel) rank = tier;
   }
   return rank;
+}
+
+// A cosmetic is one unlocked {icon, title} pair the player can pick from --
+// currently sourced from rank tiers already reached (ranks are never "lost"
+// on further leveling) and completed achievements. Icon and title are chosen
+// independently in the profile picker, so `key` identifies one axis at a time
+// (e.g. a player can show the Legend rank icon with the Early Bird title).
+export interface UnlockedCosmetic { key: string; icon: string; title: string; }
+
+export function getUnlockedCosmetics(level: number, achievements: Achievement[]): UnlockedCosmetic[] {
+  const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
+    .filter(t => level >= t.minLevel)
+    .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
+  const achievementUnlocks: UnlockedCosmetic[] = achievements
+    .filter(a => a.completed)
+    .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
+  return [...rankUnlocks, ...achievementUnlocks];
+}
+
+// Resolves what to actually show in the header: the player's chosen icon/title
+// if they picked one and it's still unlocked, otherwise falls back to their
+// current rank -- so an unset or since-invalidated selection never breaks.
+export function resolveProfileDisplay(
+  level: number,
+  achievements: Achievement[],
+  selectedAccountIcon: string,
+  selectedTitle: string
+): { icon: string; title: string } {
+  const unlocked = getUnlockedCosmetics(level, achievements);
+  const rank = getRankForLevel(level);
+  const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
+  const titleMatch = unlocked.find(c => c.key === selectedTitle);
+  return {
+    icon: iconMatch ? iconMatch.icon : rank.icon,
+    title: titleMatch ? titleMatch.title : rank.title,
+  };
 }
 
 export const INVESTMENT_TIERS = [
