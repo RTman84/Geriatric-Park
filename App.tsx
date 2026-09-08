@@ -70,6 +70,8 @@ import {
   resolveProfileDisplay,
   isImagePath,
   SCRAP_BASE_TICKETS,
+  REINVEST_YIELD_TO_RATE,
+  getYieldExchangeRate,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -107,6 +109,7 @@ const INITIAL_STATE: GameState = {
   isLinkedToGoogle: false,
   googleEmail: undefined,
   pensionBalance: 0.00,
+  pendingYield: 0.00,
   communityReserve: 5.00,
   earningsBreakdown: { passive: 0, active: 0, sponsorship: 0 },
   legacyTokens: 200,
@@ -241,16 +244,15 @@ const App: React.FC = () => {
         const now = Date.now();
         const elapsedMs = now - prev.lastActiveTime;
         const accrued = calculatePassiveIncome(prev, elapsedMs);
-        // Reserve cap (stopgap): PP credited here must never exceed remaining
-        // Community Reserve headroom, same Math.min pattern handleClaimDividend
-        // already uses. Without this, the passive tick was the one PP-creation
-        // path with no connection to real ad revenue — see economic plan addendum.
-        const earned = Math.min(accrued, prev.communityReserve);
+        // Pending Yield split (economic plan addendum, 9-7-26): the passive
+        // tick credits pendingYield, an uncapped "earning power" number that
+        // isn't a cash liability, instead of pensionBalance directly. It only
+        // becomes real, reserve-capped PP when the player chooses to Cash Out
+        // (or Reinvest into pensionRate) from the Bank panel. This replaces
+        // the earlier reserve-cap-on-accrual stopgap.
         return {
           ...prev,
-          pensionBalance: prev.pensionBalance + earned,
-          communityReserve: Math.max(0, prev.communityReserve - earned),
-          earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + earned },
+          pendingYield: prev.pendingYield + accrued,
           lastActiveTime: now,
         };
       });
@@ -266,16 +268,11 @@ const App: React.FC = () => {
       const elapsedMs = now - prev.lastActiveTime;
       if (elapsedMs < 60 * 1000) return prev;
       const accrued = calculatePassiveIncome(prev, elapsedMs);
-      // Same reserve cap as the live passive tick above — offline catchup must
-      // not be a second uncapped mint point.
-      const earned = Math.min(accrued, prev.communityReserve);
       const offlineHours = Math.min(elapsedMs / (60 * 60 * 1000), 8).toFixed(1);
-      console.log(`[Passive] Away ${offlineHours}hrs — credited ${earned.toFixed(5)} PP`);
+      console.log(`[Passive] Away ${offlineHours}hrs — accrued ${accrued.toFixed(5)} Pending Yield`);
       return {
         ...prev,
-        pensionBalance: prev.pensionBalance + earned,
-        communityReserve: Math.max(0, prev.communityReserve - earned),
-        earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + earned },
+        pendingYield: prev.pendingYield + accrued,
         lastActiveTime: now,
       };
     });
@@ -683,6 +680,46 @@ const App: React.FC = () => {
     }));
     alert(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(3)} PP and ${tokenBonus} 🎟️!`);
   }, [state.lastDividendClaim, state.communityReserve, state.parkCommunityScore, state.settings.sfxEnabled]);
+
+  // Cash Out: converts Pending Yield into real, cash-eligible pensionBalance.
+  // Reserve-capped exactly like handleClaimDividend — this is the only path
+  // (besides Dividend) that ever touches communityReserve. When the reserve
+  // is thin, getYieldExchangeRate returns a lower rate rather than silently
+  // failing, so the shortfall is visible; any yield the rate/reserve couldn't
+  // cover simply stays in pendingYield for next time, never lost.
+  const handleCashOutYield = useCallback(() => {
+    if (state.pendingYield <= 0) { alert("No Pending Yield to cash out yet — it builds up automatically over time."); return; }
+    const rate = getYieldExchangeRate(state.communityReserve);
+    const yieldConsumed = Math.min(state.pendingYield, rate > 0 ? state.communityReserve / rate : 0);
+    const payout = yieldConsumed * rate;
+    if (payout <= 0) { alert("Community Reserve is empty right now — watch a local ad to help refill it, then try cashing out again."); return; }
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => ({
+      ...prev,
+      pendingYield: prev.pendingYield - yieldConsumed,
+      pensionBalance: prev.pensionBalance + payout,
+      communityReserve: Math.max(0, prev.communityReserve - payout),
+      earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + payout },
+    }));
+    const rateNote = rate < 1 ? ` (reserve is thin, so the rate was ${(rate * 100).toFixed(0)}%)` : '';
+    alert(`Cashed out ${payout.toFixed(3)} PP${rateNote}.${yieldConsumed < state.pendingYield ? ' The rest of your Pending Yield is still waiting.' : ''}`);
+  }, [state.pendingYield, state.communityReserve, state.settings.sfxEnabled]);
+
+  // Reinvest: converts Pending Yield straight into pensionRate at a more
+  // generous ratio than Cash Out, since it never touches the Community
+  // Reserve and creates zero cash liability — the game can afford to be
+  // generous here, per the economic plan addendum.
+  const handleReinvestYield = useCallback(() => {
+    if (state.pendingYield <= 0) { alert("No Pending Yield to reinvest yet — it builds up automatically over time."); return; }
+    const rateGain = state.pendingYield / REINVEST_YIELD_TO_RATE;
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => ({
+      ...prev,
+      pendingYield: 0,
+      pensionRate: prev.pensionRate + rateGain,
+    }));
+    alert(`Reinvested! Pension Rate increased by ${(rateGain * 3600).toFixed(4)} PP/hour.`);
+  }, [state.pendingYield, state.settings.sfxEnabled]);
 
   const handleInvest = useCallback((investment: any) => {
     if (state.pensionBalance < investment.cost) { alert("Insufficient Pension Balance! Watch local ads or claim dividends to earn more."); return; }
@@ -1258,7 +1295,9 @@ const App: React.FC = () => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
             alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
-          }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil} />}
+          }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
+            pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield} onReinvestYield={handleReinvestYield}
+          />}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
               isDark={isDark}

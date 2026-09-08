@@ -110,6 +110,24 @@ export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legen
   Common: 1, Rare: 2, Epic: 4, Legendary: 8,
 };
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
+
+// ─── Pending Yield conversion (economic sustainability addendum, 9-7-26) ──────
+// The passive tick credits pendingYield, not pensionBalance directly — it's an
+// uncapped "earning power" number, not a cash liability, so it can accrue
+// freely. Converting it into real PP happens through one of two player-chosen
+// paths in the Bank panel:
+export const RESERVE_HEALTHY_THRESHOLD = 5.00;  // reserve level at/above which Cash Out pays 1:1
+export const MIN_CASHOUT_EXCHANGE_RATE = 0.25;  // floor rate when the reserve is thin, never zero
+export const REINVEST_YIELD_TO_RATE    = 40000; // PP of yield spent per +1 pensionRate unit when reinvesting
+                                                 // (more generous than the cheapest Investment Tier's
+                                                 // ~50,000:1, since reinvesting never touches the reserve)
+
+// Cash Out rate scales linearly with reserve health between the floor and 1:1,
+// so a thin reserve is communicated as a lower rate rather than a hidden cap.
+export function getYieldExchangeRate(reserve: number): number {
+  if (reserve <= 0) return MIN_CASHOUT_EXCHANGE_RATE;
+  return Math.min(1, Math.max(MIN_CASHOUT_EXCHANGE_RATE, reserve / RESERVE_HEALTHY_THRESHOLD));
+}
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
 export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
 export function isImagePath(src: string): boolean {

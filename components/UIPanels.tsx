@@ -4,7 +4,8 @@ import {
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
-  SHUFFLEBOARD_KING_BOOST
+  SHUFFLEBOARD_KING_BOOST, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
+  REINVEST_YIELD_TO_RATE
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -110,10 +111,14 @@ export const BankPanel: React.FC<{
   balance: number, reserve: number, breakdown: any, rate: number, 
   onWithdraw: () => void, adCount: number, onWatchAdTrigger: () => void, 
   onInvest: (item: any) => void, isDark: boolean, boostUntil?: number,
-  onWatchAd?: (playerShare: number, communityShare: number) => void
-}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil }) => {
+  onWatchAd?: (playerShare: number, communityShare: number) => void,
+  pendingYield?: number, onCashOutYield?: () => void, onReinvestYield?: () => void
+}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield, onReinvestYield }) => {
   const adsLeft = MAX_ADS_PER_HOUR - adCount;
   const [boostRemaining, setBoostRemaining] = useState<number>(0);
+  const exchangeRate = getYieldExchangeRate(reserve);
+  const reserveHealthLabel = reserve >= RESERVE_HEALTHY_THRESHOLD ? 'Healthy' : reserve > 0 ? 'Thin' : 'Empty';
+  const reserveHealthColor = reserve >= RESERVE_HEALTHY_THRESHOLD ? 'text-emerald-500' : reserve > 0 ? 'text-amber-500' : 'text-rose-500';
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -150,11 +155,47 @@ export const BankPanel: React.FC<{
         </div>
       </div>
 
+      {/* Pending Yield */}
+      <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="flex justify-between items-start mb-1">
+          <div>
+            <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Pending Yield</h3>
+            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-1">Always growing — convert it below</p>
+          </div>
+          <span className="text-indigo-500 font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mt-6">
+          <button
+            onClick={onCashOutYield}
+            disabled={pendingYield <= 0}
+            className={`py-4 rounded-2xl uppercase text-[10px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+          >
+            <span>Cash Out</span>
+            <span className="text-[8px] opacity-80 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate</span>
+          </button>
+          <button
+            onClick={onReinvestYield}
+            disabled={pendingYield <= 0}
+            className={`py-4 rounded-2xl uppercase text-[10px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+          >
+            <span>Reinvest</span>
+            <span className="text-[8px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * 3600).toFixed(4)} PP/hr</span>
+          </button>
+        </div>
+        <p className="text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic mt-4">
+          Cash Out pays real PP, capped by Community Reserve health. Reinvest boosts your rate for free — no reserve cost.
+        </p>
+      </div>
+
       {/* Community Reserve */}
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
           <span className="text-emerald-500 font-black text-sm">{reserve.toFixed(3)} PP</span>
+        </div>
+        <div className="flex justify-between items-center mb-2">
+          <span className={`text-[9px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
         </div>
         <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">20% of all ad revenue funds the weekly prize pool</p>
       </div>

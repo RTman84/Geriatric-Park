@@ -115,6 +115,7 @@ export interface GameState {
   isLinkedToGoogle: boolean;
   googleEmail?: string;
   pensionBalance: number;
+  pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out / Reinvest
   communityReserve: number; 
   earningsBreakdown: {
     passive: number;
