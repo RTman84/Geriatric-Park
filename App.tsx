@@ -240,10 +240,16 @@ const App: React.FC = () => {
       setState(prev => {
         const now = Date.now();
         const elapsedMs = now - prev.lastActiveTime;
-        const earned = calculatePassiveIncome(prev, elapsedMs);
+        const accrued = calculatePassiveIncome(prev, elapsedMs);
+        // Reserve cap (stopgap): PP credited here must never exceed remaining
+        // Community Reserve headroom, same Math.min pattern handleClaimDividend
+        // already uses. Without this, the passive tick was the one PP-creation
+        // path with no connection to real ad revenue — see economic plan addendum.
+        const earned = Math.min(accrued, prev.communityReserve);
         return {
           ...prev,
           pensionBalance: prev.pensionBalance + earned,
+          communityReserve: Math.max(0, prev.communityReserve - earned),
           earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + earned },
           lastActiveTime: now,
         };
@@ -259,12 +265,16 @@ const App: React.FC = () => {
       const now = Date.now();
       const elapsedMs = now - prev.lastActiveTime;
       if (elapsedMs < 60 * 1000) return prev;
-      const earned = calculatePassiveIncome(prev, elapsedMs);
+      const accrued = calculatePassiveIncome(prev, elapsedMs);
+      // Same reserve cap as the live passive tick above — offline catchup must
+      // not be a second uncapped mint point.
+      const earned = Math.min(accrued, prev.communityReserve);
       const offlineHours = Math.min(elapsedMs / (60 * 60 * 1000), 8).toFixed(1);
       console.log(`[Passive] Away ${offlineHours}hrs — credited ${earned.toFixed(5)} PP`);
       return {
         ...prev,
         pensionBalance: prev.pensionBalance + earned,
+        communityReserve: Math.max(0, prev.communityReserve - earned),
         earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + earned },
         lastActiveTime: now,
       };
