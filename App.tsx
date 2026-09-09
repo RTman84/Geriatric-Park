@@ -72,6 +72,15 @@ import {
   SCRAP_BASE_TICKETS,
   REINVEST_YIELD_TO_RATE,
   getYieldExchangeRate,
+  ELDER_XP_FOR_LEVEL_UP,
+  getBaseComfortGeneration,
+  ELDER_EVOLUTION_STAGE1_LEVEL,
+  ELDER_EVOLUTION_STAGE2_LEVEL,
+  ELDER_EVOLUTION_STAGE2_ELITE_RARITIES,
+  EVOLUTION_STAGE1_COST,
+  EVOLUTION_STAGE2_COST,
+  EVOLUTION_STAGE2_STEEP_COST,
+  EVOLUTION_STAT_MULTIPLIER,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -82,7 +91,10 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
     e => e.captured && (e.status === 'Team' || e.status === 'Porch')
   );
   rate += activeElders.reduce((sum, e) => sum + (e.comfortGeneration * ELDER_COMFORT_RATE), 0);
-  rate += state.ownedParcels.length * PARCEL_RENT_RATE;
+  // Parcel rent used to also add a flat PARCEL_RENT_RATE per owned parcel here,
+  // on top of the rarity-scaled bonus handleBuyParcel already folds into
+  // pensionRate at purchase time -- that was a double-accrual bug (Phase 1 fix,
+  // 9-8-26 evolution spec). The parcel's contribution now lives in pensionRate only.
   const isShuffleboardKing = state.shuffleboard.currentKing?.id === 'player';
   if (isShuffleboardKing) rate *= SHUFFLEBOARD_KING_BOOST;
   const isAdBoosted = state.boostUntil > Date.now();
@@ -97,11 +109,41 @@ const NAMES = ["Arthur", "Ethel", "Barnaby", "Mildred", "Harold", "Gertrude", "M
 // uses identical leveling math (previously several handlers added XP
 // without ever checking for a level-up, so the bar could fill without
 // the level actually increasing).
-function applyXpGain(xp: number, level: number, amount: number): { xp: number; level: number } {
+function applyXpGain(xp: number, level: number, amount: number, threshold: number = XP_FOR_LEVEL_UP): { xp: number; level: number } {
   let nextXp = xp + amount;
   let nextLevel = level;
-  while (nextXp >= XP_FOR_LEVEL_UP) { nextXp -= XP_FOR_LEVEL_UP; nextLevel++; }
+  while (nextXp >= threshold) { nextXp -= threshold; nextLevel++; }
   return { xp: nextXp, level: nextLevel };
+}
+
+// Grants Elder XP (reusing the same generic applyXpGain curve as the player,
+// just with ELDER_XP_FOR_LEVEL_UP as its own independently-tunable threshold),
+// and applies the previously-orphaned STAT_BONUS_PER_LEVEL on every level gained.
+// Full-heals the Elder on level-up as part of the reward.
+function grantElderXp(elder: Elder, amount: number): Elder {
+  const { xp: nextXp, level: nextLevel } = applyXpGain(elder.xp ?? 0, elder.level, amount, ELDER_XP_FOR_LEVEL_UP);
+  const levelsGained = nextLevel - elder.level;
+  if (levelsGained <= 0) return { ...elder, xp: nextXp };
+  const statBonus = STAT_BONUS_PER_LEVEL * levelsGained;
+  const nextMaxHp = elder.maxHp + statBonus * 2;
+  return {
+    ...elder,
+    xp: nextXp,
+    level: nextLevel,
+    strength: elder.strength + statBonus,
+    wit: elder.wit + statBonus,
+    agility: elder.agility + Math.ceil(statBonus / 2),
+    tenacity: elder.tenacity + Math.ceil(statBonus / 2),
+    maxHp: nextMaxHp,
+    hp: nextMaxHp,
+  };
+}
+
+// Grants Elder XP to every Elder currently on the active Team (the squad that
+// "participated"), used by activities that don't pass an explicit roster
+// (Shuffleboard Auto-Play/Tournament/Challenge).
+function grantElderXpToTeam(elders: Elder[], amount: number): Elder[] {
+  return elders.map(e => (e.status === 'Team' ? grantElderXp(e, amount) : e));
 }
 
 const INITIAL_STATE: GameState = {
@@ -321,14 +363,16 @@ const App: React.FC = () => {
           spawnLat = p1.lat + (p2.lat - p1.lat) * pathProgress;
           spawnLng = p1.lng + (p2.lng - p1.lng) * pathProgress;
         }
+        const wildRarity: 'Common' | 'Rare' | 'Epic' = Math.random() > 0.8 ? 'Epic' : Math.random() > 0.5 ? 'Rare' : 'Common';
         return {
           id: 'wild_' + Math.random().toString(36).substr(2, 9),
           name: NAMES[Math.floor(Math.random() * NAMES.length)],
           type,
           powerType: [PowerType.PHYSICAL, PowerType.SOCIAL, PowerType.TECH][Math.floor(Math.random() * 3)],
           level: Math.floor(Math.random() * 5) + 1,
-          rarity: Math.random() > 0.8 ? 'Epic' : Math.random() > 0.5 ? 'Rare' : 'Common',
-          bio: '', comfortGeneration: 0.0001, captured: false,
+          rarity: wildRarity,
+          bio: '', comfortGeneration: getBaseComfortGeneration(wildRarity), captured: false,
+          xp: 0, evolutionStage: 0,
           lat: spawnLat, lng: spawnLng,
           happiness: 100, hp: 80, maxHp: 80, strength: 10, wit: 10, agility: 8, tenacity: 8,
           equipment: {}, status: 'Base', isRoaming: true, pathId, pathProgress,
@@ -425,6 +469,18 @@ const App: React.FC = () => {
     return { ...s, season };
   };
 
+  // Safe-default Elder fields added after existing saves were created (xp,
+  // evolutionStage) -- same pattern as the ...INITIAL_STATE spread for GameState
+  // itself, just applied one level deeper since Elders live in an array.
+  const migrateElders = (s: GameState): GameState => ({
+    ...s,
+    allElders: (s.allElders || []).map(e => ({
+      xp: 0,
+      evolutionStage: 0 as 0 | 1 | 2,
+      ...e,
+    })),
+  });
+
   // Load save
   useEffect(() => {
     try {
@@ -432,7 +488,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          const hydrated = applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION }));
+          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION })));
           prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
           setState(hydrated);
         }
@@ -479,7 +535,7 @@ const App: React.FC = () => {
       if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
-        const hydrated = applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION }));
+        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION })));
         prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
         setState(hydrated);
       }
@@ -820,6 +876,7 @@ const App: React.FC = () => {
         ...prev,
         legacyTokens: prev.legacyTokens + tokensEarned,
         xp, level,
+        allElders: grantElderXpToTeam(prev.allElders, won ? 30 : 10),
         parkCommunityScore: prev.parkCommunityScore + (won ? 15 : 5),
         passiveMatchAt: Date.now() + 10 * 60 * 1000,
       };
@@ -836,6 +893,7 @@ const App: React.FC = () => {
         ...prev,
         tournamentScore: Math.max(prev.tournamentScore, score),
         xp, level,
+        allElders: grantElderXpToTeam(prev.allElders, 20),
         legacyTokens: prev.legacyTokens + 10,
       };
     });
@@ -853,6 +911,7 @@ const App: React.FC = () => {
         ...prev,
         legacyTokens: prev.legacyTokens + (won ? stakeTokens : -stakeTokens),
         xp, level,
+        allElders: grantElderXpToTeam(prev.allElders, won ? 35 : 8),
         parkCommunityScore: prev.parkCommunityScore + (won ? 20 : 5),
       };
     });
@@ -1025,6 +1084,62 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
   }, [state.settings.sfxEnabled]);
 
+  // Evolution (Phase 4, 9-8-26 evolution spec). Stage 0->1 is level-gated only.
+  // Stage 1->2 is level-gated for everyone, but Common/Rare pay a much steeper
+  // Ticket cost than Epic/Legendary -- never a hard rarity wall, just a cheaper
+  // path for rarer Elders. Art stays at stage-0 sprites until the evolution art
+  // pass is done (ELDER_AVATARS[type][1]/[2] currently duplicate [0]); stats and
+  // comfortGeneration update correctly regardless.
+  const handleEvolveElder = useCallback((elderId: string) => {
+    setState(prev => {
+      const elder = prev.allElders.find(e => e.id === elderId);
+      if (!elder) return prev;
+      const stage = elder.evolutionStage ?? 0;
+      if (stage >= 2) { alert('Already fully evolved!'); return prev; }
+      const nextStage = (stage + 1) as 1 | 2;
+
+      if (nextStage === 1 && elder.level < ELDER_EVOLUTION_STAGE1_LEVEL) {
+        alert(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE1_LEVEL} to evolve.`);
+        return prev;
+      }
+      let cost = EVOLUTION_STAGE1_COST;
+      if (nextStage === 2) {
+        if (elder.level < ELDER_EVOLUTION_STAGE2_LEVEL) {
+          alert(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE2_LEVEL} to evolve.`);
+          return prev;
+        }
+        const isEliteRarity = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(elder.rarity);
+        cost = isEliteRarity ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST;
+      }
+      if (prev.legacyTokens < cost) {
+        alert(`Evolving ${elder.name} needs ${cost} 🎟️ Tickets.`);
+        return prev;
+      }
+
+      const multiplier = EVOLUTION_STAT_MULTIPLIER[nextStage];
+      if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens - cost,
+        allElders: prev.allElders.map(e => {
+          if (e.id !== elderId) return e;
+          const nextMaxHp = Math.round(e.maxHp * multiplier);
+          return {
+            ...e,
+            evolutionStage: nextStage,
+            strength: Math.round(e.strength * multiplier),
+            wit: Math.round(e.wit * multiplier),
+            agility: Math.round(e.agility * multiplier),
+            tenacity: Math.round(e.tenacity * multiplier),
+            maxHp: nextMaxHp,
+            hp: nextMaxHp,
+            comfortGeneration: e.comfortGeneration * multiplier,
+          };
+        }),
+      };
+    });
+  }, [state.settings.sfxEnabled]);
+
   const handleExportSave = () => {
     const dataStr = JSON.stringify(state);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
@@ -1083,7 +1198,10 @@ const App: React.FC = () => {
     const opponent = battleOpponent?.elder;
     setState(prev => {
       const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, 300);
-      let nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
+      let nextAllElders = prev.allElders.map(e => {
+        const updated = updatedTeam.find(ut => ut.id === e.id);
+        return updated ? grantElderXp(updated, 40) : e;
+      });
       return {
         ...prev, level: nextLevel, xp: nextXp, allElders: nextAllElders,
         parkCommunityScore: prev.parkCommunityScore + 10,
@@ -1183,13 +1301,20 @@ const App: React.FC = () => {
   const isDark = state.settings.darkTheme;
   const unreadMailCount = useMemo(() => state.mailbox.filter(m => !m.claimed).length, [state.mailbox]);
 
-  // Passive income breakdown for BasePanel
+  // Passive income breakdown for BasePanel/BankPanel.
+  // Parcels' rate contribution is already folded into pensionRate at purchase
+  // time (handleBuyParcel) -- there's no separate flat accrual anymore (Phase 1
+  // fix, 9-8-26 evolution spec). The "parcels" line below is purely informational:
+  // it's the sum of each owned parcel's individual pensionBonus, pulled back out
+  // of pensionRate for display, so "base" + "elders" + "parcels" still adds up to
+  // the real total rate without double-counting anything.
   const passiveBreakdown = useMemo(() => {
     const activeElders = state.allElders.filter(e => e.captured && (e.status === 'Team' || e.status === 'Porch'));
+    const parcelBonusSum = state.ownedParcels.reduce((sum, p) => sum + p.pensionBonus, 0);
     return {
-      base: INITIAL_PENSION_RATE + state.pensionRate,
+      base: INITIAL_PENSION_RATE + state.pensionRate - parcelBonusSum,
       elders: activeElders.reduce((sum, e) => sum + (e.comfortGeneration * ELDER_COMFORT_RATE), 0),
-      parcels: state.ownedParcels.length * PARCEL_RENT_RATE,
+      parcels: parcelBonusSum,
     };
   }, [state.allElders, state.pensionRate, state.ownedParcels]);
 
@@ -1270,7 +1395,7 @@ const App: React.FC = () => {
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
-          {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} />}
+          {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return alert("Not enough tokens!");
@@ -1291,7 +1416,7 @@ const App: React.FC = () => {
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
-          {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={state.pensionRate} onWithdraw={() => {
+          {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.elders + passiveBreakdown.parcels} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
             alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));

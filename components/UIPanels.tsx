@@ -5,7 +5,10 @@ import {
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
   SHUFFLEBOARD_KING_BOOST, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
-  REINVEST_YIELD_TO_RATE
+  REINVEST_YIELD_TO_RATE,
+  ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
+  ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
+  EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -467,7 +470,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Active Lineup</p>
             {team.slice(0, 3).map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <ElderAvatarImg type={e.type} size={32} />
+                <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
                 <span className="text-[10px] font-black uppercase flex-1">{e.name}</span>
                 <span className="text-[9px] text-indigo-500 font-black">PWR {e.strength + e.tenacity}</span>
               </div>
@@ -967,7 +970,7 @@ export const BasePanel: React.FC<{
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
               {elders.map(e => (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-indigo-500`}>
-                  <ElderAvatarImg type={e.type} size={48} />
+                  <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={48} />
                   <div className={`flex-1 text-left min-w-0 text-[12px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
                 </button>
               ))}
@@ -984,7 +987,7 @@ export const BasePanel: React.FC<{
           {elders.map(e => (
             <div key={e.id} className={`p-6 rounded-[3rem] border shadow-sm flex flex-col gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} fill className="rounded-2xl" /></div>
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
@@ -1017,29 +1020,48 @@ export const BasePanel: React.FC<{
 
 // ─── Team Panel ───────────────────────────────────────────────────────────────
 
-export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean }> = ({ elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark }) => {
+export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, legacyTokens?: number }> = ({ elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
   const team = elders.filter(e => e.status === 'Team');
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <h2 className={`text-3xl font-black uppercase mb-8 italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
       <div className="space-y-6">
-        {team.map(e => (
+        {team.map(e => {
+          const stage = e.evolutionStage ?? 0;
+          const xp = e.xp ?? 0;
+          const nextLevelNeeded = stage >= 2 ? null : stage === 0 ? ELDER_EVOLUTION_STAGE1_LEVEL : ELDER_EVOLUTION_STAGE2_LEVEL;
+          const isEliteRarity = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(e.rarity);
+          const evolveCost = stage === 0 ? EVOLUTION_STAGE1_COST : (isEliteRarity ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST);
+          const meetsLevel = nextLevelNeeded !== null && e.level >= nextLevelNeeded;
+          const canAffordEvolve = legacyTokens >= evolveCost;
+          return (
           <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-indigo-500/20' : 'bg-white border-indigo-100'}`}>
             <div className="flex items-center gap-6">
-              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} fill /></div>
+              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} stage={stage} fill /></div>
               <div className="flex-1 min-w-0 text-left">
-                <h4 className="font-black text-base uppercase leading-none truncate">{e.name}</h4>
-                <p className="text-[9px] text-slate-400 mt-1">Comfort Gen: {e.comfortGeneration.toFixed(4)}</p>
-                <div className="flex gap-2 mt-2">
+                <h4 className="font-black text-base uppercase leading-none truncate">{e.name} <span className="opacity-40 text-[10px]">Lv.{e.level}</span></h4>
+                <p className="text-[9px] text-slate-400 mt-1">Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{ELDER_XP_FOR_LEVEL_UP}</p>
+                <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
                   {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Neighborhood Lead</button>}
+                  {onEvolve && stage < 2 && (
+                    <button
+                      onClick={() => onEvolve(e.id)}
+                      disabled={!meetsLevel || !canAffordEvolve}
+                      title={!meetsLevel ? `Needs level ${nextLevelNeeded}` : !canAffordEvolve ? `Needs ${evolveCost} Tickets` : `Evolve to stage ${stage + 1}`}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg ${meetsLevel && canAffordEvolve ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                    >
+                      Evolve {meetsLevel ? `(${evolveCost} 🎟️)` : `(Lv.${nextLevelNeeded})`}
+                    </button>
+                  )}
+                  {stage >= 2 && <span className="px-4 py-2 rounded-xl text-[9px] font-black uppercase bg-amber-100 text-amber-600">Fully Evolved</span>}
                 </div>
               </div>
             </div>
             <HealthBar hp={e.hp} maxHp={e.maxHp} isDark={isDark} />
             <StatsGrid elder={e} isDark={isDark} />
           </div>
-        ))}
+        );})}
         {team.length === 0 && <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black tracking-widest leading-relaxed">Squad is empty. Assign elders in the Park Hub.</div>}
       </div>
     </div>

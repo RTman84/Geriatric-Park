@@ -88,6 +88,35 @@ export const SEASON_XP_PER_LEVEL = 1000;
 export const TRAINING_BASE_COST = 50; 
 export const STAT_BONUS_PER_LEVEL = 5;
 
+// ─── Elder progression (evolution spec, Phases 2-4) ───────────────────────────
+// Elder XP uses a separate, smaller threshold than the player's XP_FOR_LEVEL_UP
+// so the two curves can be tuned independently (multiple Elders level up per
+// activity, so their curve needs to be shallower).
+export const ELDER_XP_FOR_LEVEL_UP = 150;
+
+// Base comfortGeneration is now rarity-scaled instead of a flat 0.0001 for
+// every Elder (see getBaseComfortGeneration below).
+export const BASE_COMFORT_GENERATION = 0.0001;
+export const ELDER_COMFORT_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 1, Rare: 1.5, Epic: 2.5, Legendary: 5,
+};
+export function getBaseComfortGeneration(rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'): number {
+  return BASE_COMFORT_GENERATION * ELDER_COMFORT_RARITY_MULTIPLIER[rarity];
+}
+
+// Evolution: stage 0 -> 1 is level-gated only (open to every rarity). Stage
+// 1 -> 2 is level-gated for everyone, but costs far more Tickets unless the
+// Elder is Epic/Legendary rarity -- the "hybrid" model: never a hard rarity
+// wall, but rarity is the cheaper path.
+export const ELDER_EVOLUTION_STAGE1_LEVEL = 10;
+export const ELDER_EVOLUTION_STAGE2_LEVEL = 25;
+export const ELDER_EVOLUTION_STAGE2_ELITE_RARITIES: Array<'Epic' | 'Legendary'> = ['Epic', 'Legendary'];
+export const EVOLUTION_STAGE1_COST = TRAINING_BASE_COST * 10;       // 500 Tickets
+export const EVOLUTION_STAGE2_COST = TRAINING_BASE_COST * 20;       // 1000 Tickets (Epic/Legendary)
+export const EVOLUTION_STAGE2_STEEP_COST = TRAINING_BASE_COST * 50; // 2500 Tickets (Common/Rare grind path)
+// Multiplier applied once, at the moment of evolving, to stats/comfortGeneration.
+export const EVOLUTION_STAT_MULTIPLIER: Record<1 | 2, number> = { 1: 1.3, 2: 1.75 };
+
 export const REVENUE_SPLIT = {
   player: 0.70,     
   community: 0.20,  

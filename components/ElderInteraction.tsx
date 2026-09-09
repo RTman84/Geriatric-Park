@@ -65,7 +65,7 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
                 🧭 Guide to Geriatric Park
               </div>
               <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-inner animate-pulse overflow-hidden">
-                <ElderAvatarImg type={elder.type} fill />
+                <ElderAvatarImg type={elder.type} stage={elder.evolutionStage ?? 0} fill />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/40 text-white">
                 <h2 className="text-2xl font-bold">{elder.name}</h2>

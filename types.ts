@@ -178,6 +178,8 @@ export interface Elder {
   bio: string;
   comfortGeneration: number; 
   captured: boolean;
+  xp: number;
+  evolutionStage: 0 | 1 | 2;
   lat: number;
   lng: number;
   equipment: {

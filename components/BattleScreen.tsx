@@ -232,7 +232,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
         <div className="flex flex-col items-center gap-4 py-4">
           <div className={`transition-transform duration-75 ${shaking === 'opponent' ? 'animate-[shake_0.2s_infinite]' : ''}`}>
             <div className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-[0_20px_50px_rgba(255,255,255,0.1)] relative">
-              <ElderAvatarImg type={opponentElder.type} fill className="rounded-[2rem]" />
+              <ElderAvatarImg type={opponentElder.type} stage={opponentElder.evolutionStage ?? 0} fill className="rounded-[2rem]" />
             </div>
           </div>
           <div className="w-full max-w-xs bg-black/60 backdrop-blur-xl p-4 rounded-[2rem] border border-white/10 shadow-2xl">
@@ -266,7 +266,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           </div>
           <div className={`transition-transform duration-75 scale-x-[-1] ${shaking === 'player' ? 'animate-[shake_0.2s_infinite]' : ''}`}>
             <div className="w-32 h-32 sm:w-36 sm:h-36 drop-shadow-[0_20px_50px_rgba(59,130,246,0.2)] relative">
-              <ElderAvatarImg type={activeElder.type} fill className="rounded-[2rem]" />
+              <ElderAvatarImg type={activeElder.type} stage={activeElder.evolutionStage ?? 0} fill className="rounded-[2rem]" />
             </div>
           </div>
         </div>
@@ -316,7 +316,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
                     }}
                     className={`p-5 rounded-[2rem] border-4 flex flex-col items-center gap-3 transition-all ${idx === activeIndex ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5 bg-white/5'} ${elder.hp <= 0 ? 'opacity-30 grayscale' : 'active:scale-95'}`}
                   >
-                    <ElderAvatarImg type={elder.type} size={48} />
+                    <ElderAvatarImg type={elder.type} stage={elder.evolutionStage ?? 0} size={48} />
                     <span className="text-[9px] text-white font-black uppercase truncate w-full text-center tracking-tighter">{elder.name}</span>
                   </button>
                 ))}

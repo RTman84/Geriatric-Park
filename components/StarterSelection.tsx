@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Elder, ElderType, PowerType } from '../types';
-import { ELDER_AVATARS, ElderAvatarImg, GAME_VERSION } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GAME_VERSION, getBaseComfortGeneration } from '../constants';
 import { AdOverlay } from './AdOverlay';
 
 interface StarterSelectionProps {
@@ -27,8 +27,10 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
       level: 5,
       rarity: template.powerType === PowerType.LEGENDARY ? 'Legendary' : 'Rare',
       bio: template.bio!,
-      comfortGeneration: 0.0001,
+      comfortGeneration: getBaseComfortGeneration(template.powerType === PowerType.LEGENDARY ? 'Legendary' : 'Rare'),
       captured: true,
+      xp: 0,
+      evolutionStage: 0,
       lat: 40.7128, lng: -74.0060,
       happiness: 100,
       hp: 100, maxHp: 100, strength: 15, wit: 15, agility: 10, tenacity: 10,
