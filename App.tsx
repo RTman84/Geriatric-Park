@@ -103,7 +103,39 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
 }
 
 const SAVE_KEY = 'geriatric_park_v17_save';
-const NAMES = ["Arthur", "Ethel", "Barnaby", "Mildred", "Harold", "Gertrude", "Mabel", "Otis", "Edith", "Clarence", "Mortimer", "Gladys", "Cecil"];
+const MALE_NAMES = ["Arthur", "Barnaby", "Harold", "Otis", "Clarence", "Mortimer", "Cecil"];
+const FEMALE_NAMES = ["Ethel", "Mildred", "Gertrude", "Mabel", "Edith", "Gladys"];
+// Hand-picked starter names ("Bingo Bob") aren't drawn randomly and don't live
+// in the pools above, but migration still needs to know their gender so it
+// doesn't mistake them for an unrecognized name (which it leaves alone) or,
+// worse, a genuinely mismatched one.
+const SPECIAL_NAME_GENDERS: Record<string, 'Male' | 'Female'> = { 'Bingo Bob': 'Male' };
+// Gender is implicit in each type's art (evolution art pass, 9-9-26) -- this
+// makes it explicit so names can be drawn from the matching pool instead of
+// one ungendered list. Fixes wild Elders spawning with mismatched names
+// (e.g. a Grumpy Gardener, drawn as an old woman, getting "Barnaby").
+const ELDER_TYPE_GENDER: Record<ElderType, 'Male' | 'Female'> = {
+  [ElderType.BINGO_WARRIOR]: 'Male',
+  [ElderType.GRUMPY_GARDENER]: 'Female',
+  [ElderType.STORYTELLER]: 'Female',
+  [ElderType.TECH_WIZARD]: 'Male',
+  [ElderType.MALL_WALKER]: 'Female',
+  [ElderType.KNITTING_NINJA]: 'Female',
+};
+function getRandomElderName(type: ElderType): string {
+  const pool = ELDER_TYPE_GENDER[type] === 'Male' ? MALE_NAMES : FEMALE_NAMES;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// Returns true if `name` is either gender-matched to `type` OR not a name we
+// have an opinion about (unrecognized custom/imported names are left alone --
+// only names we can confidently identify as the WRONG gender get corrected).
+function isNameGenderMatched(name: string, type: ElderType): boolean {
+  const expected = ELDER_TYPE_GENDER[type];
+  const known = SPECIAL_NAME_GENDERS[name]
+    ?? (MALE_NAMES.includes(name) ? 'Male' : FEMALE_NAMES.includes(name) ? 'Female' : undefined);
+  if (!known) return true;
+  return known === expected;
+}
 
 // Applies an XP gain and rolls over into level-ups, so every XP source
 // uses identical leveling math (previously several handlers added XP
@@ -366,7 +398,7 @@ const App: React.FC = () => {
         const wildRarity: 'Common' | 'Rare' | 'Epic' = Math.random() > 0.8 ? 'Epic' : Math.random() > 0.5 ? 'Rare' : 'Common';
         return {
           id: 'wild_' + Math.random().toString(36).substr(2, 9),
-          name: NAMES[Math.floor(Math.random() * NAMES.length)],
+          name: getRandomElderName(type),
           type,
           powerType: [PowerType.PHYSICAL, PowerType.SOCIAL, PowerType.TECH][Math.floor(Math.random() * 3)],
           level: Math.floor(Math.random() * 5) + 1,
@@ -472,13 +504,23 @@ const App: React.FC = () => {
   // Safe-default Elder fields added after existing saves were created (xp,
   // evolutionStage) -- same pattern as the ...INITIAL_STATE spread for GameState
   // itself, just applied one level deeper since Elders live in an array.
+  // Also re-rolls any Elder already on the roster whose name doesn't match
+  // its type's implicit gender (e.g. a Grumpy Gardener named "Barnaby") --
+  // one-time correction, per user request 9-9-26. Idempotent: once a name is
+  // gender-matched it will never be touched again on future loads.
   const migrateElders = (s: GameState): GameState => ({
     ...s,
-    allElders: (s.allElders || []).map(e => ({
-      xp: 0,
-      evolutionStage: 0 as 0 | 1 | 2,
-      ...e,
-    })),
+    allElders: (s.allElders || []).map(e => {
+      const withDefaults = {
+        xp: 0,
+        evolutionStage: 0 as 0 | 1 | 2,
+        ...e,
+      };
+      if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
+        return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
+      }
+      return withDefaults;
+    }),
   });
 
   // Load save

@@ -13,7 +13,7 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
   const [adFinished, setAdFinished] = useState(false);
 
   const starters: Partial<Elder>[] = [
-    { name: 'Arthur', type: ElderType.GRUMPY_GARDENER, powerType: PowerType.PHYSICAL, bio: 'Expert at yelling at squirrels and growing prize-winning tomatoes.' },
+    { name: 'Gladys', type: ElderType.GRUMPY_GARDENER, powerType: PowerType.PHYSICAL, bio: 'Expert at yelling at squirrels and growing prize-winning tomatoes.' },
     { name: 'Ethel', type: ElderType.STORYTELLER, powerType: PowerType.SOCIAL, bio: 'Her stories are so long, enemies literally fall asleep.' },
     { name: 'Barnaby', type: ElderType.TECH_WIZARD, powerType: PowerType.TECH, bio: 'Can fix a router with a paperclip and sheer frustration.' }
   ];
