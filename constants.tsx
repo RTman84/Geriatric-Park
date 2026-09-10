@@ -21,11 +21,23 @@ import { ElderType, PowerType, Achievement } from './types';
 // game art going forward: drop the file in game-assets/<category>/, import
 // it here, done -- never edit a file already referenced in public/.
 import bingoWarriorStage1 from './game-assets/elders/bingo_warrior_stage1.png';
+import bingoWarriorStage2 from './game-assets/elders/bingo_warrior_stage2.png';
+import bingoWarriorStage3 from './game-assets/elders/bingo_warrior_stage3.png';
 import grumpyGardenerStage1 from './game-assets/elders/grumpy_gardener_stage1.png';
+import grumpyGardenerStage2 from './game-assets/elders/grumpy_gardener_stage2.png';
+import grumpyGardenerStage3 from './game-assets/elders/grumpy_gardener_stage3.png';
 import knittingNinjaStage1 from './game-assets/elders/knitting_ninja_stage1.png';
+import knittingNinjaStage2 from './game-assets/elders/knitting_ninja_stage2.png';
+import knittingNinjaStage3 from './game-assets/elders/knitting_ninja_stage3.png';
 import mallWalkerStage1 from './game-assets/elders/mall_walker_stage1.png';
+import mallWalkerStage2 from './game-assets/elders/mall_walker_stage2.png';
+import mallWalkerStage3 from './game-assets/elders/mall_walker_stage3.png';
 import storytellerStage1 from './game-assets/elders/storyteller_stage1.png';
+import storytellerStage2 from './game-assets/elders/storyteller_stage2.png';
+import storytellerStage3 from './game-assets/elders/storyteller_stage3.png';
 import techWizardStage1 from './game-assets/elders/tech_wizard_stage1.png';
+import techWizardStage2 from './game-assets/elders/tech_wizard_stage2.png';
+import techWizardStage3 from './game-assets/elders/tech_wizard_stage3.png';
 
 import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
 import branMuffinImg from './game-assets/items/bran_muffin.png';
@@ -255,18 +267,18 @@ export const ELDER_TYPE_STYLING: Record<ElderType, { color: string; bg: string; 
   [ElderType.KNITTING_NINJA]: { color: 'text-teal-700', bg: 'bg-teal-100', border: 'border-teal-300', label: 'STITCH' },
 };
 
-// Index 0 = base art, actively served from public/assets/elders/.
-// Index 1/2 are evolution-stage art for backlog item 2 (not built yet, nothing
-// reads these indices today). The source files live in /art-source/elders_evolution/
-// (kept out of public/ so they aren't shipped to players unused) -- when evolution
-// is implemented, move those two files per type into public/assets/elders/ first.
+// Index 0 = base art. Index 1/2 are evolution-stage art (stage 1 = "Veteran",
+// stage 2 = "Legend"), generated 9-9-26 to close the art gap flagged in the
+// 9-8-26 evolution spec. Read by ElderAvatarImg via the `stage` prop, which
+// App.tsx/UIPanels.tsx now thread from Elder.evolutionStage everywhere an
+// Elder is rendered.
 export const ELDER_AVATARS: Record<ElderType, string[]> = {
-  [ElderType.BINGO_WARRIOR]: [bingoWarriorStage1, bingoWarriorStage1, bingoWarriorStage1],
-  [ElderType.GRUMPY_GARDENER]: [grumpyGardenerStage1, grumpyGardenerStage1, grumpyGardenerStage1],
-  [ElderType.STORYTELLER]: [storytellerStage1, storytellerStage1, storytellerStage1],
-  [ElderType.TECH_WIZARD]: [techWizardStage1, techWizardStage1, techWizardStage1],
-  [ElderType.MALL_WALKER]: [mallWalkerStage1, mallWalkerStage1, mallWalkerStage1],
-  [ElderType.KNITTING_NINJA]: [knittingNinjaStage1, knittingNinjaStage1, knittingNinjaStage1],
+  [ElderType.BINGO_WARRIOR]: [bingoWarriorStage1, bingoWarriorStage2, bingoWarriorStage3],
+  [ElderType.GRUMPY_GARDENER]: [grumpyGardenerStage1, grumpyGardenerStage2, grumpyGardenerStage3],
+  [ElderType.STORYTELLER]: [storytellerStage1, storytellerStage2, storytellerStage3],
+  [ElderType.TECH_WIZARD]: [techWizardStage1, techWizardStage2, techWizardStage3],
+  [ElderType.MALL_WALKER]: [mallWalkerStage1, mallWalkerStage2, mallWalkerStage3],
+  [ElderType.KNITTING_NINJA]: [knittingNinjaStage1, knittingNinjaStage2, knittingNinjaStage3],
 };
 
 // Shared avatar renderer so every call site gets the same img/rounding/fallback
