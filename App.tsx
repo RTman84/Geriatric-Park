@@ -117,9 +117,9 @@ const SPECIAL_NAME_GENDERS: Record<string, 'Male' | 'Female'> = { 'Bingo Bob': '
 const ELDER_TYPE_GENDER: Record<ElderType, 'Male' | 'Female'> = {
   [ElderType.BINGO_WARRIOR]: 'Male',
   [ElderType.GRUMPY_GARDENER]: 'Female',
-  [ElderType.STORYTELLER]: 'Female',
-  [ElderType.TECH_WIZARD]: 'Male',
-  [ElderType.MALL_WALKER]: 'Female',
+  [ElderType.STORYTELLER]: 'Male',
+  [ElderType.TECH_WIZARD]: 'Female',
+  [ElderType.MALL_WALKER]: 'Male',
   [ElderType.KNITTING_NINJA]: 'Female',
 };
 function getRandomElderName(type: ElderType): string {

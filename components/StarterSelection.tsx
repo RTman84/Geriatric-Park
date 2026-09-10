@@ -14,8 +14,8 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
 
   const starters: Partial<Elder>[] = [
     { name: 'Gladys', type: ElderType.GRUMPY_GARDENER, powerType: PowerType.PHYSICAL, bio: 'Expert at yelling at squirrels and growing prize-winning tomatoes.' },
-    { name: 'Ethel', type: ElderType.STORYTELLER, powerType: PowerType.SOCIAL, bio: 'Her stories are so long, enemies literally fall asleep.' },
-    { name: 'Barnaby', type: ElderType.TECH_WIZARD, powerType: PowerType.TECH, bio: 'Can fix a router with a paperclip and sheer frustration.' }
+    { name: 'Clarence', type: ElderType.STORYTELLER, powerType: PowerType.SOCIAL, bio: 'His stories are so long, enemies literally fall asleep.' },
+    { name: 'Edith', type: ElderType.TECH_WIZARD, powerType: PowerType.TECH, bio: 'Can fix a router with a paperclip and sheer frustration.' }
   ];
 
   const handleSelection = (template: Partial<Elder>) => {
