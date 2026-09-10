@@ -9,6 +9,7 @@ import {
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
+  GOLDEN_GAMES_LEAGUES,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -298,6 +299,8 @@ interface ShuffleboardProps {
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number };
+  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => void;
   leaderboard: { top: { display_name: string; score: number }[]; mine: { display_name: string; score: number } | null; day: string } | null;
   leaderboardAvailable: boolean;
   leaderboardError: boolean;
@@ -308,14 +311,17 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   isDark, elders, tokens, shuffleboardKing, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
+  goldenGames, onGoldenGamesResult,
   leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard
 }) => {
-  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge'>('passive');
+  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
+  const [selectedLeague, setSelectedLeague] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [timeToMatch, setTimeToMatch] = useState(0);
   const [timeToTournament, setTimeToTournament] = useState(0);
+  const [timeToLeagueMatch, setTimeToLeagueMatch] = useState(0);
 
   const team = elders.filter(e => e.status === 'Team' && e.captured);
   const teamStrength = team.reduce((sum, e) => sum + e.strength + e.tenacity + e.wit, 0);
@@ -325,9 +331,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     const timer = setInterval(() => {
       setTimeToMatch(Math.max(0, passiveMatchAt - Date.now()));
       setTimeToTournament(Math.max(0, tournamentEndsAt - Date.now()));
+      setTimeToLeagueMatch(Math.max(0, goldenGames.nextMatchAt - Date.now()));
     }, 1000);
     return () => clearInterval(timer);
-  }, [passiveMatchAt, tournamentEndsAt]);
+  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt]);
 
   const formatTime = (ms: number) => {
     const m = Math.floor(ms / 60000);
@@ -375,6 +382,25 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     }, 1500);
   };
 
+  const handleLeagueMatch = () => {
+    if (team.length === 0 || timeToLeagueMatch > 0) return;
+    const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
+    if (teamStrength < league.minSquadPower) return;
+    setIsPlaying(true);
+    setTimeout(() => {
+      const difficulty = league.difficultyMin + Math.random() * (league.difficultyMax - league.difficultyMin);
+      const won = teamStrength > difficulty;
+      const ticketsEarned = won
+        ? Math.floor(league.winTicketsMin + Math.random() * (league.winTicketsMax - league.winTicketsMin))
+        : league.lossTickets;
+      onGoldenGamesResult(selectedLeague, won, ticketsEarned);
+      setLastResult(won
+        ? `Your squad triumphed at the ${league.name}! +${ticketsEarned} 🎟️`
+        : `Outplayed at the ${league.name} — consolation: +${ticketsEarned} 🎟️`);
+      setIsPlaying(false);
+    }, 1500);
+  };
+
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       {/* Header */}
@@ -415,13 +441,13 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
       {/* Mode Selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-        {(['passive', 'tournament', 'challenge'] as const).map(mode => (
+        {(['passive', 'tournament', 'challenge', 'league'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}
           >
-            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : '⚔️ Challenge'}
+            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : '🏅 Golden'}
           </button>
         ))}
       </div>
@@ -593,6 +619,67 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${!isPlaying && team.length > 0 && tokens >= stakeAmount ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
           >
             {isPlaying ? 'Dueling...' : tokens < stakeAmount ? 'Not enough Tickets!' : team.length === 0 ? 'Assign squad first!' : `⚔️ Challenge! (Stake ${stakeAmount} 🎟️)`}
+          </button>
+        </div>
+      )}
+
+      {/* Golden Games Mode */}
+      {activeMode === 'league' && (
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="text-center mb-6">
+            <div className="text-5xl mb-3">🏅</div>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Golden Games</h3>
+            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">An escalating league ladder. Qualify with Squad Power, then battle for bigger Ticket prizes.</p>
+          </div>
+
+          <div className="space-y-3 mb-6">
+            {GOLDEN_GAMES_LEAGUES.map((league, i) => {
+              const isUnlocked = teamStrength >= league.minSquadPower;
+              const isCleared = goldenGames.highestLeagueCleared >= i;
+              const isSelected = selectedLeague === i;
+              return (
+                <button
+                  key={league.id}
+                  onClick={() => isUnlocked && setSelectedLeague(i)}
+                  disabled={!isUnlocked}
+                  className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                    isSelected ? 'border-indigo-500 bg-indigo-500/10' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                  } ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{league.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-xs uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-bold">
+                        {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `Requires Squad Power ${league.minSquadPower} (you have ${teamStrength})`}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <div className="flex justify-between text-[10px] font-black uppercase">
+              <span className="opacity-60">Next Match</span>
+              <span className={timeToLeagueMatch > 0 ? 'text-amber-500' : 'text-green-500'}>
+                {timeToLeagueMatch > 0 ? formatTime(timeToLeagueMatch) : 'READY!'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLeagueMatch}
+            disabled={isPlaying || team.length === 0 || timeToLeagueMatch > 0 || teamStrength < GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${
+              !isPlaying && team.length > 0 && timeToLeagueMatch <= 0 && teamStrength >= GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower
+                ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            {isPlaying ? 'Competing...' : team.length === 0 ? 'Assign squad first!' : timeToLeagueMatch > 0 ? `Next match in ${formatTime(timeToLeagueMatch)}` : `Compete in ${GOLDEN_GAMES_LEAGUES[selectedLeague].name}`}
           </button>
         </div>
       )}

@@ -170,6 +170,38 @@ export function getYieldExchangeRate(reserve: number): number {
   return Math.min(1, Math.max(MIN_CASHOUT_EXCHANGE_RATE, reserve / RESERVE_HEALTHY_THRESHOLD));
 }
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
+
+// ─── Golden Games (Phase 5, evolution spec) ──────────────────────────────────
+// An escalating league ladder gated by total squad power, resolved with the
+// exact same squad-power-vs-difficulty math Shuffleboard's other modes already
+// use (see ShuffleboardPanel) rather than a new minigame engine. Leagues stay
+// replayable after being cleared -- clearing one just raises the bragging-right
+// high-water mark (highestLeagueCleared) and unlocks the next league's card;
+// it's not a one-time gate. Rewards are Tickets/Elder-XP/Community-Score only,
+// same PP-sourcing rule as everything else non-ad/non-Dividend.
+export interface GoldenGamesLeague {
+  id: string;
+  name: string;
+  icon: string;
+  minSquadPower: number;
+  difficultyMin: number;
+  difficultyMax: number;
+  winTicketsMin: number;
+  winTicketsMax: number;
+  winElderXp: number;
+  winCommunityScore: number;
+  lossTickets: number;
+  lossElderXp: number;
+}
+export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = [
+  { id: 'bronze', name: 'Bronze Clubhouse', icon: '🥉', minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 20, winTicketsMax: 40, winElderXp: 25, winCommunityScore: 10, lossTickets: 8, lossElderXp: 8 },
+  { id: 'silver', name: 'Silver Sunroom', icon: '🥈', minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 50, winTicketsMax: 90, winElderXp: 45, winCommunityScore: 20, lossTickets: 12, lossElderXp: 12 },
+  { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 100, winTicketsMax: 160, winElderXp: 70, winCommunityScore: 35, lossTickets: 18, lossElderXp: 18 },
+  { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 200, winTicketsMax: 300, winElderXp: 100, winCommunityScore: 60, lossTickets: 25, lossElderXp: 25 },
+];
+// One shared cooldown across all leagues (not per-league) -- keeps the data
+// model simple and stops pure spam-farming without needing four separate timers.
+export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
 export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
 export function isImagePath(src: string): boolean {
   return /^(\/|https?:|data:)/.test(src);

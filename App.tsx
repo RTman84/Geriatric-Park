@@ -81,6 +81,8 @@ import {
   EVOLUTION_STAGE2_COST,
   EVOLUTION_STAGE2_STEEP_COST,
   EVOLUTION_STAT_MULTIPLIER,
+  GOLDEN_GAMES_LEAGUES,
+  GOLDEN_GAMES_COOLDOWN_MS,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -232,6 +234,7 @@ const INITIAL_STATE: GameState = {
   ],
   bingoBlitz: { phase: 'Prep', pot: 0, participants: [], timer: 60 },
   shuffleboard: { currentKing: null },
+  goldenGames: { highestLeagueCleared: -1, nextMatchAt: 0 },
   settings: {
     darkTheme: false,
     musicEnabled: true,
@@ -960,6 +963,30 @@ const App: React.FC = () => {
     handleQuestProgress('challenge');
   }, [state.settings.sfxEnabled, handleQuestProgress]);
 
+  // Golden Games (Phase 5, evolution spec). leagueIndex is into
+  // GOLDEN_GAMES_LEAGUES; ticketsEarned is pre-rolled by ShuffleboardPanel
+  // using that league's win/loss ranges (same pattern as the other 3 modes,
+  // which already resolve client-side and just report the outcome up).
+  const handleGoldenGamesResult = useCallback((leagueIndex: number, won: boolean, ticketsEarned: number) => {
+    if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
+    const league = GOLDEN_GAMES_LEAGUES[leagueIndex];
+    if (!league) return;
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? league.winElderXp * 3 : league.lossElderXp);
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens + ticketsEarned,
+        xp, level,
+        allElders: grantElderXpToTeam(prev.allElders, won ? league.winElderXp : league.lossElderXp),
+        parkCommunityScore: prev.parkCommunityScore + (won ? league.winCommunityScore : 0),
+        goldenGames: {
+          highestLeagueCleared: won ? Math.max(prev.goldenGames.highestLeagueCleared, leagueIndex) : prev.goldenGames.highestLeagueCleared,
+          nextMatchAt: Date.now() + GOLDEN_GAMES_COOLDOWN_MS,
+        },
+      };
+    });
+  }, [state.settings.sfxEnabled]);
+
   const handleGardenScavenge = useCallback(() => {
     if (state.legacyTokens < 10) return alert("Need 10 Tokens!");
     setIsEventPlaying(true);
@@ -1478,6 +1505,8 @@ const App: React.FC = () => {
               tournamentScore={state.tournamentScore}
               tournamentEndsAt={state.tournamentEndsAt}
               passiveMatchAt={state.passiveMatchAt}
+              goldenGames={state.goldenGames}
+              onGoldenGamesResult={handleGoldenGamesResult}
               leaderboard={leaderboard}
               leaderboardAvailable={isCloudAccountsConfigured()}
               leaderboardError={leaderboardError}

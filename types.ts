@@ -162,6 +162,7 @@ export interface GameState {
   mailbox: MailMessage[];
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number }; // -1 = none cleared yet
   settings: GameSettings;
   tournamentScore: number;
   tournamentEndsAt: number;
