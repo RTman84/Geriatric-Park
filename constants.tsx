@@ -234,8 +234,8 @@ export interface UITheme {
 }
 export const UI_THEMES: UITheme[] = [
   {
-    id: 'classic', name: 'Classic Indigo', swatch: '#4f46e5',
-    colors: { '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc', '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca', '900': '#312e81', '950': '#1e1b4b' },
+    id: 'brown', name: 'Rustic Brown', swatch: '#8b4d24',
+    colors: { '50': '#fdf6ee', '100': '#f8e8d4', '200': '#f0d0a8', '300': '#e3b17d', '400': '#cd8a52', '500': '#b06a35', '600': '#8b4d24', '700': '#6b3a1c', '900': '#3e2210', '950': '#24140a' },
   },
   {
     id: 'ocean', name: 'Ocean Teal', swatch: '#0d9488',
@@ -258,7 +258,7 @@ export const UI_THEMES: UITheme[] = [
     colors: { '50': '#f5f3ff', '100': '#ede9fe', '200': '#ddd6fe', '300': '#c4b5fd', '400': '#a78bfa', '500': '#8b5cf6', '600': '#7c3aed', '700': '#6d28d9', '900': '#4c1d95', '950': '#2e1065' },
   },
 ];
-export const DEFAULT_UI_THEME_ID = 'classic';
+export const DEFAULT_UI_THEME_ID = 'brown';
 
 function hexToRgbTriplet(hex: string): string {
   const clean = hex.replace('#', '');
