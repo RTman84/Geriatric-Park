@@ -16,7 +16,7 @@ const STEPS: TutorialStep[] = [
   {
     title: "Welcome to the Park!",
     description: "You are the manager of Geriatric Park. Your goal is to find, help, and recruit the neighborhood's most legendary elders.",
-    icon: <HomeIcon className="w-12 h-12 text-indigo-500" />
+    icon: <HomeIcon className="w-12 h-12 text-[var(--accent-500)]" />
   },
   {
     title: "The Neighborhood Map",
@@ -50,7 +50,7 @@ export const TutorialOverlay: React.FC<{ onComplete: () => void; isDark: boolean
 
   return (
     <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-      <div className={`w-full max-w-sm rounded-[3rem] p-8 flex flex-col items-center text-center shadow-2xl border-2 transition-colors duration-500 ${isDark ? 'bg-slate-900 border-indigo-500/30 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
+      <div className={`w-full max-w-sm rounded-[3rem] p-8 flex flex-col items-center text-center shadow-2xl border-2 transition-colors duration-500 ${isDark ? 'bg-slate-900 border-[var(--accent-500-a30)] text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
         <div className="mb-6 p-6 bg-slate-100/10 rounded-full animate-bounce">
           {step.icon}
         </div>
@@ -60,13 +60,13 @@ export const TutorialOverlay: React.FC<{ onComplete: () => void; isDark: boolean
         
         <div className="flex gap-2 mb-8">
           {STEPS.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentStep ? 'w-8 bg-indigo-500' : 'w-2 bg-slate-700'}`} />
+            <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentStep ? 'w-8 bg-[var(--accent-500)]' : 'w-2 bg-slate-700'}`} />
           ))}
         </div>
 
         <button 
           onClick={next}
-          className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95 transition-transform"
+          className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-[var(--accent-900-a20)] active:scale-95 transition-transform"
         >
           {currentStep === STEPS.length - 1 ? 'Start Playing' : 'Next Tip'}
           <ChevronRightIcon className="w-5 h-5" />

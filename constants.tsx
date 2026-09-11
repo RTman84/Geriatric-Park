@@ -214,6 +214,78 @@ export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = [
 // One shared cooldown across all leagues (not per-league) -- keeps the data
 // model simple and stops pure spam-farming without needing four separate timers.
 export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
+
+// ─── UI Color Themes ──────────────────────────────────────────────────────────
+// The app's single brand/accent color (previously hardcoded as Tailwind's
+// `indigo` family everywhere: buttons, active tab states, progress fills,
+// highlighted numbers like PWR/Squad Power) is now driven by CSS custom
+// properties instead, so switching themes recolors every one of those
+// elements app-wide at once. This is intentionally scoped to the accent only
+// -- the light/dark mode background and secondary-text grey system (just
+// fixed for legibility) is a separate, orthogonal axis and is untouched here.
+// Semantic colors (emerald=success, rose=danger, amber=currency/gold) are
+// also untouched since they carry meaning, not brand identity.
+export type AccentShade = '50' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '900' | '950';
+export interface UITheme {
+  id: string;
+  name: string;
+  swatch: string; // 600-shade hex, used for the picker button itself
+  colors: Record<AccentShade, string>;
+}
+export const UI_THEMES: UITheme[] = [
+  {
+    id: 'classic', name: 'Classic Indigo', swatch: '#4f46e5',
+    colors: { '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc', '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca', '900': '#312e81', '950': '#1e1b4b' },
+  },
+  {
+    id: 'ocean', name: 'Ocean Teal', swatch: '#0d9488',
+    colors: { '50': '#f0fdfa', '100': '#ccfbf1', '200': '#99f6e4', '300': '#5eead4', '400': '#2dd4bf', '500': '#14b8a6', '600': '#0d9488', '700': '#0f766e', '900': '#134e4a', '950': '#042f2e' },
+  },
+  {
+    id: 'sunset', name: 'Sunset Amber', swatch: '#d97706',
+    colors: { '50': '#fffbeb', '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d', '400': '#fbbf24', '500': '#f59e0b', '600': '#d97706', '700': '#b45309', '900': '#78350f', '950': '#451a03' },
+  },
+  {
+    id: 'forest', name: 'Forest Green', swatch: '#16a34a',
+    colors: { '50': '#f0fdf4', '100': '#dcfce7', '200': '#bbf7d0', '300': '#86efac', '400': '#4ade80', '500': '#22c55e', '600': '#16a34a', '700': '#15803d', '900': '#14532d', '950': '#052e16' },
+  },
+  {
+    id: 'royal', name: 'Royal Violet', swatch: '#7c3aed',
+    colors: { '50': '#f5f3ff', '100': '#ede9fe', '200': '#ddd6fe', '300': '#c4b5fd', '400': '#a78bfa', '500': '#8b5cf6', '600': '#7c3aed', '700': '#6d28d9', '900': '#4c1d95', '950': '#2e1065' },
+  },
+];
+export const DEFAULT_UI_THEME_ID = 'classic';
+
+function hexToRgbTriplet(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+// Applies a theme's colors as CSS custom properties on the document root:
+// --accent-{shade} as plain hex for normal use, plus precomputed rgba()
+// variants at the specific opacity fractions the app actually uses (avoids
+// relying on Tailwind's opacity-modifier support for arbitrary var() colors,
+// which is inconsistent across versions).
+const ACCENT_OPACITY_VARIANTS: { shade: AccentShade; alphas: number[] }[] = [
+  { shade: '500', alphas: [10, 20, 30] },
+  { shade: '900', alphas: [10, 20, 30] },
+];
+export function applyUITheme(themeId: string) {
+  const theme = UI_THEMES.find(t => t.id === themeId) || UI_THEMES[0];
+  const root = document.documentElement;
+  (Object.keys(theme.colors) as AccentShade[]).forEach(shade => {
+    root.style.setProperty(`--accent-${shade}`, theme.colors[shade]);
+  });
+  ACCENT_OPACITY_VARIANTS.forEach(({ shade, alphas }) => {
+    const [r, g, b] = hexToRgbTriplet(theme.colors[shade]).split(' ');
+    alphas.forEach(alpha => {
+      root.style.setProperty(`--accent-${shade}-a${alpha}`, `rgba(${r}, ${g}, ${b}, ${alpha / 100})`);
+    });
+  });
+}
 export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
 export function isImagePath(src: string): boolean {
   return /^(\/|https?:|data:)/.test(src);

@@ -83,6 +83,9 @@ import {
   EVOLUTION_STAT_MULTIPLIER,
   GOLDEN_GAMES_LEAGUES,
   GOLDEN_GAMES_COOLDOWN_MS,
+  UI_THEMES,
+  DEFAULT_UI_THEME_ID,
+  applyUITheme,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -238,7 +241,8 @@ const INITIAL_STATE: GameState = {
   settings: {
     darkTheme: false,
     musicEnabled: true,
-    sfxEnabled: true
+    sfxEnabled: true,
+    uiTheme: DEFAULT_UI_THEME_ID,
   },
   tournamentScore: 0,
   tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000,
@@ -533,7 +537,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, version: GAME_VERSION })));
+          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, settings: { ...INITIAL_STATE.settings, ...parsed.settings }, version: GAME_VERSION })));
           prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
           setState(hydrated);
         }
@@ -580,7 +584,8 @@ const App: React.FC = () => {
       if (cloudSave && cloudSave.client_revision > cloudRevisionRef.current) {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
-        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...(cloudSave.save_data as object), version: GAME_VERSION })));
+        const cloudData = cloudSave.save_data as any;
+        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...cloudData, settings: { ...INITIAL_STATE.settings, ...cloudData?.settings }, version: GAME_VERSION })));
         prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
         setState(hydrated);
       }
@@ -1370,6 +1375,17 @@ const App: React.FC = () => {
   const isDark = state.settings.darkTheme;
   const unreadMailCount = useMemo(() => state.mailbox.filter(m => !m.claimed).length, [state.mailbox]);
 
+  // UI color theme: recolors the app's single brand/accent color (buttons,
+  // active states, highlighted numbers) via CSS custom properties. See
+  // applyUITheme in constants.tsx for why this is scoped to accent-only.
+  useEffect(() => {
+    applyUITheme(state.settings.uiTheme || DEFAULT_UI_THEME_ID);
+  }, [state.settings.uiTheme]);
+
+  const handleSetUITheme = useCallback((themeId: string) => {
+    setState(prev => ({ ...prev, settings: { ...prev.settings, uiTheme: themeId } }));
+  }, []);
+
   // Passive income breakdown for BasePanel/BankPanel.
   // Parcels' rate contribution is already folded into pensionRate at purchase
   // time (handleBuyParcel) -- there's no separate flat accrual anymore (Phase 1
@@ -1417,7 +1433,7 @@ const App: React.FC = () => {
                 <>
                   <button
                     onClick={() => setShowProfilePicker(true)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg overflow-hidden ${isDark ? 'bg-indigo-500' : 'bg-indigo-600'}`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg overflow-hidden ${isDark ? 'bg-[var(--accent-500)]' : 'bg-[var(--accent-600)]'}`}
                     title="Change profile icon & title"
                   >
                     {isImagePath(display.icon) ? <img src={display.icon} alt={display.title} className="w-full h-full object-cover" /> : display.icon}
@@ -1425,11 +1441,11 @@ const App: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black uppercase">LVL {state.level}</span>
-                      <button onClick={() => setShowProfilePicker(true)} className="text-[13px] font-black uppercase text-indigo-500 tracking-widest">{display.title}</button>
-                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
+                      <button onClick={() => setShowProfilePicker(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">{display.title}</button>
+                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
                     <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                      <div className="h-full bg-indigo-500" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
+                      <div className="h-full bg-[var(--accent-500)]" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
                     </div>
                   </div>
                 </>
@@ -1437,14 +1453,14 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-100'}`}>
+            <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-[var(--accent-500)] text-white' : 'text-slate-300 hover:bg-slate-100'}`}>
               <EnvelopeIcon className="w-6 h-6" />
               {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{unreadMailCount}</div>}
             </button>
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
                 <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(2)} PP</span>
-                <span className="text-[15px] font-black uppercase text-indigo-500 leading-none">{state.legacyTokens} 🎟️</span>
+                <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} 🎟️</span>
               </div>
               <div className="text-[13px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
             </div>
@@ -1517,7 +1533,7 @@ const App: React.FC = () => {
 
         <nav className={`border-t pb-8 pt-3 px-1 flex justify-between items-center z-[60] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           {NAV_WITH_COURT.map(item => (
-            <button key={item.id} onClick={() => triggerTab(item.id)} className={`flex flex-col items-center flex-1 transition-all relative ${activeTab === item.id ? 'text-indigo-500 scale-110 font-bold' : 'text-slate-300'}`}>
+            <button key={item.id} onClick={() => triggerTab(item.id)} className={`flex flex-col items-center flex-1 transition-all relative ${activeTab === item.id ? 'text-[var(--accent-500)] scale-110 font-bold' : 'text-slate-300'}`}>
               <div className="p-1">{item.icon}</div>
               <span className="text-[12px] font-black uppercase tracking-tighter">{item.label}</span>
             </button>
@@ -1539,21 +1555,43 @@ const App: React.FC = () => {
                 ].map(({ label, key }) => (
                   <div key={key} className="flex justify-between items-center">
                     <span className="text-sm font-black uppercase tracking-widest opacity-60">{label}</span>
-                    <button onClick={() => setState(p => ({...p, settings: {...p.settings, [key]: !p.settings[key as keyof typeof p.settings]}}))} className={`w-12 h-6 rounded-full transition-colors relative ${state.settings[key as keyof typeof state.settings] ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                    <button onClick={() => setState(p => ({...p, settings: {...p.settings, [key]: !p.settings[key as keyof typeof p.settings]}}))} className={`w-12 h-6 rounded-full transition-colors relative ${state.settings[key as keyof typeof state.settings] ? 'bg-[var(--accent-600)]' : 'bg-slate-200'}`}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${state.settings[key as keyof typeof state.settings] ? 'left-7' : 'left-1'}`} />
                     </button>
                   </div>
                 ))}
               </div>
               <div className="mt-8 pt-8 border-t border-slate-100/10">
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Color Theme</h3>
+                <div className="grid grid-cols-5 gap-3">
+                  {UI_THEMES.map(theme => {
+                    const isSelected = (state.settings.uiTheme || DEFAULT_UI_THEME_ID) === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => handleSetUITheme(theme.id)}
+                        title={theme.name}
+                        className={`aspect-square rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'ring-4 ring-offset-2 scale-105' : 'active:scale-95'} ${isDark ? 'ring-offset-slate-900' : 'ring-offset-white'}`}
+                        style={{ backgroundColor: theme.swatch, ...(isSelected ? { boxShadow: `0 0 0 4px ${theme.swatch}` } : {}) }}
+                      >
+                        {isSelected && <span className="text-white text-base font-black">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className={`text-sm font-bold uppercase tracking-widest mt-3 text-center ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {UI_THEMES.find(t => t.id === (state.settings.uiTheme || DEFAULT_UI_THEME_ID))?.name}
+                </p>
+              </div>
+              <div className="mt-8 pt-8 border-t border-slate-100/10">
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Data Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={handleExportSave} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
-                    <ArrowDownTrayIcon className="w-5 h-5 mb-2 text-indigo-500" />
+                    <ArrowDownTrayIcon className="w-5 h-5 mb-2 text-[var(--accent-500)]" />
                     <span className="text-[13px] font-black uppercase">Export</span>
                   </button>
                   <label className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors cursor-pointer text-center">
-                    <ArrowUpTrayIcon className="w-5 h-5 mb-2 text-indigo-500" />
+                    <ArrowUpTrayIcon className="w-5 h-5 mb-2 text-[var(--accent-500)]" />
                     <span className="text-[13px] font-black uppercase">Import</span>
                     <input type="file" accept=".json" onChange={handleImportSave} className="hidden" />
                   </label>
@@ -1567,7 +1605,7 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </div>
-              <button onClick={() => setShowSettings(false)} className="mt-12 w-full bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Back</button>
+              <button onClick={() => setShowSettings(false)} className="mt-12 w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Back</button>
             </div>
           </div>
         )}
@@ -1592,7 +1630,7 @@ const App: React.FC = () => {
                       key={`icon-${c.key}`}
                       onClick={() => setState(p => ({ ...p, selectedAccountIcon: c.key }))}
                       title={c.title}
-                      className={`aspect-square rounded-2xl flex items-center justify-center text-2xl overflow-hidden border-2 transition-all ${activeIconKey === c.key ? 'border-indigo-500 ring-2 ring-indigo-500' : isDark ? 'border-slate-800 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}
+                      className={`aspect-square rounded-2xl flex items-center justify-center text-2xl overflow-hidden border-2 transition-all ${activeIconKey === c.key ? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]' : isDark ? 'border-slate-800 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}
                     >
                       {isImagePath(c.icon) ? <img src={c.icon} alt={c.title} className="w-full h-full object-cover" /> : c.icon}
                     </button>
@@ -1605,7 +1643,7 @@ const App: React.FC = () => {
                     <button
                       key={`title-${c.key}`}
                       onClick={() => setState(p => ({ ...p, selectedTitle: c.key }))}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-50 text-slate-600'}`}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-50 text-slate-600'}`}
                     >
                       {c.title}
                       {activeTitleKey === c.key && <CheckCircleIcon className="w-4 h-4" />}
@@ -1614,7 +1652,7 @@ const App: React.FC = () => {
                 </div>
 
                 <p className="text-[15px] text-slate-600 mb-6">Unlocked by reaching ranks and completing achievements. Icon and title can be mixed independently.</p>
-                <button onClick={() => setShowProfilePicker(false)} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
+                <button onClick={() => setShowProfilePicker(false)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
               </div>
             </div>
           );
@@ -1632,12 +1670,12 @@ const App: React.FC = () => {
 
         {activeEvent && (
           <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md">
-            <div className={`rounded-[3rem] p-10 w-full max-w-md flex flex-col shadow-2xl border-4 ${isDark ? 'bg-slate-800 border-indigo-500/30' : 'bg-white border-indigo-100'}`}>
+            <div className={`rounded-[3rem] p-10 w-full max-w-md flex flex-col shadow-2xl border-4 ${isDark ? 'bg-slate-800 border-[var(--accent-500-a30)]' : 'bg-white border-[var(--accent-100)]'}`}>
               <div className="text-8xl mb-8 self-center animate-bounce">{activeEvent.icon}</div>
               <h3 className="text-3xl font-black uppercase text-center mb-3 italic tracking-tighter">{activeEvent.name}</h3>
               <p className="text-center mb-8 text-sm font-bold uppercase tracking-widest opacity-60 leading-relaxed">{activeEvent.description}</p>
               <div className="space-y-4">
-                {eventResult && <div className="p-4 bg-indigo-500/10 rounded-xl text-center text-base font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
+                {eventResult && <div className="p-4 bg-[var(--accent-500-a10)] rounded-xl text-center text-base font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
                 {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Drawing...' : 'Play Bingo (10 🎟️)'}</button>}
                 {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? 'Defend Court (20 🎟️)' : 'Clash for Court (20 🎟️)'}</button>}
                 {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad (25 🎟️)</button>}

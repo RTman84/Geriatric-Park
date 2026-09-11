@@ -88,6 +88,7 @@ export interface GameSettings {
   darkTheme: boolean;
   musicEnabled: boolean;
   sfxEnabled: boolean;
+  uiTheme: string; // one of UI_THEMES' ids -- the app's accent color scheme
 }
 
 export interface Parcel {

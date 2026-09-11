@@ -275,7 +275,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           <button 
             onClick={handleTurn} 
             disabled={isAnimating || battleFinished || isAuto}
-            className={`flex-1 font-black py-6 rounded-3xl shadow-2xl active:scale-95 transition-all text-base uppercase tracking-widest border-b-8 ${isAuto ? 'bg-slate-800 text-slate-600 border-slate-900 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-900'}`}
+            className={`flex-1 font-black py-6 rounded-3xl shadow-2xl active:scale-95 transition-all text-base uppercase tracking-widest border-b-8 ${isAuto ? 'bg-slate-800 text-slate-600 border-slate-900 cursor-not-allowed opacity-50' : 'bg-[var(--accent-600)] hover:bg-[var(--accent-500)] text-white border-[var(--accent-900)]'}`}
           >
             {isAnimating ? 'Debating...' : 'Cast Doubt'}
           </button>
@@ -314,7 +314,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
                       setShowSwitchMenu(false); 
                       addLog(`${elder.name} tags in!`); 
                     }}
-                    className={`p-5 rounded-[2rem] border-4 flex flex-col items-center gap-3 transition-all ${idx === activeIndex ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5 bg-white/5'} ${elder.hp <= 0 ? 'opacity-30 grayscale' : 'active:scale-95'}`}
+                    className={`p-5 rounded-[2rem] border-4 flex flex-col items-center gap-3 transition-all ${idx === activeIndex ? 'border-[var(--accent-500)] bg-[var(--accent-500-a20)]' : 'border-white/5 bg-white/5'} ${elder.hp <= 0 ? 'opacity-30 grayscale' : 'active:scale-95'}`}
                   >
                     <ElderAvatarImg type={elder.type} stage={elder.evolutionStage ?? 0} size={48} />
                     <span className="text-[14px] text-white font-black uppercase truncate w-full text-center tracking-tighter">{elder.name}</span>

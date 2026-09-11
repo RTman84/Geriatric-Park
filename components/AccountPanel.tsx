@@ -73,7 +73,7 @@ export const AccountPanel: React.FC = () => {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed top-4 right-4 z-[5000] rounded-full bg-indigo-600 px-4 py-2 text-sm font-black uppercase tracking-wider text-white shadow-lg"
+        className="fixed top-4 right-4 z-[5000] rounded-full bg-[var(--accent-600)] px-4 py-2 text-sm font-black uppercase tracking-wider text-white shadow-lg"
         aria-label="Open account"
       >
         {session ? 'Account' : 'Sign In'}
@@ -103,7 +103,7 @@ export const AccountPanel: React.FC = () => {
                 <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="Email" className="w-full rounded-xl border p-3 text-base dark:bg-slate-800" />
                 <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" placeholder="Password" className="w-full rounded-xl border p-3 text-base dark:bg-slate-800" />
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" disabled={busy || !email || !password} onClick={handleSignIn} className="rounded-xl bg-indigo-600 py-3 text-sm font-black uppercase text-white disabled:opacity-50">Sign in</button>
+                  <button type="button" disabled={busy || !email || !password} onClick={handleSignIn} className="rounded-xl bg-[var(--accent-600)] py-3 text-sm font-black uppercase text-white disabled:opacity-50">Sign in</button>
                   <button type="button" disabled={busy || !email || !password} onClick={handleSignUp} className="rounded-xl bg-slate-200 py-3 text-sm font-black uppercase dark:bg-slate-800 disabled:opacity-50">Create</button>
                 </div>
                 <button type="button" disabled={busy || !email} onClick={handleMagicLink} className="w-full rounded-xl border py-3 text-sm font-black uppercase disabled:opacity-50">Send magic link</button>
@@ -113,7 +113,7 @@ export const AccountPanel: React.FC = () => {
               </div>
             )}
 
-            {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-bold text-indigo-900">{message}</div>}
+            {message && <div className="mt-4 rounded-xl bg-[var(--accent-50)] p-3 text-sm font-bold text-[var(--accent-900)]">{message}</div>}
           </div>
         </div>
       )}

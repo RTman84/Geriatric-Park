@@ -96,10 +96,10 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
 
         {/* Header */}
-        <div className="bg-indigo-600 px-6 py-4 text-white text-center">
+        <div className="bg-[var(--accent-600)] px-6 py-4 text-white text-center">
           <div className="text-2xl mb-1">📺</div>
           <h2 className="font-black text-lg uppercase tracking-wide">Sponsor Break</h2>
-          <p className="text-indigo-200 text-sm mt-1">
+          <p className="text-[var(--accent-200)] text-sm mt-1">
             {adCount}/{maxAds} sponsorship slots used this hour
           </p>
         </div>
@@ -131,7 +131,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
 
               <button
                 onClick={handleViewAd}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors"
+                className="w-full bg-[var(--accent-600)] hover:bg-[var(--accent-700)] text-white font-black py-3 rounded-xl transition-colors"
               >
                 View Sponsor & Earn
               </button>
@@ -166,11 +166,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 />
               </div>
 
-              <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl py-3 px-4">
-                <p className="text-indigo-700 dark:text-indigo-300 font-bold text-base">
+              <div className="bg-[var(--accent-50)] dark:bg-[var(--accent-900-a30)] rounded-xl py-3 px-4">
+                <p className="text-[var(--accent-700)] dark:text-[var(--accent-300)] font-bold text-base">
                   ⏱ Reward unlocks in {countdown}s
                 </p>
-                <p className="text-indigo-400 text-sm mt-1">
+                <p className="text-[var(--accent-400)] text-sm mt-1">
                   Stay on this screen to earn your reward
                 </p>
               </div>

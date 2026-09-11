@@ -33,11 +33,11 @@ const SocialPanel: React.FC<SocialPanelProps> = ({ friends, onAddFriend, onRemov
             placeholder="Username..." 
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 ring-indigo-100"
+            className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 ring-[var(--accent-100)]"
           />
           <button 
             onClick={handleAdd}
-            className="bg-indigo-600 text-white p-2 rounded-xl active:scale-95 transition-transform"
+            className="bg-[var(--accent-600)] text-white p-2 rounded-xl active:scale-95 transition-transform"
           >
             <UserPlusIcon className="w-6 h-6" />
           </button>

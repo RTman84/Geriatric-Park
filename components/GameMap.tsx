@@ -225,7 +225,7 @@ const GameMap: React.FC<GameMapProps> = ({
               <Popup>
                 <div className="p-2 text-center">
                   <h3 className="font-black uppercase text-base">{st.name}</h3>
-                  {isHeld && <div className="text-[15px] font-black text-indigo-500 uppercase mb-1">✓ Held by You</div>}
+                  {isHeld && <div className="text-[15px] font-black text-[var(--accent-500)] uppercase mb-1">✓ Held by You</div>}
                   <p className="text-[15px] opacity-60">{st.description}</p>
                 </div>
               </Popup>
@@ -236,7 +236,7 @@ const GameMap: React.FC<GameMapProps> = ({
 
       <div className="absolute top-6 left-6 flex flex-col gap-3 z-[1000]">
         <div className={`px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md flex items-center gap-2 ${isDark ? 'bg-slate-900/80 border-slate-700 text-white' : 'bg-white/90 border-slate-100 text-slate-800'}`}>
-          <MapPinIcon className="w-4 h-4 text-indigo-500" />
+          <MapPinIcon className="w-4 h-4 text-[var(--accent-500)]" />
           <span className="text-[15px] font-black uppercase tracking-tighter">
             {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
           </span>
@@ -244,7 +244,7 @@ const GameMap: React.FC<GameMapProps> = ({
         {unreadMailCount > 0 && (
           <button 
             onClick={onMailClick} 
-            className="w-16 h-16 bg-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white relative animate-bounce border-4 border-white"
+            className="w-16 h-16 bg-[var(--accent-600)] rounded-full shadow-2xl flex items-center justify-center text-white relative animate-bounce border-4 border-white"
           >
             <EnvelopeIcon className="w-8 h-8" />
             <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[15px] font-black">
@@ -266,11 +266,11 @@ const GameMap: React.FC<GameMapProps> = ({
       </div>
 
       <div className="absolute bottom-6 right-6 flex flex-col gap-3 z-[1000]">
-        <button onClick={() => setIsFollowing(true)} className={`p-4 rounded-[1.5rem] shadow-xl border transition-all ${isFollowing ? 'bg-indigo-600 border-indigo-500 text-white' : isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}>
+        <button onClick={() => setIsFollowing(true)} className={`p-4 rounded-[1.5rem] shadow-xl border transition-all ${isFollowing ? 'bg-[var(--accent-600)] border-[var(--accent-500)] text-white' : isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}>
           <ArrowPathIcon className={`w-8 h-8 ${isFollowing ? 'animate-spin-slow' : ''}`} />
         </button>
-        <button onClick={() => setZoom(z => Math.min(z + 1, 20))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}><PlusCircleIcon className="w-8 h-8" /></button>
-        <button onClick={() => setZoom(z => Math.max(z - 1, 10))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}><MinusCircleIcon className="w-8 h-8" /></button>
+        <button onClick={() => setZoom(z => Math.min(z + 1, 20))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><PlusCircleIcon className="w-8 h-8" /></button>
+        <button onClick={() => setZoom(z => Math.max(z - 1, 10))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><MinusCircleIcon className="w-8 h-8" /></button>
       </div>
       <style>{`
         @keyframes spin-slow {

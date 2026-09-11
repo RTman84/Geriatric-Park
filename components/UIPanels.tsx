@@ -91,14 +91,14 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
         <div key={msg.id} className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${msg.claimed ? 'opacity-50' : ''}`}>
           <div className="flex justify-between items-start mb-3">
             <div>
-              <span className="block text-[13px] font-black text-indigo-500 uppercase mb-1">From: {msg.sender}</span>
+              <span className="block text-[13px] font-black text-[var(--accent-500)] uppercase mb-1">From: {msg.sender}</span>
               <h4 className={`font-black text-base uppercase leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{msg.subject}</h4>
             </div>
             {!msg.claimed && <div className="w-2 h-2 bg-red-500 rounded-full"></div>}
           </div>
           <p className="text-[15px] text-slate-600 mb-6 leading-relaxed">{msg.body}</p>
           {msg.reward && !msg.claimed && (
-            <button onClick={() => onClaim(msg.id)} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-indigo-500/20">
+            <button onClick={() => onClaim(msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
               <GiftIcon className="w-4 h-4" /> Claim {msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name}
             </button>
           )}
@@ -137,7 +137,7 @@ export const BankPanel: React.FC<{
 
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
+      <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-[16px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
         <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(2)} PP</div>
         <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
@@ -166,7 +166,7 @@ export const BankPanel: React.FC<{
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Pending Yield</h3>
             <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} uppercase font-bold tracking-widest mt-1`}>Always growing — convert it below</p>
           </div>
-          <span className="text-indigo-500 font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
+          <span className="text-[var(--accent-500)] font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
         </div>
         <div className="grid grid-cols-2 gap-3 mt-6">
           <button
@@ -180,7 +180,7 @@ export const BankPanel: React.FC<{
           <button
             onClick={onReinvestYield}
             disabled={pendingYield <= 0}
-            className={`py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+            className={`py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
             <span>Reinvest</span>
             <span className="text-[13px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * 3600).toFixed(4)} PP/hr</span>
@@ -211,21 +211,21 @@ export const BankPanel: React.FC<{
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
             <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest`}>70/20/10 revenue split per view</p>
           </div>
-          <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-indigo-500 animate-pulse' : 'text-slate-200'}`} />
+          <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-[var(--accent-500)] animate-pulse' : 'text-slate-200'}`} />
         </div>
         <div className="mb-6">
           <div className="flex justify-between text-[15px] font-black uppercase tracking-tighter mb-2">
             <span className="opacity-60">Hourly Availability</span>
-            <span className={adsLeft > 0 ? "text-indigo-500" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_HOUR} Slots</span>
+            <span className={adsLeft > 0 ? "text-[var(--accent-500)]" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_HOUR} Slots</span>
           </div>
           <div className={`w-full h-2 rounded-full overflow-hidden p-0.5 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-            <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_HOUR) * 100}%` }} />
+            <div className="h-full bg-[var(--accent-500)] rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_HOUR) * 100}%` }} />
           </div>
         </div>
         <button 
           onClick={onWatchAdTrigger} 
           disabled={adsLeft <= 0}
-          className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-indigo-600 text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
+          className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-[var(--accent-600)] text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
         >
           {adsLeft > 0 ? 'Watch Local Sponsor (+0.07 PP + 2x Passive Boost!)' : 'Slots Recharging...'}
         </button>
@@ -245,9 +245,9 @@ export const BankPanel: React.FC<{
       <div className="mb-10">
         <div className="flex items-center justify-between px-4 mb-6">
           <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Asset Portfolio</h3>
-          <div className="flex items-center gap-1.5 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-            <ChartBarIcon className="w-3 h-3 text-indigo-500" />
-            <span className="text-[14px] font-black text-indigo-500 uppercase tracking-tighter">Reinvest Earnings</span>
+          <div className="flex items-center gap-1.5 bg-[var(--accent-500-a10)] px-3 py-1 rounded-full border border-[var(--accent-500-a20)]">
+            <ChartBarIcon className="w-3 h-3 text-[var(--accent-500)]" />
+            <span className="text-[14px] font-black text-[var(--accent-500)] uppercase tracking-tighter">Reinvest Earnings</span>
           </div>
         </div>
         <div className="space-y-10">
@@ -260,7 +260,7 @@ export const BankPanel: React.FC<{
                     key={item.id} 
                     onClick={() => onInvest(item)}
                     disabled={balance < item.cost}
-                    className={`p-6 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${balance >= item.cost ? 'bg-white border-slate-100 shadow-sm hover:border-indigo-500' : 'opacity-40 grayscale bg-slate-50 border-slate-200 cursor-not-allowed'}`}
+                    className={`p-6 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${balance >= item.cost ? 'bg-white border-slate-100 shadow-sm hover:border-[var(--accent-500)]' : 'opacity-40 grayscale bg-slate-50 border-slate-200 cursor-not-allowed'}`}
                   >
                     <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl overflow-hidden">
                       {PARCEL_ICON_ASSETS[item.id] ? (
@@ -270,7 +270,7 @@ export const BankPanel: React.FC<{
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <h5 className="font-black text-base uppercase text-slate-800 truncate">{item.name}</h5>
-                        <span className="text-indigo-600 font-black text-sm">{item.cost.toFixed(2)} PP</span>
+                        <span className="text-[var(--accent-600)] font-black text-sm">{item.cost.toFixed(2)} PP</span>
                       </div>
                       <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest mt-1`}>+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
                     </div>
@@ -409,7 +409,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       {/* Header */}
-      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-6 relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
+      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-6 relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-3xl font-black uppercase italic tracking-tighter">Grand Shuffle Court</h2>
@@ -450,7 +450,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           <button
             key={mode}
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
-            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300'}`}
+            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
             {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : '🏅 Golden'}
           </button>
@@ -480,7 +480,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Win Reward</span>
-              <span className="text-indigo-500">15–40 🎟️</span>
+              <span className="text-[var(--accent-500)]">15–40 🎟️</span>
             </div>
           </div>
           {team.length === 0 ? (
@@ -491,7 +491,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <button
               onClick={handlePassiveCollect}
               disabled={timeToMatch > 0 || isPlaying}
-              className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${timeToMatch <= 0 && !isPlaying ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+              className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${timeToMatch <= 0 && !isPlaying ? 'bg-[var(--accent-600)] text-white shadow-xl shadow-[var(--accent-500-a20)]' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
             >
               {isPlaying ? 'Match in progress...' : timeToMatch > 0 ? `Next match in ${formatTime(timeToMatch)}` : 'Collect Match Results'}
             </button>
@@ -503,7 +503,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
                 <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
                 <span className="text-[15px] font-black uppercase flex-1">{e.name}</span>
-                <span className="text-[14px] text-indigo-500 font-black">PWR {getElderPower(e)}</span>
+                <span className="text-[14px] text-[var(--accent-500)] font-black">PWR {getElderPower(e)}</span>
               </div>
             ))}
           </div>
@@ -521,7 +521,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           <div className={`p-4 rounded-2xl mb-6 space-y-2 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Your Best Score</span>
-              <span className="text-indigo-500">{tournamentScore} pts</span>
+              <span className="text-[var(--accent-500)]">{tournamentScore} pts</span>
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Resets In</span>
@@ -541,7 +541,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             ) : leaderboardError ? (
               <div className="text-center py-4">
                 <p className="text-[14px] text-rose-500 font-bold mb-2">Couldn't load the leaderboard.</p>
-                <button onClick={onRetryLeaderboard} className="text-[14px] font-black uppercase text-indigo-500 underline">Retry</button>
+                <button onClick={onRetryLeaderboard} className="text-[14px] font-black uppercase text-[var(--accent-500)] underline">Retry</button>
               </div>
             ) : !leaderboard ? (
               <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold text-center py-4`}>Loading leaderboard...</p>
@@ -554,14 +554,14 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                   <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
                     <span className={`text-[15px] font-black w-5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
                     <span className={`text-[15px] font-black flex-1 uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{entry.display_name}</span>
-                    <span className="text-[15px] font-black text-indigo-500">{entry.score} pts</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">{entry.score} pts</span>
                   </div>
                 ))}
                 {leaderboard.mine && !leaderboard.top.some(e => e.display_name === leaderboard.mine!.display_name) && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200">
-                    <span className="text-[15px] font-black w-5 text-indigo-900">-</span>
-                    <span className="text-[15px] font-black flex-1 uppercase text-indigo-900">{leaderboard.mine.display_name} (You)</span>
-                    <span className="text-[15px] font-black text-indigo-500">{leaderboard.mine.score} pts</span>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--accent-50)] border border-[var(--accent-200)]">
+                    <span className="text-[15px] font-black w-5 text-[var(--accent-900)]">-</span>
+                    <span className="text-[15px] font-black flex-1 uppercase text-[var(--accent-900)]">{leaderboard.mine.display_name} (You)</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">{leaderboard.mine.score} pts</span>
                   </div>
                 )}
               </>
@@ -594,7 +594,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                 <button
                   key={amt}
                   onClick={() => setStakeAmount(amt)}
-                  className={`flex-1 py-2 rounded-xl text-[14px] font-black uppercase transition-all ${stakeAmount === amt ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
+                  className={`flex-1 py-2 rounded-xl text-[14px] font-black uppercase transition-all ${stakeAmount === amt ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
                 >
                   {amt}🎟️
                 </button>
@@ -613,7 +613,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               </div>
               <div className="ml-auto text-center">
                 <span className={`block text-[13px] uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Prize Pool</span>
-                <span className="font-black text-indigo-500">{stakeAmount * 2} 🎟️</span>
+                <span className="font-black text-[var(--accent-500)]">{stakeAmount * 2} 🎟️</span>
               </div>
             </div>
           </div>
@@ -648,7 +648,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                   onClick={() => isUnlocked && setSelectedLeague(i)}
                   disabled={!isUnlocked}
                   className={`w-full text-left p-4 rounded-2xl border transition-all ${
-                    isSelected ? 'border-indigo-500 bg-indigo-500/10' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                    isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
                   } ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'}`}
                 >
                   <div className="flex items-center gap-3">
@@ -724,7 +724,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
         <div className={`text-2xl font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Commissary</div>
         <div className={`p-4 rounded-2xl flex items-center justify-between mt-4 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
           <span className="text-[15px] font-black uppercase opacity-60">Balance</span>
-          <span className="text-xl font-black text-indigo-500">{tokens} 🎟️</span>
+          <span className="text-xl font-black text-[var(--accent-500)]">{tokens} 🎟️</span>
         </div>
       </div>
 
@@ -734,7 +734,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-full text-[14px] font-black uppercase whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
+            className={`px-4 py-2 rounded-full text-[14px] font-black uppercase whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-[var(--accent-600)] text-white shadow-lg' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
           >
             {cat}
           </button>
@@ -747,7 +747,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
             key={item.id} 
             onClick={() => onBuy(item)} 
             disabled={tokens < item.price}
-            className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-500 shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
+            className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-[var(--accent-500)]' : 'bg-white border-slate-100 hover:border-[var(--accent-500)] shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
           >
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden p-2 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon name={item.name} icon={item.icon} fill /></div>
             <div className="flex-1 min-w-0">
@@ -761,7 +761,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
                 }`}>{item.category}</span>
               </div>
               <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} leading-tight mb-2`}>{item.description}</p>
-              <div className="text-indigo-500 font-black text-sm">{item.price} 🎟️</div>
+              <div className="text-[var(--accent-500)] font-black text-sm">{item.price} 🎟️</div>
             </div>
           </button>
         ))}
@@ -778,12 +778,12 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
   const daysLeft = Math.max(0, Math.ceil((season.endDate - Date.now()) / (24 * 60 * 60 * 1000)));
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
-        <h2 className="text-[17px] font-black text-indigo-400 uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
+      <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
+        <h2 className="text-[17px] font-black text-[var(--accent-400)] uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
         <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
         <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
         <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
-          <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
+          <div className="h-full bg-[var(--accent-500)] rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
         </div>
         <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
       </div>
@@ -794,7 +794,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
           return (
             <div key={i} className={`p-6 rounded-[2.5rem] border flex items-center justify-between shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${!unlocked ? 'opacity-40 grayscale' : ''}`}>
               <div className="flex items-center gap-5 min-w-0">
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
+                <div className="w-12 h-12 bg-[var(--accent-500-a10)] rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
                 <div>
                   <span className={`block text-[13px] font-black ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase mb-1`}>Rank {reward.level}</span>
                   <span className={`text-[16px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
@@ -803,7 +803,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
               {claimed ? (
                 <CheckCircleIcon className="w-7 h-7 text-emerald-500" />
               ) : unlocked ? (
-                <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-[14px] font-black uppercase shadow-lg shadow-indigo-900/10">Claim</button>
+                <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-[var(--accent-600)] text-white text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Claim</button>
               ) : (
                 <span className={`text-[13px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Locked</span>
               )}
@@ -833,10 +833,10 @@ export const QuestPanel: React.FC<{
             <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Tasks</h2>
             <p className="text-[15px] text-slate-300 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
           </div>
-          <div className="text-3xl font-black text-indigo-500 ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
+          <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
         <div className={`mt-4 pt-4 border-t text-[14px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
-          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-indigo-500 font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
+          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
         </div>
       </div>
 
@@ -846,7 +846,7 @@ export const QuestPanel: React.FC<{
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300'}`}
+            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
             {tab === 'daily' ? '📅 Daily' : tab === 'weekly' ? '📆 Weekly' : '🏅 Feats'}
           </button>
@@ -901,7 +901,7 @@ export const QuestPanel: React.FC<{
 const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark: boolean }> = ({ quest: q, onClaim, isDark }) => (
   <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${q.completed ? 'opacity-40 grayscale' : ''}`}>
     <div className="flex justify-between items-start mb-2">
-      <div className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[13px] font-black uppercase mb-1">{q.type}</div>
+      <div className="px-2 py-0.5 rounded bg-[var(--accent-500-a10)] text-[var(--accent-500)] text-[13px] font-black uppercase mb-1">{q.type}</div>
       <div className="text-[14px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} 🎟️<br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
     </div>
     <h4 className={`font-black text-base uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{q.title}</h4>
@@ -911,10 +911,10 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
       <span>{q.progress}/{q.target}</span>
     </div>
     <div className={`w-full h-3 rounded-full overflow-hidden mb-4 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-      <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${Math.min(100, (q.progress / q.target) * 100)}%` }}></div>
+      <div className="h-full bg-[var(--accent-500)] transition-all duration-500" style={{ width: `${Math.min(100, (q.progress / q.target) * 100)}%` }}></div>
     </div>
     {q.progress >= q.target && !q.completed && (
-      <button onClick={() => onClaim(q.id)} className="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-indigo-500/20">
+      <button onClick={() => onClaim(q.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
         <GiftIcon className="w-4 h-4" /> Claim Reward
       </button>
     )}
@@ -955,7 +955,7 @@ export const BasePanel: React.FC<{
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       {/* Park Hub header */}
-      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-8 flex flex-col italic transition-all relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
+      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-8 flex flex-col italic transition-all relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-3xl font-black uppercase leading-none italic tracking-tighter mb-4 relative z-10">Park Hub</h2>
         <div className="grid grid-cols-2 gap-3 relative z-10 mb-6">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
@@ -979,7 +979,7 @@ export const BasePanel: React.FC<{
               </div>
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Elder Comfort</span>
-                <span className="text-indigo-300">{(passiveBreakdown.elders * 3600).toFixed(4)} PP/hr</span>
+                <span className="text-[var(--accent-300)]">{(passiveBreakdown.elders * 3600).toFixed(4)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Parcel Rent</span>
@@ -1007,11 +1007,11 @@ export const BasePanel: React.FC<{
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Check-In</h3>
             <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase font-bold`}>Streak: {streak} days 🔥</p>
           </div>
-          <CalendarDaysIcon className="w-8 h-8 text-indigo-400" />
+          <CalendarDaysIcon className="w-8 h-8 text-[var(--accent-400)]" />
         </div>
         <button
           onClick={onCheckIn}
-          className="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl uppercase text-[15px] active:scale-95 transition-all"
+          className="w-full bg-[var(--accent-600)] text-white font-black py-3 rounded-2xl uppercase text-[15px] active:scale-95 transition-all"
         >
           Check In for Day {streak + 1} Reward
         </button>
@@ -1046,9 +1046,9 @@ export const BasePanel: React.FC<{
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-3">
               {inventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-indigo-600 border-indigo-400 text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
+                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
                   <ItemIcon name={item.name} icon={item.icon} size={32} className="mb-1" />
-                  <span className={`text-[12px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-indigo-100' : 'opacity-60'}`}>{item.name}</span>
+                  <span className={`text-[12px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                 </button>
               ))}
             </div>
@@ -1058,13 +1058,13 @@ export const BasePanel: React.FC<{
 
       {selectedItem && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-slate-100'}`}>
+          <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
             <div className="flex justify-center mb-6 animate-bounce"><ItemIcon name={selectedItem.name} icon={selectedItem.icon} size={72} /></div>
             <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
-            <p className="text-[15px] text-center mb-4 text-indigo-400 uppercase font-black tracking-widest">{selectedItem.description}</p>
+            <p className="text-[15px] text-center mb-4 text-[var(--accent-400)] uppercase font-black tracking-widest">{selectedItem.description}</p>
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
               {elders.map(e => (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-indigo-500`}>
+                <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
                   <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={48} />
                   <div className={`flex-1 text-left min-w-0 text-[17px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
                 </button>
@@ -1090,7 +1090,7 @@ export const BasePanel: React.FC<{
                   <div className="flex gap-2 mt-3">
                     {e.status === 'Team' 
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
-                      : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-indigo-600 text-white shadow-lg shadow-indigo-900/10">Assign to Squad</button>
+                      : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-[var(--accent-600)] text-white shadow-lg shadow-[var(--accent-900-a10)]">Assign to Squad</button>
                     }
                     {onScrapElder && (
                       <button
@@ -1122,9 +1122,9 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className="flex items-center justify-between mb-8 gap-4">
         <h2 className={`text-3xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
-        <div className={`px-4 py-2 rounded-2xl text-right ${isDark ? 'bg-slate-800 border border-indigo-500/30' : 'bg-indigo-50 border border-indigo-100'}`}>
+        <div className={`px-4 py-2 rounded-2xl text-right ${isDark ? 'bg-slate-800 border border-[var(--accent-500-a30)]' : 'bg-[var(--accent-50)] border border-[var(--accent-100)]'}`}>
           <span className={`block text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Squad Power</span>
-          <span className="font-black text-lg text-indigo-500 leading-none">{squadPower}</span>
+          <span className="font-black text-lg text-[var(--accent-500)] leading-none">{squadPower}</span>
         </div>
       </div>
       <div className="space-y-6">
@@ -1137,19 +1137,19 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
           const meetsLevel = nextLevelNeeded !== null && e.level >= nextLevelNeeded;
           const canAffordEvolve = legacyTokens >= evolveCost;
           return (
-          <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-indigo-500/20' : 'bg-white border-indigo-100'}`}>
+          <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-[var(--accent-500-a20)]' : 'bg-white border-[var(--accent-100)]'}`}>
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} stage={stage} fill /></div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className={`font-black text-base uppercase leading-none truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</h4>
                   <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
-                  <span className="text-[15px] font-black text-indigo-500">PWR {getElderPower(e)}</span>
+                  <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                 </div>
                 <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{ELDER_XP_FOR_LEVEL_UP}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
-                  {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg shadow-indigo-900/10">Neighborhood Lead</button>}
+                  {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-[var(--accent-600)] text-white px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Neighborhood Lead</button>}
                   {onEvolve && stage < 2 && (
                     <button
                       onClick={() => onEvolve(e.id)}
