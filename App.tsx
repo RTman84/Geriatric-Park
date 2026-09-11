@@ -1390,7 +1390,7 @@ const App: React.FC = () => {
   if (!isLoaded || !cloudCheckDone) return (
     <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-white font-black uppercase tracking-widest gap-6">
       <div className="animate-pulse">Initializing...</div>
-      <button onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} className="text-[10px] opacity-40 hover:opacity-100 transition-opacity border border-white/20 px-4 py-2 rounded-xl">Clear Save & Reset</button>
+      <button onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} className="text-[15px] opacity-40 hover:opacity-100 transition-opacity border border-white/20 px-4 py-2 rounded-xl">Clear Save & Reset</button>
     </div>
   );
 
@@ -1424,9 +1424,9 @@ const App: React.FC = () => {
                   </button>
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-black uppercase">LVL {state.level}</span>
-                      <button onClick={() => setShowProfilePicker(true)} className="text-[8px] font-black uppercase text-indigo-500 tracking-widest">{display.title}</button>
-                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
+                      <span className="text-sm font-black uppercase">LVL {state.level}</span>
+                      <button onClick={() => setShowProfilePicker(true)} className="text-[13px] font-black uppercase text-indigo-500 tracking-widest">{display.title}</button>
+                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
                     <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                       <div className="h-full bg-indigo-500" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
@@ -1437,16 +1437,16 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
+            <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-100'}`}>
               <EnvelopeIcon className="w-6 h-6" />
-              {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-black text-white">{unreadMailCount}</div>}
+              {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{unreadMailCount}</div>}
             </button>
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
-                <span className="text-[10px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(2)} PP</span>
-                <span className="text-[10px] font-black uppercase text-indigo-500 leading-none">{state.legacyTokens} 🎟️</span>
+                <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(2)} PP</span>
+                <span className="text-[15px] font-black uppercase text-indigo-500 leading-none">{state.legacyTokens} 🎟️</span>
               </div>
-              <div className="text-[8px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
+              <div className="text-[13px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
             </div>
           </div>
         </header>
@@ -1517,9 +1517,9 @@ const App: React.FC = () => {
 
         <nav className={`border-t pb-8 pt-3 px-1 flex justify-between items-center z-[60] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           {NAV_WITH_COURT.map(item => (
-            <button key={item.id} onClick={() => triggerTab(item.id)} className={`flex flex-col items-center flex-1 transition-all relative ${activeTab === item.id ? 'text-indigo-500 scale-110 font-bold' : 'text-slate-400'}`}>
+            <button key={item.id} onClick={() => triggerTab(item.id)} className={`flex flex-col items-center flex-1 transition-all relative ${activeTab === item.id ? 'text-indigo-500 scale-110 font-bold' : 'text-slate-300'}`}>
               <div className="p-1">{item.icon}</div>
-              <span className="text-[7px] font-black uppercase tracking-tighter">{item.label}</span>
+              <span className="text-[12px] font-black uppercase tracking-tighter">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -1529,7 +1529,7 @@ const App: React.FC = () => {
             <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-black uppercase italic tracking-tighter">Settings</h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                <button onClick={() => setShowSettings(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
               </div>
               <div className="space-y-6">
                 {[
@@ -1538,7 +1538,7 @@ const App: React.FC = () => {
                   { label: 'SFX', key: 'sfxEnabled' },
                 ].map(({ label, key }) => (
                   <div key={key} className="flex justify-between items-center">
-                    <span className="text-xs font-black uppercase tracking-widest opacity-60">{label}</span>
+                    <span className="text-sm font-black uppercase tracking-widest opacity-60">{label}</span>
                     <button onClick={() => setState(p => ({...p, settings: {...p.settings, [key]: !p.settings[key as keyof typeof p.settings]}}))} className={`w-12 h-6 rounded-full transition-colors relative ${state.settings[key as keyof typeof state.settings] ? 'bg-indigo-600' : 'bg-slate-200'}`}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${state.settings[key as keyof typeof state.settings] ? 'left-7' : 'left-1'}`} />
                     </button>
@@ -1546,24 +1546,24 @@ const App: React.FC = () => {
                 ))}
               </div>
               <div className="mt-8 pt-8 border-t border-slate-100/10">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Data Management</h3>
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Data Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={handleExportSave} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
                     <ArrowDownTrayIcon className="w-5 h-5 mb-2 text-indigo-500" />
-                    <span className="text-[8px] font-black uppercase">Export</span>
+                    <span className="text-[13px] font-black uppercase">Export</span>
                   </button>
                   <label className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors cursor-pointer text-center">
                     <ArrowUpTrayIcon className="w-5 h-5 mb-2 text-indigo-500" />
-                    <span className="text-[8px] font-black uppercase">Import</span>
+                    <span className="text-[13px] font-black uppercase">Import</span>
                     <input type="file" accept=".json" onChange={handleImportSave} className="hidden" />
                   </label>
                   <button onClick={handleCopySyncCode} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
                     <ClipboardDocumentIcon className="w-5 h-5 mb-2 text-emerald-500" />
-                    <span className="text-[8px] font-black uppercase">Copy Sync</span>
+                    <span className="text-[13px] font-black uppercase">Copy Sync</span>
                   </button>
                   <button onClick={handlePasteSyncCode} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
                     <ArrowPathIcon className="w-5 h-5 mb-2 text-emerald-500" />
-                    <span className="text-[8px] font-black uppercase">Paste Sync</span>
+                    <span className="text-[13px] font-black uppercase">Paste Sync</span>
                   </button>
                 </div>
               </div>
@@ -1582,10 +1582,10 @@ const App: React.FC = () => {
               <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-black uppercase italic tracking-tighter">Profile</h2>
-                  <button onClick={() => setShowProfilePicker(false)} className="text-slate-400 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                  <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
 
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Icon</h3>
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Icon</h3>
                 <div className="grid grid-cols-4 gap-3 mb-8">
                   {unlocked.map(c => (
                     <button
@@ -1599,13 +1599,13 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Title</h3>
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Title</h3>
                 <div className="space-y-2 mb-4">
                   {unlocked.map(c => (
                     <button
                       key={`title-${c.key}`}
                       onClick={() => setState(p => ({ ...p, selectedTitle: c.key }))}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600'}`}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-50 text-slate-600'}`}
                     >
                       {c.title}
                       {activeTitleKey === c.key && <CheckCircleIcon className="w-4 h-4" />}
@@ -1613,7 +1613,7 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <p className="text-[10px] text-slate-500 mb-6">Unlocked by reaching ranks and completing achievements. Icon and title can be mixed independently.</p>
+                <p className="text-[15px] text-slate-600 mb-6">Unlocked by reaching ranks and completing achievements. Icon and title can be mixed independently.</p>
                 <button onClick={() => setShowProfilePicker(false)} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
               </div>
             </div>
@@ -1635,9 +1635,9 @@ const App: React.FC = () => {
             <div className={`rounded-[3rem] p-10 w-full max-w-md flex flex-col shadow-2xl border-4 ${isDark ? 'bg-slate-800 border-indigo-500/30' : 'bg-white border-indigo-100'}`}>
               <div className="text-8xl mb-8 self-center animate-bounce">{activeEvent.icon}</div>
               <h3 className="text-3xl font-black uppercase text-center mb-3 italic tracking-tighter">{activeEvent.name}</h3>
-              <p className="text-center mb-8 text-xs font-bold uppercase tracking-widest opacity-60 leading-relaxed">{activeEvent.description}</p>
+              <p className="text-center mb-8 text-sm font-bold uppercase tracking-widest opacity-60 leading-relaxed">{activeEvent.description}</p>
               <div className="space-y-4">
-                {eventResult && <div className="p-4 bg-indigo-500/10 rounded-xl text-center text-sm font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
+                {eventResult && <div className="p-4 bg-indigo-500/10 rounded-xl text-center text-base font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
                 {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Drawing...' : 'Play Bingo (10 🎟️)'}</button>}
                 {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? 'Defend Court (20 🎟️)' : 'Clash for Court (20 🎟️)'}</button>}
                 {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad (25 🎟️)</button>}
@@ -1645,7 +1645,7 @@ const App: React.FC = () => {
                 {activeEvent.type === 'Walk' && <button onClick={handleMallWalk} disabled={isEventPlaying} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Walking...' : 'Train at Mall (15 🎟️)'}</button>}
                 {activeEvent.type === 'Pavilion' && <button onClick={handlePavilionPotluck} disabled={isEventPlaying} className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Eating...' : 'Host Potluck (10 🎟️)'}</button>}
                 {activeEvent.type === 'Market' && <button onClick={handleMarketVisit} disabled={isEventPlaying} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Shopping...' : 'Visit Market (30 🎟️)'}</button>}
-                <button onClick={() => { setActiveEvent(null); setEventResult(null); }} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase active:scale-95 transition-transform">Close</button>
+                <button onClick={() => { setActiveEvent(null); setEventResult(null); }} className="w-full bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase active:scale-95 transition-transform">Close</button>
               </div>
             </div>
           </div>

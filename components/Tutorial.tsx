@@ -56,7 +56,7 @@ export const TutorialOverlay: React.FC<{ onComplete: () => void; isDark: boolean
         </div>
         
         <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">{step.title}</h2>
-        <p className={`text-sm leading-relaxed mb-10 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{step.description}</p>
+        <p className={`text-base leading-relaxed mb-10 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{step.description}</p>
         
         <div className="flex gap-2 mb-8">
           {STEPS.map((_, i) => (
@@ -72,7 +72,7 @@ export const TutorialOverlay: React.FC<{ onComplete: () => void; isDark: boolean
           <ChevronRightIcon className="w-5 h-5" />
         </button>
 
-        <button onClick={onComplete} className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100">Skip Intro</button>
+        <button onClick={onComplete} className="mt-4 text-[15px] font-black uppercase tracking-widest opacity-40 hover:opacity-100">Skip Intro</button>
       </div>
     </div>
   );

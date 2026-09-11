@@ -99,7 +99,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
         <div className="bg-indigo-600 px-6 py-4 text-white text-center">
           <div className="text-2xl mb-1">📺</div>
           <h2 className="font-black text-lg uppercase tracking-wide">Sponsor Break</h2>
-          <p className="text-indigo-200 text-xs mt-1">
+          <p className="text-indigo-200 text-sm mt-1">
             {adCount}/{maxAds} sponsorship slots used this hour
           </p>
         </div>
@@ -113,17 +113,17 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 <p className="font-semibold text-slate-700 dark:text-slate-200">
                   Support Geriatric Park and earn rewards!
                 </p>
-                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-sm space-y-1">
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-base space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">💰 Your Pension Points</span>
+                    <span className="text-slate-600">💰 Your Pension Points</span>
                     <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">🏘️ Community pool</span>
+                    <span className="text-slate-600">🏘️ Community pool</span>
                     <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">⭐ Park Stars</span>
+                    <span className="text-slate-600">⭐ Park Stars</span>
                     <span className="font-bold text-purple-500">+10</span>
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="w-full text-slate-400 text-sm py-2 hover:text-slate-600 transition-colors"
+                className="w-full text-slate-300 text-base py-2 hover:text-slate-600 transition-colors"
               >
                 Maybe later
               </button>
@@ -147,7 +147,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* PLAYING — display ad shown here */}
           {phase === 'playing' && (
             <div className="text-center space-y-3">
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold">
+              <p className="text-slate-600 text-sm uppercase tracking-wide font-semibold">
                 Sponsored Message
               </p>
 
@@ -167,10 +167,10 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               </div>
 
               <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl py-3 px-4">
-                <p className="text-indigo-700 dark:text-indigo-300 font-bold text-sm">
+                <p className="text-indigo-700 dark:text-indigo-300 font-bold text-base">
                   ⏱ Reward unlocks in {countdown}s
                 </p>
-                <p className="text-indigo-400 text-xs mt-1">
+                <p className="text-indigo-400 text-sm mt-1">
                   Stay on this screen to earn your reward
                 </p>
               </div>
@@ -184,17 +184,17 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               <p className="font-black text-xl text-slate-800 dark:text-slate-100">
                 Reward Earned!
               </p>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-sm space-y-1">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Your Pension Points</span>
+                  <span className="text-slate-600">Your Pension Points</span>
                   <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Community pool</span>
+                  <span className="text-slate-600">Community pool</span>
                   <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Park Stars</span>
+                  <span className="text-slate-600">Park Stars</span>
                   <span className="font-bold text-purple-500">+10 ⭐</span>
                 </div>
               </div>
@@ -211,7 +211,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {phase === 'error' && (
             <div className="text-center py-4 space-y-3">
               <div className="text-4xl">😕</div>
-              <p className="text-slate-500 text-sm">
+              <p className="text-slate-600 text-base">
                 No ads available right now. Check back soon!
               </p>
               <button

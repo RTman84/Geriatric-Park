@@ -168,7 +168,7 @@ const GameMap: React.FC<GameMapProps> = ({
             }}
           >
             <Popup>
-              <div className="text-xs font-bold uppercase">
+              <div className="text-sm font-bold uppercase">
                 {p.type} Parcel Owned
               </div>
             </Popup>
@@ -224,9 +224,9 @@ const GameMap: React.FC<GameMapProps> = ({
               </Tooltip>
               <Popup>
                 <div className="p-2 text-center">
-                  <h3 className="font-black uppercase text-sm">{st.name}</h3>
-                  {isHeld && <div className="text-[10px] font-black text-indigo-500 uppercase mb-1">✓ Held by You</div>}
-                  <p className="text-[10px] opacity-60">{st.description}</p>
+                  <h3 className="font-black uppercase text-base">{st.name}</h3>
+                  {isHeld && <div className="text-[15px] font-black text-indigo-500 uppercase mb-1">✓ Held by You</div>}
+                  <p className="text-[15px] opacity-60">{st.description}</p>
                 </div>
               </Popup>
             </Marker>
@@ -237,7 +237,7 @@ const GameMap: React.FC<GameMapProps> = ({
       <div className="absolute top-6 left-6 flex flex-col gap-3 z-[1000]">
         <div className={`px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md flex items-center gap-2 ${isDark ? 'bg-slate-900/80 border-slate-700 text-white' : 'bg-white/90 border-slate-100 text-slate-800'}`}>
           <MapPinIcon className="w-4 h-4 text-indigo-500" />
-          <span className="text-[10px] font-black uppercase tracking-tighter">
+          <span className="text-[15px] font-black uppercase tracking-tighter">
             {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
           </span>
         </div>
@@ -247,7 +247,7 @@ const GameMap: React.FC<GameMapProps> = ({
             className="w-16 h-16 bg-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white relative animate-bounce border-4 border-white"
           >
             <EnvelopeIcon className="w-8 h-8" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black">
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[15px] font-black">
               {unreadMailCount}
             </div>
           </button>
@@ -261,7 +261,7 @@ const GameMap: React.FC<GameMapProps> = ({
           title="Buy Parcel"
         >
           <MapPinIcon className="w-6 h-6" />
-          <span className="text-[8px] font-black uppercase mt-0.5">Buy</span>
+          <span className="text-[13px] font-black uppercase mt-0.5">Buy</span>
         </button>
       </div>
 

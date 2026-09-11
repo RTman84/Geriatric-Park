@@ -206,18 +206,18 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
       <div className="relative w-full max-w-lg flex flex-col pt-4 pb-24 gap-8">
         <div className="flex justify-between items-center z-10 px-2 sticky top-0 bg-slate-900/80 backdrop-blur py-2 rounded-xl">
           <div className="flex gap-2">
-            <div className="bg-white/10 backdrop-blur px-4 py-1.5 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/5">
+            <div className="bg-white/10 backdrop-blur px-4 py-1.5 rounded-full text-white text-[15px] font-black uppercase tracking-widest border border-white/5">
               {isFriendBattle ? "EXHIBITION" : `ROUND ${round}`}
             </div>
             <button 
               onClick={() => { if(sfxEnabled) audioManager.playSFX('click'); setIsAuto(!isAuto); }}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 transition-all ${isAuto ? 'bg-amber-400 text-amber-950 shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'bg-white/10 text-white border border-white/5'}`}
+              className={`px-4 py-1.5 rounded-full text-[15px] font-black uppercase flex items-center gap-2 transition-all ${isAuto ? 'bg-amber-400 text-amber-950 shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'bg-white/10 text-white border border-white/5'}`}
             >
               <CpuChipIcon className="w-3 h-3" /> {isAuto ? 'AUTO ON' : 'AUTO OFF'}
             </button>
           </div>
           {onFlee && !battleFinished && (
-            <button onClick={onFlee} className="bg-white/10 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border border-white/5">
+            <button onClick={onFlee} className="bg-white/10 text-white px-4 py-1.5 rounded-full text-[15px] font-black uppercase flex items-center gap-2 border border-white/5">
               🦽 Wheelchair Away
             </button>
           )}
@@ -237,8 +237,8 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           </div>
           <div className="w-full max-w-xs bg-black/60 backdrop-blur-xl p-4 rounded-[2rem] border border-white/10 shadow-2xl">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">{opponentElder.name}</span>
-              <span className="text-[10px] font-black text-red-400 tracking-widest">{oppHp} HP</span>
+              <span className="text-[15px] font-black text-white uppercase tracking-widest">{opponentElder.name}</span>
+              <span className="text-[15px] font-black text-red-400 tracking-widest">{oppHp} HP</span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
               <div className="h-full bg-red-500 rounded-full transition-all duration-500" style={{ width: `${(oppHp / opponentElder.maxHp) * 100}%` }}></div>
@@ -248,7 +248,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
 
         <div className="bg-black/50 backdrop-blur-md p-5 rounded-[2.5rem] border border-white/5 mx-2 min-h-[120px] flex flex-col justify-end gap-1 shadow-inner">
           {log.slice().reverse().map((m, i) => (
-            <div key={i} className={`text-[9px] font-bold uppercase transition-all duration-300 tracking-tight leading-tight ${i === log.length - 1 ? 'text-yellow-400 text-[11px]' : 'opacity-20'}`}>
+            <div key={i} className={`text-[14px] font-bold uppercase transition-all duration-300 tracking-tight leading-tight ${i === log.length - 1 ? 'text-yellow-400 text-[16px]' : 'opacity-20'}`}>
               {m}
             </div>
           ))}
@@ -257,8 +257,8 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="w-full max-w-xs bg-black/60 backdrop-blur-xl p-4 rounded-[2rem] border border-white/10 shadow-2xl">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">{activeElder.name}</span>
-              <span className="text-[10px] font-black text-blue-400 tracking-widest">{activeElder.hp} HP</span>
+              <span className="text-[15px] font-black text-white uppercase tracking-widest">{activeElder.name}</span>
+              <span className="text-[15px] font-black text-blue-400 tracking-widest">{activeElder.hp} HP</span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
               <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(activeElder.hp / activeElder.maxHp) * 100}%` }}></div>
@@ -275,7 +275,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           <button 
             onClick={handleTurn} 
             disabled={isAnimating || battleFinished || isAuto}
-            className={`flex-1 font-black py-6 rounded-3xl shadow-2xl active:scale-95 transition-all text-sm uppercase tracking-widest border-b-8 ${isAuto ? 'bg-slate-800 text-slate-500 border-slate-900 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-900'}`}
+            className={`flex-1 font-black py-6 rounded-3xl shadow-2xl active:scale-95 transition-all text-base uppercase tracking-widest border-b-8 ${isAuto ? 'bg-slate-800 text-slate-600 border-slate-900 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-900'}`}
           >
             {isAnimating ? 'Debating...' : 'Cast Doubt'}
           </button>
@@ -286,7 +286,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
               className="w-24 bg-orange-600 hover:bg-orange-500 text-white rounded-3xl flex flex-col items-center justify-center active:scale-95 transition-all shadow-xl border-b-8 border-orange-900 disabled:opacity-50"
             >
               <span className="text-xl mb-1">🧭</span>
-              <span className="text-[7px] font-black uppercase">Guide</span>
+              <span className="text-[12px] font-black uppercase">Guide</span>
             </button>
           )}
           <button 
@@ -295,7 +295,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
             className="w-24 bg-slate-700 hover:bg-slate-600 text-white rounded-3xl flex flex-col items-center justify-center active:scale-95 transition-all shadow-xl border-b-8 border-slate-900"
           >
             <ArrowsRightLeftIcon className="w-6 h-6 mb-1" />
-            <span className="text-[7px] font-black uppercase">Switch</span>
+            <span className="text-[12px] font-black uppercase">Switch</span>
           </button>
         </div>
 
@@ -317,11 +317,11 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
                     className={`p-5 rounded-[2rem] border-4 flex flex-col items-center gap-3 transition-all ${idx === activeIndex ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5 bg-white/5'} ${elder.hp <= 0 ? 'opacity-30 grayscale' : 'active:scale-95'}`}
                   >
                     <ElderAvatarImg type={elder.type} stage={elder.evolutionStage ?? 0} size={48} />
-                    <span className="text-[9px] text-white font-black uppercase truncate w-full text-center tracking-tighter">{elder.name}</span>
+                    <span className="text-[14px] text-white font-black uppercase truncate w-full text-center tracking-tighter">{elder.name}</span>
                   </button>
                 ))}
               </div>
-              <button onClick={() => { if(sfxEnabled) audioManager.playSFX('click'); setShowSwitchMenu(false); }} className="mt-6 bg-white/10 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Close</button>
+              <button onClick={() => { if(sfxEnabled) audioManager.playSFX('click'); setShowSwitchMenu(false); }} className="mt-6 bg-white/10 text-white font-black py-4 rounded-2xl uppercase text-[15px] tracking-widest active:scale-95 transition-transform">Close</button>
             </div>
           </div>
         )}
