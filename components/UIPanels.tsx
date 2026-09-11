@@ -145,15 +145,15 @@ export const BankPanel: React.FC<{
         </button>
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Rate/hr</span>
+            <span className="block text-[8px] font-black opacity-60 uppercase truncate mb-1">Rate/hr</span>
             <span className="text-xs font-black tabular-nums block">{(rate * 3600).toFixed(4)} PP</span>
           </div>
           <div>
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Passive</span>
+            <span className="block text-[8px] font-black opacity-60 uppercase truncate mb-1">Passive</span>
             <span className="text-xs font-black tabular-nums block">{breakdown.passive.toFixed(4)} PP</span>
           </div>
           <div className="text-right">
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Sponsorship</span>
+            <span className="block text-[8px] font-black opacity-60 uppercase truncate mb-1">Sponsorship</span>
             <span className="text-xs font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} PP</span>
           </div>
         </div>
@@ -164,7 +164,7 @@ export const BankPanel: React.FC<{
         <div className="flex justify-between items-start mb-1">
           <div>
             <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Pending Yield</h3>
-            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-1">Always growing — convert it below</p>
+            <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase font-bold tracking-widest mt-1`}>Always growing — convert it below</p>
           </div>
           <span className="text-indigo-500 font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
         </div>
@@ -186,7 +186,7 @@ export const BankPanel: React.FC<{
             <span className="text-[8px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * 3600).toFixed(4)} PP/hr</span>
           </button>
         </div>
-        <p className="text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic mt-4">
+        <p className={`text-[7px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-black uppercase text-center leading-relaxed italic mt-4`}>
           Cash Out pays real PP, capped by Community Reserve health. Reinvest boosts your rate for free — no reserve cost.
         </p>
       </div>
@@ -199,9 +199,9 @@ export const BankPanel: React.FC<{
         </div>
         <div className="flex justify-between items-center mb-2">
           <span className={`text-[9px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
+          <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
         </div>
-        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">20% of all ad revenue funds the weekly prize pool</p>
+        <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase font-bold tracking-widest`}>20% of all ad revenue funds the weekly prize pool</p>
       </div>
 
       {/* Sponsorship Slots */}
@@ -209,7 +209,7 @@ export const BankPanel: React.FC<{
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">70/20/10 revenue split per view</p>
+            <p className={`text-[9px] ${isDark ? 'text-slate-300' : 'text-slate-500'} font-bold uppercase tracking-widest`}>70/20/10 revenue split per view</p>
           </div>
           <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-indigo-500 animate-pulse' : 'text-slate-300'}`} />
         </div>
@@ -235,7 +235,7 @@ export const BankPanel: React.FC<{
             <span className="text-[10px] font-black tabular-nums text-emerald-500">{String(boostMinutes).padStart(2, '0')}:{String(boostSeconds).padStart(2, '0')}</span>
           </div>
         ) : (
-          <p className="mt-4 text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic">
+          <p className={`mt-4 text-[7px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-black uppercase text-center leading-relaxed italic`}>
             Watching an ad also activates 2x passive income for 1 hour! Watching again while boosted extends the timer.
           </p>
         )}
@@ -253,7 +253,7 @@ export const BankPanel: React.FC<{
         <div className="space-y-10">
           {INVESTMENT_TIERS.map(tier => (
             <div key={tier.category}>
-              <h4 className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4 px-4">{tier.category}</h4>
+              <h4 className={`text-[9px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'} tracking-[0.2em] mb-4 px-4`}>{tier.category}</h4>
               <div className="grid grid-cols-1 gap-4 px-2">
                 {tier.items.map(item => (
                   <button 
@@ -272,7 +272,7 @@ export const BankPanel: React.FC<{
                         <h5 className="font-black text-sm uppercase text-slate-800 truncate">{item.name}</h5>
                         <span className="text-indigo-600 font-black text-xs">{item.cost.toFixed(2)} PP</span>
                       </div>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
+                      <p className={`text-[9px] ${isDark ? 'text-slate-300' : 'text-slate-500'} font-bold uppercase tracking-widest mt-1`}>+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
                     </div>
                   </button>
                 ))}
@@ -423,15 +423,15 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Squad Power</span>
+            <span className="block text-[8px] opacity-60 uppercase mb-1">Squad Power</span>
             <span className="font-black text-lg">{teamStrength}</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Tournament</span>
+            <span className="block text-[8px] opacity-60 uppercase mb-1">Tournament</span>
             <span className="font-black text-lg">{tournamentScore}pts</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Court Boost</span>
+            <span className="block text-[8px] opacity-60 uppercase mb-1">Court Boost</span>
             <span className="font-black text-lg">{isKing ? '1.5x' : '—'}</span>
           </div>
         </div>
@@ -498,7 +498,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           )}
           {/* Elder lineup */}
           <div className="mt-6 space-y-2">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Active Lineup</p>
+            <p className={`text-[9px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'} tracking-widest`}>Active Lineup</p>
             {team.slice(0, 3).map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
                 <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
@@ -535,20 +535,20 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
           {/* Real daily leaderboard, server-backed — grouped by player and by score */}
           <div className="mb-6 space-y-2">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Today's Leaderboard</p>
+            <p className={`text-[9px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'} tracking-widest mb-3`}>Today's Leaderboard</p>
             {!leaderboardAvailable ? (
-              <p className="text-[9px] text-slate-400 font-bold text-center py-4">Sign in to see how you rank against other players.</p>
+              <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold text-center py-4`}>Sign in to see how you rank against other players.</p>
             ) : leaderboardError ? (
               <div className="text-center py-4">
                 <p className="text-[9px] text-rose-500 font-bold mb-2">Couldn't load the leaderboard.</p>
                 <button onClick={onRetryLeaderboard} className="text-[9px] font-black uppercase text-indigo-500 underline">Retry</button>
               </div>
             ) : !leaderboard ? (
-              <p className="text-[9px] text-slate-400 font-bold text-center py-4">Loading leaderboard...</p>
+              <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold text-center py-4`}>Loading leaderboard...</p>
             ) : (
               <>
                 {leaderboard.top.length === 0 && (
-                  <p className="text-[9px] text-slate-400 font-bold text-center py-4">No scores yet today — be the first!</p>
+                  <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold text-center py-4`}>No scores yet today — be the first!</p>
                 )}
                 {leaderboard.top.map((entry, i) => (
                   <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
@@ -588,7 +588,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           </div>
 
           <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Set Your Stake</p>
+            <p className={`text-[9px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'} tracking-widest mb-3`}>Set Your Stake</p>
             <div className="flex gap-2">
               {[10, 20, 50, 100].map(amt => (
                 <button
@@ -604,15 +604,15 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
           {/* Rival Elder */}
           <div className={`p-4 rounded-2xl mb-6 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Your Rival</p>
+            <p className={`text-[9px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'} tracking-widest mb-3`}>Your Rival</p>
             <div className="flex items-center gap-4">
               <span className="text-4xl">👴</span>
               <div>
                 <p className="font-black text-sm uppercase">Shuffleboard Steve</p>
-                <p className="text-[9px] text-slate-400">Power: {Math.floor(teamStrength * 0.8 + Math.random() * 20)}</p>
+                <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Power: {Math.floor(teamStrength * 0.8 + Math.random() * 20)}</p>
               </div>
               <div className="ml-auto text-center">
-                <span className="block text-[8px] uppercase text-slate-400">Prize Pool</span>
+                <span className={`block text-[8px] uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Prize Pool</span>
                 <span className="font-black text-indigo-500">{stakeAmount * 2} 🎟️</span>
               </div>
             </div>
@@ -657,7 +657,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                       <p className={`font-black text-xs uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
                         {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
                       </p>
-                      <p className="text-[9px] text-slate-400 font-bold">
+                      <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold`}>
                         Min Power {league.minSquadPower} · Recommended {league.difficultyMax}
                       </p>
                       <p className={`text-[9px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
@@ -760,7 +760,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
                   'bg-amber-100 text-amber-600'
                 }`}>{item.category}</span>
               </div>
-              <p className="text-[9px] text-slate-500 leading-tight mb-2">{item.description}</p>
+              <p className={`text-[9px] ${isDark ? 'text-slate-300' : 'text-slate-500'} leading-tight mb-2`}>{item.description}</p>
               <div className="text-indigo-500 font-black text-xs">{item.price} 🎟️</div>
             </div>
           </button>
@@ -781,11 +781,11 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
       <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
         <h2 className="text-[12px] font-black text-indigo-400 uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
         <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
-        <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
+        <p className="text-[9px] opacity-60 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
         <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
           <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
         </div>
-        <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
+        <p className="text-[9px] opacity-60 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
       </div>
       <div className="space-y-4">
         {SEASONAL_REWARDS.map((reward, i) => {
@@ -796,7 +796,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
               <div className="flex items-center gap-5 min-w-0">
                 <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
                 <div>
-                  <span className="block text-[8px] font-black text-slate-500 uppercase mb-1">Rank {reward.level}</span>
+                  <span className={`block text-[8px] font-black ${isDark ? 'text-slate-300' : 'text-slate-500'} uppercase mb-1`}>Rank {reward.level}</span>
                   <span className={`text-[11px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
                 </div>
               </div>
@@ -805,7 +805,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
               ) : unlocked ? (
                 <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Claim</button>
               ) : (
-                <span className="text-[8px] font-black uppercase text-slate-400">Locked</span>
+                <span className={`text-[8px] font-black uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Locked</span>
               )}
             </div>
           );
@@ -959,11 +959,11 @@ export const BasePanel: React.FC<{
         <h2 className="text-3xl font-black uppercase leading-none italic tracking-tighter mb-4 relative z-10">Park Hub</h2>
         <div className="grid grid-cols-2 gap-3 relative z-10 mb-6">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
-            <span className="text-[8px] font-black uppercase opacity-40 mb-1">Currency</span>
+            <span className="text-[8px] font-black uppercase opacity-60 mb-1">Currency</span>
             <span className="text-lg font-black tabular-nums">{tokens} 🎟️</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
-            <span className="text-[8px] font-black uppercase opacity-40 mb-1">Residents</span>
+            <span className="text-[8px] font-black uppercase opacity-60 mb-1">Residents</span>
             <span className="text-lg font-black tabular-nums">{elders.length}</span>
           </div>
         </div>
@@ -971,7 +971,7 @@ export const BasePanel: React.FC<{
         {/* Passive income breakdown */}
         {passiveBreakdown && (
           <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
-            <p className="text-[8px] font-black uppercase opacity-40 mb-2 tracking-widest">Passive Income Sources</p>
+            <p className="text-[8px] font-black uppercase opacity-60 mb-2 tracking-widest">Passive Income Sources</p>
             <div className="space-y-1">
               <div className="flex justify-between text-[9px] font-black">
                 <span className="opacity-60">Base Rate</span>
@@ -1005,7 +1005,7 @@ export const BasePanel: React.FC<{
         <div className="flex justify-between items-center mb-3">
           <div>
             <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Check-In</h3>
-            <p className="text-[9px] text-slate-500 uppercase font-bold">Streak: {streak} days 🔥</p>
+            <p className={`text-[9px] ${isDark ? 'text-slate-300' : 'text-slate-500'} uppercase font-bold`}>Streak: {streak} days 🔥</p>
           </div>
           <CalendarDaysIcon className="w-8 h-8 text-indigo-400" />
         </div>
@@ -1022,7 +1022,7 @@ export const BasePanel: React.FC<{
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Dividend</h3>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Passive reward for management</p>
+            <p className={`text-[9px] ${isDark ? 'text-slate-300' : 'text-slate-500'} font-bold uppercase tracking-widest`}>Passive reward for management</p>
             <p className="text-[8px] text-amber-500 font-black uppercase tracking-widest mt-1">{parkScore} ⭐ boosts this payout</p>
           </div>
           <StarIcon className={`w-8 h-8 ${canClaim ? 'text-amber-500' : 'text-slate-300'}`} />
@@ -1086,7 +1086,7 @@ export const BasePanel: React.FC<{
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
-                  <p className="text-[9px] text-slate-400 mt-1">Comfort: {e.comfortGeneration.toFixed(4)}/tick</p>
+                  <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'} mt-1`}>Comfort: {e.comfortGeneration.toFixed(4)}/tick</p>
                   <div className="flex gap-2 mt-3">
                     {e.status === 'Team' 
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>Bench</button> 

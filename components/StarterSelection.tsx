@@ -100,7 +100,7 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
           )}
         </div>
         
-        <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest text-center opacity-40 italic">
+        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest text-center opacity-60 italic">
           v{GAME_VERSION} • Real Ad Revenue Enabled
         </p>
       </div>

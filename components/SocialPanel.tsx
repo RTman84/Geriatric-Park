@@ -53,9 +53,9 @@ const SocialPanel: React.FC<SocialPanelProps> = ({ friends, onAddFriend, onRemov
             <div className="flex-1">
               <div className="flex justify-between items-start">
                 <h4 className="font-black text-slate-800 text-xs uppercase">{friend.name}</h4>
-                <span className="text-[8px] font-black text-slate-400">LV.{friend.level}</span>
+                <span className="text-[8px] font-black text-slate-500">LV.{friend.level}</span>
               </div>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Active {friend.lastActive}</p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase mt-0.5">Active {friend.lastActive}</p>
               <div className="flex gap-2 mt-3">
                 <button 
                   onClick={() => onBattleFriend(friend)}

@@ -1546,7 +1546,7 @@ const App: React.FC = () => {
                 ))}
               </div>
               <div className="mt-8 pt-8 border-t border-slate-100/10">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-4">Data Management</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Data Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={handleExportSave} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
                     <ArrowDownTrayIcon className="w-5 h-5 mb-2 text-indigo-500" />
@@ -1585,7 +1585,7 @@ const App: React.FC = () => {
                   <button onClick={() => setShowProfilePicker(false)} className="text-slate-400 p-2"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
 
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">Icon</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Icon</h3>
                 <div className="grid grid-cols-4 gap-3 mb-8">
                   {unlocked.map(c => (
                     <button
@@ -1599,7 +1599,7 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">Title</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Title</h3>
                 <div className="space-y-2 mb-4">
                   {unlocked.map(c => (
                     <button
