@@ -1563,7 +1563,7 @@ const App: React.FC = () => {
               </div>
               <div className="mt-8 pt-8 border-t border-slate-100/10">
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Color Theme</h3>
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   {UI_THEMES.map(theme => {
                     const isSelected = (state.settings.uiTheme || DEFAULT_UI_THEME_ID) === theme.id;
                     return (
