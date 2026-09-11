@@ -9,7 +9,7 @@ import {
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
-  GOLDEN_GAMES_LEAGUES,
+  GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -319,12 +319,13 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   const [selectedLeague, setSelectedLeague] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [lastResultWon, setLastResultWon] = useState(false);
   const [timeToMatch, setTimeToMatch] = useState(0);
   const [timeToTournament, setTimeToTournament] = useState(0);
   const [timeToLeagueMatch, setTimeToLeagueMatch] = useState(0);
 
   const team = elders.filter(e => e.status === 'Team' && e.captured);
-  const teamStrength = team.reduce((sum, e) => sum + e.strength + e.tenacity + e.wit, 0);
+  const teamStrength = getSquadPower(team);
   const isKing = shuffleboardKing?.id === 'player';
 
   useEffect(() => {
@@ -350,6 +351,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const won = teamStrength > difficulty;
       const tokensEarned = won ? Math.floor(15 + Math.random() * 25) : 5;
       onPassiveResult(won, tokensEarned);
+      setLastResultWon(won);
       setLastResult(won 
         ? `Your Elders won the match! +${tokensEarned} 🎟️` 
         : `Tough match — consolation prize: +${tokensEarned} 🎟️`);
@@ -363,6 +365,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     setTimeout(() => {
       const score = Math.floor(teamStrength * (0.5 + Math.random()));
       onTournamentPlay(score);
+      setLastResultWon(score > tournamentScore);
       setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? '🏆 New personal best!' : ''}`);
       setIsPlaying(false);
     }, 1500);
@@ -375,6 +378,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const difficulty = 30 + Math.random() * 70;
       const won = teamStrength > difficulty;
       onChallenge(stakeAmount, won);
+      setLastResultWon(won);
       setLastResult(won 
         ? `Challenge won! +${stakeAmount} 🎟️ stolen!` 
         : `Challenge lost! -${stakeAmount} 🎟️`);
@@ -394,6 +398,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         ? Math.floor(league.winTicketsMin + Math.random() * (league.winTicketsMax - league.winTicketsMin))
         : league.lossTickets;
       onGoldenGamesResult(selectedLeague, won, ticketsEarned);
+      setLastResultWon(won);
       setLastResult(won
         ? `Your squad triumphed at the ${league.name}! +${ticketsEarned} 🎟️`
         : `Outplayed at the ${league.name} — consolation: +${ticketsEarned} 🎟️`);
@@ -453,7 +458,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       </div>
 
       {lastResult && (
-        <div className={`p-4 rounded-2xl mb-4 text-center text-sm font-black border ${lastResult.includes('won') || lastResult.includes('best') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+        <div className={`p-4 rounded-2xl mb-4 text-center text-sm font-black border ${lastResultWon ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
           {lastResult}
         </div>
       )}
@@ -498,7 +503,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
                 <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
                 <span className="text-[10px] font-black uppercase flex-1">{e.name}</span>
-                <span className="text-[9px] text-indigo-500 font-black">PWR {e.strength + e.tenacity}</span>
+                <span className="text-[9px] text-indigo-500 font-black">PWR {getElderPower(e)}</span>
               </div>
             ))}
           </div>
@@ -653,7 +658,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                         {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
                       </p>
                       <p className="text-[9px] text-slate-400 font-bold">
-                        {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `Requires Squad Power ${league.minSquadPower} (you have ${teamStrength})`}
+                        Min Power {league.minSquadPower} · Recommended {league.difficultyMax}
+                      </p>
+                      <p className={`text-[9px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
+                        {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${teamStrength} — need ${league.minSquadPower - teamStrength} more`}
                       </p>
                     </div>
                   </div>
@@ -1109,9 +1117,16 @@ export const BasePanel: React.FC<{
 
 export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, legacyTokens?: number }> = ({ elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
   const team = elders.filter(e => e.status === 'Team');
+  const squadPower = getSquadPower(team);
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <h2 className={`text-3xl font-black uppercase mb-8 italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
+      <div className="flex items-center justify-between mb-8 gap-4">
+        <h2 className={`text-3xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
+        <div className={`px-4 py-2 rounded-2xl text-right ${isDark ? 'bg-slate-800 border border-indigo-500/30' : 'bg-indigo-50 border border-indigo-100'}`}>
+          <span className={`block text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Squad Power</span>
+          <span className="font-black text-lg text-indigo-500 leading-none">{squadPower}</span>
+        </div>
+      </div>
       <div className="space-y-6">
         {team.map(e => {
           const stage = e.evolutionStage ?? 0;
@@ -1126,8 +1141,12 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} stage={stage} fill /></div>
               <div className="flex-1 min-w-0 text-left">
-                <h4 className="font-black text-base uppercase leading-none truncate">{e.name} <span className="opacity-40 text-[10px]">Lv.{e.level}</span></h4>
-                <p className="text-[9px] text-slate-400 mt-1">Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{ELDER_XP_FOR_LEVEL_UP}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className={`font-black text-base uppercase leading-none truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</h4>
+                  <span className={`text-[10px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{e.level}</span>
+                  <span className="text-[10px] font-black text-indigo-500">PWR {getElderPower(e)}</span>
+                </div>
+                <p className={`text-[9px] mt-1 font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{ELDER_XP_FOR_LEVEL_UP}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
                   {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Neighborhood Lead</button>}
@@ -1136,7 +1155,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
                       onClick={() => onEvolve(e.id)}
                       disabled={!meetsLevel || !canAffordEvolve}
                       title={!meetsLevel ? `Needs level ${nextLevelNeeded}` : !canAffordEvolve ? `Needs ${evolveCost} Tickets` : `Evolve to stage ${stage + 1}`}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg ${meetsLevel && canAffordEvolve ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg ${meetsLevel && canAffordEvolve ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                       Evolve {meetsLevel ? `(${evolveCost} 🎟️)` : `(Lv.${nextLevelNeeded})`}
                     </button>
@@ -1149,7 +1168,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
             <StatsGrid elder={e} isDark={isDark} />
           </div>
         );})}
-        {team.length === 0 && <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black tracking-widest leading-relaxed">Squad is empty. Assign elders in the Park Hub.</div>}
+        {team.length === 0 && <div className={`text-center py-20 italic text-xs uppercase font-black tracking-widest leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Squad is empty. Assign elders in the Park Hub.</div>}
       </div>
     </div>
   );

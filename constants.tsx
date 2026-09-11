@@ -171,6 +171,18 @@ export function getYieldExchangeRate(reserve: number): number {
 }
 export const SHUFFLEBOARD_KING_BOOST = 1.5;
 
+// Single shared definition of "Elder Power" -- used by the Team panel's per-
+// Elder and squad-total display, and matches exactly what ShuffleboardPanel
+// uses internally to resolve every mode's win/loss (Auto-Play, Tournament,
+// Challenge, Golden Games), so what the player sees is what actually decides
+// outcomes, not a cosmetic approximation.
+export function getElderPower(e: { strength: number; tenacity: number; wit: number }): number {
+  return e.strength + e.tenacity + e.wit;
+}
+export function getSquadPower(team: { strength: number; tenacity: number; wit: number }[]): number {
+  return team.reduce((sum, e) => sum + getElderPower(e), 0);
+}
+
 // ─── Golden Games (Phase 5, evolution spec) ──────────────────────────────────
 // An escalating league ladder gated by total squad power, resolved with the
 // exact same squad-power-vs-difficulty math Shuffleboard's other modes already
