@@ -2,6 +2,15 @@
 // included in the deployed function bundle in this project, causing
 // ERR_MODULE_NOT_FOUND at runtime for every route that imported it. Each API route
 // is self-contained instead, at the cost of duplicating this ~45-line helper.
+//
+// Edge runtime is required here, not optional: this file is written entirely
+// against the Web Fetch API (Request/Response/Headers, req.json(), req.headers.get()).
+// Without this declaration Vercel defaults to the Node.js runtime, where req is a
+// plain http.IncomingMessage-like object with none of those methods -- this was
+// causing a hard "TypeError: req.headers.get is not a function" crash on every
+// request in production (confirmed via live Vercel function logs, 9-12-26).
+export const config = { runtime: 'edge' };
+
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 type AccountContext = { userId: string; supabase: SupabaseClient };
