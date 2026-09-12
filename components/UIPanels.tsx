@@ -516,7 +516,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           {/* Elder lineup */}
           <div className="mt-6 space-y-2">
             <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest`}>Active Lineup</p>
-            {team.slice(0, 3).map(e => (
+            {team.map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
                 <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
                 <span className="text-[15px] font-black uppercase flex-1">{e.name}</span>
