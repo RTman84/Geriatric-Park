@@ -19,7 +19,15 @@ async function authHeaders(): Promise<HeadersInit> {
 
 async function parse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || body.error || `Leaderboard request failed (${response.status}).`);
+  if (!response.ok) {
+    // TEMPORARY: fold the server's diagnostic `debug` field (9-12-26 401
+    // investigation) into the thrown error message so it shows up in the
+    // browser console via the existing console.error('...fetch failed', e)
+    // call sites, without needing to dig through Network tab response bodies.
+    const base = body.detail || body.error || `Leaderboard request failed (${response.status}).`;
+    const debugSuffix = body.debug ? ` | debug: ${JSON.stringify(body.debug)}` : '';
+    throw new Error(base + debugSuffix);
+  }
   return body as T;
 }
 

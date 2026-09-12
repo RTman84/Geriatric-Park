@@ -15,7 +15,14 @@ async function authHeaders(): Promise<HeadersInit> {
 
 async function parse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || 'Cloud save request failed.');
+  if (!response.ok) {
+    // TEMPORARY: fold the server's diagnostic `debug` field (9-12-26 401
+    // investigation) into the thrown error message -- see the same change in
+    // leaderboardService.ts for context.
+    const base = body.error || 'Cloud save request failed.';
+    const debugSuffix = body.debug ? ` | debug: ${JSON.stringify(body.debug)}` : '';
+    throw new Error(base + debugSuffix);
+  }
   return body as T;
 }
 
