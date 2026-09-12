@@ -205,15 +205,55 @@ export interface GoldenGamesLeague {
   lossTickets: number;
   lossElderXp: number;
 }
-export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = [
+// The first 4 tiers are hand-tuned. Beyond that, the Tower keeps generating
+// further tiers procedurally (scaling ~1.10x per step, compounding) so a
+// maxed-out squad always has a next rung to climb rather than hitting a hard
+// ceiling -- per user request, since dedicated max-power content doesn't
+// exist yet. Capped at a large but finite tier count (GOLDEN_GAMES_MAX_TIERS)
+// purely so the data model stays bounded; in practice this is far more
+// runway than any squad will realistically climb through soon.
+const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
   { id: 'bronze', name: 'Bronze Clubhouse', icon: '🥉', minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 20, winTicketsMax: 40, winElderXp: 25, winCommunityScore: 10, lossTickets: 8, lossElderXp: 8 },
   { id: 'silver', name: 'Silver Sunroom', icon: '🥈', minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 50, winTicketsMax: 90, winElderXp: 45, winCommunityScore: 20, lossTickets: 12, lossElderXp: 12 },
   { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 100, winTicketsMax: 160, winElderXp: 70, winCommunityScore: 35, lossTickets: 18, lossElderXp: 18 },
   { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 200, winTicketsMax: 300, winElderXp: 100, winCommunityScore: 60, lossTickets: 25, lossElderXp: 25 },
 ];
+export const GOLDEN_GAMES_MAX_TIERS = 50;
+const GOLDEN_GAMES_GROWTH = 1.10;
+const ROMAN = ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+
+function generateGoldenGamesTiers(): GoldenGamesLeague[] {
+  const tiers = [...GOLDEN_GAMES_BASE_TIERS];
+  const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1];
+  for (let i = GOLDEN_GAMES_BASE_TIERS.length; i < GOLDEN_GAMES_MAX_TIERS; i++) {
+    const step = i - GOLDEN_GAMES_BASE_TIERS.length + 1; // 1, 2, 3...
+    const mult = Math.pow(GOLDEN_GAMES_GROWTH, step);
+    const romanSuffix = step < ROMAN.length ? ROMAN[step] : `Tier ${step + 1}`;
+    tiers.push({
+      id: `legendary-${step}`,
+      name: `Legendary Circuit ${romanSuffix}`,
+      icon: '🏆',
+      minSquadPower: Math.round(base.minSquadPower * mult),
+      difficultyMin: Math.round(base.difficultyMin * mult),
+      difficultyMax: Math.round(base.difficultyMax * mult),
+      winTicketsMin: Math.round(base.winTicketsMin * mult),
+      winTicketsMax: Math.round(base.winTicketsMax * mult),
+      winElderXp: Math.round(base.winElderXp * mult),
+      winCommunityScore: Math.round(base.winCommunityScore * mult),
+      lossTickets: Math.round(base.lossTickets * mult),
+      lossElderXp: Math.round(base.lossElderXp * mult),
+    });
+  }
+  return tiers;
+}
+export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = generateGoldenGamesTiers();
 // One shared cooldown across all leagues (not per-league) -- keeps the data
 // model simple and stops pure spam-farming without needing four separate timers.
 export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
+// Auto-Play (Court) benchmark: a squad at exactly this power clears a match
+// at 100% progress. Used to make Auto-Play's outcome mostly power-driven and
+// gradual rather than a coin-flip, distinguishing it from Challenge/Tower.
+export const AUTO_PLAY_BENCHMARK_POWER = 100;
 
 // ─── UI Color Themes ──────────────────────────────────────────────────────────
 // The app's single brand/accent color (previously hardcoded as Tailwind's

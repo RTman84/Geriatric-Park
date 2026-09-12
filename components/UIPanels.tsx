@@ -10,6 +10,7 @@ import {
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
+  GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -316,7 +317,9 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
-  const [selectedLeague, setSelectedLeague] = useState(0);
+  const [selectedLeague, setSelectedLeague] = useState(() =>
+    Math.min(Math.max(goldenGames.highestLeagueCleared + 1, 0), GOLDEN_GAMES_LEAGUES.length - 1)
+  );
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [lastResultWon, setLastResultWon] = useState(false);
@@ -347,14 +350,19 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (timeToMatch > 0) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const difficulty = 40 + Math.random() * 60;
-      const won = teamStrength > difficulty;
-      const tokensEarned = won ? Math.floor(15 + Math.random() * 25) : 5;
+      // Auto-Play is meant to feel like steady background progress from a
+      // squad that's been training/playing on its own, not a coin-flip --
+      // outcome is driven by squad power against a fixed benchmark, with only
+      // a small +-10% wobble so repeated collections aren't identical.
+      const wobble = 0.9 + Math.random() * 0.2;
+      const progressPct = Math.min(150, (teamStrength / AUTO_PLAY_BENCHMARK_POWER) * 100 * wobble);
+      const won = progressPct >= 100;
+      const tokensEarned = Math.floor(5 + (progressPct / 100) * 35);
       onPassiveResult(won, tokensEarned);
       setLastResultWon(won);
-      setLastResult(won 
-        ? `Your Elders won the match! +${tokensEarned} 🎟️` 
-        : `Tough match — consolation prize: +${tokensEarned} 🎟️`);
+      setLastResult(won
+        ? `Your Elders cleared the match (${Math.round(progressPct)}% squad readiness)! +${tokensEarned} 🎟️`
+        : `Solid progress, not quite a win (${Math.round(progressPct)}% squad readiness) — +${tokensEarned} 🎟️`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -375,13 +383,18 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (tokens < stakeAmount || team.length === 0) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const difficulty = 30 + Math.random() * 70;
-      const won = teamStrength > difficulty;
+      // Rival power scales directly off what you stake (10x), plus up to 15%
+      // above that -- never below. This makes Challenge a self-selected,
+      // proportional risk: staking roughly your own Squad Power / 10 keeps
+      // the odds close to even, staking beyond that is a deliberate gamble.
+      const rivalPowerAvg = stakeAmount * 10;
+      const rivalPower = rivalPowerAvg * (1 + Math.random() * 0.15);
+      const won = teamStrength > rivalPower;
       onChallenge(stakeAmount, won);
       setLastResultWon(won);
       setLastResult(won 
-        ? `Challenge won! +${stakeAmount} 🎟️ stolen!` 
-        : `Challenge lost! -${stakeAmount} 🎟️`);
+        ? `Challenge won vs a rival power of ${Math.round(rivalPower)}! +${stakeAmount} 🎟️ stolen!` 
+        : `Outmatched by a rival power of ${Math.round(rivalPower)} — -${stakeAmount} 🎟️`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -469,7 +482,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">🤖</div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Auto-Play Mode</h3>
-            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Your Elders compete automatically every 10 minutes while you roam the map</p>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Your Elders train and compete automatically in the background — stronger squads make steadier progress</p>
           </div>
           <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
             <div className="flex justify-between text-[15px] font-black uppercase mb-2">
@@ -478,9 +491,13 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                 {timeToMatch > 0 ? formatTime(timeToMatch) : 'READY!'}
               </span>
             </div>
+            <div className="flex justify-between text-[15px] font-black uppercase mb-2">
+              <span className="opacity-60">Squad Readiness</span>
+              <span className="text-[var(--accent-500)]">{Math.min(150, Math.round((teamStrength / AUTO_PLAY_BENCHMARK_POWER) * 100))}%</span>
+            </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
-              <span className="opacity-60">Win Reward</span>
-              <span className="text-[var(--accent-500)]">15–40 🎟️</span>
+              <span className="opacity-60">Reward Range</span>
+              <span className="text-[var(--accent-500)]">5–57 🎟️</span>
             </div>
           </div>
           {team.length === 0 ? (
@@ -609,13 +626,16 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               <span className="text-4xl">👴</span>
               <div>
                 <p className="font-black text-base uppercase">Shuffleboard Steve</p>
-                <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Power: {Math.floor(teamStrength * 0.8 + Math.random() * 20)}</p>
+                <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Power: {stakeAmount * 10}–{Math.round(stakeAmount * 10 * 1.15)} (scales with your stake)</p>
               </div>
               <div className="ml-auto text-center">
                 <span className={`block text-[13px] uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Prize Pool</span>
                 <span className="font-black text-[var(--accent-500)]">{stakeAmount * 2} 🎟️</span>
               </div>
             </div>
+            <p className={`text-[13px] font-bold mt-3 ${teamStrength > stakeAmount * 10 * 1.15 ? 'text-emerald-500' : teamStrength < stakeAmount * 10 ? 'text-rose-400' : 'text-amber-500'}`}>
+              Your Squad Power: {teamStrength} — {teamStrength > stakeAmount * 10 * 1.15 ? 'favorable odds' : teamStrength < stakeAmount * 10 ? 'risky stake' : 'close match'}
+            </p>
           </div>
 
           <button
@@ -628,16 +648,17 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         </div>
       )}
 
-      {/* Golden Games Mode */}
+      {/* Golden Games Mode ("The Tower") */}
       {activeMode === 'league' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">🏅</div>
-            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Golden Games</h3>
-            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">An escalating league ladder. Qualify with Squad Power, then battle for bigger Ticket prizes.</p>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>The Golden Games Tower</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{GOLDEN_GAMES_LEAGUES.length} tiers and climbing — there's always a next rung.</p>
           </div>
 
-          <div className="space-y-3 mb-6">
+          {/* Compact scrollable tier strip -- 50 tiers is too many to show as full cards */}
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-4 -mx-2 px-2">
             {GOLDEN_GAMES_LEAGUES.map((league, i) => {
               const isUnlocked = teamStrength >= league.minSquadPower;
               const isCleared = goldenGames.highestLeagueCleared >= i;
@@ -647,28 +668,41 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                   key={league.id}
                   onClick={() => isUnlocked && setSelectedLeague(i)}
                   disabled={!isUnlocked}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${
                     isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
-                  } ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'}`}
+                  } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{league.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-black text-sm uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                        {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
-                      </p>
-                      <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold`}>
-                        Min Power {league.minSquadPower} · Recommended {league.difficultyMax}
-                      </p>
-                      <p className={`text-[14px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
-                        {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${teamStrength} — need ${league.minSquadPower - teamStrength} more`}
-                      </p>
-                    </div>
-                  </div>
+                  <span className="text-lg leading-none">{isCleared ? '✓' : league.icon}</span>
+                  <span className={`text-[10px] font-black mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>#{i + 1}</span>
                 </button>
               );
             })}
           </div>
+
+          {/* Detail card for the selected tier */}
+          {(() => {
+            const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
+            const isUnlocked = teamStrength >= league.minSquadPower;
+            const isCleared = goldenGames.highestLeagueCleared >= selectedLeague;
+            return (
+              <div className={`p-5 rounded-2xl mb-4 border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl">{league.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      Tier {selectedLeague + 1}: {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
+                    </p>
+                    <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold`}>
+                      Min Power {league.minSquadPower} · Recommended {league.difficultyMax}
+                    </p>
+                  </div>
+                </div>
+                <p className={`text-[14px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
+                  {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${teamStrength} — need ${league.minSquadPower - teamStrength} more`}
+                </p>
+              </div>
+            );
+          })()}
 
           <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
             <div className="flex justify-between text-[15px] font-black uppercase">
