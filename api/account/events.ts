@@ -42,22 +42,7 @@ async function requireAccount(req: Request): Promise<AccountContext | Response> 
   });
 
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) {
-    // TEMPORARY diagnostic detail (9-12-26 401 investigation) -- surfaces the
-    // real Supabase rejection reason directly in the response body so it's
-    // visible without needing to catch Vercel's live Logs tab. Never includes
-    // the token itself, just its presence/length and Supabase's own message.
-    // Revert to the plain 'Invalid or expired session' message once resolved.
-    return serverJson({
-      error: 'Invalid or expired session',
-      debug: {
-        supabaseErrorMessage: error?.message ?? null,
-        supabaseErrorStatus: (error as any)?.status ?? null,
-        tokenPresent: !!token,
-        tokenLength: token?.length ?? 0,
-      },
-    }, 401);
-  }
+  if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
 
   return { userId: data.user.id, supabase };
 }
