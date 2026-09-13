@@ -71,6 +71,8 @@ import {
   RANK_TIERS,
   getRankForLevel,
   getUnlockedCosmetics,
+  getSquadPower,
+  ElderAvatarImg,
   resolveProfileDisplay,
   isImagePath,
   SCRAP_BASE_TICKETS,
@@ -221,6 +223,7 @@ const INITIAL_STATE: GameState = {
     { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500, rewardStars: 40 },
   ],
   achievements: INITIAL_ACHIEVEMENTS,
+  favoriteElderIds: [],
   season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000, claimedLevels: [] },
   hasStarted: false,
   inventory: [],
@@ -1729,12 +1732,58 @@ const App: React.FC = () => {
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle);
+          const completedAchievements = state.achievements.filter(a => a.completed);
+          const roster = state.allElders.filter(e => e.captured);
+          const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
+          const toggleFavorite = (elderId: string) => setState(p => {
+            const isFav = p.favoriteElderIds.includes(elderId);
+            if (isFav) return { ...p, favoriteElderIds: p.favoriteElderIds.filter(id => id !== elderId) };
+            if (p.favoriteElderIds.length >= 3) return p;
+            return { ...p, favoriteElderIds: [...p.favoriteElderIds, elderId] };
+          });
           return (
             <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
               <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">Profile</h2>
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">Social Profile</h2>
                   <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                </div>
+
+                {/* Preview: what a friend or leaderboard tap-through would eventually see (Phase 1
+                    of the social system -- friends/visiting come later and will reuse this same card). */}
+                <div className={`rounded-[2rem] p-6 mb-8 border-2 ${isDark ? 'bg-slate-800 border-[var(--accent-500-a30)]' : 'bg-slate-50 border-[var(--accent-100)]'}`}>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl overflow-hidden ${isDark ? 'bg-[var(--accent-500)]' : 'bg-[var(--accent-600)]'}`}>
+                      {isImagePath(previewDisplay.icon) ? <img src={previewDisplay.icon} alt={previewDisplay.title} className="w-full h-full object-cover" /> : previewDisplay.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-base uppercase truncate">{authSession?.user.displayName || 'Park Visitor'}</p>
+                      <p className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">{previewDisplay.title}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className={`rounded-xl p-3 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                      <p className="text-[12px] font-black uppercase opacity-60">Squad Power</p>
+                      <p className="font-black text-lg text-[var(--accent-500)]">{getSquadPower(state.allElders.filter(e => e.status === 'Team'))}</p>
+                    </div>
+                    <div className={`rounded-xl p-3 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                      <p className="text-[12px] font-black uppercase opacity-60">Achievements</p>
+                      <p className="font-black text-lg text-[var(--accent-500)]">{completedAchievements.length}/{state.achievements.length}</p>
+                    </div>
+                  </div>
+                  {favoriteElders.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-black uppercase opacity-60 mb-2">Featured Folks</p>
+                      <div className="flex gap-2">
+                        {favoriteElders.map(e => (
+                          <div key={e.id} className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
+                            <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Icon</h3>
@@ -1752,7 +1801,7 @@ const App: React.FC = () => {
                 </div>
 
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Title</h3>
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mb-8">
                   {unlocked.map(c => (
                     <button
                       key={`title-${c.key}`}
@@ -1765,7 +1814,28 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <p className="text-[15px] text-slate-600 mb-6">Unlocked by reaching ranks and completing achievements. Icon and title can be mixed independently.</p>
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Featured Folks ({favoriteElders.length}/3)</h3>
+                <p className={`text-[13px] mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Pick up to 3 Elders to show off on your profile — just for show, separate from your battle Team.</p>
+                <div className="grid grid-cols-4 gap-3 mb-8">
+                  {roster.length === 0 && <p className="col-span-4 text-[13px] italic opacity-50">Capture some Elders first.</p>}
+                  {roster.map(e => {
+                    const isFav = state.favoriteElderIds.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => toggleFavorite(e.id)}
+                        title={e.name}
+                        disabled={!isFav && state.favoriteElderIds.length >= 3}
+                        className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all relative ${isFav ? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]' : isDark ? 'border-slate-800' : 'border-slate-100'} disabled:opacity-30`}
+                      >
+                        <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                        {isFav && <div className="absolute top-1 right-1 bg-[var(--accent-500)] rounded-full w-4 h-4 flex items-center justify-center"><CheckCircleIcon className="w-3 h-3 text-white" /></div>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[15px] text-slate-600 mb-6">Icon and title are unlocked by reaching ranks and completing achievements, and can be mixed independently.</p>
                 <button onClick={() => setShowProfilePicker(false)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
               </div>
             </div>

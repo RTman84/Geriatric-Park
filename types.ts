@@ -140,6 +140,9 @@ export interface GameState {
   heldStructureIds: string[];
   quests: Quest[];
   achievements: Achievement[];
+  // Up to 3 Elder ids the player has chosen to feature on their Social
+  // Profile -- purely cosmetic, independent of the battle Team.
+  favoriteElderIds: string[];
   season: Season;
   hasStarted: boolean;
   inventory: Gear[];
