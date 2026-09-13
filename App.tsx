@@ -1506,9 +1506,8 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black uppercase">LVL {state.level}</span>
                       {authSession?.user.displayName && (
-                        <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[90px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
+                        <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[140px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
                       )}
-                      <button onClick={() => setShowProfilePicker(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">{display.title}</button>
                       <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
                     <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
