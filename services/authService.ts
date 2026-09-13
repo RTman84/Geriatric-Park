@@ -9,6 +9,7 @@ export interface AccountUser {
   provider?: string;
   country?: string;
   ageVerified?: boolean;
+  displayName?: string;
 }
 
 export interface AuthSession {
@@ -36,6 +37,7 @@ function normalizeUser(user: User): AccountUser {
     provider: user.app_metadata?.provider ?? user.app_metadata?.providers?.[0],
     country: user.user_metadata?.country,
     ageVerified: user.user_metadata?.age_verified === true,
+    displayName: typeof user.user_metadata?.display_name === 'string' ? user.user_metadata.display_name : undefined,
   };
 }
 
@@ -113,4 +115,21 @@ export async function getAccessToken(): Promise<string | null> {
 
 export function isCloudAccountsConfigured(): boolean {
   return supabase !== null;
+}
+
+// Player-chosen leaderboard display name, stored in Supabase Auth's
+// user_metadata (no new table needed). Never derived from email -- per
+// user request, the leaderboard must never show anything email-derived,
+// even as a fallback (see the server-side default in tournament-board.ts).
+const DISPLAY_NAME_MAX_LENGTH = 20;
+export function sanitizeDisplayName(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, DISPLAY_NAME_MAX_LENGTH);
+}
+export async function updateDisplayName(name: string): Promise<AccountUser | null> {
+  if (!supabase) return null;
+  const clean = sanitizeDisplayName(name);
+  if (!clean) throw new Error('Please enter a display name.');
+  const { data, error } = await supabase.auth.updateUser({ data: { display_name: clean } });
+  if (error) throw error;
+  return data.user ? normalizeUser(data.user) : null;
 }

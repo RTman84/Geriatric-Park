@@ -7,6 +7,7 @@ import {
   signOut,
   signUpWithEmail,
   startGoogleSignIn,
+  updateDisplayName,
   type AuthSession,
 } from '../services/authService';
 
@@ -14,6 +15,7 @@ export const AccountPanel: React.FC = () => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -22,6 +24,24 @@ export const AccountPanel: React.FC = () => {
     if (!isCloudAccountsConfigured()) return;
     void getCurrentSession().then(setSession).catch(() => setSession(null));
   }, []);
+
+  useEffect(() => {
+    setDisplayName(session?.user.displayName ?? '');
+  }, [session?.user.displayName]);
+
+  const handleSaveDisplayName = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const user = await updateDisplayName(displayName);
+      if (user && session) setSession({ ...session, user });
+      setMessage('Display name saved — this is what other players see on leaderboards.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save display name.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!isCloudAccountsConfigured()) return null;
 
@@ -92,6 +112,27 @@ export const AccountPanel: React.FC = () => {
                 <div className="rounded-2xl bg-slate-100 p-4 text-base dark:bg-slate-800">
                   <div className="font-bold">Signed in</div>
                   <div className="mt-1 break-all text-sm opacity-70">{session.user.email || session.user.id}</div>
+                </div>
+                <div className="rounded-2xl border p-4 dark:border-slate-700">
+                  <div className="font-bold mb-1">Leaderboard Display Name</div>
+                  <p className="text-sm text-slate-600 mb-3">This is the only thing other players ever see about you — never your email.</p>
+                  <div className="flex gap-2">
+                    <input
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      maxLength={20}
+                      placeholder="Choose a display name"
+                      className="flex-1 rounded-xl border p-3 text-base dark:bg-slate-800"
+                    />
+                    <button
+                      type="button"
+                      disabled={busy || !displayName.trim() || displayName.trim() === (session.user.displayName ?? '')}
+                      onClick={handleSaveDisplayName}
+                      className="rounded-xl bg-[var(--accent-600)] px-4 text-sm font-black uppercase text-white disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm text-slate-600">Your account is linked to a stable player identity. Existing local progress is not deleted when you sign out.</p>
                 <button type="button" disabled={busy} onClick={handleSignOut} className="w-full rounded-2xl bg-slate-200 py-3 font-black uppercase dark:bg-slate-800">Sign out</button>

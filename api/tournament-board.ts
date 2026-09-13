@@ -58,10 +58,16 @@ function todayUTC(): string {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD, UTC calendar day
 }
 
-function displayNameFor(email: string | undefined, userId: string): string {
-  if (email) {
-    const local = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
-    if (local.length > 0) return local;
+// Never derived from email, even as a fallback -- per user request, a
+// player's email must never end up visible on the leaderboard in any form.
+// Prefers the player-chosen display name (stored in Supabase Auth
+// user_metadata via updateDisplayName in authService.ts); re-sanitized here
+// too since user_metadata can in principle be set via direct API calls that
+// bypass the client's own sanitizeDisplayName.
+function displayNameFor(customName: string | undefined, userId: string): string {
+  if (customName) {
+    const clean = customName.replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20);
+    if (clean.length > 0) return clean;
   }
   return `Park Visitor ${userId.slice(0, 4)}`;
 }
@@ -116,7 +122,7 @@ export default async function handler(req: Request): Promise<Response> {
       console.error('Leaderboard user lookup failed', userError?.message);
       return serverJson({ error: 'Leaderboard unavailable', detail: userError?.message }, 500);
     }
-    const displayName = displayNameFor(authUser.user.email ?? undefined, context.userId);
+    const displayName = displayNameFor(authUser.user.user_metadata?.display_name, context.userId);
 
     const { data: existing, error: readError } = await context.supabase
       .from('leaderboard_scores')
