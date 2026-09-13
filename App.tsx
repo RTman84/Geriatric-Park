@@ -8,7 +8,11 @@ import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
-import { isCloudAccountsConfigured, supabase } from './services/authService';
+import {
+  isCloudAccountsConfigured, supabase, getCurrentSession, updateDisplayName,
+  startGoogleSignIn, signInWithEmail, signUpWithEmail, sendMagicLink, signOut as authSignOut,
+  type AuthSession,
+} from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { 
@@ -260,6 +264,18 @@ const App: React.FC = () => {
   const [wildElders, setWildElders] = useState<Elder[]>([]);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Account/display-name state, lifted into App itself rather than the old
+  // disconnected sibling-mounted <AccountPanel/> (was rendered outside App's
+  // own tree in index.tsx, with no way to surface the signed-in identity
+  // anywhere else in the game -- header, Settings, etc). components/AccountPanel.tsx
+  // and its separate index.tsx mount point have both been removed entirely --
+  // this is now the one and only account UI, integrated into Settings.
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [displayNameInput, setDisplayNameInput] = useState('');
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isEventPlaying, setIsEventPlaying] = useState(false);
@@ -613,15 +629,63 @@ const App: React.FC = () => {
     if (!isCloudAccountsConfigured() || !supabase) return;
     void syncFromCloud();
     void refreshLeaderboard();
+    void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     // Safety net: never let a slow/hung cloud check trap the player on the
     // "Initializing..." screen forever — fall through to local/fresh state if it
     // takes too long, same as if no cloud save existed.
     const timeout = setTimeout(() => setCloudCheckDone(true), 8000);
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); }
+      void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     });
     return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); };
   }, [syncFromCloud, refreshLeaderboard]);
+
+  useEffect(() => {
+    setDisplayNameInput(authSession?.user.displayName ?? '');
+  }, [authSession?.user.displayName]);
+
+  const handleAccountAction = useCallback(async (action: () => Promise<AuthSession | null>) => {
+    setAccountBusy(true);
+    setAccountMessage(null);
+    try {
+      const next = await action();
+      setAuthSession(next);
+      setAccountPassword('');
+      setAccountMessage(next ? `Signed in as ${next.user.email || 'your account'}.` : 'Check your email to finish signing in.');
+    } catch (error) {
+      setAccountMessage(error instanceof Error ? error.message : 'Account request failed.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }, []);
+
+  const handleSaveDisplayName = useCallback(async () => {
+    setAccountBusy(true);
+    setAccountMessage(null);
+    try {
+      const user = await updateDisplayName(displayNameInput);
+      setAuthSession(prev => (user && prev ? { ...prev, user } : prev));
+      setAccountMessage('Display name saved — this is what other players see on leaderboards.');
+    } catch (error) {
+      setAccountMessage(error instanceof Error ? error.message : 'Could not save display name.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }, [displayNameInput]);
+
+  const handleAccountSignOut = useCallback(async () => {
+    setAccountBusy(true);
+    try {
+      await authSignOut();
+      setAuthSession(null);
+      setAccountMessage('Signed out. Local progress is untouched.');
+    } catch (error) {
+      setAccountMessage(error instanceof Error ? error.message : 'Sign out failed.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (state.hasStarted) {
@@ -1441,6 +1505,9 @@ const App: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black uppercase">LVL {state.level}</span>
+                      {authSession?.user.displayName && (
+                        <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[90px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
+                      )}
                       <button onClick={() => setShowProfilePicker(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">{display.title}</button>
                       <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
@@ -1561,6 +1628,54 @@ const App: React.FC = () => {
                   </div>
                 ))}
               </div>
+              {isCloudAccountsConfigured() && (
+                <div className="mt-8 pt-8 border-t border-slate-100/10">
+                  <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Account & Display Name</h3>
+                  {authSession ? (
+                    <div className="space-y-4">
+                      <div className={`rounded-2xl p-4 text-sm ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                        <div className="font-bold">Signed in</div>
+                        <div className="mt-1 break-all opacity-70">{authSession.user.email || authSession.user.id}</div>
+                      </div>
+                      <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                        <p className="text-sm font-bold mb-1">Leaderboard Display Name</p>
+                        <p className={`text-[14px] mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>This is the only thing other players ever see about you — never your email.</p>
+                        <div className="flex gap-2">
+                          <input
+                            value={displayNameInput}
+                            onChange={e => setDisplayNameInput(e.target.value)}
+                            maxLength={20}
+                            placeholder="Choose a display name"
+                            className={`flex-1 rounded-xl border p-3 text-sm ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'border-slate-200'}`}
+                          />
+                          <button
+                            type="button"
+                            disabled={accountBusy || !displayNameInput.trim() || displayNameInput.trim() === (authSession.user.displayName ?? '')}
+                            onClick={handleSaveDisplayName}
+                            className="rounded-xl bg-[var(--accent-600)] px-4 text-sm font-black uppercase text-white disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                      <button type="button" disabled={accountBusy} onClick={handleAccountSignOut} className={`w-full rounded-2xl py-3 text-sm font-black uppercase ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>Sign out</button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <button type="button" disabled={accountBusy} onClick={() => startGoogleSignIn()} className="w-full rounded-2xl bg-white py-3 text-sm font-black uppercase text-slate-800 shadow ring-1 ring-slate-200 disabled:opacity-50">Continue with Google</button>
+                      <div className={`text-center text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>or email</div>
+                      <input value={accountEmail} onChange={e => setAccountEmail(e.target.value)} type="email" autoComplete="email" placeholder="Email" className={`w-full rounded-xl border p-3 text-sm ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'border-slate-200'}`} />
+                      <input value={accountPassword} onChange={e => setAccountPassword(e.target.value)} type="password" autoComplete="current-password" placeholder="Password" className={`w-full rounded-xl border p-3 text-sm ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'border-slate-200'}`} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" disabled={accountBusy || !accountEmail || !accountPassword} onClick={() => handleAccountAction(() => signInWithEmail(accountEmail.trim(), accountPassword))} className="rounded-xl bg-[var(--accent-600)] py-3 text-sm font-black uppercase text-white disabled:opacity-50">Sign in</button>
+                        <button type="button" disabled={accountBusy || !accountEmail || !accountPassword} onClick={() => handleAccountAction(async () => (await signUpWithEmail(accountEmail.trim(), accountPassword)).session)} className={`rounded-xl py-3 text-sm font-black uppercase disabled:opacity-50 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>Create</button>
+                      </div>
+                      <button type="button" disabled={accountBusy || !accountEmail} onClick={() => handleAccountAction(async () => { await sendMagicLink(accountEmail.trim()); return null; })} className={`w-full rounded-xl border py-3 text-sm font-black uppercase disabled:opacity-50 ${isDark ? 'border-slate-700' : ''}`}>Send magic link</button>
+                    </div>
+                  )}
+                  {accountMessage && <div className="mt-4 rounded-xl bg-[var(--accent-50)] p-3 text-sm font-bold text-[var(--accent-900)]">{accountMessage}</div>}
+                </div>
+              )}
               <div className="mt-8 pt-8 border-t border-slate-100/10">
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Color Theme</h3>
                 <div className="grid grid-cols-3 gap-3">
