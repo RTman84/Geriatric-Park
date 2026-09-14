@@ -1,0 +1,165 @@
+import React, { useState } from 'react';
+import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
+import { ElderAvatarImg, getRankForLevel } from '../constants';
+import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
+
+interface FriendsPanelProps {
+  isDark: boolean;
+  data: FriendsData | null;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onRefresh: () => void;
+  onSendRequest: (code: string) => Promise<string>;
+  onRespond: (requestId: string, accept: boolean) => Promise<void>;
+  onRemove: (friendUserId: string) => Promise<void>;
+}
+
+// Friends' custom icon/title picks (achievement-based keys especially) can't
+// be safely re-resolved here without their full achievements array, which
+// isn't synced server-side (only counts are, see api/account/save.ts) --
+// falls back to a plain rank-based title/icon from level alone. Good enough
+// for "who is this person" at a glance; not a loss of anything the friend
+// themselves sees on their own profile.
+function friendDisplay(profile: PlayerProfileSnapshot) {
+  const rank = getRankForLevel(profile.level);
+  return { icon: rank.icon, title: rank.title };
+}
+
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, onClose, onRefresh, onSendRequest, onRespond, onRemove }) => {
+  const [codeInput, setCodeInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleSend = async () => {
+    if (!codeInput.trim()) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const resultMessage = await onSendRequest(codeInput);
+      setMessage(resultMessage);
+      setCodeInput('');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Could not send request.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (!data?.myCode) return;
+    navigator.clipboard?.writeText(data.myCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+      <div className={`rounded-[3rem] p-8 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter">Friends</h2>
+          <button onClick={onClose} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
+        </div>
+
+        {/* My friend code */}
+        <div className={`rounded-2xl p-4 mb-6 flex items-center justify-between ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div>
+            <p className={`text-[12px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Your Friend Code</p>
+            <p className="font-black text-xl tracking-[0.2em]">{data?.myCode || '········'}</p>
+          </div>
+          <button onClick={handleCopyCode} disabled={!data?.myCode} className="p-3 rounded-xl bg-[var(--accent-600)] text-white disabled:opacity-50">
+            {copied ? <CheckCircleIcon className="w-5 h-5" /> : <ClipboardDocumentIcon className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Add a friend */}
+        <div className="mb-6">
+          <p className={`text-[13px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Add a Friend</p>
+          <div className="flex gap-2">
+            <input
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value.toUpperCase())}
+              maxLength={8}
+              placeholder="8-character code"
+              className={`flex-1 rounded-xl border p-3 text-base tracking-widest font-black ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'border-slate-200'}`}
+            />
+            <button onClick={handleSend} disabled={busy || codeInput.trim().length !== 8} className="rounded-xl bg-[var(--accent-600)] px-4 text-white disabled:opacity-50">
+              <UserPlusIcon className="w-5 h-5" />
+            </button>
+          </div>
+          {message && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{message}</p>}
+        </div>
+
+        {/* Incoming requests */}
+        {data && data.incoming.length > 0 && (
+          <div className="mb-6">
+            <p className={`text-[13px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Requests</p>
+            <div className="space-y-2">
+              {data.incoming.map(req => (
+                <div key={req.id} className={`flex items-center justify-between rounded-xl p-3 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                  <span className="font-bold text-sm truncate">{req.displayName || 'Park Visitor'}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => onRespond(req.id, true)} className="text-emerald-500"><CheckCircleIcon className="w-6 h-6" /></button>
+                    <button onClick={() => onRespond(req.id, false)} className="text-rose-400"><XCircleIcon className="w-6 h-6" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Outgoing requests */}
+        {data && data.outgoing.length > 0 && (
+          <div className="mb-6">
+            <p className={`text-[13px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Sent — Awaiting Reply</p>
+            <div className="space-y-2">
+              {data.outgoing.map(req => (
+                <div key={req.id} className={`rounded-xl p-3 text-sm font-bold opacity-60 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>{req.displayName || 'Park Visitor'}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Friends list */}
+        <div>
+          <p className={`text-[13px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
+            Friends {data ? `(${data.friends.length})` : ''}
+          </p>
+          {loading && <p className="text-[13px] italic opacity-50">Loading...</p>}
+          {error && <p className="text-[13px] font-bold text-rose-400">{error} <button onClick={onRefresh} className="underline">Retry</button></p>}
+          {!loading && !error && data && data.friends.length === 0 && (
+            <p className="text-[13px] italic opacity-50">No friends yet — share your code or enter theirs above.</p>
+          )}
+          <div className="space-y-2">
+            {data?.friends.map(friend => {
+              const display = friendDisplay(friend);
+              return (
+                <div key={friend.user_id} className={`flex items-center gap-3 rounded-2xl p-3 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[var(--accent-500-a10)]">{display.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</p>
+                    <p className={`text-[12px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{display.title} · PWR {friend.squad_power}</p>
+                  </div>
+                  {friend.favorite_elders.length > 0 && (
+                    <div className="flex -space-x-2 flex-shrink-0">
+                      {friend.favorite_elders.map((e, i) => (
+                        <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800">
+                          <ElderAvatarImg type={e.type as any} stage={e.evolutionStage} fill />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => onRemove(friend.user_id)} className="text-slate-300 hover:text-rose-400 flex-shrink-0"><UserMinusIcon className="w-4 h-4" /></button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FriendsPanel;

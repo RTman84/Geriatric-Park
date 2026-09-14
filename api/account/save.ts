@@ -13,7 +13,7 @@ export const config = { runtime: 'edge' };
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-type AccountContext = { userId: string; supabase: SupabaseClient };
+type AccountContext = { userId: string; supabase: SupabaseClient; displayName: string | null };
 
 function serverJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -44,7 +44,8 @@ async function requireAccount(req: Request): Promise<AccountContext | Response> 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
 
-  return { userId: data.user.id, supabase };
+  const displayName = typeof data.user.user_metadata?.display_name === 'string' ? data.user.user_metadata.display_name : null;
+  return { userId: data.user.id, supabase, displayName };
 }
 
 function isAccountContext(value: AccountContext | Response): value is AccountContext {
@@ -56,6 +57,51 @@ const MAX_SCHEMA_VERSION = 100;
 
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
+}
+
+// Mirrors getElderPower/getSquadPower in constants.tsx -- duplicated here for
+// the same self-contained-file reason as everything else in this file, since
+// this is a different runtime bundle than the client.
+function squadPowerFrom(saveData: any): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  return elders
+    .filter((e: any) => e?.status === 'Team')
+    .reduce((sum: number, e: any) => sum + (Number(e?.strength) || 0) + (Number(e?.tenacity) || 0) + (Number(e?.wit) || 0), 0);
+}
+
+// Best-effort snapshot for the Social Profile / friends system (Phase 2) --
+// never blocks or fails the actual cloud save if this part errors, since the
+// save itself is the important write and this is purely a derived read-model
+// for other players to view via api/friends.ts.
+async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displayName: string | null, saveData: any) {
+  try {
+    const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+    const achievements = Array.isArray(saveData?.achievements) ? saveData.achievements : [];
+    const favoriteIds: string[] = Array.isArray(saveData?.favoriteElderIds) ? saveData.favoriteElderIds.slice(0, 3) : [];
+    const favoriteElders = favoriteIds
+      .map(id => elders.find((e: any) => e?.id === id))
+      .filter(Boolean)
+      .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name }));
+
+    await supabase.from('player_profiles').upsert({
+      user_id: userId,
+      display_name: displayName,
+      level: Number.isInteger(saveData?.level) ? saveData.level : 1,
+      selected_title: saveData?.selectedTitle ?? null,
+      selected_account_icon: saveData?.selectedAccountIcon ?? null,
+      achievements_completed: achievements.filter((a: any) => a?.completed).length,
+      achievements_total: achievements.length,
+      squad_power: squadPowerFrom(saveData),
+      favorite_elders: favoriteElders,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch (e: any) {
+    // Deliberately swallowed -- a broken profile snapshot should never take
+    // down cloud saves. api/friends.ts creates a fresh row on first access
+    // anyway (ensureProfile), so a missed sync just means slightly stale
+    // data until the next successful save.
+    console.error('Player profile sync failed (non-fatal)', e?.message || e);
+  }
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -133,6 +179,8 @@ export default async function handler(req: Request): Promise<Response> {
     console.error('Cloud save write failed', error.message);
     return serverJson({ error: 'Cloud save unavailable' }, 500);
   }
+
+  await syncPlayerProfile(context.supabase, context.userId, context.displayName, saveData);
 
   return serverJson({ save: data });
 }

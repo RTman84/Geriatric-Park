@@ -3,7 +3,7 @@ import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
-import SocialPanel from './components/SocialPanel';
+import FriendsPanel from './components/FriendsPanel';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
@@ -15,6 +15,7 @@ import {
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
+import { fetchFriendsData, sendFriendRequest, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon
 } from '@heroicons/react/24/solid';
@@ -280,6 +281,49 @@ const App: React.FC = () => {
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
+  // Phase 2 social features: friends list state. Deliberately not part of
+  // GameState/the save blob -- friend relationships live server-side in
+  // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
+  const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+
+  const refreshFriends = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    setFriendsLoading(true);
+    setFriendsError(null);
+    try {
+      const data = await fetchFriendsData();
+      setFriendsData(data);
+    } catch (e) {
+      console.error('Friends fetch failed', e);
+      setFriendsError(e instanceof Error ? e.message : 'Could not load friends.');
+    } finally {
+      setFriendsLoading(false);
+    }
+  }, []);
+
+  const handleOpenFriends = useCallback(() => {
+    setShowFriendsPanel(true);
+    void refreshFriends();
+  }, [refreshFriends]);
+
+  const handleSendFriendRequest = useCallback(async (code: string): Promise<string> => {
+    const { result } = await sendFriendRequest(code);
+    await refreshFriends();
+    return result === 'friends' ? "You're already friends — request accepted!" : 'Friend request sent!';
+  }, [refreshFriends]);
+
+  const handleRespondToFriendRequest = useCallback(async (requestId: string, accept: boolean) => {
+    await respondToFriendRequest(requestId, accept);
+    await refreshFriends();
+  }, [refreshFriends]);
+
+  const handleRemoveFriend = useCallback(async (friendUserId: string) => {
+    await removeFriend(friendUserId);
+    await refreshFriends();
+  }, [refreshFriends]);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isEventPlaying, setIsEventPlaying] = useState(false);
   const [eventResult, setEventResult] = useState<string | null>(null);
@@ -1747,7 +1791,10 @@ const App: React.FC = () => {
               <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-black uppercase italic tracking-tighter">Social Profile</h2>
-                  <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleOpenFriends} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">👥 Friends</button>
+                    <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
+                  </div>
                 </div>
 
                 {/* Preview: what a friend or leaderboard tap-through would eventually see (Phase 1
@@ -1879,6 +1926,20 @@ const App: React.FC = () => {
             onClose={() => setShowAdOverlay(false)}
             adCount={state.adUsage.count}
             maxAds={MAX_ADS_PER_HOUR}
+          />
+        )}
+
+        {showFriendsPanel && (
+          <FriendsPanel
+            isDark={isDark}
+            data={friendsData}
+            loading={friendsLoading}
+            error={friendsError}
+            onClose={() => setShowFriendsPanel(false)}
+            onRefresh={refreshFriends}
+            onSendRequest={handleSendFriendRequest}
+            onRespond={handleRespondToFriendRequest}
+            onRemove={handleRemoveFriend}
           />
         )}
       </div>
