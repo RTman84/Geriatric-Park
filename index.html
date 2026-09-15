@@ -66,6 +66,15 @@
       white-space: nowrap;
     }
     .structure-label::before { display: none; }
+
+    /* Dark-mode map tiles: previously used Carto's dark_all basemap, which
+       now requires a signed-up API key (see basemaps.cartocdn.com policy
+       change) -- rather than add a dependency on a third-party key/signup,
+       this fakes a dark look on the same free OpenStreetMap tiles used in
+       light mode via a CSS filter. No external service, no key, no signup. */
+    .map-tiles-dark {
+      filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+    }
   </style>
   <script type="importmap">
   {
