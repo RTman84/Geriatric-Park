@@ -17,7 +17,7 @@ import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
 import { 
-  Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon
+  Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon, UserGroupIcon
 } from '@heroicons/react/24/solid';
 import { 
   Elder, 
@@ -90,6 +90,10 @@ import {
   EVOLUTION_STAT_MULTIPLIER,
   GOLDEN_GAMES_LEAGUES,
   GOLDEN_GAMES_COOLDOWN_MS,
+  FRIEND_BATTLE_COOLDOWN_MS,
+  FRIEND_BATTLE_WIN_ELDER_XP,
+  FRIEND_BATTLE_LOSS_ELDER_XP,
+  FRIEND_BATTLE_WIN_COMMUNITY_SCORE,
   UI_THEMES,
   DEFAULT_UI_THEME_ID,
   applyUITheme,
@@ -246,6 +250,7 @@ const INITIAL_STATE: GameState = {
   bingoBlitz: { phase: 'Prep', pot: 0, participants: [], timer: 60 },
   shuffleboard: { currentKing: null },
   goldenGames: { highestLeagueCleared: -1, nextMatchAt: 0 },
+  friendBattle: { nextMatchAt: 0 },
   settings: {
     darkTheme: false,
     musicEnabled: true,
@@ -697,17 +702,18 @@ const App: React.FC = () => {
     if (!isCloudAccountsConfigured() || !supabase) return;
     void syncFromCloud();
     void refreshLeaderboard();
+    void refreshFriends();
     void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     // Safety net: never let a slow/hung cloud check trap the player on the
     // "Initializing..." screen forever — fall through to local/fresh state if it
     // takes too long, same as if no cloud save existed.
     const timeout = setTimeout(() => setCloudCheckDone(true), 8000);
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); }
+      if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); void refreshFriends(); }
       void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     });
     return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); };
-  }, [syncFromCloud, refreshLeaderboard]);
+  }, [syncFromCloud, refreshLeaderboard, refreshFriends]);
 
   useEffect(() => {
     setDisplayNameInput(authSession?.user.displayName ?? '');
@@ -735,12 +741,24 @@ const App: React.FC = () => {
       const user = await updateDisplayName(displayNameInput);
       setAuthSession(prev => (user && prev ? { ...prev, user } : prev));
       setAccountMessage('Display name saved — this is what other players see on leaderboards.');
+      // The display name lives in Supabase Auth, not GameState, so the
+      // debounced autosave effect (which only fires on GameState changes)
+      // wouldn't otherwise pick this up -- player_profiles (what friends
+      // actually see) only syncs during a cloud save, so trigger one
+      // immediately rather than leaving it stale until some unrelated
+      // gameplay action happens to save next.
+      if (isCloudAccountsConfigured()) {
+        const revision = Date.now();
+        cloudRevisionRef.current = revision;
+        localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
+        uploadCloudSave(1, revision, state as unknown as Record<string, unknown>).catch(e => console.error('Post-display-name-change save failed', e));
+      }
     } catch (error) {
       setAccountMessage(error instanceof Error ? error.message : 'Could not save display name.');
     } finally {
       setAccountBusy(false);
     }
-  }, [displayNameInput]);
+  }, [displayNameInput, state]);
 
   const handleAccountSignOut = useCallback(async () => {
     setAccountBusy(true);
@@ -1120,6 +1138,21 @@ const App: React.FC = () => {
           highestLeagueCleared: won ? Math.max(prev.goldenGames.highestLeagueCleared, leagueIndex) : prev.goldenGames.highestLeagueCleared,
           nextMatchAt: Date.now() + GOLDEN_GAMES_COOLDOWN_MS,
         },
+      };
+    });
+  }, [state.settings.sfxEnabled]);
+
+  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number) => {
+    if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP);
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens + ticketsEarned,
+        xp, level,
+        allElders: grantElderXpToTeam(prev.allElders, won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP),
+        parkCommunityScore: prev.parkCommunityScore + (won ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
+        friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS },
       };
     });
   }, [state.settings.sfxEnabled]);
@@ -1587,6 +1620,10 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-4">
+            <button onClick={handleOpenFriends} className={`relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100`}>
+              <UserGroupIcon className="w-6 h-6" />
+              {(friendsData?.incoming.length ?? 0) > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{friendsData!.incoming.length}</div>}
+            </button>
             <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-[var(--accent-500)] text-white' : 'text-slate-300 hover:bg-slate-100'}`}>
               <EnvelopeIcon className="w-6 h-6" />
               {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{unreadMailCount}</div>}
@@ -1657,6 +1694,9 @@ const App: React.FC = () => {
               passiveMatchAt={state.passiveMatchAt}
               goldenGames={state.goldenGames}
               onGoldenGamesResult={handleGoldenGamesResult}
+              friends={friendsData?.friends ?? []}
+              friendBattle={state.friendBattle}
+              onFriendBattleResult={handleFriendBattleResult}
               leaderboard={leaderboard}
               leaderboardAvailable={isCloudAccountsConfigured()}
               leaderboardError={leaderboardError}

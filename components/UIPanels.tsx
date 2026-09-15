@@ -11,6 +11,7 @@ import {
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
   GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
+  FRIEND_BATTLE_VARIANCE, FRIEND_BATTLE_WIN_TICKETS_MIN, FRIEND_BATTLE_WIN_TICKETS_MAX, FRIEND_BATTLE_LOSS_TICKETS,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -307,6 +308,9 @@ interface ShuffleboardProps {
   leaderboardError: boolean;
   onRetryLeaderboard: () => void;
   onAddFriendFromLeaderboard?: (userId: string) => void;
+  friends: { user_id: string; display_name: string | null; squad_power: number }[];
+  friendBattle: { nextMatchAt: number };
+  onFriendBattleResult: (won: boolean, ticketsEarned: number) => void;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
@@ -314,13 +318,16 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   onPassiveResult, onTournamentPlay, onChallenge,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
   goldenGames, onGoldenGamesResult,
+  friends, friendBattle, onFriendBattleResult,
   leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onAddFriendFromLeaderboard
 }) => {
-  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league'>('passive');
+  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league' | 'friendBattle'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
   const [selectedLeague, setSelectedLeague] = useState(() =>
     Math.min(Math.max(goldenGames.highestLeagueCleared + 1, 0), GOLDEN_GAMES_LEAGUES.length - 1)
   );
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [timeToFriendBattle, setTimeToFriendBattle] = useState(0);
   const [addedFriendIds, setAddedFriendIds] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
@@ -338,9 +345,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       setTimeToMatch(Math.max(0, passiveMatchAt - Date.now()));
       setTimeToTournament(Math.max(0, tournamentEndsAt - Date.now()));
       setTimeToLeagueMatch(Math.max(0, goldenGames.nextMatchAt - Date.now()));
+      setTimeToFriendBattle(Math.max(0, friendBattle.nextMatchAt - Date.now()));
     }, 1000);
     return () => clearInterval(timer);
-  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt]);
+  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt, friendBattle.nextMatchAt]);
 
   const formatTime = (ms: number) => {
     const m = Math.floor(ms / 60000);
@@ -377,6 +385,26 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       onTournamentPlay(score);
       setLastResultWon(score > tournamentScore);
       setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? '🏆 New personal best!' : ''}`);
+      setIsPlaying(false);
+    }, 1500);
+  };
+
+  const handleFriendBattle = () => {
+    if (team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId) return;
+    const friend = friends.find(f => f.user_id === selectedFriendId);
+    if (!friend) return;
+    setIsPlaying(true);
+    setTimeout(() => {
+      const opponentPower = friend.squad_power * (1 - FRIEND_BATTLE_VARIANCE + Math.random() * FRIEND_BATTLE_VARIANCE * 2);
+      const won = teamStrength > opponentPower;
+      const ticketsEarned = won
+        ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
+        : FRIEND_BATTLE_LOSS_TICKETS;
+      onFriendBattleResult(won, ticketsEarned);
+      setLastResultWon(won);
+      setLastResult(won
+        ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${ticketsEarned} 🎟️`
+        : `${friend.display_name || 'Park Visitor'}'s squad got the better of you — +${ticketsEarned} 🎟️`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -461,13 +489,13 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
       {/* Mode Selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-        {(['passive', 'tournament', 'challenge', 'league'] as const).map(mode => (
+        {(['passive', 'tournament', 'challenge', 'league', 'friendBattle'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : '🏅 Golden'}
+            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : mode === 'league' ? '🏅 Golden' : '🆚 Friend'}
           </button>
         ))}
       </div>
@@ -736,6 +764,59 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             }`}
           >
             {isPlaying ? 'Competing...' : team.length === 0 ? 'Assign squad first!' : timeToLeagueMatch > 0 ? `Next match in ${formatTime(timeToLeagueMatch)}` : `Compete in ${GOLDEN_GAMES_LEAGUES[selectedLeague].name}`}
+          </button>
+        </div>
+      )}
+
+      {/* Friend Battle Mode -- async PvP against a friend's synced Squad Power */}
+      {activeMode === 'friendBattle' && (
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="text-center mb-6">
+            <div className="text-5xl mb-3">🆚</div>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Friend Battle</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Async PvP against a friend's Squad Power — no need for them to be online.</p>
+          </div>
+
+          {friends.length === 0 ? (
+            <p className={`text-[14px] italic text-center py-8 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Add some friends first to battle them here.</p>
+          ) : (
+            <div className="space-y-2 mb-6">
+              {friends.map(friend => {
+                const isSelected = selectedFriendId === friend.user_id;
+                return (
+                  <button
+                    key={friend.user_id}
+                    onClick={() => setSelectedFriendId(friend.user_id)}
+                    className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                      isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</span>
+                    <span className="text-[14px] font-black text-[var(--accent-500)] flex-shrink-0 ml-2">PWR {friend.squad_power}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <div className="flex justify-between text-[15px] font-black uppercase">
+              <span className="opacity-60">Next Battle</span>
+              <span className={timeToFriendBattle > 0 ? 'text-amber-500' : 'text-green-500'}>
+                {timeToFriendBattle > 0 ? formatTime(timeToFriendBattle) : 'READY!'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleFriendBattle}
+            disabled={isPlaying || team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${
+              !isPlaying && team.length > 0 && timeToFriendBattle <= 0 && selectedFriendId
+                ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+            }`}
+          >
+            {isPlaying ? 'Battling...' : team.length === 0 ? 'Assign squad first!' : !selectedFriendId ? 'Pick a friend above' : timeToFriendBattle > 0 ? `Next battle in ${formatTime(timeToFriendBattle)}` : 'Battle!'}
           </button>
         </div>
       )}

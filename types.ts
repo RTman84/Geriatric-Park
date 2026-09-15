@@ -167,6 +167,7 @@ export interface GameState {
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
   goldenGames: { highestLeagueCleared: number; nextMatchAt: number }; // -1 = none cleared yet
+  friendBattle: { nextMatchAt: number };
   settings: GameSettings;
   tournamentScore: number;
   tournamentEndsAt: number;

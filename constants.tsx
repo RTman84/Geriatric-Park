@@ -250,6 +250,24 @@ export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = generateGoldenGamesTier
 // One shared cooldown across all leagues (not per-league) -- keeps the data
 // model simple and stops pure spam-farming without needing four separate timers.
 export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
+
+// ─── Friend Battle (Phase 3, social system) ──────────────────────────────────
+// Async PvP against a friend's synced Squad Power snapshot -- not a live
+// match, no coordination needed. Resolved the same squad-power-vs-difficulty
+// way every other Court mode already is: variance is applied to the
+// opponent's known power (not invented from nothing) so it reads as "their
+// real squad, on a given day" rather than a pure coin flip. Only the
+// challenger's resources change; the friend being battled is untouched --
+// keeps this safe to build without a second layer of cross-account
+// transaction coordination.
+export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000;
+export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
+export const FRIEND_BATTLE_WIN_TICKETS_MIN = 40;
+export const FRIEND_BATTLE_WIN_TICKETS_MAX = 80;
+export const FRIEND_BATTLE_LOSS_TICKETS = 15;
+export const FRIEND_BATTLE_WIN_ELDER_XP = 50;
+export const FRIEND_BATTLE_LOSS_ELDER_XP = 15;
+export const FRIEND_BATTLE_WIN_COMMUNITY_SCORE = 25;
 // Auto-Play (Court) benchmark: a squad at exactly this power clears a match
 // at 100% progress. Used to make Auto-Play's outcome mostly power-driven and
 // gradual rather than a coin-flip, distinguishing it from Challenge/Tower.
