@@ -26,10 +26,15 @@ create table if not exists public.player_profiles (
   -- Up to 3 { type, evolutionStage, name } snapshots, not full Elder objects --
   -- just enough for ElderAvatarImg to render the same art the owner sees.
   favorite_elders jsonb not null default '[]'::jsonb check (jsonb_array_length(favorite_elders) <= 3),
+  -- Opt-in only, off by default: whether this player can be paired via the
+  -- "Find a Random Friend" action. A player never becomes randomly
+  -- discoverable without explicitly turning this on in Settings.
+  open_to_random_friends boolean not null default false,
   updated_at timestamptz not null default now()
 );
 
 create index if not exists player_profiles_friend_code_idx on public.player_profiles (friend_code);
+create index if not exists player_profiles_random_eligible_idx on public.player_profiles (user_id) where open_to_random_friends = true;
 
 -- Bidirectional friendship is modeled as two rows once accepted (one per
 -- direction) rather than a single row with an ORDER-dependent pair, so a

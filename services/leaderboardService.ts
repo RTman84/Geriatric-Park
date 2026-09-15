@@ -1,6 +1,7 @@
 import { getAccessToken } from './authService';
 
 export interface LeaderboardEntry {
+  user_id?: string;
   display_name: string;
   score: number;
 }

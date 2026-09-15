@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
+import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon } from '@heroicons/react/24/solid';
 import { ElderAvatarImg, getRankForLevel } from '../constants';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 
@@ -13,6 +13,8 @@ interface FriendsPanelProps {
   onSendRequest: (code: string) => Promise<string>;
   onRespond: (requestId: string, accept: boolean) => Promise<void>;
   onRemove: (friendUserId: string) => Promise<void>;
+  onRandomMatch: () => Promise<string>;
+  onToggleOpenToRandom: (value: boolean) => Promise<void>;
 }
 
 // Friends' custom icon/title picks (achievement-based keys especially) can't
@@ -26,11 +28,14 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   return { icon: rank.icon, title: rank.title };
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, onClose, onRefresh, onSendRequest, onRespond, onRemove }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [randomBusy, setRandomBusy] = useState(false);
+  const [randomMessage, setRandomMessage] = useState<string | null>(null);
+  const [toggleBusy, setToggleBusy] = useState(false);
 
   const handleSend = async () => {
     if (!codeInput.trim()) return;
@@ -53,6 +58,29 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
+  };
+
+  const handleRandomMatch = async () => {
+    setRandomBusy(true);
+    setRandomMessage(null);
+    try {
+      const resultMessage = await onRandomMatch();
+      setRandomMessage(resultMessage);
+    } catch (e) {
+      setRandomMessage(e instanceof Error ? e.message : 'Could not find a match.');
+    } finally {
+      setRandomBusy(false);
+    }
+  };
+
+  const handleToggle = async () => {
+    if (!data) return;
+    setToggleBusy(true);
+    try {
+      await onToggleOpenToRandom(!data.myOpenToRandom);
+    } finally {
+      setToggleBusy(false);
+    }
   };
 
   return (
@@ -90,6 +118,29 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
             </button>
           </div>
           {message && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{message}</p>}
+        </div>
+
+        {/* Random matching -- opt-in only */}
+        <div className={`rounded-2xl p-4 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <p className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Open to Random Matching</p>
+            <button
+              onClick={handleToggle}
+              disabled={toggleBusy || !data}
+              className={`w-12 h-6 rounded-full transition-colors relative disabled:opacity-50 ${data?.myOpenToRandom ? 'bg-[var(--accent-600)]' : 'bg-slate-300 dark:bg-slate-700'}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${data?.myOpenToRandom ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+          <p className={`text-[12px] mb-3 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Off by default. When on, other players who also opt in can be matched with you.</p>
+          <button
+            onClick={handleRandomMatch}
+            disabled={randomBusy || !data?.myOpenToRandom}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-sm py-3 disabled:opacity-40"
+          >
+            <SparklesIcon className="w-4 h-4" /> Find a Random Friend
+          </button>
+          {randomMessage && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{randomMessage}</p>}
         </div>
 
         {/* Incoming requests */}

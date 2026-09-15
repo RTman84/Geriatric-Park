@@ -19,7 +19,7 @@ import {
   CalendarDaysIcon, GiftIcon, BellIcon, SparklesIcon,
   FireIcon, BeakerIcon, HandThumbUpIcon, VideoCameraIcon,
   BanknotesIcon, ClockIcon, ChartBarIcon, TrophyIcon,
-  ArrowPathIcon, PlayIcon, UserGroupIcon
+  ArrowPathIcon, PlayIcon, UserGroupIcon, UserPlusIcon
 } from '@heroicons/react/24/solid';
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
@@ -302,10 +302,11 @@ interface ShuffleboardProps {
   passiveMatchAt: number;
   goldenGames: { highestLeagueCleared: number; nextMatchAt: number };
   onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => void;
-  leaderboard: { top: { display_name: string; score: number }[]; mine: { display_name: string; score: number } | null; day: string } | null;
+  leaderboard: { top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
   leaderboardAvailable: boolean;
   leaderboardError: boolean;
   onRetryLeaderboard: () => void;
+  onAddFriendFromLeaderboard?: (userId: string) => void;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
@@ -313,13 +314,14 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   onPassiveResult, onTournamentPlay, onChallenge,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
   goldenGames, onGoldenGamesResult,
-  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard
+  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onAddFriendFromLeaderboard
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league'>('passive');
   const [stakeAmount, setStakeAmount] = useState(20);
   const [selectedLeague, setSelectedLeague] = useState(() =>
     Math.min(Math.max(goldenGames.highestLeagueCleared + 1, 0), GOLDEN_GAMES_LEAGUES.length - 1)
   );
+  const [addedFriendIds, setAddedFriendIds] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [lastResultWon, setLastResultWon] = useState(false);
@@ -572,6 +574,18 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                     <span className={`text-[15px] font-black w-5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
                     <span className={`text-[15px] font-black flex-1 uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{entry.display_name}</span>
                     <span className="text-[15px] font-black text-[var(--accent-500)]">{entry.score} pts</span>
+                    {onAddFriendFromLeaderboard && entry.user_id && addedFriendIds.indexOf(entry.user_id) === -1 && (
+                      <button
+                        onClick={() => { onAddFriendFromLeaderboard(entry.user_id!); setAddedFriendIds(prev => [...prev, entry.user_id!]); }}
+                        title="Add as friend"
+                        className="p-1.5 rounded-lg text-[var(--accent-500)] hover:bg-[var(--accent-500-a10)] flex-shrink-0"
+                      >
+                        <UserPlusIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    {entry.user_id && addedFriendIds.indexOf(entry.user_id) !== -1 && (
+                      <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    )}
                   </div>
                 ))}
                 {leaderboard.mine && !leaderboard.top.some(e => e.display_name === leaderboard.mine!.display_name) && (

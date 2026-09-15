@@ -15,7 +15,7 @@ import {
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
-import { fetchFriendsData, sendFriendRequest, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
+import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon
 } from '@heroicons/react/24/solid';
@@ -324,6 +324,27 @@ const App: React.FC = () => {
     await removeFriend(friendUserId);
     await refreshFriends();
   }, [refreshFriends]);
+
+  const handleRandomMatch = useCallback(async (): Promise<string> => {
+    const { result } = await sendRandomMatchRequest();
+    await refreshFriends();
+    return result === 'friends' ? "It's a match — you're already friends!" : 'Request sent to a random player!';
+  }, [refreshFriends]);
+
+  const handleToggleOpenToRandom = useCallback(async (value: boolean) => {
+    await setOpenToRandomFriends(value);
+    await refreshFriends();
+  }, [refreshFriends]);
+
+  // From the Daily Tournament leaderboard: add a player by their user_id,
+  // no friend code needed since they're already visible on a public board.
+  const handleAddFriendFromLeaderboard = useCallback(async (targetUserId: string) => {
+    try {
+      await sendFriendRequestByUserId(targetUserId);
+    } catch (e) {
+      console.error('Add friend from leaderboard failed', e);
+    }
+  }, []);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isEventPlaying, setIsEventPlaying] = useState(false);
   const [eventResult, setEventResult] = useState<string | null>(null);
@@ -1640,6 +1661,7 @@ const App: React.FC = () => {
               leaderboardAvailable={isCloudAccountsConfigured()}
               leaderboardError={leaderboardError}
               onRetryLeaderboard={refreshLeaderboard}
+              onAddFriendFromLeaderboard={handleAddFriendFromLeaderboard}
             />
           )}
         </main>
@@ -1940,6 +1962,8 @@ const App: React.FC = () => {
             onSendRequest={handleSendFriendRequest}
             onRespond={handleRespondToFriendRequest}
             onRemove={handleRemoveFriend}
+            onRandomMatch={handleRandomMatch}
+            onToggleOpenToRandom={handleToggleOpenToRandom}
           />
         )}
       </div>

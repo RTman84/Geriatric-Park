@@ -82,7 +82,7 @@ export default async function handler(req: Request): Promise<Response> {
     if (req.method === 'GET') {
       const { data: top, error: topError } = await context.supabase
         .from('leaderboard_scores')
-        .select('display_name, score')
+        .select('user_id, display_name, score')
         .eq('tournament_day', day)
         .order('score', { ascending: false })
         .limit(TOP_N);
@@ -94,7 +94,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       const { data: mine, error: mineError } = await context.supabase
         .from('leaderboard_scores')
-        .select('display_name, score')
+        .select('user_id, display_name, score')
         .eq('tournament_day', day)
         .eq('user_id', context.userId)
         .maybeSingle();

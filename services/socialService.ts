@@ -27,6 +27,7 @@ export interface FriendRequestEntry {
 
 export interface FriendsData {
   myCode: string;
+  myOpenToRandom: boolean;
   friends: PlayerProfileSnapshot[];
   incoming: FriendRequestEntry[];
   outgoing: FriendRequestEntry[];
@@ -56,6 +57,40 @@ export async function sendFriendRequest(code: string): Promise<{ result: 'sent' 
     method: 'POST',
     headers,
     body: JSON.stringify({ action: 'send', code: code.trim().toUpperCase() }),
+  });
+  return parse(response);
+}
+
+// From the Daily Tournament leaderboard: add someone you can already see by
+// their (already-public on that leaderboard) user_id, no friend code needed.
+export async function sendFriendRequestByUserId(targetUserId: string): Promise<{ result: 'sent' | 'friends' }> {
+  const headers = await authHeaders();
+  const response = await fetch('/api/friends', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'sendByUserId', targetUserId }),
+  });
+  return parse(response);
+}
+
+// Opt-in only -- pairs the caller with another player who has separately
+// turned on openToRandomFriends. Never matches anyone who hasn't opted in.
+export async function sendRandomMatchRequest(): Promise<{ result: 'sent' | 'friends' }> {
+  const headers = await authHeaders();
+  const response = await fetch('/api/friends', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'randomMatch' }),
+  });
+  return parse(response);
+}
+
+export async function setOpenToRandomFriends(value: boolean): Promise<{ openToRandomFriends: boolean }> {
+  const headers = await authHeaders();
+  const response = await fetch('/api/friends', {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ openToRandomFriends: value }),
   });
   return parse(response);
 }

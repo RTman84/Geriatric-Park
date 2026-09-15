@@ -59,7 +59,7 @@ function generateFriendCode(): string {
   return code;
 }
 
-const PROFILE_FIELDS = 'user_id, friend_code, display_name, level, selected_title, selected_account_icon, achievements_completed, achievements_total, squad_power, favorite_elders, updated_at';
+const PROFILE_FIELDS = 'user_id, friend_code, display_name, level, selected_title, selected_account_icon, achievements_completed, achievements_total, squad_power, favorite_elders, open_to_random_friends, updated_at';
 
 async function ensureProfile(supabase: SupabaseClient, userId: string) {
   const { data: existing } = await supabase.from('player_profiles').select(PROFILE_FIELDS).eq('user_id', userId).maybeSingle();
@@ -120,6 +120,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       return serverJson({
         myCode: profile.friend_code,
+        myOpenToRandom: profile.open_to_random_friends,
         friends: friendProfiles,
         incoming: (incoming ?? []).map(r => ({ id: r.id, userId: r.requester_id, displayName: nameFor(r.requester_id), createdAt: r.created_at })),
         outgoing: (outgoing ?? []).map(r => ({ id: r.id, userId: r.addressee_id, displayName: nameFor(r.addressee_id), createdAt: r.created_at })),
@@ -131,30 +132,27 @@ export default async function handler(req: Request): Promise<Response> {
       try { body = await req.json(); } catch { return serverJson({ error: 'Invalid JSON' }, 400); }
       const action = body?.action;
 
-      if (action === 'send') {
-        const code = String(body?.code || '').toUpperCase().trim();
-        if (code.length !== 8) return serverJson({ error: 'Enter an 8-character friend code.' }, 400);
+      // Shared by 'send' (by code), 'sendByUserId' (from the leaderboard),
+      // and 'randomMatch' -- all three end in the same place, either a
+      // mutual instant-accept (if they'd already requested us) or a new
+      // pending request.
+      async function sendRequestTo(targetUserId: string): Promise<Response> {
+        if (targetUserId === userId) return serverJson({ error: "You can't friend yourself." }, 400);
 
-        const { data: target, error: targetErr } = await supabase.from('player_profiles').select('user_id').eq('friend_code', code).maybeSingle();
-        if (targetErr) { console.error('Friend code lookup failed', targetErr.message); return serverJson({ error: 'Friends unavailable', detail: targetErr.message }, 500); }
-        if (!target) return serverJson({ error: 'No player found with that code.' }, 404);
-        if (target.user_id === userId) return serverJson({ error: "You can't friend yourself." }, 400);
-
-        // Mutual request (they already sent us one) -> accept both directions immediately.
-        const { data: reverse } = await supabase.from('friend_requests').select('id').eq('requester_id', target.user_id).eq('addressee_id', userId).eq('status', 'pending').maybeSingle();
+        const { data: reverse } = await supabase.from('friend_requests').select('id').eq('requester_id', targetUserId).eq('addressee_id', userId).eq('status', 'pending').maybeSingle();
         if (reverse) {
           const now = new Date().toISOString();
           const { error: acceptErr } = await supabase.from('friend_requests').update({ status: 'accepted', updated_at: now }).eq('id', reverse.id);
           if (acceptErr) { console.error('Mutual accept failed', acceptErr.message); return serverJson({ error: 'Friends unavailable', detail: acceptErr.message }, 500); }
           const { error: mirrorErr } = await supabase.from('friend_requests').upsert(
-            { requester_id: userId, addressee_id: target.user_id, status: 'accepted', updated_at: now },
+            { requester_id: userId, addressee_id: targetUserId, status: 'accepted', updated_at: now },
             { onConflict: 'requester_id,addressee_id' },
           );
           if (mirrorErr) { console.error('Mutual mirror failed', mirrorErr.message); return serverJson({ error: 'Friends unavailable', detail: mirrorErr.message }, 500); }
           return serverJson({ result: 'friends' });
         }
 
-        const { error: insertErr } = await supabase.from('friend_requests').insert({ requester_id: userId, addressee_id: target.user_id, status: 'pending' });
+        const { error: insertErr } = await supabase.from('friend_requests').insert({ requester_id: userId, addressee_id: targetUserId, status: 'pending' });
         if (insertErr) {
           if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
             return serverJson({ error: 'Already sent or already friends.' }, 409);
@@ -163,6 +161,51 @@ export default async function handler(req: Request): Promise<Response> {
           return serverJson({ error: 'Friends unavailable', detail: insertErr.message }, 500);
         }
         return serverJson({ result: 'sent' });
+      }
+
+      if (action === 'send') {
+        const code = String(body?.code || '').toUpperCase().trim();
+        if (code.length !== 8) return serverJson({ error: 'Enter an 8-character friend code.' }, 400);
+
+        const { data: target, error: targetErr } = await supabase.from('player_profiles').select('user_id').eq('friend_code', code).maybeSingle();
+        if (targetErr) { console.error('Friend code lookup failed', targetErr.message); return serverJson({ error: 'Friends unavailable', detail: targetErr.message }, 500); }
+        if (!target) return serverJson({ error: 'No player found with that code.' }, 404);
+        return sendRequestTo(target.user_id);
+      }
+
+      // From the Daily Tournament leaderboard: add a player you can already
+      // see by their (already-public) user_id, no friend code needed.
+      if (action === 'sendByUserId') {
+        const targetUserId = String(body?.targetUserId || '');
+        if (!targetUserId) return serverJson({ error: 'Missing targetUserId' }, 400);
+        return sendRequestTo(targetUserId);
+      }
+
+      // Opt-in only: picks one random profile that has explicitly turned on
+      // open_to_random_friends, isn't the caller, and isn't already a friend
+      // or pending request in either direction. Excludes are applied in JS
+      // rather than a hand-built SQL "not in (...)" fragment -- simpler and
+      // avoids any risk of malformed filter syntax.
+      if (action === 'randomMatch') {
+        const { data: existingLinks } = await supabase
+          .from('friend_requests')
+          .select('requester_id, addressee_id')
+          .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+        const excluded = new Set<string>([userId]);
+        (existingLinks ?? []).forEach(l => { excluded.add(l.requester_id); excluded.add(l.addressee_id); });
+
+        const { data: pool, error: candErr } = await supabase
+          .from('player_profiles')
+          .select('user_id')
+          .eq('open_to_random_friends', true)
+          .limit(200);
+        if (candErr) { console.error('Random match lookup failed', candErr.message); return serverJson({ error: 'Friends unavailable', detail: candErr.message }, 500); }
+
+        const candidates = (pool ?? []).filter(p => !excluded.has(p.user_id));
+        if (candidates.length === 0) return serverJson({ error: 'No one is available for random matching right now — try again later!' }, 404);
+
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        return sendRequestTo(pick.user_id);
       }
 
       if (action === 'accept' || action === 'decline') {
@@ -191,6 +234,20 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       return serverJson({ error: 'Unknown action' }, 400);
+    }
+
+    if (req.method === 'PUT') {
+      let body: any;
+      try { body = await req.json(); } catch { return serverJson({ error: 'Invalid JSON' }, 400); }
+      if (typeof body?.openToRandomFriends !== 'boolean') return serverJson({ error: 'Missing openToRandomFriends' }, 400);
+
+      await ensureProfile(supabase, userId); // make sure a row exists to update
+      const { error } = await supabase
+        .from('player_profiles')
+        .update({ open_to_random_friends: body.openToRandomFriends, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      if (error) { console.error('Random-match preference update failed', error.message); return serverJson({ error: 'Friends unavailable', detail: error.message }, 500); }
+      return serverJson({ result: 'updated', openToRandomFriends: body.openToRandomFriends });
     }
 
     if (req.method === 'DELETE') {
