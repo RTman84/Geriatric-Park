@@ -73,7 +73,14 @@ function squadPowerFrom(saveData: any): number {
 // never blocks or fails the actual cloud save if this part errors, since the
 // save itself is the important write and this is purely a derived read-model
 // for other players to view via api/friends.ts.
-async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displayName: string | null, saveData: any) {
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateFriendCode(): string {
+  let code = '';
+  for (let i = 0; i < 8; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return code;
+}
+
+async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displayName: string | null, saveData: any): Promise<string | null> {
   try {
     const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
     const achievements = Array.isArray(saveData?.achievements) ? saveData.achievements : [];
@@ -83,8 +90,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       .filter(Boolean)
       .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name }));
 
-    await supabase.from('player_profiles').upsert({
-      user_id: userId,
+    const statFields = {
       display_name: displayName,
       level: Number.isInteger(saveData?.level) ? saveData.level : 1,
       selected_title: saveData?.selectedTitle ?? null,
@@ -94,13 +100,54 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       squad_power: squadPowerFrom(saveData),
       favorite_elders: favoriteElders,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
+    };
+
+    // BUG FOUND (9-15-26): player_profiles.friend_code is NOT NULL + UNIQUE
+    // with no default, but this function's upsert never included it. If a
+    // player's very first cloud autosave fires before they've ever opened
+    // their own Friends screen (near-certain, since autosave debounces just
+    // 2 seconds after any change, while opening Friends is a deliberate,
+    // much later action), no row exists yet -- the upsert has to INSERT, and
+    // that INSERT violates the not-null constraint on friend_code every
+    // single time, forever, for every player. It never surfaced anywhere
+    // because the { error } from that call was also never checked (see the
+    // fix below this function). The end result: a player's *own* first
+    // Friends-screen visit was the ONLY thing that ever successfully created
+    // their row (via ensureProfile in api/friends.ts, which does supply a
+    // code) -- but that row is a bare default (level 1, squad_power 0, no
+    // name), and unless something happened to retry the sync after that
+    // point, it could sit stale indefinitely.
+    //
+    // Fix: ensure a row exists first (mirroring ensureProfile's own
+    // race-safe retry-on-collision pattern) using a plain INSERT with a
+    // fresh code, then UPDATE (never upsert) the real stat fields separately
+    // so an existing friend_code is never at risk of being touched.
+    const { data: existing, error: selectErr } = await supabase.from('player_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+    if (selectErr) { console.error('Player profile sync failed (non-fatal)', selectErr.message); return selectErr.message; }
+
+    if (!existing) {
+      let inserted = false;
+      let lastError: string | null = null;
+      for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+        const { error: insertErr } = await supabase.from('player_profiles').insert({ user_id: userId, friend_code: generateFriendCode(), ...statFields });
+        if (!insertErr) { inserted = true; break; }
+        lastError = insertErr.message;
+        if (!String(insertErr.message).includes('friend_code')) break;
+      }
+      if (!inserted) { console.error('Player profile sync failed (non-fatal)', lastError); return lastError; }
+      return null;
+    }
+
+    const { error: updateErr } = await supabase.from('player_profiles').update(statFields).eq('user_id', userId);
+    if (updateErr) { console.error('Player profile sync failed (non-fatal)', updateErr.message); return updateErr.message; }
+    return null;
   } catch (e: any) {
     // Deliberately swallowed -- a broken profile snapshot should never take
     // down cloud saves. api/friends.ts creates a fresh row on first access
     // anyway (ensureProfile), so a missed sync just means slightly stale
     // data until the next successful save.
     console.error('Player profile sync failed (non-fatal)', e?.message || e);
+    return e?.message || String(e);
   }
 }
 
@@ -180,7 +227,12 @@ export default async function handler(req: Request): Promise<Response> {
     return serverJson({ error: 'Cloud save unavailable' }, 500);
   }
 
-  await syncPlayerProfile(context.supabase, context.userId, context.displayName, saveData);
+  const profileSyncError = await syncPlayerProfile(context.supabase, context.userId, context.displayName, saveData);
 
-  return serverJson({ save: data });
+  // TEMPORARY (9-15-26 profile-sync investigation): surface a failed profile
+  // sync in the successful save response so it's visible in the browser
+  // console via cloudSaveService.ts without needing Vercel's live Logs tab.
+  // Never blocks/fails the save itself -- purely informational. Revert once
+  // the underlying cause (RLS policy, column mismatch, etc.) is found.
+  return serverJson({ save: data, profileSyncError: profileSyncError || undefined });
 }

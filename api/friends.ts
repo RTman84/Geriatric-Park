@@ -100,6 +100,13 @@ export default async function handler(req: Request): Promise<Response> {
         return serverJson({ error: 'Friends unavailable', detail }, 500);
       }
 
+      // Accepted friendships are stored as a mirrored pair of rows (see the
+      // 'accept' action below), one per direction -- so querying just the
+      // requester_id=me side is already sufficient regardless of who
+      // originally sent the request. (Verified this against the actual
+      // accept/mutual-match logic before "fixing" it -- an earlier version
+      // of this comment queried both directions, which double-counted every
+      // friend given the mirroring already in place.)
       const friendIds = (friends ?? []).map(f => f.addressee_id);
       let friendProfiles: any[] = [];
       if (friendIds.length > 0) {
