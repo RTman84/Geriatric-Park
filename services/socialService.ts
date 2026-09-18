@@ -15,6 +15,7 @@ export interface PlayerProfileSnapshot {
   achievements_total: number;
   squad_power: number;
   favorite_elders: { type: string; evolutionStage: 0 | 1 | 2; name: string }[];
+  built_amenities: string[];
   updated_at: string;
 }
 

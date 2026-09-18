@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel } from '../constants';
+import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD } from '../constants';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 
 interface FriendsPanelProps {
@@ -8,6 +8,7 @@ interface FriendsPanelProps {
   data: FriendsData | null;
   loading: boolean;
   error: string | null;
+  lastVisitedFriends: Record<string, number>;
   onClose: () => void;
   onRefresh: () => void;
   onSendRequest: (code: string) => Promise<string>;
@@ -15,6 +16,7 @@ interface FriendsPanelProps {
   onRemove: (friendUserId: string) => Promise<void>;
   onRandomMatch: () => Promise<string>;
   onToggleOpenToRandom: (value: boolean) => Promise<void>;
+  onVisit: (friendUserId: string) => void;
 }
 
 // Friends' custom icon/title picks (achievement-based keys especially) can't
@@ -28,7 +30,7 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   return { icon: rank.icon, title: rank.title };
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -36,6 +38,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [randomBusy, setRandomBusy] = useState(false);
   const [randomMessage, setRandomMessage] = useState<string | null>(null);
   const [toggleBusy, setToggleBusy] = useState(false);
+  const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
 
   const handleSend = async () => {
     if (!codeInput.trim()) return;
@@ -186,23 +189,55 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
           <div className="space-y-2">
             {data?.friends.map(friend => {
               const display = friendDisplay(friend);
+              const isExpanded = expandedFriendId === friend.user_id;
+              const lastVisit = lastVisitedFriends[friend.user_id] ?? 0;
+              const onCooldown = Date.now() - lastVisit < VISIT_COOLDOWN_MS;
+              const builtAmenities = AMENITIES.filter(a => friend.built_amenities?.includes(a.id));
               return (
-                <div key={friend.user_id} className={`flex items-center gap-3 rounded-2xl p-3 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[var(--accent-500-a10)]">{display.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</p>
-                    <p className={`text-[12px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{display.title} · PWR {friend.squad_power}</p>
-                  </div>
-                  {friend.favorite_elders.length > 0 && (
-                    <div className="flex -space-x-2 flex-shrink-0">
-                      {friend.favorite_elders.map((e, i) => (
-                        <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800">
-                          <ElderAvatarImg type={e.type as any} stage={e.evolutionStage} fill />
+                <div key={friend.user_id} className={`rounded-2xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                  <button onClick={() => setExpandedFriendId(isExpanded ? null : friend.user_id)} className="w-full flex items-center gap-3 p-3 text-left">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[var(--accent-500-a10)]">{display.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</p>
+                      <p className={`text-[12px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{display.title} · PWR {friend.squad_power}</p>
+                    </div>
+                    {friend.favorite_elders.length > 0 && (
+                      <div className="flex -space-x-2 flex-shrink-0">
+                        {friend.favorite_elders.map((e, i) => (
+                          <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800">
+                            <ElderAvatarImg type={e.type as any} stage={e.evolutionStage} fill />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isExpanded ? <ChevronUpIcon className="w-4 h-4 flex-shrink-0 opacity-50" /> : <ChevronDownIcon className="w-4 h-4 flex-shrink-0 opacity-50" />}
+                  </button>
+                  {isExpanded && (
+                    <div className={`px-3 pb-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                      <p className={`text-[12px] font-black uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Their Grounds</p>
+                      {builtAmenities.length === 0 ? (
+                        <p className="text-[13px] italic opacity-50 mb-3">Nothing built yet.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {builtAmenities.map(a => (
+                            <div key={a.id} title={a.name} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] font-bold ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                              <span>{a.icon}</span><span>{a.name}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onVisit(friend.user_id)}
+                          disabled={onCooldown}
+                          className={`flex-1 py-2 rounded-xl text-[12px] font-black uppercase ${!onCooldown ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                        >
+                          {onCooldown ? 'Visited today' : `Visit (+${VISIT_MATERIALS_REWARD} 🧱)`}
+                        </button>
+                        <button onClick={() => onRemove(friend.user_id)} className="px-3 rounded-xl text-slate-300 hover:text-rose-400"><UserMinusIcon className="w-4 h-4" /></button>
+                      </div>
                     </div>
                   )}
-                  <button onClick={() => onRemove(friend.user_id)} className="text-slate-300 hover:text-rose-400 flex-shrink-0"><UserMinusIcon className="w-4 h-4" /></button>
                 </div>
               );
             })}

@@ -143,6 +143,16 @@ export interface GameState {
   // Up to 3 Elder ids the player has chosen to feature on their Social
   // Profile -- purely cosmetic, independent of the battle Team.
   favoriteElderIds: string[];
+  // Building Materials (Phase 3 park-building system): a currency
+  // completely separate from PP -- never touches the ad-revenue-only rule,
+  // since it isn't real-money-adjacent. Spent on Amenities (see
+  // constants.tsx) -- decorations with no passive bonus, plus Housing which
+  // raises total roster capacity.
+  buildingMaterials: number;
+  builtAmenityIds: string[];
+  // Per-friend timestamp of the last time visiting them granted a Materials
+  // reward, so the visit reward can be capped to once/day/friend client-side.
+  lastVisitedFriends: Record<string, number>;
   season: Season;
   hasStarted: boolean;
   inventory: Gear[];

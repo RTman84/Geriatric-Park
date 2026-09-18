@@ -4,6 +4,7 @@ import BattleScreen from './components/BattleScreen';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import FriendsPanel from './components/FriendsPanel';
+import GroundsPanel from './components/GroundsPanel';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
@@ -90,6 +91,10 @@ import {
   EVOLUTION_STAT_MULTIPLIER,
   GOLDEN_GAMES_LEAGUES,
   GOLDEN_GAMES_COOLDOWN_MS,
+  AMENITIES,
+  VISIT_COOLDOWN_MS,
+  VISIT_MATERIALS_REWARD,
+  getHousingCapacity,
   FRIEND_BATTLE_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_ELDER_XP,
   FRIEND_BATTLE_LOSS_ELDER_XP,
@@ -229,6 +234,9 @@ const INITIAL_STATE: GameState = {
   ],
   achievements: INITIAL_ACHIEVEMENTS,
   favoriteElderIds: [],
+  buildingMaterials: 0,
+  builtAmenityIds: [],
+  lastVisitedFriends: {},
   season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000, claimedLevels: [] },
   hasStarted: false,
   inventory: [],
@@ -290,6 +298,7 @@ const App: React.FC = () => {
   // GameState/the save blob -- friend relationships live server-side in
   // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  const [showGroundsPanel, setShowGroundsPanel] = useState(false);
   const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
@@ -1126,11 +1135,16 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
     const league = GOLDEN_GAMES_LEAGUES[leagueIndex];
     if (!league) return;
+    // Building Materials scale gently with tier, same spirit as Ticket
+    // scaling -- higher tiers are worth more to climb for reasons beyond
+    // just Tickets now that Materials exist.
+    const materialsEarned = won ? (leagueIndex + 1) * 2 : Math.ceil((leagueIndex + 1) / 2);
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, won ? league.winElderXp * 3 : league.lossElderXp);
       return {
         ...prev,
         legacyTokens: prev.legacyTokens + ticketsEarned,
+        buildingMaterials: prev.buildingMaterials + materialsEarned,
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, won ? league.winElderXp : league.lossElderXp),
         parkCommunityScore: prev.parkCommunityScore + (won ? league.winCommunityScore : 0),
@@ -1149,10 +1163,39 @@ const App: React.FC = () => {
       return {
         ...prev,
         legacyTokens: prev.legacyTokens + ticketsEarned,
+        buildingMaterials: prev.buildingMaterials + (won ? 6 : 2),
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP),
         parkCommunityScore: prev.parkCommunityScore + (won ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
         friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS },
+      };
+    });
+  }, [state.settings.sfxEnabled]);
+
+  const handleBuildAmenity = useCallback((amenityId: string) => {
+    const amenity = AMENITIES.find(a => a.id === amenityId);
+    if (!amenity) return;
+    setState(prev => {
+      if (prev.builtAmenityIds.includes(amenityId)) return prev; // one of each for now
+      if (prev.buildingMaterials < amenity.cost) return prev;
+      if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+      return {
+        ...prev,
+        buildingMaterials: prev.buildingMaterials - amenity.cost,
+        builtAmenityIds: [...prev.builtAmenityIds, amenityId],
+      };
+    });
+  }, [state.settings.sfxEnabled]);
+
+  const handleVisitFriend = useCallback((friendUserId: string) => {
+    setState(prev => {
+      const lastVisit = prev.lastVisitedFriends[friendUserId] ?? 0;
+      if (Date.now() - lastVisit < VISIT_COOLDOWN_MS) return prev;
+      if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+      return {
+        ...prev,
+        buildingMaterials: prev.buildingMaterials + VISIT_MATERIALS_REWARD,
+        lastVisitedFriends: { ...prev.lastVisitedFriends, [friendUserId]: Date.now() },
       };
     });
   }, [state.settings.sfxEnabled]);
@@ -1854,6 +1897,7 @@ const App: React.FC = () => {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-black uppercase italic tracking-tighter">Social Profile</h2>
                   <div className="flex items-center gap-2">
+                    <button onClick={() => setShowGroundsPanel(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">🏡 Grounds</button>
                     <button onClick={handleOpenFriends} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">👥 Friends</button>
                     <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
                   </div>
@@ -1997,6 +2041,7 @@ const App: React.FC = () => {
             data={friendsData}
             loading={friendsLoading}
             error={friendsError}
+            lastVisitedFriends={state.lastVisitedFriends}
             onClose={() => setShowFriendsPanel(false)}
             onRefresh={refreshFriends}
             onSendRequest={handleSendFriendRequest}
@@ -2004,6 +2049,18 @@ const App: React.FC = () => {
             onRemove={handleRemoveFriend}
             onRandomMatch={handleRandomMatch}
             onToggleOpenToRandom={handleToggleOpenToRandom}
+            onVisit={handleVisitFriend}
+          />
+        )}
+
+        {showGroundsPanel && (
+          <GroundsPanel
+            isDark={isDark}
+            buildingMaterials={state.buildingMaterials}
+            builtAmenityIds={state.builtAmenityIds}
+            totalRosterCount={state.allElders.filter(e => e.captured).length}
+            onBuild={handleBuildAmenity}
+            onClose={() => setShowGroundsPanel(false)}
           />
         )}
       </div>

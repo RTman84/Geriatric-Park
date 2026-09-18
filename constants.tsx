@@ -405,6 +405,45 @@ export function resolveProfileDisplay(
   };
 }
 
+// ─── Park Amenities (Phase 3 social/visiting system) ──────────────────────────
+// Distinct from INVESTMENT_TIERS below (Parcels): those raise your PP rate and
+// are bought with PP, tied to the ad-revenue-only PP rule. Amenities are
+// bought with Building Materials, a separate currency, and carry NO passive
+// bonus of any kind -- per user request, purely a decorative/social layer for
+// what friends see when they visit your park, plus Housing (capacity only).
+export type AmenityCategory = 'housing' | 'decoration';
+export interface Amenity {
+  id: string;
+  name: string;
+  icon: string; // emoji placeholder -- real art is a separate, later pass
+  category: AmenityCategory;
+  cost: number; // Building Materials
+  flavor: string;
+  capacityBonus?: number; // housing only: how many more Elders this houses
+}
+export const AMENITIES: Amenity[] = [
+  { id: 'cottage', name: 'Retirement Cottage', icon: '🏡', category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home.', capacityBonus: 4 },
+  { id: 'trail', name: 'Nature Trail', icon: '🥾', category: 'decoration', cost: 25, flavor: 'A gently paved loop, perfect for a brisk hike or a very slow one.' },
+  { id: 'grocery', name: 'Grocery Store', icon: '🛒', category: 'decoration', cost: 30, flavor: 'Coupon day is sacred here.' },
+  { id: 'aerobics', name: 'Water Aerobics Pool', icon: '🏊', category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio.' },
+  { id: 'birdwatch', name: 'Bird Watching Post', icon: '🦜', category: 'decoration', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory.' },
+  { id: 'earlybird', name: 'Early Bird Line', icon: '🕓', category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15.' },
+  { id: 'complaints', name: 'Complaint Desk', icon: '📋', category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming.' },
+  { id: 'nappod', name: 'Nap Pod Row', icon: '😴', category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping.' },
+  { id: 'prunebar', name: 'Prune Juice Bar', icon: '🥤', category: 'decoration', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.' },
+  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: '🥏', category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- this one is just for looking nice.' },
+];
+export const BASE_HOUSING_CAPACITY = 6; // matches TEAM_SIZE_LIMIT -- room for a starting team before any Cottage is built
+export function getHousingCapacity(builtAmenityIds: string[]): number {
+  const cottagesBuilt = builtAmenityIds.filter(id => id === 'cottage').length; // reserved for future multi-build support; currently one-of-each
+  return BASE_HOUSING_CAPACITY + cottagesBuilt * (AMENITIES.find(a => a.id === 'cottage')?.capacityBonus ?? 0);
+}
+// Materials granted for visiting a friend's park (once per friend per day,
+// enforced client-side via GameState.lastVisitedFriends -- Materials aren't
+// real-money-adjacent, same lighter trust bar as Tickets elsewhere in Court).
+export const VISIT_MATERIALS_REWARD = 8;
+export const VISIT_COOLDOWN_MS = 20 * 60 * 60 * 1000; // slightly under 24h so "once a day" doesn't creep later each day
+
 export const INVESTMENT_TIERS = [
   {
     category: 'Community Micro-Assets',

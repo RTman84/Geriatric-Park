@@ -99,6 +99,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       achievements_total: achievements.length,
       squad_power: squadPowerFrom(saveData),
       favorite_elders: favoriteElders,
+      built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
       updated_at: new Date().toISOString(),
     };
 
