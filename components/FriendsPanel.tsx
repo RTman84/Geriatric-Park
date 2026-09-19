@@ -39,6 +39,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [randomMessage, setRandomMessage] = useState<string | null>(null);
   const [toggleBusy, setToggleBusy] = useState(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+  const [visitFeedback, setVisitFeedback] = useState<string | null>(null);
 
   const handleSend = async () => {
     if (!codeInput.trim()) return;
@@ -231,7 +232,11 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       )}
                       <div className="flex gap-2">
                         <button
-                          onClick={() => onVisit(friend.user_id)}
+                          onClick={() => {
+                            onVisit(friend.user_id);
+                            setVisitFeedback(`+${VISIT_MATERIALS_REWARD} 🧱 Building Materials!`);
+                            setTimeout(() => setVisitFeedback(null), 3000);
+                          }}
                           disabled={onCooldown}
                           className={`flex-1 py-2 rounded-xl text-[12px] font-black uppercase ${!onCooldown ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                         >
@@ -239,6 +244,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                         </button>
                         <button onClick={() => onRemove(friend.user_id)} className="px-3 rounded-xl text-slate-300 hover:text-rose-400"><UserMinusIcon className="w-4 h-4" /></button>
                       </div>
+                      {isExpanded && visitFeedback && (
+                        <p className="text-[13px] font-black text-[var(--accent-500)] text-center mt-2">{visitFeedback}</p>
+                      )}
                     </div>
                   )}
                 </div>

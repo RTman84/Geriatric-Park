@@ -302,7 +302,7 @@ interface ShuffleboardProps {
   tournamentEndsAt: number;
   passiveMatchAt: number;
   goldenGames: { highestLeagueCleared: number; nextMatchAt: number };
-  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => void;
+  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => number;
   leaderboard: { top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
   leaderboardAvailable: boolean;
   leaderboardError: boolean;
@@ -310,7 +310,7 @@ interface ShuffleboardProps {
   onAddFriendFromLeaderboard?: (userId: string) => void;
   friends: { user_id: string; display_name: string | null; squad_power: number }[];
   friendBattle: { nextMatchAt: number };
-  onFriendBattleResult: (won: boolean, ticketsEarned: number) => void;
+  onFriendBattleResult: (won: boolean, ticketsEarned: number) => number;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
@@ -400,11 +400,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const ticketsEarned = won
         ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
         : FRIEND_BATTLE_LOSS_TICKETS;
-      onFriendBattleResult(won, ticketsEarned);
+      const materialsEarned = onFriendBattleResult(won, ticketsEarned);
       setLastResultWon(won);
       setLastResult(won
-        ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${ticketsEarned} 🎟️`
-        : `${friend.display_name || 'Park Visitor'}'s squad got the better of you — +${ticketsEarned} 🎟️`);
+        ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
+        : `${friend.display_name || 'Park Visitor'}'s squad got the better of you — +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -440,11 +440,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const ticketsEarned = won
         ? Math.floor(league.winTicketsMin + Math.random() * (league.winTicketsMax - league.winTicketsMin))
         : league.lossTickets;
-      onGoldenGamesResult(selectedLeague, won, ticketsEarned);
+      const materialsEarned = onGoldenGamesResult(selectedLeague, won, ticketsEarned);
       setLastResultWon(won);
       setLastResult(won
-        ? `Your squad triumphed at the ${league.name}! +${ticketsEarned} 🎟️`
-        : `Outplayed at the ${league.name} — consolation: +${ticketsEarned} 🎟️`);
+        ? `Your squad triumphed at the ${league.name}! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
+        : `Outplayed at the ${league.name} — consolation: +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`);
       setIsPlaying(false);
     }, 1500);
   };

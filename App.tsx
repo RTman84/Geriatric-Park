@@ -1131,10 +1131,10 @@ const App: React.FC = () => {
   // GOLDEN_GAMES_LEAGUES; ticketsEarned is pre-rolled by ShuffleboardPanel
   // using that league's win/loss ranges (same pattern as the other 3 modes,
   // which already resolve client-side and just report the outcome up).
-  const handleGoldenGamesResult = useCallback((leagueIndex: number, won: boolean, ticketsEarned: number) => {
+  const handleGoldenGamesResult = useCallback((leagueIndex: number, won: boolean, ticketsEarned: number): number => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
     const league = GOLDEN_GAMES_LEAGUES[leagueIndex];
-    if (!league) return;
+    if (!league) return 0;
     // Building Materials scale gently with tier, same spirit as Ticket
     // scaling -- higher tiers are worth more to climb for reasons beyond
     // just Tickets now that Materials exist.
@@ -1154,22 +1154,25 @@ const App: React.FC = () => {
         },
       };
     });
+    return materialsEarned;
   }, [state.settings.sfxEnabled]);
 
-  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number) => {
+  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number): number => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
+    const materialsEarned = won ? 6 : 2;
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP);
       return {
         ...prev,
         legacyTokens: prev.legacyTokens + ticketsEarned,
-        buildingMaterials: prev.buildingMaterials + (won ? 6 : 2),
+        buildingMaterials: prev.buildingMaterials + materialsEarned,
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP),
         parkCommunityScore: prev.parkCommunityScore + (won ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
         friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS },
       };
     });
+    return materialsEarned;
   }, [state.settings.sfxEnabled]);
 
   const handleBuildAmenity = useCallback((amenityId: string) => {
