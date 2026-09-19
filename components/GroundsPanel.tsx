@@ -1,6 +1,6 @@
 import React from 'react';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
-import { AMENITIES, getHousingCapacity, type Amenity } from '../constants';
+import { AMENITIES, getHousingCapacity, isImagePath, type Amenity } from '../constants';
 
 interface GroundsPanelProps {
   isDark: boolean;
@@ -21,7 +21,9 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({ isDark, buildingMaterials, 
     const canAfford = buildingMaterials >= amenity.cost;
     return (
       <div key={amenity.id} className={`p-4 rounded-2xl border flex items-center gap-3 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-        <span className="text-3xl flex-shrink-0">{amenity.icon}</span>
+        <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl">
+          {isImagePath(amenity.icon) ? <img src={amenity.icon} alt={amenity.name} className="w-full h-full object-cover" /> : amenity.icon}
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-black text-sm uppercase truncate flex items-center gap-2">
             {amenity.name}

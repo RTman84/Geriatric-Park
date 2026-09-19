@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, isImagePath } from '../constants';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 
 interface FriendsPanelProps {
@@ -221,7 +221,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                         <div className="flex flex-wrap gap-2 mb-3">
                           {builtAmenities.map(a => (
                             <div key={a.id} title={a.name} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] font-bold ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
-                              <span>{a.icon}</span><span>{a.name}</span>
+                              <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
+                                {isImagePath(a.icon) ? <img src={a.icon} alt={a.name} className="w-full h-full object-cover" /> : <span>{a.icon}</span>}
+                              </div>
+                              <span>{a.name}</span>
                             </div>
                           ))}
                         </div>

@@ -38,6 +38,16 @@ import storytellerStage3 from './game-assets/elders/storyteller_stage3.png';
 import techWizardStage1 from './game-assets/elders/tech_wizard_stage1.png';
 import techWizardStage2 from './game-assets/elders/tech_wizard_stage2.png';
 import techWizardStage3 from './game-assets/elders/tech_wizard_stage3.png';
+import amenityCottage from './game-assets/amenities/cottage.png';
+import amenityTrail from './game-assets/amenities/trail.png';
+import amenityGrocery from './game-assets/amenities/grocery.png';
+import amenityAerobics from './game-assets/amenities/aerobics.png';
+import amenityBirdwatch from './game-assets/amenities/birdwatch.png';
+import amenityEarlybird from './game-assets/amenities/earlybird.png';
+import amenityComplaints from './game-assets/amenities/complaints.png';
+import amenityNappod from './game-assets/amenities/nappod.png';
+import amenityPrunebar from './game-assets/amenities/prunebar.png';
+import amenityShuffleboard from './game-assets/amenities/shuffleboard_deco.png';
 
 import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
 import branMuffinImg from './game-assets/items/bran_muffin.png';
@@ -415,23 +425,23 @@ export type AmenityCategory = 'housing' | 'decoration';
 export interface Amenity {
   id: string;
   name: string;
-  icon: string; // emoji placeholder -- real art is a separate, later pass
+  icon: string; // image path (game-assets/amenities/) or an emoji fallback
   category: AmenityCategory;
   cost: number; // Building Materials
   flavor: string;
   capacityBonus?: number; // housing only: how many more Elders this houses
 }
 export const AMENITIES: Amenity[] = [
-  { id: 'cottage', name: 'Retirement Cottage', icon: '🏡', category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home.', capacityBonus: 4 },
-  { id: 'trail', name: 'Nature Trail', icon: '🥾', category: 'decoration', cost: 25, flavor: 'A gently paved loop, perfect for a brisk hike or a very slow one.' },
-  { id: 'grocery', name: 'Grocery Store', icon: '🛒', category: 'decoration', cost: 30, flavor: 'Coupon day is sacred here.' },
-  { id: 'aerobics', name: 'Water Aerobics Pool', icon: '🏊', category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio.' },
-  { id: 'birdwatch', name: 'Bird Watching Post', icon: '🦜', category: 'decoration', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory.' },
-  { id: 'earlybird', name: 'Early Bird Line', icon: '🕓', category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15.' },
-  { id: 'complaints', name: 'Complaint Desk', icon: '📋', category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming.' },
-  { id: 'nappod', name: 'Nap Pod Row', icon: '😴', category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping.' },
-  { id: 'prunebar', name: 'Prune Juice Bar', icon: '🥤', category: 'decoration', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.' },
-  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: '🥏', category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- this one is just for looking nice.' },
+  { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home.', capacityBonus: 4 },
+  { id: 'trail', name: 'Nature Trail', icon: amenityTrail, category: 'decoration', cost: 25, flavor: 'A gently paved loop, perfect for a brisk hike or a very slow one.' },
+  { id: 'grocery', name: 'Grocery Store', icon: amenityGrocery, category: 'decoration', cost: 30, flavor: 'Coupon day is sacred here.' },
+  { id: 'aerobics', name: 'Water Aerobics Pool', icon: amenityAerobics, category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio.' },
+  { id: 'birdwatch', name: 'Bird Watching Post', icon: amenityBirdwatch, category: 'decoration', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory.' },
+  { id: 'earlybird', name: 'Early Bird Line', icon: amenityEarlybird, category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15.' },
+  { id: 'complaints', name: 'Complaint Desk', icon: amenityComplaints, category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming.' },
+  { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping.' },
+  { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'decoration', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.' },
+  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- this one is just for looking nice.' },
 ];
 export const BASE_HOUSING_CAPACITY = 6; // matches TEAM_SIZE_LIMIT -- room for a starting team before any Cottage is built
 export function getHousingCapacity(builtAmenityIds: string[]): number {
