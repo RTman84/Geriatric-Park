@@ -11,7 +11,7 @@ import {
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
   GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
-  FRIEND_BATTLE_VARIANCE, FRIEND_BATTLE_WIN_TICKETS_MIN, FRIEND_BATTLE_WIN_TICKETS_MAX, FRIEND_BATTLE_LOSS_TICKETS,
+  FRIEND_BATTLE_VARIANCE, FRIEND_BATTLE_WIN_TICKETS_MIN, FRIEND_BATTLE_WIN_TICKETS_MAX,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -99,12 +99,20 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
             {!msg.claimed && <div className="w-2 h-2 bg-red-500 rounded-full"></div>}
           </div>
           <p className="text-[15px] text-slate-600 mb-6 leading-relaxed">{msg.body}</p>
-          {msg.reward && !msg.claimed && (
+          {(msg.reward || msg.materials) && !msg.claimed && (
             <button onClick={() => onClaim(msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
-              <GiftIcon className="w-4 h-4" /> Claim {msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name}
+              <GiftIcon className="w-4 h-4" /> Claim {[
+                msg.reward ? (msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name) : null,
+                msg.materials ? `${msg.materials} 🧱` : null,
+              ].filter(Boolean).join(' + ')}
             </button>
           )}
-          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">Reward Claimed</div>}
+          {!msg.reward && !msg.materials && !msg.claimed && (
+            <button onClick={() => onClaim(msg.id)} className={`w-full font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
+              Mark as Read
+            </button>
+          )}
+          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.reward || msg.materials) ? 'Reward Claimed' : 'Read'}</div>}
         </div>
       )) : <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black tracking-widest">Inbox is empty</div>}
     </div>
@@ -310,7 +318,7 @@ interface ShuffleboardProps {
   onAddFriendFromLeaderboard?: (userId: string) => void;
   friends: { user_id: string; display_name: string | null; squad_power: number }[];
   friendBattle: { nextMatchAt: number };
-  onFriendBattleResult: (won: boolean, ticketsEarned: number) => number;
+  onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => number;
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
@@ -399,12 +407,12 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const won = teamStrength > opponentPower;
       const ticketsEarned = won
         ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
-        : FRIEND_BATTLE_LOSS_TICKETS;
-      const materialsEarned = onFriendBattleResult(won, ticketsEarned);
+        : 0;
+      const materialsEarned = onFriendBattleResult(won, ticketsEarned, friend.user_id);
       setLastResultWon(won);
       setLastResult(won
         ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
-        : `${friend.display_name || 'Park Visitor'}'s squad got the better of you — +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`);
+        : `${friend.display_name || 'Park Visitor'}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`);
       setIsPlaying(false);
     }, 1500);
   };

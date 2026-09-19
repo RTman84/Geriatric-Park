@@ -21,6 +21,7 @@ export interface MailMessage {
   subject: string;
   body: string;
   reward?: { type: 'Tokens' | 'Gear'; value: number | Gear };
+  materials?: number; // Building Materials, claimed together with `reward`
   claimed: boolean;
   timestamp: number;
 }

@@ -16,6 +16,7 @@ import {
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
+import { fetchInbox, notifyFriendBattle, mergeInboxIntoMailbox } from './services/mailService';
 import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon, UserGroupIcon
@@ -675,6 +676,10 @@ const App: React.FC = () => {
   // and keep whichever copy (local vs cloud) has the higher revision number.
   const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
   const [cloudCheckDone, setCloudCheckDone] = useState(!isCloudAccountsConfigured());
+  // True once the cloud-save fetch has actually finished (success OR failure) -- distinct from
+  // cloudCheckDone, which the 8s safety timeout can flip early. Mail must wait for this, because
+  // hydrating a cloud save replaces the whole state (Mailbox included).
+  const [cloudSyncSettled, setCloudSyncSettled] = useState(!isCloudAccountsConfigured());
   const syncFromCloud = useCallback(async () => {
     if (!isCloudAccountsConfigured()) return;
     try {
@@ -688,8 +693,28 @@ const App: React.FC = () => {
         setState(hydrated);
       }
     } catch (e) { console.error('Cloud save fetch failed', e); }
-    finally { setCloudCheckDone(true); }
+    finally { setCloudCheckDone(true); setCloudSyncSettled(true); }
   }, []);
+
+  // Friend Battle notifications: pull the server-side inbox and merge it into the
+  // in-save Mailbox (deduped by row id). Silent when signed out / offline.
+  const refreshMail = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    try {
+      const rows = await fetchInbox();
+      setState(prev => {
+        const nextMailbox = mergeInboxIntoMailbox(prev.mailbox, rows);
+        return nextMailbox === prev.mailbox ? prev : { ...prev, mailbox: nextMailbox };
+      });
+    } catch { /* not signed in or offline -- try again next interval */ }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled || !state.hasStarted) return;
+    void refreshMail();
+    const id = setInterval(() => void refreshMail(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isLoaded, cloudSyncSettled, state.hasStarted, refreshMail]);
 
   // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
   // Signed-out players simply see no leaderboard data (fetchLeaderboard throws on missing
@@ -1157,14 +1182,18 @@ const App: React.FC = () => {
     return materialsEarned;
   }, [state.settings.sfxEnabled]);
 
-  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number): number => {
+  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number, friendUserId: string): number => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
-    const materialsEarned = won ? 6 : 2;
+    // A win pays the attacker; a loss pays the DEFENDER instead (server-side, via
+    // their Mailbox -- see api/mail.ts). The attacker keeps only the Elder XP.
+    const materialsEarned = won ? 6 : 0;
+    const ticketsToGrant = won ? ticketsEarned : 0;
+    void notifyFriendBattle(friendUserId, won).catch(e => console.error('Friend battle notification failed', e));
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP);
       return {
         ...prev,
-        legacyTokens: prev.legacyTokens + ticketsEarned,
+        legacyTokens: prev.legacyTokens + ticketsToGrant,
         buildingMaterials: prev.buildingMaterials + materialsEarned,
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP),
@@ -1322,12 +1351,13 @@ const App: React.FC = () => {
       if (!msg || msg.claimed) return prev;
       let nextTokens = prev.legacyTokens;
       let nextInventory = [...prev.inventory];
+      const nextMaterials = prev.buildingMaterials + (msg.materials ?? 0);
       if (msg.reward) {
         if (msg.reward.type === 'Tokens') nextTokens += msg.reward.value as number;
         else if (msg.reward.type === 'Gear') nextInventory.push(msg.reward.value as Gear);
       }
       if (prev.settings.sfxEnabled) audioManager.playSFX('collect');
-      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
+      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
     });
   }, []);
 
@@ -1853,6 +1883,12 @@ const App: React.FC = () => {
                 </p>
               </div>
               <div className="mt-8 pt-8 border-t border-slate-100/10">
+                <button onClick={() => { setShowSettings(false); setShowTutorial(true); }} className="w-full flex items-center justify-center gap-3 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
+                  <span className="text-xl">📖</span>
+                  <span className="text-[13px] font-black uppercase tracking-widest">How to Play</span>
+                </button>
+              </div>
+              <div className="mt-8 pt-8 border-t border-slate-100/10">
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-4">Data Management</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={handleExportSave} className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-colors">
@@ -2055,6 +2091,8 @@ const App: React.FC = () => {
             onVisit={handleVisitFriend}
           />
         )}
+
+        {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
         {showGroundsPanel && (
           <GroundsPanel
