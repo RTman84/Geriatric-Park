@@ -703,8 +703,13 @@ const App: React.FC = () => {
     try {
       const rows = await fetchInbox();
       setState(prev => {
-        const nextMailbox = mergeInboxIntoMailbox(prev.mailbox, rows);
-        return nextMailbox === prev.mailbox ? prev : { ...prev, mailbox: nextMailbox };
+        try {
+          const nextMailbox = mergeInboxIntoMailbox(prev.mailbox, rows);
+          return nextMailbox === prev.mailbox ? prev : { ...prev, mailbox: nextMailbox };
+        } catch (mergeError) {
+          console.error('Mail merge failed', mergeError);
+          return prev;
+        }
       });
     } catch { /* not signed in or offline -- try again next interval */ }
   }, []);

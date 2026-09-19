@@ -72,13 +72,19 @@ function rowToMessage(row: InboxRow): MailMessage {
 // once a message is claimed its reward and claimed flag are never touched, so a
 // re-fetch can't hand out the reward twice. Returns the SAME array reference
 // when nothing changed, so callers don't trigger needless saves.
+// Saved Mailboxes come from every past version of the game, so entries are treated as
+// untrusted: a non-array Mailbox, or a message with a missing/non-string id, must never throw
+// here (this runs on every app load).
+const idOf = (m: unknown): string => (m && typeof (m as MailMessage).id === 'string') ? (m as MailMessage).id : '';
+
 export function mergeInboxIntoMailbox(mailbox: MailMessage[], rows: InboxRow[], now = Date.now()): MailMessage[] {
+  if (!Array.isArray(mailbox) || !Array.isArray(rows)) return mailbox;
   let changed = false;
   let next = mailbox.slice();
 
   for (const row of rows) {
     const incoming = rowToMessage(row);
-    const idx = next.findIndex(m => m.id === incoming.id);
+    const idx = next.findIndex(m => idOf(m) === incoming.id);
     if (idx === -1) {
       next.push(incoming);
       changed = true;
@@ -95,7 +101,7 @@ export function mergeInboxIntoMailbox(mailbox: MailMessage[], rows: InboxRow[], 
     }
   }
 
-  const pruned = next.filter(m => !(m.id.startsWith(MAIL_ID_PREFIX) && m.claimed && now - m.timestamp > PRUNE_AFTER_MS));
+  const pruned = next.filter(m => !(idOf(m).startsWith(MAIL_ID_PREFIX) && m.claimed && now - m.timestamp > PRUNE_AFTER_MS));
   if (pruned.length !== next.length) { next = pruned; changed = true; }
 
   return changed ? next : mailbox;
