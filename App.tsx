@@ -614,7 +614,23 @@ const App: React.FC = () => {
   // its type's implicit gender (e.g. a Grumpy Gardener named "Barnaby") --
   // one-time correction, per user request 9-9-26. Idempotent: once a name is
   // gender-matched it will never be touched again on future loads.
-  const migrateElders = (s: GameState): GameState => ({
+  // JSON.stringify turns NaN/Infinity into null, so one bad calculation that ever gets saved
+  // comes back as `null` on the next load -- and the first `.toFixed()` on it (the PP balance
+  // in the header runs on every screen) crashes the whole app to a white screen. Any top-level
+  // number that isn't a finite number falls back to its starting default on load.
+  const sanitizeNumericFields = (s: GameState): GameState => {
+    const next: Record<string, unknown> = { ...s };
+    for (const key of Object.keys(INITIAL_STATE)) {
+      const fallback = (INITIAL_STATE as unknown as Record<string, unknown>)[key];
+      if (typeof fallback === 'number' && !(typeof next[key] === 'number' && Number.isFinite(next[key]))) {
+        console.warn(`[Load] "${key}" in the save was not a valid number (${String(next[key])}); reset to ${fallback}`);
+        next[key] = fallback;
+      }
+    }
+    return next as unknown as GameState;
+  };
+
+  const migrateElders = (s: GameState): GameState => sanitizeNumericFields({
     ...s,
     allElders: (s.allElders || []).map(e => {
       const withDefaults = {
@@ -622,6 +638,9 @@ const App: React.FC = () => {
         evolutionStage: 0 as 0 | 1 | 2,
         ...e,
       };
+      if (!Number.isFinite(withDefaults.xp)) withDefaults.xp = 0;
+      if (!Number.isFinite(withDefaults.level)) withDefaults.level = 1;
+      if (!Number.isFinite(withDefaults.comfortGeneration)) withDefaults.comfortGeneration = 0;
       if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
         return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
       }
