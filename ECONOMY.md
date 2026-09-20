@@ -31,7 +31,7 @@ Reaching the **5 PP** redemption minimum takes ~893 views (~60 days at the cap).
 | PP per ad view (player share) | 0.07 | 0.0056 |
 | Redemption minimum | 10.00 | 5.00 |
 | Base passive rate (per 30 s tick) | 0.00005 | 0.000004 |
-| Investments (cost → rate boost/tick) | 0.50/0.000005 … 50/0.001 | 0.04/0.0000004 … 4.00/0.00008 |
+| Park Assets (cost → rate boost/tick) | 0.50 PP / 0.000005 … 50 PP / 0.001 | 0.04 **Pending Yield** / 0.0000004 … 4.00 / 0.00008 (paid with Pending Yield, not PP, since 2026-09-20) |
 | Parcel bonus (Common…Legendary) | 0.00001…0.0001 | 0.0000008…0.000008 |
 | Reserve "healthy" threshold | 5.00 | 0.40 |
 | Dividend base / cooldown | 0.01 / 15 min | 0.0008 / 60 min |
@@ -56,7 +56,7 @@ Other fixes made in the same pass:
 3. **Cash Out** (Pending Yield → PP): rate falls with pool health (25% floor), and a single
    Cash Out never takes more than **25%** of the pool.
 4. Passive accrual only feeds *Pending Yield*, an uncapped "earning power" number that is not a
-   cash liability. It becomes PP only through Cash Out above (or Reinvest, which creates no liability).
+   cash liability. It becomes PP only through Cash Out above, or is spent on Park Assets (the only way to raise the passive rate; costs are in Pending Yield, so investing creates no cash liability).
 5. Consequence, by design: high passive rates cannot be cashed faster than the community's ads
    refill the pool. A whale-tier investment (Park Directorship ≈ 0.23 yield/day) will convert at
    a reduced rate unless many players are watching ads. Show Reserve Health prominently.

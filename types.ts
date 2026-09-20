@@ -118,7 +118,7 @@ export interface GameState {
   googleEmail?: string;
   pensionBalance: number;
   economyVersion?: number; // 2 = PP scaled to the $0.008/ad assumption (Bundle B)
-  pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out / Reinvest
+  pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out (or spent on Park Assets)
   communityReserve: number; 
   earningsBreakdown: {
     passive: number;

@@ -5,7 +5,6 @@ import {
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   SHUFFLEBOARD_KING_BOOST, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
-  REINVEST_YIELD_TO_RATE,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
@@ -126,8 +125,8 @@ export const BankPanel: React.FC<{
   onWithdraw: () => void, adCount: number, onWatchAdTrigger: () => void, 
   onInvest: (item: any) => void, isDark: boolean, boostUntil?: number,
   onWatchAd?: (playerShare: number, communityShare: number) => void,
-  pendingYield?: number, onCashOutYield?: () => void, onReinvestYield?: () => void
-}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield, onReinvestYield }) => {
+  pendingYield?: number, onCashOutYield?: () => void
+}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield }) => {
   const adsLeft = MAX_ADS_PER_DAY - adCount;
   const [boostRemaining, setBoostRemaining] = useState<number>(0);
   const exchangeRate = getYieldExchangeRate(reserve);
@@ -178,26 +177,16 @@ export const BankPanel: React.FC<{
           </div>
           <span className="text-[var(--accent-500)] font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 mt-6">
-          <button
-            onClick={onCashOutYield}
-            disabled={pendingYield <= 0}
-            className={`py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-          >
-            <span>Cash Out</span>
-            <span className="text-[13px] opacity-80 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate</span>
-          </button>
-          <button
-            onClick={onReinvestYield}
-            disabled={pendingYield <= 0}
-            className={`py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-          >
-            <span>Reinvest</span>
-            <span className="text-[13px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
-          </button>
-        </div>
-        <p className={`text-[12px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-black uppercase text-center leading-relaxed italic mt-4`}>
-          Cash Out pays real PP, capped by Community Reserve health. Reinvest boosts your rate for free — no reserve cost.
+        <button
+          onClick={onCashOutYield}
+          disabled={pendingYield <= 0}
+          className={`w-full mt-6 py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+        >
+          <span>Cash Out to PP</span>
+          <span className="text-[13px] opacity-90 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate · loose PP, ready to redeem</span>
+        </button>
+        <p className={`text-[13px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase text-center leading-relaxed italic mt-4`}>
+          Cash Out turns yield into PP, capped by Community Reserve health. Or leave it as is — Pending Yield keeps growing and is what you spend on Park Assets below to raise your passive rate.
         </p>
       </div>
 
@@ -257,7 +246,7 @@ export const BankPanel: React.FC<{
           <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Asset Portfolio</h3>
           <div className="flex items-center gap-1.5 bg-[var(--accent-500-a10)] px-3 py-1 rounded-full border border-[var(--accent-500-a20)]">
             <ChartBarIcon className="w-3 h-3 text-[var(--accent-500)]" />
-            <span className="text-[14px] font-black text-[var(--accent-500)] uppercase tracking-tighter">Reinvest Earnings</span>
+            <span className="text-[14px] font-black text-[var(--accent-500)] uppercase tracking-tighter">Spend Pending Yield</span>
           </div>
         </div>
         <div className="space-y-10">
@@ -265,27 +254,41 @@ export const BankPanel: React.FC<{
             <div key={tier.category}>
               <h4 className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-[0.2em] mb-4 px-4`}>{tier.category}</h4>
               <div className="grid grid-cols-1 gap-4 px-2">
-                {tier.items.map(item => (
-                  <button 
-                    key={item.id} 
+                {tier.items.map(item => {
+                  const canAfford = pendingYield >= item.cost;
+                  const progress = Math.min(100, (pendingYield / item.cost) * 100);
+                  return (
+                  <button
+                    key={item.id}
                     onClick={() => onInvest(item)}
-                    disabled={balance < item.cost}
-                    className={`p-6 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${balance >= item.cost ? 'bg-white border-slate-100 shadow-sm hover:border-[var(--accent-500)]' : 'opacity-40 grayscale bg-slate-50 border-slate-200 cursor-not-allowed'}`}
+                    disabled={!canAfford}
+                    className={`p-6 rounded-[2.5rem] border-2 flex items-center gap-6 text-left transition-all ${canAfford
+                      ? `${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'} shadow-sm hover:border-[var(--accent-500)] active:scale-95`
+                      : `${isDark ? 'bg-slate-900 border-slate-700 border-dashed' : 'bg-slate-100 border-slate-300 border-dashed'} cursor-not-allowed`}`}
                   >
-                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl overflow-hidden">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'} ${canAfford ? '' : 'opacity-70'}`}>
                       {PARCEL_ICON_ASSETS[item.id] ? (
                         <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" />
                       ) : item.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h5 className="font-black text-base uppercase text-slate-800 truncate">{item.name}</h5>
-                        <span className="text-[var(--accent-600)] font-black text-sm">{item.cost.toFixed(2)} PP</span>
+                      <div className="flex justify-between items-start gap-2">
+                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h5>
+                        <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{item.cost.toFixed(2)} Yield</span>
                       </div>
-                      <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest mt-1`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
+                      <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
+                      {!canAfford && (
+                        <div className="mt-2">
+                          <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}>
+                            <div className="h-full bg-[var(--accent-500)] rounded-full" style={{ width: `${progress}%` }} />
+                          </div>
+                          <p className={`text-[13px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Need {(item.cost - pendingYield).toFixed(4)} more yield</p>
+                        </div>
+                      )}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

@@ -95,7 +95,6 @@ import {
   resolveProfileDisplay,
   isImagePath,
   SCRAP_BASE_TICKETS,
-  REINVEST_YIELD_TO_RATE,
   getYieldExchangeRate,
   ELDER_XP_FOR_LEVEL_UP,
   getBaseComfortGeneration,
@@ -499,7 +498,7 @@ const App: React.FC = () => {
         // tick credits pendingYield, an uncapped "earning power" number that
         // isn't a cash liability, instead of pensionBalance directly. It only
         // becomes real, reserve-capped PP when the player chooses to Cash Out
-        // (or Reinvest into pensionRate) from the Bank panel. This replaces
+        // (or spend it on Park Assets) from the Bank panel. This replaces
         // the earlier reserve-cap-on-accrual stopgap.
         return {
           ...prev,
@@ -1119,33 +1118,21 @@ const App: React.FC = () => {
     notify(`Cashed out ${payout.toFixed(4)} PP${rateNote}.${yieldConsumed < state.pendingYield - 1e-12 ? ' The rest of your Pending Yield is still waiting.' : ''}`);
   }, [state.pendingYield, state.communityReserve, state.settings.sfxEnabled]);
 
-  // Reinvest: converts Pending Yield straight into pensionRate at a more
-  // generous ratio than Cash Out, since it never touches the Community
-  // Reserve and creates zero cash liability — the game can afford to be
-  // generous here, per the economic plan addendum.
-  const handleReinvestYield = useCallback(() => {
-    if (state.pendingYield <= 0) { notify("No Pending Yield to reinvest yet — it builds up automatically over time."); return; }
-    const rateGain = state.pendingYield / REINVEST_YIELD_TO_RATE;
-    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    setState(prev => ({
-      ...prev,
-      pendingYield: 0,
-      pensionRate: prev.pensionRate + rateGain,
-    }));
-    notify(`Reinvested! Pension Rate increased by ${(rateGain * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
-  }, [state.pendingYield, state.settings.sfxEnabled]);
-
+  // Park Assets are the ONE way to raise your passive rate, and they are paid for with
+  // Pending Yield (reinvesting earnings) -- not PP. That keeps PP purely "loose and ready
+  // to redeem" and means investing never touches the Community Reserve or any cash liability.
   const handleInvest = useCallback((investment: any) => {
-    if (state.pensionBalance < investment.cost) { notify("Insufficient Pension Balance! Watch local ads or claim dividends to earn more."); return; }
+    if (state.pendingYield < investment.cost) { notify("Not enough Pending Yield yet — it builds up on its own, and watching a sponsor ad doubles the rate for an hour."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
       ...prev,
-      pensionBalance: prev.pensionBalance - investment.cost,
+      pendingYield: prev.pendingYield - investment.cost,
       pensionRate: prev.pensionRate + investment.rateBoost,
-      parkCommunityScore: prev.parkCommunityScore + Math.floor(investment.cost * 10)
+      // Stars scale with the size of the investment (old formula was cost x 10 before the PP rescale)
+      parkCommunityScore: prev.parkCommunityScore + Math.round((investment.cost / PP_SCALE_V2) * 10)
     }));
-    notify(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
-  }, [state.pensionBalance, state.settings.sfxEnabled]);
+    notify(`Investment confirmed! Your passive rate rose by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
+  }, [state.pendingYield, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
     if (state.adUsage.count >= MAX_ADS_PER_DAY) { notify("All of today's sponsorship slots are used — they reset at midnight."); return; }
@@ -1902,7 +1889,7 @@ const App: React.FC = () => {
             notify(`${state.pensionBalance.toFixed(4)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
-            pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield} onReinvestYield={handleReinvestYield}
+            pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield}
           />}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel

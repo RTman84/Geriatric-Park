@@ -208,9 +208,6 @@ export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 // paths in the Bank panel:
 export const RESERVE_HEALTHY_THRESHOLD = 0.40;  // reserve level at/above which Cash Out pays 1:1
 export const MIN_CASHOUT_EXCHANGE_RATE = 0.25;  // floor rate when the reserve is thin, never zero
-export const REINVEST_YIELD_TO_RATE    = 40000; // PP of yield spent per +1 pensionRate unit when reinvesting
-                                                 // (more generous than the cheapest Investment Tier's
-                                                 // ~50,000:1, since reinvesting never touches the reserve)
 
 // Cash Out rate scales linearly with reserve health between the floor and 1:1,
 // so a thin reserve is communicated as a lower rate rather than a hidden cap.
