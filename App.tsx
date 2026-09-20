@@ -300,15 +300,23 @@ const App: React.FC = () => {
   // GameState/the save blob -- friend relationships live server-side in
   // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
-  // Small visible banner for background failures that used to be console-only
-  // (e.g. a Friend Battle mail notice that didn't reach the other player).
-  const [appNotice, setAppNotice] = useState<string | null>(null);
-  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showNotice = useCallback((message: string) => {
-    setAppNotice(message);
-    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = setTimeout(() => setAppNotice(null), 8000);
+  // Non-blocking toasts (replaces every native notify(), which froze the game and
+  // won't exist on Steam/Electron/Capacitor the same way). Styled like the Court
+  // result banner: green for good news, red for "can't do that" / problems.
+  type Toast = { id: number; text: string; tone: 'good' | 'bad' };
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastIdRef = useRef(0);
+  const NEGATIVE_TOAST = /^(need |not enough|insufficient|invalid|failed|already|max squad|you can'?t|assign|no pending|minimum|community (reserve|pool) is|all sponsorship|this parcel|📭)|wandered off|\bneeds (to reach|\d)/i;
+  const notify = useCallback((text: string, tone?: 'good' | 'bad') => {
+    const resolved = tone ?? (NEGATIVE_TOAST.test(text) ? 'bad' : 'good');
+    const id = ++toastIdRef.current;
+    // Deferred a tick: some callers run inside another setState updater.
+    setTimeout(() => {
+      setToasts(prev => [...prev.slice(-2), { id, text, tone: resolved }]);
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), resolved === 'bad' ? 6000 : 4500);
+    }, 0);
   }, []);
+  const showNotice = useCallback((message: string) => notify(message, 'bad'), [notify]);
   const [showGroundsPanel, setShowGroundsPanel] = useState(false);
   const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
@@ -396,12 +404,12 @@ const App: React.FC = () => {
 
   const handleBuyParcel = useCallback(() => {
     const cost = 100;
-    if (state.legacyTokens < cost) { alert("Need 100 Tokens to buy a parcel!"); return; }
+    if (state.legacyTokens < cost) { notify("Need 100 Tokens to buy a parcel!"); return; }
     const { lat, lng } = state.currentLocation;
     const gridLat = Math.floor(lat * 10000) / 10000;
     const gridLng = Math.floor(lng * 10000) / 10000;
     const exists = state.ownedParcels.find(p => p.lat === gridLat && p.lng === gridLng);
-    if (exists) { alert("This parcel is already owned!"); return; }
+    if (exists) { notify("This parcel is already owned!"); return; }
     const rarities: ('Common' | 'Rare' | 'Epic' | 'Legendary')[] = ['Common', 'Rare', 'Epic', 'Legendary'];
     const weights = [0.7, 0.2, 0.08, 0.02];
     const rand = Math.random();
@@ -423,7 +431,7 @@ const App: React.FC = () => {
       }]
     }));
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    alert(`You bought a ${rarity} parcel! Pension rate increased.`);
+    notify(`You bought a ${rarity} parcel! Pension rate increased.`);
   }, [state.currentLocation, state.legacyTokens, state.ownedParcels, state.settings.sfxEnabled]);
 
   // Passive income tick
@@ -696,7 +704,7 @@ const App: React.FC = () => {
       }));
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const rank = getRankForLevel(state.level);
-      alert(`🎉 Level ${state.level}! ${rank.icon} ${rank.title}\n+${ticketReward} 🎟️`);
+      notify(`🎉 Level ${state.level}! ${rank.icon} ${rank.title}\n+${ticketReward} 🎟️`);
     }
     prevLevelRef.current = state.level;
   }, [state.level, isLoaded]);
@@ -995,10 +1003,10 @@ const App: React.FC = () => {
     const timeSince = now - (state.lastDividendClaim || 0);
     if (timeSince < DIVIDEND_COOLDOWN) {
       const minutesLeft = Math.ceil((DIVIDEND_COOLDOWN - timeSince) / 60000);
-      alert(`Community pool is still recharging. Check back in ${minutesLeft} minutes!`);
+      notify(`Community pool is still recharging. Check back in ${minutesLeft} minutes!`);
       return;
     }
-    if (state.communityReserve <= 0.01) { alert("Community Reserve is low! Watch some local ads or win battles to fuel the shared pool."); return; }
+    if (state.communityReserve <= 0.01) { notify("Community Reserve is low! Watch some local ads or win battles to fuel the shared pool."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const basePayout = 0.01;
     const scoreBonus = state.parkCommunityScore * 0.0002;
@@ -1011,7 +1019,7 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + tokenBonus,
       earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + totalPayout }
     }));
-    alert(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(3)} PP and ${tokenBonus} 🎟️!`);
+    notify(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(3)} PP and ${tokenBonus} 🎟️!`);
   }, [state.lastDividendClaim, state.communityReserve, state.parkCommunityScore, state.settings.sfxEnabled]);
 
   // Cash Out: converts Pending Yield into real, cash-eligible pensionBalance.
@@ -1021,11 +1029,11 @@ const App: React.FC = () => {
   // failing, so the shortfall is visible; any yield the rate/reserve couldn't
   // cover simply stays in pendingYield for next time, never lost.
   const handleCashOutYield = useCallback(() => {
-    if (state.pendingYield <= 0) { alert("No Pending Yield to cash out yet — it builds up automatically over time."); return; }
+    if (state.pendingYield <= 0) { notify("No Pending Yield to cash out yet — it builds up automatically over time."); return; }
     const rate = getYieldExchangeRate(state.communityReserve);
     const yieldConsumed = Math.min(state.pendingYield, rate > 0 ? state.communityReserve / rate : 0);
     const payout = yieldConsumed * rate;
-    if (payout <= 0) { alert("Community Reserve is empty right now — watch a local ad to help refill it, then try cashing out again."); return; }
+    if (payout <= 0) { notify("Community Reserve is empty right now — watch a local ad to help refill it, then try cashing out again."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
       ...prev,
@@ -1035,7 +1043,7 @@ const App: React.FC = () => {
       earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + payout },
     }));
     const rateNote = rate < 1 ? ` (reserve is thin, so the rate was ${(rate * 100).toFixed(0)}%)` : '';
-    alert(`Cashed out ${payout.toFixed(3)} PP${rateNote}.${yieldConsumed < state.pendingYield ? ' The rest of your Pending Yield is still waiting.' : ''}`);
+    notify(`Cashed out ${payout.toFixed(3)} PP${rateNote}.${yieldConsumed < state.pendingYield ? ' The rest of your Pending Yield is still waiting.' : ''}`);
   }, [state.pendingYield, state.communityReserve, state.settings.sfxEnabled]);
 
   // Reinvest: converts Pending Yield straight into pensionRate at a more
@@ -1043,7 +1051,7 @@ const App: React.FC = () => {
   // Reserve and creates zero cash liability — the game can afford to be
   // generous here, per the economic plan addendum.
   const handleReinvestYield = useCallback(() => {
-    if (state.pendingYield <= 0) { alert("No Pending Yield to reinvest yet — it builds up automatically over time."); return; }
+    if (state.pendingYield <= 0) { notify("No Pending Yield to reinvest yet — it builds up automatically over time."); return; }
     const rateGain = state.pendingYield / REINVEST_YIELD_TO_RATE;
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
@@ -1051,11 +1059,11 @@ const App: React.FC = () => {
       pendingYield: 0,
       pensionRate: prev.pensionRate + rateGain,
     }));
-    alert(`Reinvested! Pension Rate increased by ${(rateGain * 3600).toFixed(4)} PP/hour.`);
+    notify(`Reinvested! Pension Rate increased by ${(rateGain * 3600).toFixed(4)} PP/hour.`);
   }, [state.pendingYield, state.settings.sfxEnabled]);
 
   const handleInvest = useCallback((investment: any) => {
-    if (state.pensionBalance < investment.cost) { alert("Insufficient Pension Balance! Watch local ads or claim dividends to earn more."); return; }
+    if (state.pensionBalance < investment.cost) { notify("Insufficient Pension Balance! Watch local ads or claim dividends to earn more."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
       ...prev,
@@ -1063,18 +1071,18 @@ const App: React.FC = () => {
       pensionRate: prev.pensionRate + investment.rateBoost,
       parkCommunityScore: prev.parkCommunityScore + Math.floor(investment.cost * 10)
     }));
-    alert(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * 3600).toFixed(4)} PP/hour.`);
+    notify(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * 3600).toFixed(4)} PP/hour.`);
   }, [state.pensionBalance, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
-    if (state.adUsage.count >= MAX_ADS_PER_HOUR) { alert("All sponsorship slots for this hour are full! Come back later."); return; }
+    if (state.adUsage.count >= MAX_ADS_PER_HOUR) { notify("All sponsorship slots for this hour are full! Come back later."); return; }
     setShowAdOverlay(true);
   }, [state.adUsage.count]);
 
   const handleMoveToTeam = useCallback((id: string) => {
     setState(prev => {
       const teamCount = prev.allElders.filter(e => e.status === 'Team').length;
-      if (teamCount >= TEAM_SIZE_LIMIT) { alert(`Max squad size is ${TEAM_SIZE_LIMIT}!`); return prev; }
+      if (teamCount >= TEAM_SIZE_LIMIT) { notify(`Max squad size is ${TEAM_SIZE_LIMIT}!`); return prev; }
       if (state.settings.sfxEnabled) audioManager.playSFX('click');
       return { ...prev, allElders: prev.allElders.map(e => e.id === id ? { ...e, status: 'Team' } : e) };
     });
@@ -1089,7 +1097,7 @@ const App: React.FC = () => {
     const elder = state.allElders.find(e => e.id === id);
     if (!elder) return;
     if (state.allElders.filter(e => e.status === 'Team').length <= 1 && elder.status === 'Team') {
-      alert("You can't scrap your last active squad member!");
+      notify("You can't scrap your last active squad member!");
       return;
     }
     // Tickets only — PP stays strictly limited to ad-revenue-backed sources (ad-watch share +
@@ -1102,21 +1110,21 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + ticketPayout,
       allElders: prev.allElders.filter(e => e.id !== id),
     }));
-    alert(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
+    notify(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
   }, [state.allElders, state.settings.sfxEnabled]);
 
   const handleHealSquad = useCallback(() => {
-    if (state.legacyTokens < 25) return alert("Need 25 Tokens!");
+    if (state.legacyTokens < 25) return notify("Need 25 Tokens!");
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens - 25, allElders: prev.allElders.map(e => ({ ...e, hp: e.maxHp })) }));
-    alert("Squad restored!");
+    notify("Squad restored!");
     setActiveEvent(null);
   }, [state.legacyTokens, state.settings.sfxEnabled]);
 
   const handlePlayShuffleboard = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
-    if (team.length === 0) return alert("Assign a squad first!");
-    if (state.legacyTokens < 20) return alert("Need 20 Tokens!");
+    if (team.length === 0) return notify("Assign a squad first!");
+    if (state.legacyTokens < 20) return notify("Need 20 Tokens!");
     if (!activeEvent) return;
     setIsEventPlaying(true);
     setTimeout(() => {
@@ -1297,7 +1305,7 @@ const App: React.FC = () => {
   }, [state.settings.sfxEnabled]);
 
   const handleGardenScavenge = useCallback(() => {
-    if (state.legacyTokens < 10) return alert("Need 10 Tokens!");
+    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
     setIsEventPlaying(true);
     setTimeout(() => {
       const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
@@ -1314,7 +1322,7 @@ const App: React.FC = () => {
   }, [state.legacyTokens, state.settings.sfxEnabled]);
 
   const handleMallWalk = useCallback(() => {
-    if (state.legacyTokens < 15) return alert("Need 15 Tokens!");
+    if (state.legacyTokens < 15) return notify("Need 15 Tokens!");
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1329,7 +1337,7 @@ const App: React.FC = () => {
   }, [state.legacyTokens, state.settings.sfxEnabled]);
 
   const handlePavilionPotluck = useCallback(() => {
-    if (state.legacyTokens < 10) return alert("Need 10 Tokens!");
+    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1345,8 +1353,8 @@ const App: React.FC = () => {
 
   const handleMarketVisit = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
-    if (team.length === 0) return alert("Assign a squad first!");
-    if (state.legacyTokens < 30) return alert("Need 30 Tokens!");
+    if (team.length === 0) return notify("Assign a squad first!");
+    if (state.legacyTokens < 30) return notify("Need 30 Tokens!");
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1368,7 +1376,7 @@ const App: React.FC = () => {
   }, [state.legacyTokens, state.allElders, state.settings.sfxEnabled]);
 
   const handlePlayBingo = useCallback(() => {
-    if (state.legacyTokens < 10) return alert("Need 10 Tokens!");
+    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
     setIsEventPlaying(true);
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setTimeout(() => {
@@ -1429,7 +1437,7 @@ const App: React.FC = () => {
     const now = Date.now();
     const today = new Date(now).setHours(0,0,0,0);
     const last = state.lastLoginTimestamp ? new Date(state.lastLoginTimestamp).setHours(0,0,0,0) : 0;
-    if (today === last) return alert("Already checked in today!");
+    if (today === last) return notify("Already checked in today!");
     setState(prev => {
       const yesterday = today - 86400000;
       const newStreak = (last === yesterday) ? (prev.dailyBoostsCount % 7) + 1 : 1;
@@ -1444,7 +1452,7 @@ const App: React.FC = () => {
       if (prev.settings.sfxEnabled) audioManager.playSFX('victory');
       return { ...prev, lastLoginTimestamp: now, dailyBoostsCount: newStreak, legacyTokens: nextTokens, inventory: nextInventory };
     });
-    alert("Daily check-in successful!");
+    notify("Daily check-in successful!");
   }, [state.lastLoginTimestamp, state.settings.sfxEnabled]);
 
   const handleEquipElder = useCallback((elderId: string, item: Gear) => {
@@ -1474,24 +1482,24 @@ const App: React.FC = () => {
       const elder = prev.allElders.find(e => e.id === elderId);
       if (!elder) return prev;
       const stage = elder.evolutionStage ?? 0;
-      if (stage >= 2) { alert('Already fully evolved!'); return prev; }
+      if (stage >= 2) { notify('Already fully evolved!'); return prev; }
       const nextStage = (stage + 1) as 1 | 2;
 
       if (nextStage === 1 && elder.level < ELDER_EVOLUTION_STAGE1_LEVEL) {
-        alert(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE1_LEVEL} to evolve.`);
+        notify(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE1_LEVEL} to evolve.`);
         return prev;
       }
       let cost = EVOLUTION_STAGE1_COST;
       if (nextStage === 2) {
         if (elder.level < ELDER_EVOLUTION_STAGE2_LEVEL) {
-          alert(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE2_LEVEL} to evolve.`);
+          notify(`${elder.name} needs to reach level ${ELDER_EVOLUTION_STAGE2_LEVEL} to evolve.`);
           return prev;
         }
         const isEliteRarity = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(elder.rarity);
         cost = isEliteRarity ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST;
       }
       if (prev.legacyTokens < cost) {
-        alert(`Evolving ${elder.name} needs ${cost} 🎟️ Tickets.`);
+        notify(`Evolving ${elder.name} needs ${cost} 🎟️ Tickets.`);
         return prev;
       }
 
@@ -1537,9 +1545,9 @@ const App: React.FC = () => {
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.version) { setState(parsed); alert("Save state loaded successfully!"); if (state.settings.sfxEnabled) audioManager.playSFX('victory'); }
-        else alert("Invalid save file!");
-      } catch (err) { alert("Failed to parse save file."); }
+        if (parsed.version) { setState(parsed); notify("Save state loaded successfully!"); if (state.settings.sfxEnabled) audioManager.playSFX('victory'); }
+        else notify("Invalid save file!");
+      } catch (err) { notify("Failed to parse save file."); }
     };
     reader.readAsText(file);
   };
@@ -1549,9 +1557,9 @@ const App: React.FC = () => {
       const json = JSON.stringify(state);
       const code = btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
       navigator.clipboard.writeText(code);
-      alert("Sync Code copied to clipboard!");
+      notify("Sync Code copied to clipboard!");
       if (state.settings.sfxEnabled) audioManager.playSFX('collect');
-    } catch (e) { alert("Failed to generate Sync Code."); }
+    } catch (e) { notify("Failed to generate Sync Code."); }
   };
 
   const handlePasteSyncCode = () => {
@@ -1560,9 +1568,9 @@ const App: React.FC = () => {
     try {
       const json = decodeURIComponent(atob(code).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
       const parsed = JSON.parse(json);
-      if (parsed.version) { setState(parsed); alert("Progress restored from Sync Code!"); if (state.settings.sfxEnabled) audioManager.playSFX('victory'); }
-      else alert("Invalid Sync Code!");
-    } catch (err) { alert("Failed to decode Sync Code."); }
+      if (parsed.version) { setState(parsed); notify("Progress restored from Sync Code!"); if (state.settings.sfxEnabled) audioManager.playSFX('victory'); }
+      else notify("Invalid Sync Code!");
+    } catch (err) { notify("Failed to decode Sync Code."); }
   };
 
   // Winning just means winning — the resident is defeated and comes off the map, same as a
@@ -1591,7 +1599,7 @@ const App: React.FC = () => {
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
     handleQuestProgress('battle');
-    if (opponent) alert(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
+    if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleGuideSuccess = useCallback((guidedElder: Elder) => {
@@ -1621,7 +1629,7 @@ const App: React.FC = () => {
     });
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
-    if (opponent) alert(`You guided ${opponent.name} to the park!`);
+    if (opponent) notify(`You guided ${opponent.name} to the park!`);
   }, [battleOpponent, state.settings.sfxEnabled]);
 
   // Losing means the resident loses patience and wanders off — they're removed from the
@@ -1636,7 +1644,7 @@ const App: React.FC = () => {
     }));
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
-    if (opponent) alert(`${opponent.name} lost patience and wandered off!`);
+    if (opponent) notify(`${opponent.name} lost patience and wandered off!`);
   }, [battleOpponent, state.settings.sfxEnabled]);
 
   // Wheelchair Away: a deliberate mid-battle retreat. No HP consequence and the resident
@@ -1645,7 +1653,7 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     const opponent = battleOpponent?.elder;
     setBattleOpponent(null);
-    if (opponent) alert(`You wheeled away safely. ${opponent.name} is still nearby.`);
+    if (opponent) notify(`You wheeled away safely. ${opponent.name} is still nearby.`);
   }, [battleOpponent, state.settings.sfxEnabled]);
 
   // Elder movement
@@ -1786,7 +1794,7 @@ const App: React.FC = () => {
               nearbyStructures={state.nearbyStructures} heldStructureIds={state.heldStructureIds}
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
-              onElderClick={(e) => { if (activeTeam.length === 0) return alert("Assign a squad first!"); setBattleOpponent({ elder: e }); }}
+              onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: e }); }}
               onItemClick={handleCollectItem} onEventClick={setActiveEvent}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
@@ -1794,7 +1802,7 @@ const App: React.FC = () => {
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
-            if (state.legacyTokens < item.price) return alert("Not enough tokens!");
+            if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
               const team = state.allElders.filter(e => e.status === 'Team');
               if (team.length > 0) {
@@ -1806,15 +1814,15 @@ const App: React.FC = () => {
             } else {
               // Booster/shuffleboard items — just deduct tokens for now
               setState(prev => ({...prev, legacyTokens: prev.legacyTokens - item.price}));
-              alert(`${item.name} activated!`);
+              notify(`${item.name} activated!`);
             }
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.elders + passiveBreakdown.parcels} onWithdraw={() => {
-            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return alert("Minimum redemption is 10.00 PP");
-            alert(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
+            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify("Minimum redemption is 10.00 PP");
+            notify(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
             pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield} onReinvestYield={handleReinvestYield}
@@ -2159,12 +2167,17 @@ const App: React.FC = () => {
           />
         )}
 
-        {appNotice && (
-          <div
-            onClick={() => setAppNotice(null)}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[5000] max-w-sm w-[90%] rounded-2xl bg-slate-900 text-white text-[14px] font-bold px-4 py-3 shadow-2xl border border-amber-400/60"
-          >
-            {appNotice}
+        {toasts.length > 0 && (
+          <div className="fixed top-3 inset-x-0 z-[5000] flex flex-col items-center gap-2 pointer-events-none px-3">
+            {toasts.map(t => (
+              <div
+                key={t.id}
+                onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+                className={`pointer-events-auto w-full max-w-sm p-4 rounded-2xl text-center text-base font-black border shadow-lg whitespace-pre-line ${t.tone === 'good' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}
+              >
+                {t.text}
+              </div>
+            ))}
           </div>
         )}
 
