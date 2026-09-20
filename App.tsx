@@ -16,7 +16,7 @@ import {
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
-import { fetchInbox, notifyFriendBattle, mergeInboxIntoMailbox } from './services/mailService';
+import { fetchInbox, notifyFriendBattle, mergeInboxIntoMailbox, MAIL_ID_PREFIX } from './services/mailService';
 import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon, UserGroupIcon
@@ -766,6 +766,22 @@ const App: React.FC = () => {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [isLoaded, cloudSyncSettled, state.hasStarted, refreshMail]);
 
+  // Tell the player when NEW Mailbox messages arrive (friend battles etc.) with
+  // a toast instead of making them open the tab to find out. The first snapshot
+  // after load is the baseline; anything unseen after that is "new".
+  const seenMailIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    const box = Array.isArray(state.mailbox) ? state.mailbox : [];
+    const ids = new Set(box.map(m => (m && typeof m.id === 'string') ? m.id : ''));
+    const seen = seenMailIdsRef.current;
+    seenMailIdsRef.current = ids;
+    if (seen === null) return;
+    const fresh = box.filter(m => m && typeof m.id === 'string' && m.id.startsWith(MAIL_ID_PREFIX) && !m.claimed && !seen.has(m.id));
+    if (fresh.length === 1) notify(`📬 New mail: ${String(fresh[0].subject || 'Message from a friend')}`, 'good');
+    else if (fresh.length > 1) notify(`📬 ${fresh.length} new Mailbox messages`, 'good');
+  }, [state.mailbox, isLoaded, cloudSyncSettled, notify]);
+
   // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
   // Signed-out players simply see no leaderboard data (fetchLeaderboard throws on missing
   // auth token; caught and ignored here, since there's no stable cross-device identity to
@@ -1239,6 +1255,11 @@ const App: React.FC = () => {
     // their Mailbox -- see api/mail.ts). The attacker keeps only the Elder XP.
     const materialsEarned = won ? 6 : 0;
     const ticketsToGrant = won ? ticketsEarned : 0;
+    const opponentName = friendsData?.friends.find(f => f.user_id === friendUserId)?.display_name || 'Park Visitor';
+    notify(won
+      ? `⚔️ Victory over ${opponentName}!\n+${ticketsEarned} 🎟️  +${materialsEarned} 🧱`
+      : `⚔️ ${opponentName}'s squad held their ground.\nYour Elders still earned XP.`,
+      won ? 'good' : 'bad');
     void notifyFriendBattle(friendUserId, won).catch(e => {
       console.error('Friend battle notification failed', e);
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
@@ -1256,7 +1277,7 @@ const App: React.FC = () => {
       };
     });
     return materialsEarned;
-  }, [state.settings.sfxEnabled, showNotice]);
+  }, [state.settings.sfxEnabled, showNotice, notify, friendsData]);
 
   // Attack from the Friends list: same roll, same cooldown, same rewards and
   // same mail notice as the Court tab's Friend mode (both go through

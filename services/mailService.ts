@@ -42,7 +42,7 @@ export async function notifyFriendBattle(defenderId: string, attackerWon: boolea
   }
 }
 
-const MAIL_ID_PREFIX = 'fb-';
+export const MAIL_ID_PREFIX = 'fb-';
 // Server returns a 14-day window; never prune Friend Battle mail younger than
 // this, or a pruned message could reappear from the server as brand new.
 const PRUNE_AFTER_MS = 15 * 24 * 60 * 60 * 1000;
