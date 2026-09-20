@@ -49,7 +49,23 @@ import {
   TEAM_SIZE_LIMIT,
   AD_REVENUE_PAYOUT,
   REVENUE_SPLIT,
-  MAX_ADS_PER_HOUR,
+  MAX_ADS_PER_DAY,
+  xpForPlayerLevel,
+  xpForElderLevel,
+  MAX_PLAYER_LEVEL,
+  ELDER_MAX_LEVEL,
+  PASSIVE_TICKS_PER_HOUR,
+  ECONOMY_VERSION,
+  PP_SCALE_V2,
+  DIVIDEND_BASE_PAYOUT,
+  DIVIDEND_SCORE_BONUS,
+  DIVIDEND_MAX_SCORE_BONUS,
+  DIVIDEND_MAX_RESERVE_SHARE,
+  DIVIDEND_MIN_RESERVE,
+  DIVIDEND_TICKETS_BASE,
+  DIVIDEND_TICKETS_PER_STARS,
+  DIVIDEND_TICKETS_CAP,
+  CASHOUT_MAX_RESERVE_SHARE,
   DIVIDEND_COOLDOWN,
   GAME_VERSION,
   ELDER_TYPE_STYLING,
@@ -164,10 +180,21 @@ function isNameGenderMatched(name: string, type: ElderType): boolean {
 // uses identical leveling math (previously several handlers added XP
 // without ever checking for a level-up, so the bar could fill without
 // the level actually increasing).
-function applyXpGain(xp: number, level: number, amount: number, threshold: number = XP_FOR_LEVEL_UP): { xp: number; level: number } {
+function applyXpGain(
+  xp: number, level: number, amount: number,
+  thresholdFor: (lvl: number) => number = xpForPlayerLevel,
+  maxLevel: number = MAX_PLAYER_LEVEL,
+): { xp: number; level: number } {
   let nextXp = xp + amount;
   let nextLevel = level;
-  while (nextXp >= threshold) { nextXp -= threshold; nextLevel++; }
+  while (nextLevel < maxLevel) {
+    const needed = thresholdFor(nextLevel);
+    if (!(needed > 0) || nextXp < needed) break;
+    nextXp -= needed;
+    nextLevel++;
+  }
+  // At the cap, XP stops piling up (bar stays just short of full).
+  if (nextLevel >= maxLevel) nextXp = Math.min(nextXp, Math.max(0, thresholdFor(maxLevel) - 1));
   return { xp: nextXp, level: nextLevel };
 }
 
@@ -176,7 +203,7 @@ function applyXpGain(xp: number, level: number, amount: number, threshold: numbe
 // and applies the previously-orphaned STAT_BONUS_PER_LEVEL on every level gained.
 // Full-heals the Elder on level-up as part of the reward.
 function grantElderXp(elder: Elder, amount: number): Elder {
-  const { xp: nextXp, level: nextLevel } = applyXpGain(elder.xp ?? 0, elder.level, amount, ELDER_XP_FOR_LEVEL_UP);
+  const { xp: nextXp, level: nextLevel } = applyXpGain(elder.xp ?? 0, elder.level, amount, xpForElderLevel, ELDER_MAX_LEVEL);
   const levelsGained = nextLevel - elder.level;
   if (levelsGained <= 0) return { ...elder, xp: nextXp };
   const statBonus = STAT_BONUS_PER_LEVEL * levelsGained;
@@ -201,16 +228,42 @@ function grantElderXpToTeam(elders: Elder[], amount: number): Elder[] {
   return elders.map(e => (e.status === 'Team' ? grantElderXp(e, amount) : e));
 }
 
+// One-time rescale of every PP-denominated value in a save from the old simulated
+// $0.10/ad scale to the $0.008/ad assumption (Economy v2). Runs on RAW save data
+// before it is merged over INITIAL_STATE, and is idempotent via economyVersion.
+function migrateEconomy(raw: any): any {
+  if (!raw || typeof raw !== 'object') return raw;
+  if (typeof raw.economyVersion === 'number' && raw.economyVersion >= ECONOMY_VERSION) return raw;
+  const scaled = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v * PP_SCALE_V2 : v);
+  const out: any = { ...raw, economyVersion: ECONOMY_VERSION };
+  for (const key of ['pensionBalance', 'pendingYield', 'communityReserve', 'pensionRate']) {
+    if (key in raw) out[key] = scaled(raw[key]);
+  }
+  if (raw.earningsBreakdown && typeof raw.earningsBreakdown === 'object') {
+    out.earningsBreakdown = {
+      ...raw.earningsBreakdown,
+      passive: scaled(raw.earningsBreakdown.passive),
+      active: scaled(raw.earningsBreakdown.active),
+      sponsorship: scaled(raw.earningsBreakdown.sponsorship),
+    };
+  }
+  if (Array.isArray(raw.ownedParcels)) {
+    out.ownedParcels = raw.ownedParcels.map((p: any) => (p && typeof p === 'object') ? { ...p, pensionBonus: scaled(p.pensionBonus) } : p);
+  }
+  return out;
+}
+
 const INITIAL_STATE: GameState = {
   version: GAME_VERSION,
   isLinkedToGoogle: false,
   googleEmail: undefined,
   pensionBalance: 0.00,
+  economyVersion: ECONOMY_VERSION,
   pendingYield: 0.00,
-  communityReserve: 5.00,
+  communityReserve: 0, // strictly player/ad-funded -- no free seed (was 5.00)
   earningsBreakdown: { passive: 0, active: 0, sponsorship: 0 },
   legacyTokens: 200,
-  pensionRate: INITIAL_PENSION_RATE,
+  pensionRate: 0, // base rate is added separately in calculatePassiveIncome (this used to double it)
   level: 1,
   xp: 0,
   parkCommunityScore: 0,
@@ -419,7 +472,7 @@ const App: React.FC = () => {
       cumulative += weights[i];
       if (rand < cumulative) { rarity = rarities[i]; break; }
     }
-    const bonusMap = { Common: 0.00001, Rare: 0.00002, Epic: 0.00005, Legendary: 0.0001 };
+    const bonusMap = { Common: 0.0000008, Rare: 0.0000016, Epic: 0.000004, Legendary: 0.000008 }; // Economy v2 (x0.08)
     const bonus = bonusMap[rarity];
     setState(prev => ({
       ...prev,
@@ -480,8 +533,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkReset = setInterval(() => {
       setState(prev => {
-        const oneHour = 60 * 60 * 1000;
-        if (Date.now() - prev.adUsage.lastReset > oneHour) {
+        // Daily cap: resets when the local calendar day changes.
+        if (new Date(prev.adUsage.lastReset).toDateString() !== new Date().toDateString()) {
           return { ...prev, adUsage: { count: 0, lastReset: Date.now() } };
         }
         return prev;
@@ -673,7 +726,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...parsed, settings: { ...INITIAL_STATE.settings, ...parsed.settings }, version: GAME_VERSION })));
+          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(parsed), settings: { ...INITIAL_STATE.settings, ...parsed.settings }, version: GAME_VERSION })));
           prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
           setState(hydrated);
         }
@@ -725,7 +778,7 @@ const App: React.FC = () => {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
         const cloudData = cloudSave.save_data as any;
-        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...cloudData, settings: { ...INITIAL_STATE.settings, ...cloudData?.settings }, version: GAME_VERSION })));
+        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(cloudData), settings: { ...INITIAL_STATE.settings, ...cloudData?.settings }, version: GAME_VERSION })));
         prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
         setState(hydrated);
       }
@@ -1022,12 +1075,14 @@ const App: React.FC = () => {
       notify(`Community pool is still recharging. Check back in ${minutesLeft} minutes!`);
       return;
     }
-    if (state.communityReserve <= 0.01) { notify("Community Reserve is low! Watch some local ads or win battles to fuel the shared pool."); return; }
+    if (state.communityReserve <= DIVIDEND_MIN_RESERVE) { notify("Community Reserve is low! Watch local sponsor ads to fuel the shared pool."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    const basePayout = 0.01;
-    const scoreBonus = state.parkCommunityScore * 0.0002;
-    const totalPayout = Math.min(state.communityReserve, basePayout + scoreBonus);
-    const tokenBonus = Math.floor(state.parkCommunityScore / 10) + 5;
+    // Reserve-capped twice over: never more than the pool holds, and never more than
+    // a small share of it per claim, so no single player can drain the shared pool.
+    const basePayout = DIVIDEND_BASE_PAYOUT;
+    const scoreBonus = Math.min(state.parkCommunityScore * DIVIDEND_SCORE_BONUS, DIVIDEND_MAX_SCORE_BONUS);
+    const totalPayout = Math.min(state.communityReserve * DIVIDEND_MAX_RESERVE_SHARE, basePayout + scoreBonus);
+    const tokenBonus = Math.min(DIVIDEND_TICKETS_BASE + Math.floor(state.parkCommunityScore / DIVIDEND_TICKETS_PER_STARS), DIVIDEND_TICKETS_CAP);
     setState(prev => ({
       ...prev, lastDividendClaim: now,
       pensionBalance: prev.pensionBalance + totalPayout,
@@ -1035,7 +1090,7 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + tokenBonus,
       earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + totalPayout }
     }));
-    notify(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(3)} PP and ${tokenBonus} 🎟️!`);
+    notify(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(4)} PP and ${tokenBonus} 🎟️!`);
   }, [state.lastDividendClaim, state.communityReserve, state.parkCommunityScore, state.settings.sfxEnabled]);
 
   // Cash Out: converts Pending Yield into real, cash-eligible pensionBalance.
@@ -1047,8 +1102,10 @@ const App: React.FC = () => {
   const handleCashOutYield = useCallback(() => {
     if (state.pendingYield <= 0) { notify("No Pending Yield to cash out yet — it builds up automatically over time."); return; }
     const rate = getYieldExchangeRate(state.communityReserve);
-    const yieldConsumed = Math.min(state.pendingYield, rate > 0 ? state.communityReserve / rate : 0);
-    const payout = yieldConsumed * rate;
+    // Capped by the pool AND by a per-cash-out share of it, so one player can't drain it.
+    const maxPayout = state.communityReserve * CASHOUT_MAX_RESERVE_SHARE;
+    const payout = Math.min(state.pendingYield * rate, maxPayout);
+    const yieldConsumed = rate > 0 ? payout / rate : 0;
     if (payout <= 0) { notify("Community Reserve is empty right now — watch a local ad to help refill it, then try cashing out again."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
@@ -1059,7 +1116,7 @@ const App: React.FC = () => {
       earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + payout },
     }));
     const rateNote = rate < 1 ? ` (reserve is thin, so the rate was ${(rate * 100).toFixed(0)}%)` : '';
-    notify(`Cashed out ${payout.toFixed(3)} PP${rateNote}.${yieldConsumed < state.pendingYield ? ' The rest of your Pending Yield is still waiting.' : ''}`);
+    notify(`Cashed out ${payout.toFixed(4)} PP${rateNote}.${yieldConsumed < state.pendingYield - 1e-12 ? ' The rest of your Pending Yield is still waiting.' : ''}`);
   }, [state.pendingYield, state.communityReserve, state.settings.sfxEnabled]);
 
   // Reinvest: converts Pending Yield straight into pensionRate at a more
@@ -1075,7 +1132,7 @@ const App: React.FC = () => {
       pendingYield: 0,
       pensionRate: prev.pensionRate + rateGain,
     }));
-    notify(`Reinvested! Pension Rate increased by ${(rateGain * 3600).toFixed(4)} PP/hour.`);
+    notify(`Reinvested! Pension Rate increased by ${(rateGain * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
   }, [state.pendingYield, state.settings.sfxEnabled]);
 
   const handleInvest = useCallback((investment: any) => {
@@ -1087,11 +1144,11 @@ const App: React.FC = () => {
       pensionRate: prev.pensionRate + investment.rateBoost,
       parkCommunityScore: prev.parkCommunityScore + Math.floor(investment.cost * 10)
     }));
-    notify(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * 3600).toFixed(4)} PP/hour.`);
+    notify(`Investment confirmed! Your Pension Rate has increased by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
   }, [state.pensionBalance, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
-    if (state.adUsage.count >= MAX_ADS_PER_HOUR) { notify("All sponsorship slots for this hour are full! Come back later."); return; }
+    if (state.adUsage.count >= MAX_ADS_PER_DAY) { notify("All of today's sponsorship slots are used — they reset at midnight."); return; }
     setShowAdOverlay(true);
   }, [state.adUsage.count]);
 
@@ -1614,7 +1671,6 @@ const App: React.FC = () => {
         ...prev, level: nextLevel, xp: nextXp, allElders: nextAllElders,
         parkCommunityScore: prev.parkCommunityScore + 10,
         season: { ...prev.season, xp: prev.season.xp + 300 },
-        communityReserve: prev.communityReserve + 0.005
       };
     });
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
@@ -1781,7 +1837,7 @@ const App: React.FC = () => {
                       <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
                     <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                      <div className="h-full bg-[var(--accent-500)]" style={{ width: `${(state.xp / XP_FOR_LEVEL_UP) * 100}%` }}></div>
+                      <div className="h-full bg-[var(--accent-500)]" style={{ width: `${Math.min(100, (state.xp / xpForPlayerLevel(state.level)) * 100)}%` }}></div>
                     </div>
                   </div>
                 </>
@@ -1799,7 +1855,7 @@ const App: React.FC = () => {
             </button>
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
-                <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(2)} PP</span>
+                <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} PP</span>
                 <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} 🎟️</span>
               </div>
               <div className="text-[13px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
@@ -1842,8 +1898,8 @@ const App: React.FC = () => {
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.elders + passiveBreakdown.parcels} onWithdraw={() => {
-            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify("Minimum redemption is 10.00 PP");
-            notify(`${state.pensionBalance.toFixed(2)} PP redeemed to your park account!`);
+            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} PP`);
+            notify(`${state.pensionBalance.toFixed(4)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
             pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield} onReinvestYield={handleReinvestYield}
@@ -2163,7 +2219,7 @@ const App: React.FC = () => {
             onRewardEarned={handleWatchVideoReward}
             onClose={() => setShowAdOverlay(false)}
             adCount={state.adUsage.count}
-            maxAds={MAX_ADS_PER_HOUR}
+            maxAds={MAX_ADS_PER_DAY}
           />
         )}
 

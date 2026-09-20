@@ -98,13 +98,43 @@ export const ACHIEVEMENT_ICON_ASSETS: Record<string, string> = {
 export const GAME_VERSION = '1.7.0';
 export const TEAM_SIZE_LIMIT = 6;
 export const BASE_POPULATION_LIMIT = 100;
-export const WITHDRAWAL_MINIMUM = 10.00;
-export const INITIAL_PENSION_RATE = 0.00005;
-export const AD_REVENUE_PAYOUT = 0.10; 
-export const MAX_ADS_PER_HOUR = 50;
-export const DIVIDEND_COOLDOWN = 15 * 60 * 1000; 
+// ─── Economy v2 (Bundle B, 2026-09-20) ────────────────────────────────────────
+// ONE number drives the whole PP economy: what a single rewarded ad view is
+// assumed to earn in real USD. Benchmarks put US rewarded video near $0.016 per
+// view; we assume half of that ($0.008) to allow for fill-rate loss, frequency
+// decay and a global mix. There is NO real AdSense/AdMob data yet -- once real
+// reports exist, change this ONE constant and every PP rate below follows it.
+// (Costs/rates below were derived at this value; see ECONOMY.md before retuning.)
+export const ASSUMED_AD_REVENUE_PER_VIEW_USD = 0.008;
+export const ECONOMY_VERSION = 2;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
+export const PP_SCALE_V2 = 0.08;        // = 0.008 / 0.10, the old simulated payout
+export const AD_REVENUE_PAYOUT = ASSUMED_AD_REVENUE_PER_VIEW_USD;
+export const MAX_ADS_PER_DAY = 15; // typical casual-game rewarded cap; resets at local midnight
+export const WITHDRAWAL_MINIMUM = 5.00;
+// Passive rates are PER 30-SECOND TICK (see PASSIVE_TICK_MS). Deliberately tiny,
+// many-decimal numbers: passive earning is a slow loyalty layer, reached through
+// long-term investment, and is only ever cashable through the reserve-capped Cash Out.
+export const INITIAL_PENSION_RATE = 0.000004;
+export const DIVIDEND_COOLDOWN = 60 * 60 * 1000;
+export const DIVIDEND_BASE_PAYOUT = 0.0008;          // PP per claim before Stars bonus
+export const DIVIDEND_SCORE_BONUS = 0.000004;        // extra PP per Star
+export const DIVIDEND_MAX_SCORE_BONUS = 0.004;       // cap on the Stars bonus
+export const DIVIDEND_MAX_RESERVE_SHARE = 0.05;      // one claim can never take more than 5% of the pool
+export const DIVIDEND_MIN_RESERVE = 0.004;           // below this the pool is "too low" (~2-3 ads' worth)
+export const DIVIDEND_TICKETS_BASE = 5;
+export const DIVIDEND_TICKETS_PER_STARS = 50;        // +1 Ticket per this many Stars...
+export const DIVIDEND_TICKETS_CAP = 25;              // ...up to this cap per claim
+export const CASHOUT_MAX_RESERVE_SHARE = 0.25;       // one Cash Out can never drain more than 25% of the pool
 
-export const XP_FOR_LEVEL_UP = 1000;
+// Account (player) XP: gentle exponential so growth stays slow but never dead,
+// with a high cap so long-term players always have somewhere to go.
+export const XP_FOR_LEVEL_UP = 1000;   // base cost, level 1 -> 2
+export const PLAYER_XP_GROWTH = 1.06;
+export const MAX_PLAYER_LEVEL = 100;
+export function xpForPlayerLevel(level: number): number {
+  const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, MAX_PLAYER_LEVEL));
+  return Math.round(XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, lvl - 1));
+}
 export const SEASON_XP_PER_LEVEL = 1000;
 
 export const TRAINING_BASE_COST = 50; 
@@ -114,7 +144,13 @@ export const STAT_BONUS_PER_LEVEL = 5;
 // Elder XP uses a separate, smaller threshold than the player's XP_FOR_LEVEL_UP
 // so the two curves can be tuned independently (multiple Elders level up per
 // activity, so their curve needs to be shallower).
-export const ELDER_XP_FOR_LEVEL_UP = 150;
+export const ELDER_XP_FOR_LEVEL_UP = 150;  // base cost, Elder level 1 -> 2
+export const ELDER_XP_GROWTH = 1.07;
+export const ELDER_MAX_LEVEL = 100;
+export function xpForElderLevel(level: number): number {
+  const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, ELDER_MAX_LEVEL));
+  return Math.round(ELDER_XP_FOR_LEVEL_UP * Math.pow(ELDER_XP_GROWTH, lvl - 1));
+}
 
 // Base comfortGeneration is now rarity-scaled instead of a flat 0.0001 for
 // every Elder (see getBaseComfortGeneration below).
@@ -146,7 +182,10 @@ export const REVENUE_SPLIT = {
 };
 
 export const PASSIVE_TICK_MS         = 30 * 1000;
-export const ELDER_COMFORT_RATE      = 0.000008;
+export const PASSIVE_TICKS_PER_HOUR  = 3600000 / PASSIVE_TICK_MS; // rates are per TICK, so PP/hour = rate x this (UI used x3600, overstating 30x)
+// Was 0.000008, which made every Elder's comfort worth ~1e-9 per tick (effectively
+// nothing). At 0.002 a Common Elder adds ~5% of the base rate; Legendary ~25%.
+export const ELDER_COMFORT_RATE      = 0.002;
 export const PARCEL_RENT_RATE        = 0.000005;
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
@@ -167,7 +206,7 @@ export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
 // uncapped "earning power" number, not a cash liability, so it can accrue
 // freely. Converting it into real PP happens through one of two player-chosen
 // paths in the Bank panel:
-export const RESERVE_HEALTHY_THRESHOLD = 5.00;  // reserve level at/above which Cash Out pays 1:1
+export const RESERVE_HEALTHY_THRESHOLD = 0.40;  // reserve level at/above which Cash Out pays 1:1
 export const MIN_CASHOUT_EXCHANGE_RATE = 0.25;  // floor rate when the reserve is thin, never zero
 export const REINVEST_YIELD_TO_RATE    = 40000; // PP of yield spent per +1 pensionRate unit when reinvesting
                                                  // (more generous than the cheapest Investment Tier's
@@ -228,8 +267,14 @@ const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
   { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 100, winTicketsMax: 160, winElderXp: 70, winCommunityScore: 35, lossTickets: 18, lossElderXp: 18 },
   { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 200, winTicketsMax: 300, winElderXp: 100, winCommunityScore: 60, lossTickets: 25, lossElderXp: 25 },
 ];
-export const GOLDEN_GAMES_MAX_TIERS = 50;
+export const GOLDEN_GAMES_MAX_TIERS = 100;
+// Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
+// (Tickets 1.04x, Elder XP 1.05x, Stars 1.03x) so higher tiers are more of a
+// challenge than a faucet and progression stays slow.
 const GOLDEN_GAMES_GROWTH = 1.10;
+const GOLDEN_GAMES_TICKET_GROWTH = 1.04;
+const GOLDEN_GAMES_XP_GROWTH = 1.05;
+const GOLDEN_GAMES_SCORE_GROWTH = 1.03;
 const ROMAN = ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
 
 function generateGoldenGamesTiers(): GoldenGamesLeague[] {
@@ -238,6 +283,9 @@ function generateGoldenGamesTiers(): GoldenGamesLeague[] {
   for (let i = GOLDEN_GAMES_BASE_TIERS.length; i < GOLDEN_GAMES_MAX_TIERS; i++) {
     const step = i - GOLDEN_GAMES_BASE_TIERS.length + 1; // 1, 2, 3...
     const mult = Math.pow(GOLDEN_GAMES_GROWTH, step);
+    const tMult = Math.pow(GOLDEN_GAMES_TICKET_GROWTH, step);
+    const xMult = Math.pow(GOLDEN_GAMES_XP_GROWTH, step);
+    const sMult = Math.pow(GOLDEN_GAMES_SCORE_GROWTH, step);
     const romanSuffix = step < ROMAN.length ? ROMAN[step] : `Tier ${step + 1}`;
     tiers.push({
       id: `legendary-${step}`,
@@ -246,12 +294,12 @@ function generateGoldenGamesTiers(): GoldenGamesLeague[] {
       minSquadPower: Math.round(base.minSquadPower * mult),
       difficultyMin: Math.round(base.difficultyMin * mult),
       difficultyMax: Math.round(base.difficultyMax * mult),
-      winTicketsMin: Math.round(base.winTicketsMin * mult),
-      winTicketsMax: Math.round(base.winTicketsMax * mult),
-      winElderXp: Math.round(base.winElderXp * mult),
-      winCommunityScore: Math.round(base.winCommunityScore * mult),
-      lossTickets: Math.round(base.lossTickets * mult),
-      lossElderXp: Math.round(base.lossElderXp * mult),
+      winTicketsMin: Math.round(base.winTicketsMin * tMult),
+      winTicketsMax: Math.round(base.winTicketsMax * tMult),
+      winElderXp: Math.round(base.winElderXp * xMult),
+      winCommunityScore: Math.round(base.winCommunityScore * sMult),
+      lossTickets: Math.round(base.lossTickets * tMult),
+      lossElderXp: Math.round(base.lossElderXp * xMult),
     });
   }
   return tiers;
@@ -469,22 +517,22 @@ export const INVESTMENT_TIERS = [
   {
     category: 'Community Micro-Assets',
     items: [
-      { id: 'i1', name: 'Garden Plot', cost: 0.50, rateBoost: 0.000005, icon: '🌱' },
-      { id: 'i2', name: 'Park Bench Sponsor', cost: 1.00, rateBoost: 0.000012, icon: '🪑' }
+      { id: 'i1', name: 'Garden Plot', cost: 0.04, rateBoost: 0.0000004, icon: '🌱' },
+      { id: 'i2', name: 'Park Bench Sponsor', cost: 0.08, rateBoost: 0.00000096, icon: '🪑' }
     ]
   },
   {
     category: 'Neighborhood Portfolio',
     items: [
-      { id: 'i3', name: 'Bingo Hall Equity', cost: 2.50, rateBoost: 0.000035, icon: '🎰' },
-      { id: 'i4', name: 'Shuttle Van Fleet', cost: 5.00, rateBoost: 0.00008, icon: '🚐' }
+      { id: 'i3', name: 'Bingo Hall Equity', cost: 0.20, rateBoost: 0.0000028, icon: '🎰' },
+      { id: 'i4', name: 'Shuttle Van Fleet', cost: 0.40, rateBoost: 0.0000064, icon: '🚐' }
     ]
   },
   {
     category: 'Legacy Investments',
     items: [
-      { id: 'i5', name: 'The Golden Wing', cost: 15.00, rateBoost: 0.00025, icon: '🏛️' },
-      { id: 'i6', name: 'Park Directorship', cost: 50.00, rateBoost: 0.001, icon: '🏆' }
+      { id: 'i5', name: 'The Golden Wing', cost: 1.20, rateBoost: 0.00002, icon: '🏛️' },
+      { id: 'i6', name: 'Park Directorship', cost: 4.00, rateBoost: 0.00008, icon: '🏆' }
     ]
   }
 ];

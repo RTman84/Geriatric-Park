@@ -39,8 +39,8 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const adPushed       = useRef(false);
 
-  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // 0.07 PP
-  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // 0.02 PP
+  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // e.g. 0.0056 PP at $0.008/view
+  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // e.g. 0.0016 PP at $0.008/view
 
   // Cleanup on unmount
   useEffect(() => {
@@ -100,7 +100,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           <div className="text-2xl mb-1">📺</div>
           <h2 className="font-black text-lg uppercase tracking-wide">Sponsor Break</h2>
           <p className="text-[var(--accent-200)] text-sm mt-1">
-            {adCount}/{maxAds} sponsorship slots used this hour
+            {adCount}/{maxAds} sponsorship slots used today
           </p>
         </div>
 
@@ -116,11 +116,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-base space-y-1">
                   <div className="flex justify-between">
                     <span className="text-slate-600">💰 Your Pension Points</span>
-                    <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
+                    <span className="font-bold text-green-600">+{playerShare.toFixed(4)} PP</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">🏘️ Community pool</span>
-                    <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
+                    <span className="font-bold text-blue-500">+{communityShare.toFixed(4)} PP</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">⭐ Park Stars</span>
@@ -187,11 +187,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Your Pension Points</span>
-                  <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
+                  <span className="font-bold text-green-600">+{playerShare.toFixed(4)} PP</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Community pool</span>
-                  <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
+                  <span className="font-bold text-blue-500">+{communityShare.toFixed(4)} PP</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Park Stars</span>

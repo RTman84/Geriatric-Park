@@ -3,7 +3,7 @@ import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from 
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
-  MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
+  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   SHUFFLEBOARD_KING_BOOST, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   REINVEST_YIELD_TO_RATE,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -128,7 +128,7 @@ export const BankPanel: React.FC<{
   onWatchAd?: (playerShare: number, communityShare: number) => void,
   pendingYield?: number, onCashOutYield?: () => void, onReinvestYield?: () => void
 }> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield, onReinvestYield }) => {
-  const adsLeft = MAX_ADS_PER_HOUR - adCount;
+  const adsLeft = MAX_ADS_PER_DAY - adCount;
   const [boostRemaining, setBoostRemaining] = useState<number>(0);
   const exchangeRate = getYieldExchangeRate(reserve);
   const reserveHealthLabel = reserve >= RESERVE_HEALTHY_THRESHOLD ? 'Healthy' : reserve > 0 ? 'Thin' : 'Empty';
@@ -149,14 +149,14 @@ export const BankPanel: React.FC<{
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-[16px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
-        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(2)} PP</div>
+        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(4)} PP</div>
         <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
           <SparklesIcon className="w-4 h-4" /> Redeem Pension Points
         </button>
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Rate/hr</span>
-            <span className="text-sm font-black tabular-nums block">{(rate * 3600).toFixed(4)} PP</span>
+            <span className="text-sm font-black tabular-nums block">{(rate * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP</span>
           </div>
           <div>
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Passive</span>
@@ -193,7 +193,7 @@ export const BankPanel: React.FC<{
             className={`py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
             <span>Reinvest</span>
-            <span className="text-[13px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * 3600).toFixed(4)} PP/hr</span>
+            <span className="text-[13px] opacity-80 font-bold normal-case">+{(pendingYield / REINVEST_YIELD_TO_RATE * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
           </button>
         </div>
         <p className={`text-[12px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-black uppercase text-center leading-relaxed italic mt-4`}>
@@ -205,7 +205,7 @@ export const BankPanel: React.FC<{
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
-          <span className="text-emerald-500 font-black text-base">{reserve.toFixed(3)} PP</span>
+          <span className="text-emerald-500 font-black text-base">{reserve.toFixed(4)} PP</span>
         </div>
         <div className="flex justify-between items-center mb-2">
           <span className={`text-[14px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
@@ -225,11 +225,11 @@ export const BankPanel: React.FC<{
         </div>
         <div className="mb-6">
           <div className="flex justify-between text-[15px] font-black uppercase tracking-tighter mb-2">
-            <span className="opacity-60">Hourly Availability</span>
-            <span className={adsLeft > 0 ? "text-[var(--accent-500)]" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_HOUR} Slots</span>
+            <span className="opacity-60">Daily Availability</span>
+            <span className={adsLeft > 0 ? "text-[var(--accent-500)]" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_DAY} Slots</span>
           </div>
           <div className={`w-full h-2 rounded-full overflow-hidden p-0.5 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-            <div className="h-full bg-[var(--accent-500)] rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_HOUR) * 100}%` }} />
+            <div className="h-full bg-[var(--accent-500)] rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_DAY) * 100}%` }} />
           </div>
         </div>
         <button 
@@ -237,7 +237,7 @@ export const BankPanel: React.FC<{
           disabled={adsLeft <= 0}
           className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-[var(--accent-600)] text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
         >
-          {adsLeft > 0 ? 'Watch Local Sponsor (+0.07 PP + 2x Passive Boost!)' : 'Slots Recharging...'}
+          {adsLeft > 0 ? `Watch Local Sponsor (+${(AD_REVENUE_PAYOUT * REVENUE_SPLIT.player).toFixed(4)} PP + 2x Passive Boost!)` : 'All slots used — reset at midnight'}
         </button>
         {boostActive ? (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">
@@ -282,7 +282,7 @@ export const BankPanel: React.FC<{
                         <h5 className="font-black text-base uppercase text-slate-800 truncate">{item.name}</h5>
                         <span className="text-[var(--accent-600)] font-black text-sm">{item.cost.toFixed(2)} PP</span>
                       </div>
-                      <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest mt-1`}>+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
+                      <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest mt-1`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
                     </div>
                   </button>
                 ))}
@@ -1108,15 +1108,15 @@ export const BasePanel: React.FC<{
             <div className="space-y-1">
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Base Rate</span>
-                <span>{(passiveBreakdown.base * 3600).toFixed(4)} PP/hr</span>
+                <span>{(passiveBreakdown.base * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Elder Comfort</span>
-                <span className="text-[var(--accent-300)]">{(passiveBreakdown.elders * 3600).toFixed(4)} PP/hr</span>
+                <span className="text-[var(--accent-300)]">{(passiveBreakdown.elders * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Parcel Rent</span>
-                <span className="text-emerald-300">{(passiveBreakdown.parcels * 3600).toFixed(4)} PP/hr</span>
+                <span className="text-emerald-300">{(passiveBreakdown.parcels * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
               </div>
               {isKing && (
                 <div className="flex justify-between text-[14px] font-black">
@@ -1279,7 +1279,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
                   <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
                   <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                 </div>
-                <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{ELDER_XP_FOR_LEVEL_UP}</p>
+                <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{xpForElderLevel(e.level)}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
                   {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-[var(--accent-600)] text-white px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Neighborhood Lead</button>}
