@@ -61,6 +61,30 @@ Other fixes made in the same pass:
    refill the pool. A whale-tier investment (Park Directorship ≈ 0.23 yield/day) will convert at
    a reduced rate unless many players are watching ads. Show Reserve Health prominently.
 
+## 4b. The 2x ad boost (`AD_BOOST_MULTIPLIER`, 1 hour per ad, stacks by extending the timer)
+
+Checked 2026-09-20 — it does **not** break solvency, but it is a lever to watch:
+- It doubles the passive *accrual* into Pending Yield only. It never creates PP, so the Community
+  Reserve caps in section 4 still bound everything that can be paid out.
+- Boosted hours per day are bounded by the ad cap (15 ads = at most 15 boosted hours), so daily
+  accrual is at most ~1.6x the un-boosted rate for a player who watches every ad.
+- A base player (no assets, 6 Elders) accrues about 0.015-0.025 yield/day, roughly the same as the
+  ~0.024 PP/day their 15 ads add to the pool, so at the start Cash Out can stay near 1:1.
+- Invested players (assets) accrue far more yield than their ads fund; the pool then limits how
+  much converts to PP (the Cash Out rate falls). That is the intended slow, honest ceiling.
+- Watch: if Reserve Health is often "Thin", lower `AD_BOOST_MULTIPLIER` (e.g. 1.5) or the stacking
+  window before touching payouts.
+- Known nit: offline catch-up applies the boost only if it is still active when the player returns.
+
+## 4c. Ad networks and platform rules (researched 2026-09-20)
+
+- **AdSense display ads may not reward viewing** (only "rewarded inventory" is exempt).
+- **Android / Google Play:** AdMob rewarded ads (supports server-side verification callbacks).
+- **Web:** Google Ad Manager rewarded ads for web (GPT), or AdSense H5 Games Ads rewarded format
+  (needs allowlisting/application). Server-side verification is app-only, not available on web.
+- **Steam: rewarding players for watching ads is not allowed** (Steamworks advertising rules).
+  The ad-funded PP model cannot ship on Steam; that build needs purchases/paid-app instead.
+
 ## 5. XP and levels (slow, but never dead)
 
 - Player level: `xpForPlayerLevel(l) = 1000 × 1.06^(l-1)`, cap `MAX_PLAYER_LEVEL = 100`.

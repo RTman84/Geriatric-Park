@@ -200,7 +200,7 @@ export const BankPanel: React.FC<{
           <span className={`text-[14px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
           <span className={`text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
         </div>
-        <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} uppercase font-bold tracking-widest`}>20% of all ad revenue funds the weekly prize pool</p>
+        <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} uppercase font-bold tracking-widest`}>{Math.round(REVENUE_SPLIT.community * 100)}% of every ad view goes into this pool. It pays Dividends and Cash Outs for everyone.</p>
       </div>
 
       {/* Sponsorship Slots */}
@@ -208,7 +208,7 @@ export const BankPanel: React.FC<{
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
-            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest`}>70/20/10 revenue split per view</p>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase tracking-widest`}>You get {Math.round(REVENUE_SPLIT.player * 100)}% of every view · {Math.round(REVENUE_SPLIT.community * 100)}% community · {Math.round(REVENUE_SPLIT.developer * 100)}% development</p>
           </div>
           <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-[var(--accent-500)] animate-pulse' : 'text-slate-200'}`} />
         </div>

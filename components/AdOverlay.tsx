@@ -39,6 +39,9 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const adPushed       = useRef(false);
 
+  const playerPct = Math.round(REVENUE_SPLIT.player * 100);
+  const communityPct = Math.round(REVENUE_SPLIT.community * 100);
+  const devPct = Math.round(REVENUE_SPLIT.developer * 100);
   const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // e.g. 0.0056 PP at $0.008/view
   const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // e.g. 0.0016 PP at $0.008/view
 
@@ -114,17 +117,24 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                   Support Geriatric Park and earn rewards!
                 </p>
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-base space-y-1">
+                  <p className="text-[13px] font-black uppercase tracking-wide text-slate-700 dark:text-slate-200 pb-1">
+                    Each view's ad revenue is split three ways
+                  </p>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">💰 Your Pension Points</span>
-                    <span className="font-bold text-green-600">+{playerShare.toFixed(4)} PP</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">💰 You get {playerPct}%</span>
+                    <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">🏘️ Community pool</span>
-                    <span className="font-bold text-blue-500">+{communityShare.toFixed(4)} PP</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">🏘️ Community Reserve {communityPct}%</span>
+                    <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">⭐ Park Stars</span>
-                    <span className="font-bold text-purple-500">+10</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">🛠️ Development {devPct}%</span>
+                    <span className="font-black text-slate-600 dark:text-slate-300">keeps the park growing</span>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">⭐ Park Stars</span>
+                    <span className="font-black text-purple-700 dark:text-purple-300">+10</span>
                   </div>
                 </div>
               </div>
@@ -186,16 +196,16 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               </p>
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Your Pension Points</span>
-                  <span className="font-bold text-green-600">+{playerShare.toFixed(4)} PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">You get {playerPct}%</span>
+                  <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Community pool</span>
-                  <span className="font-bold text-blue-500">+{communityShare.toFixed(4)} PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Community Reserve {communityPct}%</span>
+                  <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} PP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Park Stars</span>
-                  <span className="font-bold text-purple-500">+10 ⭐</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Park Stars</span>
+                  <span className="font-black text-purple-700 dark:text-purple-300">+10 ⭐</span>
                 </div>
               </div>
               <button
