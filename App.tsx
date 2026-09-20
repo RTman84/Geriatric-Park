@@ -97,6 +97,7 @@ import {
   VISIT_MATERIALS_REWARD,
   getHousingCapacity,
   FRIEND_BATTLE_COOLDOWN_MS,
+  rollFriendBattle,
   FRIEND_BATTLE_WIN_ELDER_XP,
   FRIEND_BATTLE_LOSS_ELDER_XP,
   FRIEND_BATTLE_WIN_COMMUNITY_SCORE,
@@ -299,6 +300,15 @@ const App: React.FC = () => {
   // GameState/the save blob -- friend relationships live server-side in
   // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  // Small visible banner for background failures that used to be console-only
+  // (e.g. a Friend Battle mail notice that didn't reach the other player).
+  const [appNotice, setAppNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNotice = useCallback((message: string) => {
+    setAppNotice(message);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setAppNotice(null), 8000);
+  }, []);
   const [showGroundsPanel, setShowGroundsPanel] = useState(false);
   const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
@@ -717,7 +727,7 @@ const App: React.FC = () => {
 
   // Friend Battle notifications: pull the server-side inbox and merge it into the
   // in-save Mailbox (deduped by row id). Silent when signed out / offline.
-  const refreshMail = useCallback(async () => {
+  const refreshMail = useCallback(async (report = false) => {
     if (!isCloudAccountsConfigured()) return;
     try {
       const rows = await fetchInbox();
@@ -730,14 +740,22 @@ const App: React.FC = () => {
           return prev;
         }
       });
-    } catch { /* not signed in or offline -- try again next interval */ }
-  }, []);
+    } catch (e) {
+      // Background pulls stay quiet; a pull the player asked for (opening the
+      // Mailbox) says so when something is genuinely wrong.
+      console.error('Mail fetch failed', e);
+      const msg = e instanceof Error ? e.message : '';
+      if (report && !/sign-in required/i.test(msg)) showNotice(`📭 Couldn't check your Mailbox: ${msg || 'unknown error'}`);
+    }
+  }, [showNotice]);
 
   useEffect(() => {
     if (!isLoaded || !cloudSyncSettled || !state.hasStarted) return;
     void refreshMail();
     const id = setInterval(() => void refreshMail(), 5 * 60 * 1000);
-    return () => clearInterval(id);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshMail(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [isLoaded, cloudSyncSettled, state.hasStarted, refreshMail]);
 
   // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
@@ -882,6 +900,7 @@ const App: React.FC = () => {
   const triggerTab = (id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setActiveTab(id);
+    if (id === 'mailbox') void refreshMail(true);
   };
 
   // Updated quest progress tracking
@@ -1212,7 +1231,10 @@ const App: React.FC = () => {
     // their Mailbox -- see api/mail.ts). The attacker keeps only the Elder XP.
     const materialsEarned = won ? 6 : 0;
     const ticketsToGrant = won ? ticketsEarned : 0;
-    void notifyFriendBattle(friendUserId, won).catch(e => console.error('Friend battle notification failed', e));
+    void notifyFriendBattle(friendUserId, won).catch(e => {
+      console.error('Friend battle notification failed', e);
+      showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
+    });
     setState(prev => {
       const { xp, level } = applyXpGain(prev.xp, prev.level, won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP);
       return {
@@ -1226,7 +1248,25 @@ const App: React.FC = () => {
       };
     });
     return materialsEarned;
-  }, [state.settings.sfxEnabled]);
+  }, [state.settings.sfxEnabled, showNotice]);
+
+  // Attack from the Friends list: same roll, same cooldown, same rewards and
+  // same mail notice as the Court tab's Friend mode (both go through
+  // rollFriendBattle + handleFriendBattleResult). Returns the result text.
+  const handleBattleFriendFromList = useCallback((friendUserId: string): string => {
+    const friend = friendsData?.friends.find(f => f.user_id === friendUserId);
+    if (!friend) return 'Could not find that friend — try refreshing.';
+    const squad = state.allElders.filter(e => e.status === 'Team' && e.captured);
+    if (squad.length === 0) return 'Put at least one Elder on your squad first.';
+    const waitMs = state.friendBattle.nextMatchAt - Date.now();
+    if (waitMs > 0) return `Your squad is still resting — ready in ${Math.ceil(waitMs / 60000)} min.`;
+    const { won, ticketsEarned } = rollFriendBattle(getSquadPower(squad), friend.squad_power);
+    const materialsEarned = handleFriendBattleResult(won, ticketsEarned, friend.user_id);
+    const name = friend.display_name || 'Park Visitor';
+    return won
+      ? `You beat ${name}'s squad! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
+      : `${name}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`;
+  }, [friendsData, state.allElders, state.friendBattle.nextMatchAt, handleFriendBattleResult]);
 
   const handleBuildAmenity = useCallback((amenityId: string) => {
     const amenity = AMENITIES.find(a => a.id === amenityId);
@@ -2113,7 +2153,19 @@ const App: React.FC = () => {
             onRandomMatch={handleRandomMatch}
             onToggleOpenToRandom={handleToggleOpenToRandom}
             onVisit={handleVisitFriend}
+            onBattle={handleBattleFriendFromList}
+            battleReadyAt={state.friendBattle.nextMatchAt}
+            hasSquad={state.allElders.some(e => e.status === 'Team' && e.captured)}
           />
+        )}
+
+        {appNotice && (
+          <div
+            onClick={() => setAppNotice(null)}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[5000] max-w-sm w-[90%] rounded-2xl bg-slate-900 text-white text-[14px] font-bold px-4 py-3 shadow-2xl border border-amber-400/60"
+          >
+            {appNotice}
+          </div>
         )}
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}

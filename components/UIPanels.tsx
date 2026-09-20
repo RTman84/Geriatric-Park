@@ -11,7 +11,7 @@ import {
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
   GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
-  FRIEND_BATTLE_VARIANCE, FRIEND_BATTLE_WIN_TICKETS_MIN, FRIEND_BATTLE_WIN_TICKETS_MAX,
+  rollFriendBattle,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -403,11 +403,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (!friend) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const opponentPower = friend.squad_power * (1 - FRIEND_BATTLE_VARIANCE + Math.random() * FRIEND_BATTLE_VARIANCE * 2);
-      const won = teamStrength > opponentPower;
-      const ticketsEarned = won
-        ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
-        : 0;
+      const { won, ticketsEarned } = rollFriendBattle(teamStrength, friend.squad_power);
       const materialsEarned = onFriendBattleResult(won, ticketsEarned, friend.user_id);
       setLastResultWon(won);
       setLastResult(won

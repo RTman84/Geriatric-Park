@@ -278,6 +278,17 @@ export const FRIEND_BATTLE_LOSS_TICKETS = 15;
 export const FRIEND_BATTLE_WIN_ELDER_XP = 50;
 export const FRIEND_BATTLE_LOSS_ELDER_XP = 15;
 export const FRIEND_BATTLE_WIN_COMMUNITY_SCORE = 25;
+
+// One shared roll used by BOTH the Court tab and the Friends list, so the two
+// entry points can never drift apart on odds or rewards.
+export function rollFriendBattle(myPower: number, friendPower: number): { won: boolean; ticketsEarned: number } {
+  const opponentPower = friendPower * (1 - FRIEND_BATTLE_VARIANCE + Math.random() * FRIEND_BATTLE_VARIANCE * 2);
+  const won = myPower > opponentPower;
+  const ticketsEarned = won
+    ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
+    : 0;
+  return { won, ticketsEarned };
+}
 // Auto-Play (Court) benchmark: a squad at exactly this power clears a match
 // at 100% progress. Used to make Auto-Play's outcome mostly power-driven and
 // gradual rather than a coin-flip, distinguishing it from Challenge/Tower.
