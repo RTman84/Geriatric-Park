@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 
 export interface CloudSaveRecord {
   schema_version: number;
@@ -21,7 +22,7 @@ async function parse<T>(response: Response): Promise<T> {
 
 export async function fetchCloudSave(): Promise<CloudSaveRecord | null> {
   const headers = await authHeaders();
-  const response = await fetch('/api/account/save', {
+  const response = await fetch(apiUrl('/api/account/save'), {
     headers,
     cache: 'no-store',
   });
@@ -34,7 +35,7 @@ export async function uploadCloudSave(
   saveData: Record<string, unknown>,
 ): Promise<CloudSaveRecord> {
   const headers = await authHeaders();
-  const response = await fetch('/api/account/save', {
+  const response = await fetch(apiUrl('/api/account/save'), {
     method: 'PUT',
     headers,
     body: JSON.stringify({ schemaVersion, clientRevision, saveData }),

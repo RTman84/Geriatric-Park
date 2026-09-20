@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 
 // Mirrors PROFILE_FIELDS in api/friends.ts. favorite_elders carries just
 // enough per Elder to re-render it client-side with the same
@@ -48,13 +49,13 @@ async function parse<T>(response: Response): Promise<T> {
 
 export async function fetchFriendsData(): Promise<FriendsData> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', { headers, cache: 'no-store' });
+  const response = await fetch(apiUrl('/api/friends'), { headers, cache: 'no-store' });
   return parse<FriendsData>(response);
 }
 
 export async function sendFriendRequest(code: string): Promise<{ result: 'sent' | 'friends' }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ action: 'send', code: code.trim().toUpperCase() }),
@@ -66,7 +67,7 @@ export async function sendFriendRequest(code: string): Promise<{ result: 'sent' 
 // their (already-public on that leaderboard) user_id, no friend code needed.
 export async function sendFriendRequestByUserId(targetUserId: string): Promise<{ result: 'sent' | 'friends' }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ action: 'sendByUserId', targetUserId }),
@@ -78,7 +79,7 @@ export async function sendFriendRequestByUserId(targetUserId: string): Promise<{
 // turned on openToRandomFriends. Never matches anyone who hasn't opted in.
 export async function sendRandomMatchRequest(): Promise<{ result: 'sent' | 'friends' }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ action: 'randomMatch' }),
@@ -88,7 +89,7 @@ export async function sendRandomMatchRequest(): Promise<{ result: 'sent' | 'frie
 
 export async function setOpenToRandomFriends(value: boolean): Promise<{ openToRandomFriends: boolean }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'PUT',
     headers,
     body: JSON.stringify({ openToRandomFriends: value }),
@@ -98,7 +99,7 @@ export async function setOpenToRandomFriends(value: boolean): Promise<{ openToRa
 
 export async function respondToFriendRequest(requestId: string, accept: boolean): Promise<{ result: string }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ action: accept ? 'accept' : 'decline', requestId }),
@@ -108,7 +109,7 @@ export async function respondToFriendRequest(requestId: string, accept: boolean)
 
 export async function removeFriend(friendUserId: string): Promise<{ result: string }> {
   const headers = await authHeaders();
-  const response = await fetch('/api/friends', {
+  const response = await fetch(apiUrl('/api/friends'), {
     method: 'DELETE',
     headers,
     body: JSON.stringify({ friendUserId }),

@@ -1,3 +1,4 @@
+import { apiUrl } from './api';
 type BattleDialogueRequest = {
   action: 'battleDialogue';
   elderName: string;
@@ -19,7 +20,7 @@ type DailyMissionRequest = {
 type GeminiRequest = BattleDialogueRequest | ElderBioRequest | DailyMissionRequest;
 
 const callGemini = async (request: GeminiRequest): Promise<any> => {
-  const response = await fetch('/api/gemini', {
+  const response = await fetch(apiUrl('/api/gemini'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),

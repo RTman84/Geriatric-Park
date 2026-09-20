@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 
 export interface LeaderboardEntry {
   user_id?: string;
@@ -26,13 +27,13 @@ async function parse<T>(response: Response): Promise<T> {
 
 export async function fetchLeaderboard(): Promise<LeaderboardData> {
   const headers = await authHeaders();
-  const response = await fetch('/api/tournament-board', { headers, cache: 'no-store' });
+  const response = await fetch(apiUrl('/api/tournament-board'), { headers, cache: 'no-store' });
   return parse<LeaderboardData>(response);
 }
 
 export async function submitTournamentScore(score: number): Promise<LeaderboardEntry> {
   const headers = await authHeaders();
-  const response = await fetch('/api/tournament-board', {
+  const response = await fetch(apiUrl('/api/tournament-board'), {
     method: 'PUT',
     headers,
     body: JSON.stringify({ score }),

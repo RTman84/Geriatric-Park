@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 import type { MailMessage } from '../types';
 
 // Mirrors MAIL_FIELDS in api/mail.ts.
@@ -22,7 +23,7 @@ async function authHeaders(): Promise<HeadersInit> {
 
 export async function fetchInbox(): Promise<InboxRow[]> {
   const headers = await authHeaders();
-  const response = await fetch('/api/mail', { headers, cache: 'no-store' });
+  const response = await fetch(apiUrl('/api/mail'), { headers, cache: 'no-store' });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.error || `Mail request failed (${response.status}).`);
   return (body.messages ?? []) as InboxRow[];
@@ -31,7 +32,7 @@ export async function fetchInbox(): Promise<InboxRow[]> {
 // Fire-and-forget from the challenger's side after a Friend Battle resolves.
 export async function notifyFriendBattle(defenderId: string, attackerWon: boolean): Promise<void> {
   const headers = await authHeaders();
-  const response = await fetch('/api/mail', {
+  const response = await fetch(apiUrl('/api/mail'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ action: 'friendBattle', defenderId, attackerWon }),

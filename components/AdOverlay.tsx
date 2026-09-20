@@ -1,22 +1,11 @@
 // components/AdOverlay.tsx
-// Updated to use Google AdSense Display ads (300x250)
-// instead of rewarded video ads.
+// Sponsor Break. Real ads pay ONLY through AdMob rewarded video in the native app.
+// (AdSense display ads may not be rewarded, so they are no longer shown behind a reward.)
+// On the web this is a simulated timer for testing, or disabled -- see services/rewardedAds.ts.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AD_REVENUE_PAYOUT, REVENUE_SPLIT } from '../constants';
-
-declare global {
-  interface Window {
-    adsbygoogle: any[];
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// YOUR REAL ADSENSE IDs — already updated with your publisher ID
-// Replace XXXXXXXXXX with your Display ad slot ID from AdSense
-// ─────────────────────────────────────────────────────────────
-const ADSENSE_PUBLISHER_ID = 'ca-pub-4749065898882415';
-const ADSENSE_DISPLAY_SLOT  = '1422136727'; // replace with your slot ID
+import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
 
 interface AdOverlayProps {
   onRewardEarned: (playerShare: number, communityShare: number) => void;
@@ -25,7 +14,9 @@ interface AdOverlayProps {
   maxAds: number;
 }
 
-type AdPhase = 'prompt' | 'playing' | 'reward' | 'error';
+type AdPhase = 'prompt' | 'loading' | 'playing' | 'reward' | 'error';
+
+const SIMULATED_AD_SECONDS = 5;
 
 export const AdOverlay: React.FC<AdOverlayProps> = ({
   onRewardEarned,
@@ -34,10 +25,10 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   maxAds,
 }) => {
   const [phase, setPhase] = useState<AdPhase>('prompt');
-  const [countdown, setCountdown] = useState(15);
-  const adContainerRef = useRef<HTMLDivElement>(null);
+  const [countdown, setCountdown] = useState(SIMULATED_AD_SECONDS);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const adPushed       = useRef(false);
+  const adsMode = getAdsMode();
 
   const playerPct = Math.round(REVENUE_SPLIT.player * 100);
   const communityPct = Math.round(REVENUE_SPLIT.community * 100);
@@ -52,23 +43,10 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
     };
   }, []);
 
-  // Inject the AdSense display ad and start countdown when playing
+  // Simulated (web testing) countdown -- no ad is shown and nothing real is displayed.
   useEffect(() => {
     if (phase !== 'playing') return;
-
-    // Push the display ad into the container
-    if (adContainerRef.current && !adPushed.current) {
-      adPushed.current = true;
-      try {
-        window.adsbygoogle = window.adsbygoogle || [];
-        window.adsbygoogle.push({});
-      } catch (e) {
-        console.warn('[AdOverlay] AdSense push failed:', e);
-      }
-    }
-
-    // 15 second countdown — then auto-grant reward
-    setCountdown(15);
+    setCountdown(SIMULATED_AD_SECONDS);
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -79,7 +57,6 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
         return prev - 1;
       });
     }, 1000);
-
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
@@ -90,8 +67,20 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
     setPhase('reward');
   };
 
-  const handleViewAd = () => {
-    setPhase('playing');
+  const handleViewAd = async () => {
+    if (adsMode === 'off') {
+      setErrorMessage('Sponsor rewards are available in the Android app.');
+      setPhase('error');
+      return;
+    }
+    if (adsMode === 'simulated') {
+      setPhase('playing');
+      return;
+    }
+    setPhase('loading');
+    const result = await showRewardedAd();
+    if (result.completed) grantReward();
+    else { setErrorMessage(result.error ?? 'No ads available right now. Check back soon!'); setPhase('error'); }
   };
 
   return (
@@ -154,26 +143,29 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
             </>
           )}
 
-          {/* PLAYING — display ad shown here */}
+          {/* LOADING (native AdMob) */}
+          {phase === 'loading' && (
+            <div className="text-center py-8 space-y-3">
+              <div className="text-4xl animate-pulse">📺</div>
+              <p className="text-slate-700 dark:text-slate-200 font-bold text-base">Loading sponsor…</p>
+            </div>
+          )}
+
+          {/* PLAYING — simulated sponsor (web testing only) */}
           {phase === 'playing' && (
             <div className="text-center space-y-3">
               <p className="text-slate-600 text-sm uppercase tracking-wide font-semibold">
                 Sponsored Message
               </p>
 
-              {/* AdSense display ad unit (300x250) */}
+              {/* Simulated sponsor (testing only) */}
               <div
-                ref={adContainerRef}
-                className="mx-auto flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden"
+                className="mx-auto flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden text-center px-4"
                 style={{ width: 300, height: 250 }}
               >
-                <ins
-                  className="adsbygoogle"
-                  style={{ display: 'block', width: 300, height: 250 }}
-                  data-ad-client={ADSENSE_PUBLISHER_ID}
-                  data-ad-slot={ADSENSE_DISPLAY_SLOT}
-                  data-ad-format="fixed"
-                />
+                <p className="text-slate-700 dark:text-slate-200 font-black uppercase tracking-wide text-sm">
+                  Test sponsor<br />(real video ads run in the Android app)
+                </p>
               </div>
 
               <div className="bg-[var(--accent-50)] dark:bg-[var(--accent-900-a30)] rounded-xl py-3 px-4">
@@ -221,8 +213,8 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {phase === 'error' && (
             <div className="text-center py-4 space-y-3">
               <div className="text-4xl">😕</div>
-              <p className="text-slate-600 text-base">
-                No ads available right now. Check back soon!
+              <p className="text-slate-700 dark:text-slate-200 font-bold text-base">
+                {errorMessage ?? 'No ads available right now. Check back soon!'}
               </p>
               <button
                 onClick={onClose}

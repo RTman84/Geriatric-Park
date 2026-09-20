@@ -85,6 +85,11 @@ Checked 2026-09-20 — it does **not** break solvency, but it is a lever to watc
 - **Steam: rewarding players for watching ads is not allowed** (Steamworks advertising rules).
   The ad-funded PP model cannot ship on Steam; that build needs purchases/paid-app instead.
 
+Implementation status (2026-09-20): the rewarded-ad path is `services/rewardedAds.ts`. AdSense display
+ads are no longer shown behind any reward. Native Android uses AdMob rewarded video (test ids until
+the AdMob account is set up); web uses a simulated 5-second sponsor for testing, or `VITE_ADS_MODE=off`.
+See ANDROID_SETUP.md.
+
 ## 5. XP and levels (slow, but never dead)
 
 - Player level: `xpForPlayerLevel(l) = 1000 × 1.06^(l-1)`, cap `MAX_PLAYER_LEVEL = 100`.
