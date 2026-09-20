@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Elder } from '../types';
 import { generateElderBio } from '../services/geminiService';
-import { ELDER_AVATARS, ElderAvatarImg, GUIDE_SUCCESS_RATE } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GUIDE_SUCCESS_RATE, comfortPoints } from '../constants';
 
 interface ElderInteractionProps {
   elder: Elder;
@@ -97,10 +97,10 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
               </p>
 
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
-                <div className="text-sm text-slate-300 font-bold uppercase tracking-wider mb-2">Pension Contribution</div>
+                <div className="text-sm text-slate-600 font-bold uppercase tracking-wider mb-2">Comfort</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-green-600">+{elder.comfortGeneration.toFixed(3)} PP</span>
-                  <span className="text-sm text-slate-600">/tick</span>
+                  <span className="text-2xl font-bold text-green-700">{comfortPoints(elder).toFixed(1)} pts</span>
+                  <span className="text-sm text-slate-600">makes your working buildings produce more</span>
                 </div>
               </div>
 

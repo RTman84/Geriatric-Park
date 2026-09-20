@@ -4,7 +4,7 @@ import {
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
-  SHUFFLEBOARD_KING_BOOST, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
+  isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
@@ -305,6 +305,8 @@ interface ShuffleboardProps {
   elders: Elder[];
   tokens: number;
   shuffleboardKing: any;
+  lastCourtPurseClaim?: number;
+  onClaimCourtPurse?: () => void;
   heldStructureIds: string[];
   onPassiveResult: (won: boolean, tokensEarned: number) => void;
   onTournamentPlay: (score: number) => void;
@@ -321,11 +323,11 @@ interface ShuffleboardProps {
   onAddFriendFromLeaderboard?: (userId: string) => void;
   friends: { user_id: string; display_name: string | null; squad_power: number }[];
   friendBattle: { nextMatchAt: number };
-  onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => number;
+  onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => { tickets: number; materials: number; rewarded: boolean };
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
-  isDark, elders, tokens, shuffleboardKing, heldStructureIds,
+  isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
   goldenGames, onGoldenGamesResult,
@@ -349,7 +351,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
   const team = elders.filter(e => e.status === 'Team' && e.captured);
   const teamStrength = getSquadPower(team);
-  const isKing = shuffleboardKing?.id === 'player';
+  const isKing = isCourtChampion(shuffleboardKing, Date.now());
+  const reignMsLeft = isKing ? Math.max(0, COURT_CHAMPION_DURATION_MS - (Date.now() - shuffleboardKing.heldSince)) : 0;
+  const reignHoursLeft = Math.floor(reignMsLeft / 3600000);
+  const reignMinsLeft = Math.floor((reignMsLeft % 3600000) / 60000);
+  const purseAvailable = isKing && (lastCourtPurseClaim ?? 0) < shuffleboardKing.heldSince;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -407,10 +413,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     setIsPlaying(true);
     setTimeout(() => {
       const { won, ticketsEarned } = rollFriendBattle(teamStrength, friend.squad_power);
-      const materialsEarned = onFriendBattleResult(won, ticketsEarned, friend.user_id);
+      const result = onFriendBattleResult(won, ticketsEarned, friend.user_id);
       setLastResultWon(won);
       setLastResult(won
-        ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
+        ? (result.rewarded ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${result.tickets} 🎟️ +${result.materials} 🧱` : `You beat ${friend.display_name || 'Park Visitor'}'s squad! Today's battle rewards are used up, so this one is for bragging rights.`)
         : `${friend.display_name || 'Park Visitor'}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`);
       setIsPlaying(false);
     }, 1500);
@@ -481,16 +487,28 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <span className="font-black text-lg">{tournamentScore}pts</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[13px] opacity-60 uppercase mb-1">Court Boost</span>
-            <span className="font-black text-lg">{isKing ? '1.5x' : '—'}</span>
+            <span className="block text-[13px] opacity-60 uppercase mb-1">Champion</span>
+            <span className="font-black text-lg">{isKing ? `${reignHoursLeft}h ${reignMinsLeft}m` : '--'}</span>
           </div>
         </div>
         {isKing && (
-          <div className="mt-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-3 text-center">
+          <div className="mt-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-3 text-center space-y-2">
             <p className="text-[14px] font-black text-amber-300 uppercase tracking-widest">
-              👑 You hold the court! Passive income boosted {SHUFFLEBOARD_KING_BOOST}x
+              You are the Court Champion for {reignHoursLeft}h {reignMinsLeft}m
             </p>
+            <button
+              onClick={onClaimCourtPurse}
+              disabled={!purseAvailable}
+              className={`w-full py-3 rounded-xl text-[14px] font-black uppercase ${purseAvailable ? 'bg-amber-400 text-amber-950 active:scale-95' : 'bg-white/10 text-white/60 cursor-not-allowed'}`}
+            >
+              {purseAvailable ? `Collect Champion's Purse (+${COURT_PURSE_TICKETS} 🎟️)` : "Purse collected — defend again after your title ends"}
+            </button>
           </div>
+        )}
+        {!isKing && (
+          <p className="mt-4 text-[13px] font-black uppercase tracking-widest text-center opacity-70">
+            Beat the Grand Shuffle Court on the map to become Champion for 24 hours and collect a purse.
+          </p>
         )}
       </div>
 
@@ -1067,13 +1085,13 @@ export const BasePanel: React.FC<{
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
   isDark: boolean,
   shuffleboardKing?: any,
-  passiveBreakdown?: { elders: number, parcels: number, base: number },
+  passiveBreakdown?: { base: number, assets: number },
   onScrapElder?: (id: string) => void,
   parkScore?: number
 }> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0 }) => {
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const isKing = shuffleboardKing?.id === 'player';
+
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1114,19 +1132,13 @@ export const BasePanel: React.FC<{
                 <span>{(passiveBreakdown.base * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black">
-                <span className="opacity-60">Elder Comfort</span>
-                <span className="text-[var(--accent-300)]">{(passiveBreakdown.elders * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                <span className="opacity-60">Park Assets</span>
+                <span className="text-emerald-300">{(passiveBreakdown.assets * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
               </div>
-              <div className="flex justify-between text-[14px] font-black">
-                <span className="opacity-60">Parcel Rent</span>
-                <span className="text-emerald-300">{(passiveBreakdown.parcels * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+              <div className="flex justify-between text-[14px] font-black pt-2 mt-1 border-t border-white/10">
+                <span className="opacity-60">Elder Comfort → building output</span>
+                <span className="text-[var(--accent-300)]">+{(comfortOutputBonus(elders) * 100).toFixed(0)}%</span>
               </div>
-              {isKing && (
-                <div className="flex justify-between text-[14px] font-black">
-                  <span className="opacity-60">👑 Court Bonus</span>
-                  <span className="text-amber-300">×{SHUFFLEBOARD_KING_BOOST}</span>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1222,7 +1234,7 @@ export const BasePanel: React.FC<{
                 <div className="flex-1 min-w-0">
                   <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
-                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {e.comfortGeneration.toFixed(4)}/tick</p>
+                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts</p>
                   <div className="flex gap-2 mt-3">
                     {e.status === 'Team' 
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
@@ -1282,7 +1294,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
                   <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
                   <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                 </div>
-                <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort Gen: {e.comfortGeneration.toFixed(4)} · XP {xp}/{xpForElderLevel(e.level)}</p>
+                <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {xp}/{xpForElderLevel(e.level)}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
                   {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-[var(--accent-600)] text-white px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Neighborhood Lead</button>}

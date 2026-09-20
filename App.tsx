@@ -76,12 +76,13 @@ import {
   DAILY_REWARDS,
   INVESTMENT_TIERS,
   PASSIVE_TICK_MS,
-  ELDER_COMFORT_RATE,
-  PARCEL_RENT_RATE,
   AD_BOOST_MULTIPLIER,
   AD_BOOST_DURATION_MS,
   OFFLINE_CAP_MS,
-  SHUFFLEBOARD_KING_BOOST,
+  COURT_CHAMPION_DURATION_MS,
+  COURT_PURSE_TICKETS,
+  isCourtChampion,
+  comfortOutputBonus,
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
@@ -111,7 +112,15 @@ import {
   VISIT_COOLDOWN_MS,
   VISIT_MATERIALS_REWARD,
   getHousingCapacity,
+  getBuildingLevel,
+  buildingUpgradeMaterials,
+  buildingUpgradeTickets,
+  producerStored,
+  MAX_BUILDING_LEVEL,
   FRIEND_BATTLE_COOLDOWN_MS,
+  FRIEND_BATTLE_WIN_MATERIALS,
+  FRIEND_BATTLE_DAILY_REWARDS,
+  FRIEND_BATTLE_UNREWARDED_XP_SHARE,
   rollFriendBattle,
   FRIEND_BATTLE_WIN_ELDER_XP,
   FRIEND_BATTLE_LOSS_ELDER_XP,
@@ -125,16 +134,9 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
   const cappedMs = Math.min(elapsedMs, OFFLINE_CAP_MS);
   const ticks    = cappedMs / PASSIVE_TICK_MS;
   let rate = INITIAL_PENSION_RATE + state.pensionRate;
-  const activeElders = state.allElders.filter(
-    e => e.captured && (e.status === 'Team' || e.status === 'Porch')
-  );
-  rate += activeElders.reduce((sum, e) => sum + (e.comfortGeneration * ELDER_COMFORT_RATE), 0);
-  // Parcel rent used to also add a flat PARCEL_RENT_RATE per owned parcel here,
-  // on top of the rarity-scaled bonus handleBuyParcel already folds into
-  // pensionRate at purchase time -- that was a double-accrual bug (Phase 1 fix,
-  // 9-8-26 evolution spec). The parcel's contribution now lives in pensionRate only.
-  const isShuffleboardKing = state.shuffleboard.currentKing?.id === 'player';
-  if (isShuffleboardKing) rate *= SHUFFLEBOARD_KING_BOOST;
+  // Passive income comes ONLY from the base rate + Park Assets (pensionRate) and the ad boost.
+  // Elder comfort, Parcels and the Court used to add to it; gameplay must never raise passive income,
+  // so they now do other jobs (building output, housing, Ticket purse). See ECONOMY.md.
   const isAdBoosted = state.boostUntil > Date.now();
   if (isAdBoosted) rate *= AD_BOOST_MULTIPLIER;
   return rate * ticks;
@@ -232,22 +234,32 @@ function grantElderXpToTeam(elders: Elder[], amount: number): Elder[] {
 // before it is merged over INITIAL_STATE, and is idempotent via economyVersion.
 function migrateEconomy(raw: any): any {
   if (!raw || typeof raw !== 'object') return raw;
-  if (typeof raw.economyVersion === 'number' && raw.economyVersion >= ECONOMY_VERSION) return raw;
+  const from = typeof raw.economyVersion === 'number' ? raw.economyVersion : 1;
+  if (from >= ECONOMY_VERSION) return raw;
   const scaled = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v * PP_SCALE_V2 : v);
-  const out: any = { ...raw, economyVersion: ECONOMY_VERSION };
-  for (const key of ['pensionBalance', 'pendingYield', 'communityReserve', 'pensionRate']) {
-    if (key in raw) out[key] = scaled(raw[key]);
+  let out: any = { ...raw, economyVersion: ECONOMY_VERSION };
+  if (from < 2) {
+    for (const key of ['pensionBalance', 'pendingYield', 'communityReserve', 'pensionRate']) {
+      if (key in raw) out[key] = scaled(raw[key]);
+    }
+    if (raw.earningsBreakdown && typeof raw.earningsBreakdown === 'object') {
+      out.earningsBreakdown = {
+        ...raw.earningsBreakdown,
+        passive: scaled(raw.earningsBreakdown.passive),
+        active: scaled(raw.earningsBreakdown.active),
+        sponsorship: scaled(raw.earningsBreakdown.sponsorship),
+      };
+    }
+    if (Array.isArray(raw.ownedParcels)) {
+      out.ownedParcels = raw.ownedParcels.map((p: any) => (p && typeof p === 'object') ? { ...p, pensionBonus: scaled(p.pensionBonus) } : p);
+    }
   }
-  if (raw.earningsBreakdown && typeof raw.earningsBreakdown === 'object') {
-    out.earningsBreakdown = {
-      ...raw.earningsBreakdown,
-      passive: scaled(raw.earningsBreakdown.passive),
-      active: scaled(raw.earningsBreakdown.active),
-      sponsorship: scaled(raw.earningsBreakdown.sponsorship),
-    };
-  }
-  if (Array.isArray(raw.ownedParcels)) {
-    out.ownedParcels = raw.ownedParcels.map((p: any) => (p && typeof p === 'object') ? { ...p, pensionBonus: scaled(p.pensionBonus) } : p);
+  if (from < 3) {
+    // Parcels no longer add passive income: take their baked-in bonus back out of pensionRate.
+    const parcels = Array.isArray(out.ownedParcels) ? out.ownedParcels : [];
+    const bonusSum = parcels.reduce((sum: number, p: any) => sum + (p && typeof p.pensionBonus === 'number' && Number.isFinite(p.pensionBonus) ? p.pensionBonus : 0), 0);
+    if (typeof out.pensionRate === 'number' && Number.isFinite(out.pensionRate)) out.pensionRate = Math.max(0, out.pensionRate - bonusSum);
+    out.ownedParcels = parcels.map((p: any) => (p && typeof p === 'object') ? { ...p, pensionBonus: 0 } : p);
   }
   return out;
 }
@@ -258,6 +270,7 @@ const INITIAL_STATE: GameState = {
   googleEmail: undefined,
   pensionBalance: 0.00,
   economyVersion: ECONOMY_VERSION,
+  lastCourtPurseClaim: 0,
   pendingYield: 0.00,
   communityReserve: 0, // strictly player/ad-funded -- no free seed (was 5.00)
   earningsBreakdown: { passive: 0, active: 0, sponsorship: 0 },
@@ -290,6 +303,8 @@ const INITIAL_STATE: GameState = {
   favoriteElderIds: [],
   buildingMaterials: 0,
   builtAmenityIds: [],
+  amenityLevels: {},
+  amenityCollectedAt: {},
   lastVisitedFriends: {},
   season: { id: 1, name: "Autumn Gathering", xp: 0, isPremium: false, startDate: Date.now(), endDate: Date.now() + 30 * 24 * 60 * 60 * 1000, claimedLevels: [] },
   hasStarted: false,
@@ -471,15 +486,12 @@ const App: React.FC = () => {
       cumulative += weights[i];
       if (rand < cumulative) { rarity = rarities[i]; break; }
     }
-    const bonusMap = { Common: 0.0000008, Rare: 0.0000016, Epic: 0.000004, Legendary: 0.000008 }; // Economy v2 (x0.08)
-    const bonus = bonusMap[rarity];
     setState(prev => ({
       ...prev,
       legacyTokens: prev.legacyTokens - cost,
-      pensionRate: prev.pensionRate + bonus,
       ownedParcels: [...prev.ownedParcels, {
         id: `parcel_${Date.now()}`, lat: gridLat, lng: gridLng,
-        ownerId: 'player', type: rarity, pensionBonus: bonus
+        ownerId: 'player', type: rarity, pensionBonus: 0 // legacy field; parcels no longer add passive income
       }]
     }));
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1293,15 +1305,22 @@ const App: React.FC = () => {
     return materialsEarned;
   }, [state.settings.sfxEnabled]);
 
-  const handleFriendBattleResult = useCallback((won: boolean, ticketsEarned: number, friendUserId: string): number => {
+  const handleFriendBattleResult = useCallback((won: boolean, ticketsRolled: number, friendUserId: string): { tickets: number; materials: number; rewarded: boolean } => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
-    // A win pays the attacker; a loss pays the DEFENDER instead (server-side, via
-    // their Mailbox -- see api/mail.ts). The attacker keeps only the Elder XP.
-    const materialsEarned = won ? 6 : 0;
-    const ticketsToGrant = won ? ticketsEarned : 0;
+    // Only the first FRIEND_BATTLE_DAILY_REWARDS WINS each day pay Tickets/Materials/Stars (longevity cap).
+    // A win pays the attacker; a loss pays the DEFENDER instead (server-side, via their Mailbox --
+    // see api/mail.ts). The attacker keeps only the Elder XP.
+    const today = new Date().toDateString();
+    const usedToday = state.friendBattle.rewardDay === today ? (state.friendBattle.rewardsToday ?? 0) : 0;
+    const rewarded = won && usedToday < FRIEND_BATTLE_DAILY_REWARDS;
+    const materialsEarned = rewarded ? FRIEND_BATTLE_WIN_MATERIALS : 0;
+    const ticketsToGrant = rewarded ? ticketsRolled : 0;
+    const xpShare = won && !rewarded ? FRIEND_BATTLE_UNREWARDED_XP_SHARE : 1;
     const opponentName = friendsData?.friends.find(f => f.user_id === friendUserId)?.display_name || 'Park Visitor';
     notify(won
-      ? `⚔️ Victory over ${opponentName}!\n+${ticketsEarned} 🎟️  +${materialsEarned} 🧱`
+      ? (rewarded
+          ? `⚔️ Victory over ${opponentName}!\n+${ticketsToGrant} 🎟️  +${materialsEarned} 🧱`
+          : `⚔️ Victory over ${opponentName}!\nToday's battle rewards are used up — this one is for bragging rights.`)
       : `⚔️ ${opponentName}'s squad held their ground.\nYour Elders still earned XP.`,
       won ? 'good' : 'bad');
     void notifyFriendBattle(friendUserId, won).catch(e => {
@@ -1309,19 +1328,21 @@ const App: React.FC = () => {
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
     });
     setState(prev => {
-      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP);
+      const elderXp = Math.round((won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP) * xpShare);
+      const { xp, level } = applyXpGain(prev.xp, prev.level, Math.round((won ? FRIEND_BATTLE_WIN_ELDER_XP * 3 : FRIEND_BATTLE_LOSS_ELDER_XP) * xpShare));
+      const prevUsed = prev.friendBattle.rewardDay === today ? (prev.friendBattle.rewardsToday ?? 0) : 0;
       return {
         ...prev,
         legacyTokens: prev.legacyTokens + ticketsToGrant,
         buildingMaterials: prev.buildingMaterials + materialsEarned,
         xp, level,
-        allElders: grantElderXpToTeam(prev.allElders, won ? FRIEND_BATTLE_WIN_ELDER_XP : FRIEND_BATTLE_LOSS_ELDER_XP),
-        parkCommunityScore: prev.parkCommunityScore + (won ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
-        friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS },
+        allElders: grantElderXpToTeam(prev.allElders, elderXp),
+        parkCommunityScore: prev.parkCommunityScore + (rewarded ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
+        friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS, rewardDay: today, rewardsToday: prevUsed + (rewarded ? 1 : 0) },
       };
     });
-    return materialsEarned;
-  }, [state.settings.sfxEnabled, showNotice, notify, friendsData]);
+    return { tickets: ticketsToGrant, materials: materialsEarned, rewarded };
+  }, [state.settings.sfxEnabled, state.friendBattle.rewardDay, state.friendBattle.rewardsToday, showNotice, notify, friendsData]);
 
   // Attack from the Friends list: same roll, same cooldown, same rewards and
   // same mail notice as the Court tab's Friend mode (both go through
@@ -1334,12 +1355,23 @@ const App: React.FC = () => {
     const waitMs = state.friendBattle.nextMatchAt - Date.now();
     if (waitMs > 0) return `Your squad is still resting — ready in ${Math.ceil(waitMs / 60000)} min.`;
     const { won, ticketsEarned } = rollFriendBattle(getSquadPower(squad), friend.squad_power);
-    const materialsEarned = handleFriendBattleResult(won, ticketsEarned, friend.user_id);
+    const result = handleFriendBattleResult(won, ticketsEarned, friend.user_id);
     const name = friend.display_name || 'Park Visitor';
     return won
-      ? `You beat ${name}'s squad! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
+      ? (result.rewarded ? `You beat ${name}'s squad! +${result.tickets} 🎟️ +${result.materials} 🧱` : `You beat ${name}'s squad! Today's battle rewards are used up, so this one is for bragging rights.`)
       : `${name}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`;
   }, [friendsData, state.allElders, state.friendBattle.nextMatchAt, handleFriendBattleResult]);
+
+  // Court Champion purse: once per reign (a reign lasts COURT_CHAMPION_DURATION_MS after a win on the map).
+  const handleClaimCourtPurse = useCallback(() => {
+    const now = Date.now();
+    const king = state.shuffleboard.currentKing;
+    if (!isCourtChampion(king, now)) { notify("You're not the Court Champion right now — beat the Grand Shuffle Court on the map to take the title."); return; }
+    if ((state.lastCourtPurseClaim ?? 0) >= (king?.heldSince ?? 0)) { notify("You've already collected this reign's purse. Win the court again after your title runs out."); return; }
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens + COURT_PURSE_TICKETS, lastCourtPurseClaim: now }));
+    notify(`👑 Champion's purse collected! +${COURT_PURSE_TICKETS} 🎟️`);
+  }, [state.shuffleboard.currentKing, state.lastCourtPurseClaim, state.settings.sfxEnabled]);
 
   const handleBuildAmenity = useCallback((amenityId: string) => {
     const amenity = AMENITIES.find(a => a.id === amenityId);
@@ -1352,9 +1384,62 @@ const App: React.FC = () => {
         ...prev,
         buildingMaterials: prev.buildingMaterials - amenity.cost,
         builtAmenityIds: [...prev.builtAmenityIds, amenityId],
+        amenityLevels: { ...(prev.amenityLevels ?? {}), [amenityId]: 1 },
+        amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [amenityId]: Date.now() },
       };
     });
   }, [state.settings.sfxEnabled]);
+
+  // Collect a working building's stored output (Tickets or Building Materials).
+  const handleCollectAmenity = useCallback((amenityId: string) => {
+    const amenity = AMENITIES.find(a => a.id === amenityId);
+    if (!amenity?.producer || !state.builtAmenityIds.includes(amenityId)) return;
+    const now = Date.now();
+    const amount = producerStored(amenity, getBuildingLevel(state.amenityLevels, amenityId), state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders));
+    if (amount <= 0) { notify(`${amenity.name} has nothing to collect yet.`); return; }
+    if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+    setState(prev => ({
+      ...prev,
+      legacyTokens: prev.legacyTokens + (amenity.producer!.output === 'tickets' ? amount : 0),
+      buildingMaterials: prev.buildingMaterials + (amenity.producer!.output === 'materials' ? amount : 0),
+      amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [amenityId]: now },
+    }));
+    notify(`Collected ${amount} ${amenity.producer.output === 'tickets' ? '🎟️' : '🧱'} from ${amenity.name}.`);
+  }, [state.builtAmenityIds, state.amenityLevels, state.amenityCollectedAt, state.settings.sfxEnabled]);
+
+  // Level a building up. Costs Building Materials + Tickets. A working building first pays out whatever it
+  // is holding at its OLD rate, so upgrading can never be used to inflate stored output.
+  const handleUpgradeAmenity = useCallback((amenityId: string) => {
+    const amenity = AMENITIES.find(a => a.id === amenityId);
+    if (!amenity || !state.builtAmenityIds.includes(amenityId)) return;
+    const level = getBuildingLevel(state.amenityLevels, amenityId);
+    if (level >= MAX_BUILDING_LEVEL) { notify(`${amenity.name} is already at max level.`); return; }
+    const matCost = buildingUpgradeMaterials(amenity, level);
+    const ticketCost = buildingUpgradeTickets(level);
+    if (state.buildingMaterials < matCost) { notify(`Need ${matCost} 🧱 to upgrade ${amenity.name}.`); return; }
+    if (state.legacyTokens < ticketCost) { notify(`Need ${ticketCost} 🎟️ to upgrade ${amenity.name}.`); return; }
+    const now = Date.now();
+    const pending = amenity.producer ? producerStored(amenity, level, state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders)) : 0;
+    if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    setState(prev => ({
+      ...prev,
+      buildingMaterials: prev.buildingMaterials - matCost + (amenity.producer?.output === 'materials' ? pending : 0),
+      legacyTokens: prev.legacyTokens - ticketCost + (amenity.producer?.output === 'tickets' ? pending : 0),
+      amenityLevels: { ...(prev.amenityLevels ?? {}), [amenityId]: level + 1 },
+      amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [amenityId]: now },
+    }));
+    notify(`${amenity.name} is now level ${level + 1}!${pending > 0 ? ` (Collected ${pending} stored ${amenity.producer!.output === 'tickets' ? '🎟️' : '🧱'} first.)` : ''}`);
+  }, [state.builtAmenityIds, state.amenityLevels, state.amenityCollectedAt, state.buildingMaterials, state.legacyTokens, state.settings.sfxEnabled]);
+
+  // Buildings that were built back when they were decoration have no output timer yet; start it now
+  // (never retroactively -- no free stored output).
+  useEffect(() => {
+    if (!isLoaded) return;
+    const missing = (state.builtAmenityIds ?? []).filter(id => AMENITIES.find(a => a.id === id)?.producer && !state.amenityCollectedAt?.[id]);
+    if (missing.length === 0) return;
+    const now = Date.now();
+    setState(prev => ({ ...prev, amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), ...Object.fromEntries(missing.map(id => [id, now])) } }));
+  }, [isLoaded, state.builtAmenityIds, state.amenityCollectedAt]);
 
   const handleVisitFriend = useCallback((friendUserId: string) => {
     setState(prev => {
@@ -1770,15 +1855,10 @@ const App: React.FC = () => {
   // it's the sum of each owned parcel's individual pensionBonus, pulled back out
   // of pensionRate for display, so "base" + "elders" + "parcels" still adds up to
   // the real total rate without double-counting anything.
-  const passiveBreakdown = useMemo(() => {
-    const activeElders = state.allElders.filter(e => e.captured && (e.status === 'Team' || e.status === 'Porch'));
-    const parcelBonusSum = state.ownedParcels.reduce((sum, p) => sum + p.pensionBonus, 0);
-    return {
-      base: INITIAL_PENSION_RATE + state.pensionRate - parcelBonusSum,
-      elders: activeElders.reduce((sum, e) => sum + (e.comfortGeneration * ELDER_COMFORT_RATE), 0),
-      parcels: parcelBonusSum,
-    };
-  }, [state.allElders, state.pensionRate, state.ownedParcels]);
+  const passiveBreakdown = useMemo(() => ({
+    base: INITIAL_PENSION_RATE,
+    assets: state.pensionRate,
+  }), [state.pensionRate]);
 
   if (!isLoaded || !cloudCheckDone) return (
     <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-white font-black uppercase tracking-widest gap-6">
@@ -1884,7 +1964,7 @@ const App: React.FC = () => {
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
-          {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.elders + passiveBreakdown.parcels} onWithdraw={() => {
+          {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} PP`);
             notify(`${state.pensionBalance.toFixed(4)} PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
@@ -1897,6 +1977,8 @@ const App: React.FC = () => {
               elders={state.allElders}
               tokens={state.legacyTokens}
               shuffleboardKing={state.shuffleboard.currentKing}
+              lastCourtPurseClaim={state.lastCourtPurseClaim ?? 0}
+              onClaimCourtPurse={handleClaimCourtPurse}
               heldStructureIds={state.heldStructureIds}
               onPassiveResult={handlePassiveShuffleResult}
               onTournamentPlay={handleTournamentPlay}
@@ -2172,7 +2254,7 @@ const App: React.FC = () => {
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
-            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} sfxEnabled={state.settings.sfxEnabled} />
+            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} guideBlockedReason={state.allElders.filter(e => e.captured).length >= getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length) ? 'Park full' : undefined} sfxEnabled={state.settings.sfxEnabled} />
           </div>
         )}
 
@@ -2250,10 +2332,17 @@ const App: React.FC = () => {
         {showGroundsPanel && (
           <GroundsPanel
             isDark={isDark}
+            parcelCount={state.ownedParcels.length}
+            comfortBonus={comfortOutputBonus(state.allElders)}
             buildingMaterials={state.buildingMaterials}
             builtAmenityIds={state.builtAmenityIds}
+            amenityLevels={state.amenityLevels ?? {}}
+            amenityCollectedAt={state.amenityCollectedAt ?? {}}
+            tickets={state.legacyTokens}
             totalRosterCount={state.allElders.filter(e => e.captured).length}
             onBuild={handleBuildAmenity}
+            onUpgrade={handleUpgradeAmenity}
+            onCollect={handleCollectAmenity}
             onClose={() => setShowGroundsPanel(false)}
           />
         )}

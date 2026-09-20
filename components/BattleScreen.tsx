@@ -20,11 +20,12 @@ interface BattleScreenProps {
   onLose: (updatedTeam: Elder[]) => void;
   onFlee?: () => void;
   onGuideSuccess?: (updatedTeam: Elder[]) => void;
+  guideBlockedReason?: string; // e.g. 'Park full' -- disables Guide (no new residents until housing grows)
   isFriendBattle?: boolean;
   sfxEnabled?: boolean;
 }
 
-const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onFlee, onGuideSuccess, isFriendBattle, sfxEnabled }) => {
+const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, onWin, onLose, onFlee, onGuideSuccess, guideBlockedReason, isFriendBattle, sfxEnabled }) => {
   const [teamState, setTeamState] = useState<Elder[]>(JSON.parse(JSON.stringify(playerTeam)));
   const [activeIndex, setActiveIndex] = useState(0);
   const [oppHp, setOppHp] = useState(opponentElder.hp);
@@ -141,7 +142,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
   // a free hit), same real stakes as a normal round. Not available while auto-battling, to
   // avoid an unattended run accidentally giving up a fight partway through.
   const attemptGuide = async () => {
-    if (isAnimating || battleFinished || showSwitchMenu || isAuto) return;
+    if (isAnimating || battleFinished || showSwitchMenu || isAuto || guideBlockedReason) return;
     setIsAnimating(true);
     if (sfxEnabled) audioManager.playSFX('click');
     const chance = GUIDE_SUCCESS_RATE[opponentElder.rarity];
@@ -282,11 +283,12 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           {!isFriendBattle && (
             <button
               onClick={attemptGuide}
-              disabled={isAnimating || battleFinished || isAuto}
+              disabled={isAnimating || battleFinished || isAuto || !!guideBlockedReason}
+              title={guideBlockedReason ? 'Your park is full — upgrade your Retirement Cottage or scrap a Folk to make room.' : undefined}
               className="w-24 bg-orange-600 hover:bg-orange-500 text-white rounded-3xl flex flex-col items-center justify-center active:scale-95 transition-all shadow-xl border-b-8 border-orange-900 disabled:opacity-50"
             >
               <span className="text-xl mb-1">🧭</span>
-              <span className="text-[12px] font-black uppercase">Guide</span>
+              <span className="text-[12px] font-black uppercase">{guideBlockedReason ?? 'Guide'}</span>
             </button>
           )}
           <button 

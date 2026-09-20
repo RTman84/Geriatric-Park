@@ -106,7 +106,7 @@ export const BASE_POPULATION_LIMIT = 100;
 // reports exist, change this ONE constant and every PP rate below follows it.
 // (Costs/rates below were derived at this value; see ECONOMY.md before retuning.)
 export const ASSUMED_AD_REVENUE_PER_VIEW_USD = 0.008;
-export const ECONOMY_VERSION = 2;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
+export const ECONOMY_VERSION = 3;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
 export const PP_SCALE_V2 = 0.08;        // = 0.008 / 0.10, the old simulated payout
 export const AD_REVENUE_PAYOUT = ASSUMED_AD_REVENUE_PER_VIEW_USD;
 export const MAX_ADS_PER_DAY = 15; // typical casual-game rewarded cap; resets at local midnight
@@ -162,6 +162,25 @@ export function getBaseComfortGeneration(rarity: 'Common' | 'Rare' | 'Epic' | 'L
   return BASE_COMFORT_GENERATION * ELDER_COMFORT_RARITY_MULTIPLIER[rarity];
 }
 
+// COMFORT: what it does. Comfortable residents make your park's WORKING BUILDINGS (Nature Trail, Grocery
+// Store, ...) produce more. It never touches passive income or PP. Each active Elder (Team or Porch)
+// contributes "comfort points": rarity scales it (Common 1, Rare 1.5, Epic 2.5, Legendary 5), evolving
+// multiplies it, and every Elder level adds a little more. Points -> +1% building output each, max +50%.
+export const COMFORT_PER_LEVEL = 0.04;
+export const COMFORT_OUTPUT_PER_POINT = 0.01;
+export const COMFORT_OUTPUT_CAP = 0.5;
+export function comfortPoints(e: { comfortGeneration: number; level: number }): number {
+  const base = Number.isFinite(e.comfortGeneration) ? e.comfortGeneration / BASE_COMFORT_GENERATION : 0;
+  const lvl = Number.isFinite(e.level) ? Math.max(1, e.level) : 1;
+  return base * (1 + COMFORT_PER_LEVEL * (lvl - 1));
+}
+export function comfortOutputBonus(elders: Array<{ comfortGeneration: number; level: number; captured?: boolean; status?: string }>): number {
+  const pts = elders
+    .filter(e => e.captured && (e.status === 'Team' || e.status === 'Porch'))
+    .reduce((sum, e) => sum + comfortPoints(e), 0);
+  return Math.min(COMFORT_OUTPUT_CAP, pts * COMFORT_OUTPUT_PER_POINT);
+}
+
 // Evolution: stage 0 -> 1 is level-gated only (open to every rarity). Stage
 // 1 -> 2 is level-gated for everyone, but costs far more Tickets unless the
 // Elder is Epic/Legendary rarity -- the "hybrid" model: never a hard rarity
@@ -183,10 +202,6 @@ export const REVENUE_SPLIT = {
 
 export const PASSIVE_TICK_MS         = 30 * 1000;
 export const PASSIVE_TICKS_PER_HOUR  = 3600000 / PASSIVE_TICK_MS; // rates are per TICK, so PP/hour = rate x this (UI used x3600, overstating 30x)
-// Was 0.000008, which made every Elder's comfort worth ~1e-9 per tick (effectively
-// nothing). At 0.002 a Common Elder adds ~5% of the base rate; Legendary ~25%.
-export const ELDER_COMFORT_RATE      = 0.002;
-export const PARCEL_RENT_RATE        = 0.000005;
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
 export const MAX_NEARBY_ITEMS       = 14;      // hard cap on items visible on the map at once
@@ -215,7 +230,14 @@ export function getYieldExchangeRate(reserve: number): number {
   if (reserve <= 0) return MIN_CASHOUT_EXCHANGE_RATE;
   return Math.min(1, Math.max(MIN_CASHOUT_EXCHANGE_RATE, reserve / RESERVE_HEALTHY_THRESHOLD));
 }
-export const SHUFFLEBOARD_KING_BOOST = 1.5;
+// Court Champion (the old "Shuffleboard King"). This used to be a PERMANENT 1.5x multiplier on the
+// whole passive rate for one 20-Ticket win that nobody could ever take back. Gameplay must never raise
+// passive income (ECONOMY.md), so it is now a 24-hour title with a Ticket purse to collect.
+export const COURT_CHAMPION_DURATION_MS = 24 * 60 * 60 * 1000;
+export const COURT_PURSE_TICKETS = 45; // once per reign; a challenge costs 20 Tickets
+export function isCourtChampion(king: { id?: string; heldSince?: number } | null | undefined, now: number): boolean {
+  return !!king && king.id === 'player' && typeof king.heldSince === 'number' && now - king.heldSince < COURT_CHAMPION_DURATION_MS;
+}
 
 // Single shared definition of "Elder Power" -- used by the Team panel's per-
 // Elder and squad-total display, and matches exactly what ShuffleboardPanel
@@ -317,8 +339,14 @@ export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
 // transaction coordination.
 export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000;
 export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
-export const FRIEND_BATTLE_WIN_TICKETS_MIN = 40;
-export const FRIEND_BATTLE_WIN_TICKETS_MAX = 80;
+// Longevity pass (2026-09-20): was 40-80 Tickets + 6 Materials per win on a 5-minute cooldown, i.e. up to
+// ~720 Tickets and ~72 Materials an hour for anyone who could win. Now small rewards, and only the first
+// FRIEND_BATTLE_DAILY_REWARDS wins each day pay anything; extra battles are just for fun.
+export const FRIEND_BATTLE_WIN_TICKETS_MIN = 12;
+export const FRIEND_BATTLE_WIN_TICKETS_MAX = 24;
+export const FRIEND_BATTLE_WIN_MATERIALS = 2;
+export const FRIEND_BATTLE_DAILY_REWARDS = 6;
+export const FRIEND_BATTLE_UNREWARDED_XP_SHARE = 0.25; // Elder/player XP share once the daily rewards are used up
 export const FRIEND_BATTLE_LOSS_TICKETS = 15;
 export const FRIEND_BATTLE_WIN_ELDER_XP = 50;
 export const FRIEND_BATTLE_LOSS_ELDER_XP = 15;
@@ -477,7 +505,7 @@ export function resolveProfileDisplay(
 // bought with Building Materials, a separate currency, and carry NO passive
 // bonus of any kind -- per user request, purely a decorative/social layer for
 // what friends see when they visit your park, plus Housing (capacity only).
-export type AmenityCategory = 'housing' | 'decoration';
+export type AmenityCategory = 'housing' | 'production' | 'decoration';
 export interface Amenity {
   id: string;
   name: string;
@@ -485,12 +513,16 @@ export interface Amenity {
   category: AmenityCategory;
   cost: number; // Building Materials
   flavor: string;
-  capacityBonus?: number; // housing only: how many more Elders this houses
+  capacityBonus?: number; // housing only: how many more Elders this houses at level 1
+  capacityPerLevel?: number; // housing only: extra capacity for each level above 1
+  // Working buildings make a limited amount of one resource. Benefits are Tickets/Materials only:
+  // buildings NEVER pay PP or raise passive income (economy rule, see ECONOMY.md).
+  producer?: { output: 'materials' | 'tickets'; basePerHour: number; perLevelPerHour: number };
 }
 export const AMENITIES: Amenity[] = [
-  { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home.', capacityBonus: 4 },
-  { id: 'trail', name: 'Nature Trail', icon: amenityTrail, category: 'decoration', cost: 25, flavor: 'A gently paved loop, perfect for a brisk hike or a very slow one.' },
-  { id: 'grocery', name: 'Grocery Store', icon: amenityGrocery, category: 'decoration', cost: 30, flavor: 'Coupon day is sacred here.' },
+  { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home. Upgrade it to make room for more residents.', capacityBonus: 6, capacityPerLevel: 3 },
+  { id: 'trail', name: 'Nature Trail', icon: amenityTrail, category: 'production', cost: 25, flavor: 'A gently paved loop. Walkers drop off Building Materials they find along the way.', producer: { output: 'materials', basePerHour: 1, perLevelPerHour: 0.5 } },
+  { id: 'grocery', name: 'Grocery Store', icon: amenityGrocery, category: 'production', cost: 30, flavor: 'Coupon day is sacred here. The savings turn into Tickets.', producer: { output: 'tickets', basePerHour: 3, perLevelPerHour: 1.5 } },
   { id: 'aerobics', name: 'Water Aerobics Pool', icon: amenityAerobics, category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio.' },
   { id: 'birdwatch', name: 'Bird Watching Post', icon: amenityBirdwatch, category: 'decoration', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory.' },
   { id: 'earlybird', name: 'Early Bird Line', icon: amenityEarlybird, category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15.' },
@@ -499,10 +531,44 @@ export const AMENITIES: Amenity[] = [
   { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'decoration', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.' },
   { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- this one is just for looking nice.' },
 ];
-export const BASE_HOUSING_CAPACITY = 6; // matches TEAM_SIZE_LIMIT -- room for a starting team before any Cottage is built
-export function getHousingCapacity(builtAmenityIds: string[]): number {
-  const cottagesBuilt = builtAmenityIds.filter(id => id === 'cottage').length; // reserved for future multi-build support; currently one-of-each
-  return BASE_HOUSING_CAPACITY + cottagesBuilt * (AMENITIES.find(a => a.id === 'cottage')?.capacityBonus ?? 0);
+// Max residents. The Retirement Cottage is the housing building: it raises capacity, and every level
+// raises it more. Existing rosters above capacity are grandfathered (nothing is removed) -- the cap
+// only blocks bringing NEW residents into the park via Guide.
+export const BASE_HOUSING_CAPACITY = 20;
+// Owned map Parcels each add a little room (this replaced the old passive "Parcel Rent").
+export const PARCEL_HOUSING_PER = 1;
+export const PARCEL_HOUSING_CAP = 10;
+export const MAX_BUILDING_LEVEL = 10;
+export const BUILDING_STORAGE_HOURS = 8; // a working building stops producing once it holds 8 hours of output
+export function getBuildingLevel(levels: Record<string, number> | undefined, id: string): number {
+  const v = levels?.[id];
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(v))) : 1;
+}
+export function getHousingCapacity(builtAmenityIds: string[], levels?: Record<string, number>, parcelCount = 0): number {
+  const parcelRooms = Math.min(PARCEL_HOUSING_CAP, Math.max(0, Math.floor(parcelCount))) * PARCEL_HOUSING_PER;
+  const cottage = AMENITIES.find(a => a.id === 'cottage');
+  if (!cottage || !builtAmenityIds.includes('cottage')) return BASE_HOUSING_CAPACITY + parcelRooms;
+  const lvl = getBuildingLevel(levels, 'cottage');
+  return BASE_HOUSING_CAPACITY + parcelRooms + (cottage.capacityBonus ?? 0) + (cottage.capacityPerLevel ?? 0) * (lvl - 1);
+}
+// Level-up costs: Building Materials (grows 1.4x per level: slow, never dead) plus Tickets as a second sink.
+export function buildingUpgradeMaterials(amenity: Amenity, currentLevel: number): number {
+  return Math.round(amenity.cost * 0.8 * Math.pow(1.4, currentLevel - 1));
+}
+export function buildingUpgradeTickets(currentLevel: number): number {
+  return 25 * currentLevel;
+}
+export function producerRatePerHour(amenity: Amenity, level: number): number {
+  if (!amenity.producer) return 0;
+  return amenity.producer.basePerHour + amenity.producer.perLevelPerHour * (level - 1);
+}
+// How much a working building is holding right now (whole units), capped at its storage limit.
+export function producerStored(amenity: Amenity, level: number, lastCollectedAt: number | undefined, now: number, outputBonus = 0): number {
+  const rate = producerRatePerHour(amenity, level);
+  if (rate <= 0) return 0;
+  const since = typeof lastCollectedAt === 'number' && Number.isFinite(lastCollectedAt) ? Math.max(0, now - lastCollectedAt) : 0;
+  const hours = Math.min(BUILDING_STORAGE_HOURS, since / 3600000);
+  return Math.floor(rate * hours * (1 + outputBonus));
 }
 // Materials granted for visiting a friend's park (once per friend per day,
 // enforced client-side via GameState.lastVisitedFriends -- Materials aren't
@@ -731,7 +797,7 @@ export const STRUCTURE_TEMPLATES = [
     type: 'Shuffleboard', 
     name: 'Grand Shuffle Court', 
     icon: '🥏', 
-    description: 'Team King of the Hill. Hold the court to boost your passive income!',
+    description: 'Team King of the Hill. Beat the court to be Champion for 24 hours and collect a Ticket purse!',
     requirement: 'Cost: 20 Tokens'
   },
   { 

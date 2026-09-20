@@ -51,7 +51,7 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: "Grow Your Elders",
-    description: "Elders earn XP from battles and Court play. As they level up they get stronger and produce more Comfort, and at certain levels you can evolve them into an even better form using Tickets.",
+    description: "Elders earn XP from battles and Court play. As they level up they get stronger and more Comfortable -- Comfort makes your park's working buildings produce more, and at certain levels you can evolve them into an even better form using Tickets.",
     icon: <SparklesIcon className="w-12 h-12 text-pink-500" />
   },
   {

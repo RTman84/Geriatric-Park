@@ -117,6 +117,7 @@ export interface GameState {
   isLinkedToGoogle: boolean;
   googleEmail?: string;
   pensionBalance: number;
+  lastCourtPurseClaim?: number; // when the Champion's purse was last collected (once per reign)
   economyVersion?: number; // 2 = PP scaled to the $0.008/ad assumption (Bundle B)
   pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out (or spent on Park Assets)
   communityReserve: number; 
@@ -152,6 +153,8 @@ export interface GameState {
   // raises total roster capacity.
   buildingMaterials: number;
   builtAmenityIds: string[];
+  amenityLevels: Record<string, number>;      // building id -> level (missing = level 1)
+  amenityCollectedAt: Record<string, number>; // working building id -> when its output was last collected
   // Per-friend timestamp of the last time visiting them granted a Materials
   // reward, so the visit reward can be capped to once/day/friend client-side.
   lastVisitedFriends: Record<string, number>;
@@ -179,7 +182,7 @@ export interface GameState {
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
   goldenGames: { highestLeagueCleared: number; nextMatchAt: number }; // -1 = none cleared yet
-  friendBattle: { nextMatchAt: number };
+  friendBattle: { nextMatchAt: number; rewardDay?: string; rewardsToday?: number };
   settings: GameSettings;
   tournamentScore: number;
   tournamentEndsAt: number;

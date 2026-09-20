@@ -49,6 +49,27 @@ Other fixes made in the same pass:
   in `calculatePassiveIncome` (double base). Initial `pensionRate` is now 0.
 - Battle wins used to add 0.005 to the Community Reserve with no revenue behind it. Removed.
 
+## 3b. What raises the passive rate (Economy v3, 2026-09-20)
+
+Rule: **gameplay never raises passive income.** The passive rate is now ONLY:
+`base rate + Park Assets (bought with Pending Yield) x ad boost (2x while active)`.
+
+Things that used to touch it and what they do now:
+| Feature | Before | Now |
+|---|---|---|
+| Shuffleboard King (map Grand Shuffle Court) | permanent x1.5 on the whole rate for one 20-Ticket win, could never be lost | **Court Champion**: 24-hour title; collect a 45-Ticket purse once per reign; win again to renew |
+| Parcel Rent (map parcels, 100 Tickets) | +passive bonus per parcel | **+1 roster room per parcel** (max +10); saves are migrated (bonus removed from pensionRate) |
+| Elder Comfort | added to passive (was ~1e-9/tick, i.e. nothing) | **Building output**: each active Elder gives comfort points (rarity x evolution x (1 + 4%/level)); +1% output per point, max +50%, for Tickets/Materials producers only |
+
+Stars (Park Score): they never touched passive income; they only raise the Park Dividend bonus
+(PP, reserve-capped, and Tickets). Planned rework (needs item rarity first): Stars become "Renown" and
+slightly raise rare-drop luck, small enough to matter only late in the game.
+
+Friend Battle longevity pass: win 12-24 Tickets + 2 Materials (was 40-80 + 6), only the first 6 wins
+per day pay (bragging rights after that, 25% XP), 5-minute cooldown unchanged.
+Tower rewards already grow slower than difficulty (section 5). Auto-Play / Tournament / Challenge
+rewards have NOT had a longevity pass yet.
+
 ## 4. Solvency guardrails (PP can never exceed real revenue)
 
 1. PP is created only by (a) the ad-view player share and (b) reserve-capped Dividend / Cash Out.
