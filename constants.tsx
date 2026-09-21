@@ -328,6 +328,61 @@ export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = generateGoldenGamesTier
 // model simple and stops pure spam-farming without needing four separate timers.
 export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
 
+// --- Elder Challenge: the Rival Ladder ---------------------------------------
+// Replaces the old "stake any amount, winner takes all" duel, which was an endless Ticket faucet: a squad
+// stronger than the rival won every time for +stake with no cooldown or limit. Now:
+//  * a ladder of CHALLENGE_MAX_TIERS rivals whose power climbs 1.10x per rank (same steepness as the
+//    Golden Games Tower) while rewards climb only 1.04x, so higher ranks are a challenge, not a faucet;
+//  * you can only take on ranks up to one above your best win (replaying lower ranks is allowed);
+//  * only the first CHALLENGE_DAILY_PAID_WINS wins per UTC day pay Tickets/full XP; after that duels are
+//    friendly (reduced XP, nothing to lose);
+//  * the first win against a rank pays CHALLENGE_FIRST_CLEAR_MULT x the normal purse (one-time, bounded).
+// Change CHALLENGE_MAX_TIERS to add more rungs -- rank data is generated, nothing else to edit.
+export const CHALLENGE_MAX_TIERS = 100;
+const CHALLENGE_BASE_POWER = 40;
+const CHALLENGE_POWER_GROWTH = 1.10;
+const CHALLENGE_REWARD_GROWTH = 1.04;
+const CHALLENGE_XP_GROWTH = 1.05;
+export const CHALLENGE_VARIANCE = 0.10; // rival power swings +-10% each duel
+export const CHALLENGE_DAILY_PAID_WINS = 5;
+export const CHALLENGE_FIRST_CLEAR_MULT = 3;
+export const CHALLENGE_UNPAID_XP_SHARE = 0.25;
+const CHALLENGE_RIVAL_NAMES = ['Shuffleboard Steve', 'Bingo Barb', 'Canasta Carl', 'Mahjong Millie', 'Golf-Cart Gary', 'Pinochle Pearl', 'Crossword Clyde', 'Casserole Connie', 'Sudoku Sal', 'Bocce Betty'];
+export interface ChallengeTier {
+  index: number; rank: number; name: string; rivalPower: number;
+  winTickets: number; lossTickets: number; winElderXp: number; winPlayerXp: number; winScore: number;
+}
+export const CHALLENGE_TIERS: ChallengeTier[] = Array.from({ length: CHALLENGE_MAX_TIERS }, (_, i) => {
+  const winTickets = Math.round(6 * Math.pow(CHALLENGE_REWARD_GROWTH, i));
+  return {
+    index: i,
+    rank: i + 1,
+    name: CHALLENGE_RIVAL_NAMES[i % CHALLENGE_RIVAL_NAMES.length],
+    rivalPower: Math.round(CHALLENGE_BASE_POWER * Math.pow(CHALLENGE_POWER_GROWTH, i)),
+    winTickets,
+    lossTickets: Math.max(3, Math.round(winTickets * 0.5)),
+    winElderXp: Math.round(20 * Math.pow(CHALLENGE_XP_GROWTH, i)),
+    winPlayerXp: Math.round(60 * Math.pow(CHALLENGE_XP_GROWTH, i)),
+    winScore: 8,
+  };
+});
+// Saved/cloud data is untrusted: tolerate any shape.
+export function normalizeChallengeLadder(x: any): { highestCleared: number; day: string; paidWins: number } {
+  const num = (v: any, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : d);
+  const highest = Math.min(CHALLENGE_MAX_TIERS - 1, Math.max(-1, num(x?.highestCleared, -1)));
+  return { highestCleared: highest, day: typeof x?.day === 'string' ? x.day : '', paidWins: Math.max(0, num(x?.paidWins, 0)) };
+}
+export function rollChallenge(myPower: number, tier: ChallengeTier): { won: boolean; rivalPower: number } {
+  const rivalPower = tier.rivalPower * (1 - CHALLENGE_VARIANCE + Math.random() * CHALLENGE_VARIANCE * 2);
+  return { won: myPower > rivalPower, rivalPower };
+}
+
+// Park Assets the player owns: parkAssets is { itemId: count } (untrusted, so tolerate bad values).
+export function ownedAssetCount(parkAssets: any, id: string): number {
+  const n = parkAssets && typeof parkAssets === 'object' ? parkAssets[id] : 0;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 // ─── Friend Battle (Phase 3, social system) ──────────────────────────────────
 // Async PvP against a friend's synced Squad Power snapshot -- not a live
 // match, no coordination needed. Resolved the same squad-power-vs-difficulty

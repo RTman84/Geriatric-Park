@@ -10,6 +10,8 @@ import {
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
   GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
+  CHALLENGE_TIERS, CHALLENGE_MAX_TIERS, CHALLENGE_DAILY_PAID_WINS, CHALLENGE_FIRST_CLEAR_MULT, CHALLENGE_VARIANCE,
+  normalizeChallengeLadder, rollChallenge, utcDayKey, ownedAssetCount,
   rollFriendBattle,
 } from '../constants';
 import { 
@@ -125,8 +127,9 @@ export const BankPanel: React.FC<{
   onWithdraw: () => void, adCount: number, onWatchAdTrigger: () => void, 
   onInvest: (item: any) => void, isDark: boolean, boostUntil?: number,
   onWatchAd?: (playerShare: number, communityShare: number) => void,
-  pendingYield?: number, onCashOutYield?: () => void
-}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield }) => {
+  pendingYield?: number, onCashOutYield?: () => void,
+  parkAssets?: Record<string, number>, assetRatePerTick?: number
+}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield, parkAssets, assetRatePerTick = 0 }) => {
   const adsLeft = MAX_ADS_PER_DAY - adCount;
   const [boostRemaining, setBoostRemaining] = useState<number>(0);
   const exchangeRate = getYieldExchangeRate(reserve);
@@ -240,6 +243,53 @@ export const BankPanel: React.FC<{
         )}
       </div>
 
+      {/* Your Park Assets: what you own and how much each adds */}
+      {(() => {
+        const owned = INVESTMENT_TIERS.flatMap(t => t.items)
+          .map(item => ({ item, count: ownedAssetCount(parkAssets, item.id) }))
+          .filter(o => o.count > 0);
+        const tracked = owned.reduce((sum, o) => sum + o.count * o.item.rateBoost, 0);
+        const earlier = Math.max(0, assetRatePerTick - tracked);
+        const hasEarlier = earlier >= 1e-8;
+        const totalCount = owned.reduce((sum, o) => sum + o.count, 0);
+        const muted = isDark ? 'text-slate-300' : 'text-slate-600';
+        return (
+          <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Your Park Assets</h3>
+              <span className={`text-[14px] font-black uppercase ${muted}`}>{totalCount} owned</span>
+            </div>
+            {owned.length === 0 && !hasEarlier ? (
+              <p className={`text-[15px] font-bold ${muted}`}>You don't own any Park Assets yet. Spend Pending Yield below to buy your first one — each raises your passive rate for good.</p>
+            ) : (
+              <div className="space-y-3">
+                {owned.map(({ item, count }) => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                      {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" /> : item.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></p>
+                    </div>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(count * item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                  </div>
+                ))}
+                {hasEarlier && (
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>📦</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>Earlier purchases</p>
+                      <p className={`text-[13px] font-bold ${muted}`}>Bought before assets were itemised</p>
+                    </div>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(earlier * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Investment Tiers */}
       <div className="mb-10">
         <div className="flex items-center justify-between px-4 mb-6">
@@ -257,6 +307,7 @@ export const BankPanel: React.FC<{
                 {tier.items.map(item => {
                   const canAfford = pendingYield >= item.cost;
                   const progress = Math.min(100, (pendingYield / item.cost) * 100);
+                  const ownedCount = ownedAssetCount(parkAssets, item.id);
                   return (
                   <button
                     key={item.id}
@@ -273,7 +324,7 @@ export const BankPanel: React.FC<{
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
-                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}</h5>
+                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}{ownedCount > 0 && <span className="text-[var(--accent-500)]"> ×{ownedCount}</span>}</h5>
                         <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{item.cost.toFixed(2)} Yield</span>
                       </div>
                       <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
@@ -310,7 +361,8 @@ interface ShuffleboardProps {
   heldStructureIds: string[];
   onPassiveResult: (won: boolean, tokensEarned: number) => void;
   onTournamentPlay: (score: number) => void;
-  onChallenge: (stakeTokens: number, won: boolean) => void;
+  onChallenge: (tierIndex: number, won: boolean) => { paid: boolean; tickets: number; firstClear: boolean };
+  challengeLadder?: { highestCleared: number; day: string; paidWins: number };
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
@@ -328,14 +380,14 @@ interface ShuffleboardProps {
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
-  onPassiveResult, onTournamentPlay, onChallenge,
+  onPassiveResult, onTournamentPlay, onChallenge, challengeLadder,
   tournamentScore, tournamentEndsAt, passiveMatchAt,
   goldenGames, onGoldenGamesResult,
   friends, friendBattle, onFriendBattleResult,
   leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onAddFriendFromLeaderboard
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league' | 'friendBattle'>('passive');
-  const [stakeAmount, setStakeAmount] = useState(20);
+  const [challengeTier, setChallengeTier] = useState(() => Math.min(CHALLENGE_MAX_TIERS - 1, normalizeChallengeLadder(challengeLadder).highestCleared + 1));
   const [selectedLeague, setSelectedLeague] = useState(() =>
     Math.min(Math.max(goldenGames.highestLeagueCleared + 1, 0), GOLDEN_GAMES_LEAGUES.length - 1)
   );
@@ -423,21 +475,20 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   };
 
   const handleChallenge = () => {
-    if (tokens < stakeAmount || team.length === 0) return;
+    if (team.length === 0) return;
+    const ladder = normalizeChallengeLadder(challengeLadder);
+    const sel = Math.max(0, Math.min(challengeTier, Math.min(CHALLENGE_MAX_TIERS - 1, ladder.highestCleared + 1)));
+    const tier = CHALLENGE_TIERS[sel];
+    const paidLeft = CHALLENGE_DAILY_PAID_WINS - (ladder.day === utcDayKey() ? ladder.paidWins : 0);
+    if (paidLeft > 0 && tokens < tier.lossTickets) return;
     setIsPlaying(true);
     setTimeout(() => {
-      // Rival power scales directly off what you stake (10x), plus up to 15%
-      // above that -- never below. This makes Challenge a self-selected,
-      // proportional risk: staking roughly your own Squad Power / 10 keeps
-      // the odds close to even, staking beyond that is a deliberate gamble.
-      const rivalPowerAvg = stakeAmount * 10;
-      const rivalPower = rivalPowerAvg * (1 + Math.random() * 0.15);
-      const won = teamStrength > rivalPower;
-      onChallenge(stakeAmount, won);
+      const { won, rivalPower } = rollChallenge(teamStrength, tier);
+      const res = onChallenge(tier.index, won);
       setLastResultWon(won);
-      setLastResult(won 
-        ? `Challenge won vs a rival power of ${Math.round(rivalPower)}! +${stakeAmount} 🎟️ stolen!` 
-        : `Outmatched by a rival power of ${Math.round(rivalPower)} — -${stakeAmount} 🎟️`);
+      setLastResult(won
+        ? `Rank ${tier.rank} ${tier.name} defeated (rival power ${Math.round(rivalPower)})! ${res.firstClear ? 'First-win bonus! ' : ''}${res.tickets > 0 ? `+${res.tickets} 🎟️` : 'Friendly duel — no Tickets, reduced XP.'}`
+        : `Outmatched by ${tier.name} (rival power ${Math.round(rivalPower)})${res.tickets < 0 ? ` — ${res.tickets} 🎟️` : ''}`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -662,58 +713,71 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         </div>
       )}
 
-      {/* Challenge Mode */}
-      {activeMode === 'challenge' && (
+      {/* Challenge Mode: the Rival Ladder */}
+      {activeMode === 'challenge' && (() => {
+        const ladder = normalizeChallengeLadder(challengeLadder);
+        const maxSelectable = Math.min(CHALLENGE_MAX_TIERS - 1, ladder.highestCleared + 1);
+        const sel = Math.max(0, Math.min(challengeTier, maxSelectable));
+        const tier = CHALLENGE_TIERS[sel];
+        const paidLeft = Math.max(0, CHALLENGE_DAILY_PAID_WINS - (ladder.day === utcDayKey() ? ladder.paidWins : 0));
+        const firstClear = tier.index > ladder.highestCleared;
+        const rivalMin = Math.round(tier.rivalPower * (1 - CHALLENGE_VARIANCE));
+        const rivalMax = Math.round(tier.rivalPower * (1 + CHALLENGE_VARIANCE));
+        const canPlay = !isPlaying && team.length > 0 && (paidLeft === 0 || tokens >= tier.lossTickets);
+        const oddsText = teamStrength > rivalMax ? 'favorable odds' : teamStrength < rivalMin ? 'risky fight' : 'close match';
+        const oddsColor = teamStrength > rivalMax ? 'text-emerald-500' : teamStrength < rivalMin ? 'text-rose-400' : 'text-amber-500';
+        const muted = isDark ? 'text-slate-300' : 'text-slate-600';
+        const navBtn = (enabled: boolean) => `flex-1 py-2 rounded-xl text-[14px] font-black uppercase transition-all ${enabled ? (isDark ? 'bg-slate-700 text-slate-100 active:scale-95' : 'bg-slate-100 text-slate-700 active:scale-95') : (isDark ? 'bg-slate-900 text-slate-600' : 'bg-slate-50 text-slate-300')} ${enabled ? '' : 'cursor-not-allowed'}`;
+        return (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">⚔️</div>
-            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge</h3>
-            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Stake Tickets and challenge a rival Elder. Winner takes all!</p>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge Ladder</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{CHALLENGE_MAX_TIERS} ranks of rivals. Beat a rank to unlock the next.</p>
           </div>
 
-          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest mb-3`}>Set Your Stake</p>
+          <div className={`p-4 rounded-2xl mb-4 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <p className={`text-[14px] font-black uppercase ${muted} tracking-widest mb-3 text-center`}>Choose Your Rival</p>
             <div className="flex gap-2">
-              {[10, 20, 50, 100].map(amt => (
-                <button
-                  key={amt}
-                  onClick={() => setStakeAmount(amt)}
-                  className={`flex-1 py-2 rounded-xl text-[14px] font-black uppercase transition-all ${stakeAmount === amt ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
-                >
-                  {amt}🎟️
-                </button>
-              ))}
+              <button disabled={sel <= 0} onClick={() => setChallengeTier(Math.max(0, sel - 10))} className={navBtn(sel > 0)}>−10</button>
+              <button disabled={sel <= 0} onClick={() => setChallengeTier(sel - 1)} className={navBtn(sel > 0)}>◀</button>
+              <button disabled={sel >= maxSelectable} onClick={() => setChallengeTier(sel + 1)} className={navBtn(sel < maxSelectable)}>▶</button>
+              <button disabled={sel >= maxSelectable} onClick={() => setChallengeTier(maxSelectable)} className={navBtn(sel < maxSelectable)}>Next ⏭</button>
             </div>
           </div>
 
-          {/* Rival Elder */}
-          <div className={`p-4 rounded-2xl mb-6 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-            <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest mb-3`}>Your Rival</p>
+          <div className={`p-4 rounded-2xl mb-4 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
             <div className="flex items-center gap-4">
               <span className="text-4xl">👴</span>
-              <div>
-                <p className="font-black text-base uppercase">Shuffleboard Steve</p>
-                <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Power: {stakeAmount * 10}–{Math.round(stakeAmount * 10 * 1.15)} (scales with your stake)</p>
+              <div className="min-w-0">
+                <p className="font-black text-base uppercase truncate">{tier.name}</p>
+                <p className={`text-[14px] ${muted}`}>Rank {tier.rank} · Power {rivalMin}–{rivalMax}</p>
               </div>
-              <div className="ml-auto text-center">
-                <span className={`block text-[13px] uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Prize Pool</span>
-                <span className="font-black text-[var(--accent-500)]">{stakeAmount * 2} 🎟️</span>
+              <div className="ml-auto text-center shrink-0">
+                <span className={`block text-[13px] uppercase ${muted}`}>{firstClear ? 'First win' : 'Win'}</span>
+                <span className="font-black text-[var(--accent-500)]">+{firstClear ? tier.winTickets * CHALLENGE_FIRST_CLEAR_MULT : tier.winTickets} 🎟️</span>
               </div>
             </div>
-            <p className={`text-[13px] font-bold mt-3 ${teamStrength > stakeAmount * 10 * 1.15 ? 'text-emerald-500' : teamStrength < stakeAmount * 10 ? 'text-rose-400' : 'text-amber-500'}`}>
-              Your Squad Power: {teamStrength} — {teamStrength > stakeAmount * 10 * 1.15 ? 'favorable odds' : teamStrength < stakeAmount * 10 ? 'risky stake' : 'close match'}
+            <p className={`text-[13px] font-bold mt-3 ${oddsColor}`}>Your Squad Power: {teamStrength} — {oddsText}</p>
+            <p className={`text-[13px] font-bold mt-1 ${muted}`}>
+              {paidLeft > 0 ? `Lose: −${tier.lossTickets} 🎟️` : 'Friendly duel: nothing to lose, reduced XP'}
             </p>
           </div>
 
+          <p className={`text-[14px] font-black uppercase text-center mb-4 ${paidLeft > 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {paidLeft > 0 ? `${paidLeft} of ${CHALLENGE_DAILY_PAID_WINS} paid wins left today` : 'Daily paid wins used — resets at midnight UTC'}
+          </p>
+
           <button
             onClick={handleChallenge}
-            disabled={isPlaying || team.length === 0 || tokens < stakeAmount}
-            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${!isPlaying && team.length > 0 && tokens >= stakeAmount ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+            disabled={!canPlay}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${canPlay ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
-            {isPlaying ? 'Dueling...' : tokens < stakeAmount ? 'Not enough Tickets!' : team.length === 0 ? 'Assign squad first!' : `⚔️ Challenge! (Stake ${stakeAmount} 🎟️)`}
+            {isPlaying ? 'Dueling...' : team.length === 0 ? 'Assign squad first!' : (paidLeft > 0 && tokens < tier.lossTickets) ? 'Not enough Tickets!' : `⚔️ Challenge ${tier.name}!`}
           </button>
         </div>
-      )}
+        );
+      })()}
 
       {/* Golden Games Mode ("The Tower") */}
       {activeMode === 'league' && (
@@ -1087,8 +1151,10 @@ export const BasePanel: React.FC<{
   shuffleboardKing?: any,
   passiveBreakdown?: { base: number, assets: number },
   onScrapElder?: (id: string) => void,
-  parkScore?: number
-}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0 }) => {
+  parkScore?: number,
+  parkAssets?: Record<string, number>,
+  healPrice?: { cost: number; soldOut: boolean }
+}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
@@ -1143,10 +1209,33 @@ export const BasePanel: React.FC<{
           </div>
         )}
 
-        <button onClick={onHealAll} className="relative z-10 w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-all shadow-xl">
-          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab (25 🎟️)
+        <button onClick={onHealAll} disabled={healPrice?.soldOut} className="relative z-10 w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-all shadow-xl">
+          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab ({healPrice ? healPrice.cost : 25} 🎟️)
         </button>
       </div>
+
+      {/* Park Assets on display */}
+      {(() => {
+        const owned = INVESTMENT_TIERS.flatMap(t => t.items)
+          .map(item => ({ item, count: ownedAssetCount(parkAssets, item.id) }))
+          .filter(o => o.count > 0);
+        if (owned.length === 0) return null;
+        return (
+          <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            <h3 className={`text-base font-black uppercase italic mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Assets</h3>
+            <div className="flex flex-wrap gap-3">
+              {owned.map(({ item, count }) => (
+                <div key={item.id} className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-white'}`}>
+                    {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" /> : item.icon}
+                  </div>
+                  <span className={`font-black text-[14px] uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Daily check-in */}
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>

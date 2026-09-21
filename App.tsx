@@ -44,6 +44,14 @@ import {
   XP_FOR_LEVEL_UP,
   ELDER_AVATARS,
   STRUCTURE_PRICING,
+  utcDayKey,
+  ownedAssetCount,
+  CHALLENGE_TIERS,
+  CHALLENGE_MAX_TIERS,
+  CHALLENGE_DAILY_PAID_WINS,
+  CHALLENGE_FIRST_CLEAR_MULT,
+  CHALLENGE_UNPAID_XP_SHARE,
+  normalizeChallengeLadder,
   getStructurePrice,
   bumpStructureUses,
   WORLD_PATHS,
@@ -275,6 +283,8 @@ const INITIAL_STATE: GameState = {
   economyVersion: ECONOMY_VERSION,
   lastCourtPurseClaim: 0,
   structureUses: { day: '', counts: {} },
+  parkAssets: {},
+  challengeLadder: { highestCleared: -1, day: '', paidWins: 0 },
   pendingYield: 0.00,
   communityReserve: 0, // strictly player/ad-funded -- no free seed (was 5.00)
   earningsBreakdown: { passive: 0, active: 0, sponsorship: 0 },
@@ -1143,6 +1153,7 @@ const App: React.FC = () => {
       ...prev,
       pendingYield: prev.pendingYield - investment.cost,
       pensionRate: prev.pensionRate + investment.rateBoost,
+      parkAssets: { ...(prev.parkAssets && typeof prev.parkAssets === 'object' ? prev.parkAssets : {}), [investment.id]: ownedAssetCount(prev.parkAssets, investment.id) + 1 },
       // Stars scale with the size of the investment (old formula was cost x 10 before the PP rescale)
       parkCommunityScore: prev.parkCommunityScore + Math.round((investment.cost / PP_SCALE_V2) * 10)
     }));
@@ -1269,20 +1280,41 @@ const App: React.FC = () => {
     }
   }, [state.settings.sfxEnabled, state.tournamentScore, handleQuestProgress, refreshLeaderboard]);
 
-  const handleShuffleboardChallenge = useCallback((stakeTokens: number, won: boolean) => {
+  // Elder Challenge (Rival Ladder, see CHALLENGE_TIERS in constants.tsx). The panel rolls the duel and reports
+  // the outcome; the daily paid-win cap, first-clear bonus and all rewards are decided HERE so the panel can't
+  // drift. Returns what happened so the panel can word its result message.
+  const handleShuffleboardChallenge = useCallback((tierIndex: number, won: boolean): { paid: boolean; tickets: number; firstClear: boolean } => {
+    const tier = CHALLENGE_TIERS[Math.max(0, Math.min(CHALLENGE_MAX_TIERS - 1, Math.floor(tierIndex) || 0))];
+    const ladder = normalizeChallengeLadder(state.challengeLadder);
+    const today = utcDayKey();
+    const paidWinsToday = ladder.day === today ? ladder.paidWins : 0;
+    const paid = paidWinsToday < CHALLENGE_DAILY_PAID_WINS;
+    const firstClear = won && tier.index > ladder.highestCleared;
+    let tickets = 0;
+    if (won) tickets = firstClear ? tier.winTickets * CHALLENGE_FIRST_CLEAR_MULT : paid ? tier.winTickets : 0;
+    else tickets = paid ? -tier.lossTickets : 0;
+    const xpShare = paid ? 1 : CHALLENGE_UNPAID_XP_SHARE;
+    const playerXpGain = Math.round((won ? tier.winPlayerXp : tier.winPlayerXp * 0.25) * xpShare);
+    const elderXpGain = Math.round((won ? tier.winElderXp : tier.winElderXp * 0.25) * xpShare);
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
     setState(prev => {
-      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? 150 : 30);
+      const { xp, level } = applyXpGain(prev.xp, prev.level, playerXpGain);
       return {
         ...prev,
-        legacyTokens: prev.legacyTokens + (won ? stakeTokens : -stakeTokens),
+        legacyTokens: Math.max(0, prev.legacyTokens + tickets),
         xp, level,
-        allElders: grantElderXpToTeam(prev.allElders, won ? 35 : 8),
-        parkCommunityScore: prev.parkCommunityScore + (won ? 20 : 5),
+        allElders: elderXpGain > 0 ? grantElderXpToTeam(prev.allElders, elderXpGain) : prev.allElders,
+        parkCommunityScore: prev.parkCommunityScore + (won && paid ? tier.winScore : 0),
+        challengeLadder: {
+          highestCleared: won ? Math.max(ladder.highestCleared, tier.index) : ladder.highestCleared,
+          day: today,
+          paidWins: paidWinsToday + (won && paid ? 1 : 0),
+        },
       };
     });
     handleQuestProgress('challenge');
-  }, [state.settings.sfxEnabled, handleQuestProgress]);
+    return { paid, tickets, firstClear };
+  }, [state.settings.sfxEnabled, state.challengeLadder, handleQuestProgress]);
 
   // Golden Games (Phase 5, evolution spec). leagueIndex is into
   // GOLDEN_GAMES_LEAGUES; ticketsEarned is pre-rolled by ShuffleboardPanel
@@ -1963,7 +1995,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getStructurePrice(state.structureUses, 'Heal')} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
@@ -1989,6 +2021,7 @@ const App: React.FC = () => {
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
             pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield}
+            parkAssets={state.parkAssets} assetRatePerTick={state.pensionRate}
           />}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
@@ -2002,6 +2035,7 @@ const App: React.FC = () => {
               onPassiveResult={handlePassiveShuffleResult}
               onTournamentPlay={handleTournamentPlay}
               onChallenge={handleShuffleboardChallenge}
+              challengeLadder={state.challengeLadder}
               tournamentScore={state.tournamentScore}
               tournamentEndsAt={state.tournamentEndsAt}
               passiveMatchAt={state.passiveMatchAt}

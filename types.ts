@@ -118,6 +118,8 @@ export interface GameState {
   googleEmail?: string;
   pensionBalance: number;
   structureUses?: { day: string; counts: Record<string, number> }; // map-building visits today (UTC) -> escalating Ticket prices
+  parkAssets?: Record<string, number>; // Park Assets bought with Pending Yield: itemId -> how many
+  challengeLadder?: { highestCleared: number; day: string; paidWins: number }; // Elder Challenge rival ladder progress (-1 = none cleared)
   lastCourtPurseClaim?: number; // when the Champion's purse was last collected (once per reign)
   economyVersion?: number; // 2 = PP scaled to the $0.008/ad assumption (Bundle B)
   pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out (or spent on Park Assets)

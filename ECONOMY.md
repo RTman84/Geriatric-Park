@@ -148,6 +148,21 @@ Ticket price is flat for `freeUses` visits per UTC day, then multiplies by `grow
 
 Buildings are a shared world: `services/worldMap.ts` places them from a seeded grid so every player sees the same buildings at the same spots. Never change `WORLD_SEED` / `WORLD_CELL_DEG` after launch.
 
+## 6c. Elder Challenge: the Rival Ladder (2026-09-21) -- `CHALLENGE_*` in `constants.tsx`
+Replaces "stake any amount, winner takes all" (a squad stronger than the rival won every time for +stake, no cooldown, no limit = endless Tickets).
+- 100 ranks; rival power `40 x 1.10^rank` (same steepness as the Golden Games Tower), +-10% each duel. Raise `CHALLENGE_MAX_TIERS` to add rungs.
+- Rewards grow slower than difficulty: win Tickets `6 x 1.04^rank` (loss costs half), Elder XP `20 x 1.05^rank`, player XP `60 x 1.05^rank`, +8 Stars per paid win.
+- Only the first `CHALLENGE_DAILY_PAID_WINS` (5) wins per UTC day pay Tickets/full XP/Stars; after that duels are friendly (25% XP, nothing to lose).
+- First win against each rank pays 3x the purse once (rank 1-31 total is about 1,070 Tickets, one time). You can only fight up to one rank above your best win.
+- Steady-state faucet: 5 x win purse per day, e.g. ~95 Tickets/day at rank 31, ~315/day at rank 61 (power ~12,000).
+- Progress and the daily counter live in `challengeLadder` (client-side; move server-side with the Bundle F ledger).
+
+## 6d. Park Assets are itemised (2026-09-21)
+`parkAssets` = `{ itemId: count }`, shown in Bank ("Your Park Assets", with per-item PP/hr) and on the Park tab. Purchases made before this update are not itemised; Bank shows their combined rate as "Earlier purchases".
+
+## Known faucet still to fix (Bundle B2)
+Golden Games Tower: 20-300 Tickets per win at the base tiers with only a 3-minute shared cooldown (up to several hundred Tickets/hour for a squad that can win). Needs the same daily-paid-win cap + first-clear treatment as the Challenge ladder.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend
