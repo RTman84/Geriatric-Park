@@ -778,6 +778,45 @@ const generateNeighborhoodPaths = () => {
 
 export const WORLD_PATHS = generateNeighborhoodPaths();
 
+// Map-building pricing. Ticket cost is flat for `freeUses` visits per UTC day, then multiplies
+// by `growth` for every further visit; `dailyCap` is a hard stop. Resets at midnight UTC.
+// Tune here only -- handlers and buttons all read this table.
+export const STRUCTURE_PRICING: Record<string, { base: number; growth: number; freeUses: number; dailyCap?: number }> = {
+  Blitz:        { base: 10, growth: 1.35, freeUses: 0, dailyCap: 12 }, // Bingo pays +13 Tickets on average at base price, so it must climb fast
+  Heal:         { base: 25, growth: 1.25, freeUses: 2 },
+  Shuffleboard: { base: 20, growth: 1.25, freeUses: 2, dailyCap: 15 },
+  Market:       { base: 30, growth: 1.50, freeUses: 1, dailyCap: 8 },  // permanent +2 squad stat per visit -- the steepest climb
+  Garden:       { base: 10, growth: 1.30, freeUses: 2, dailyCap: 12 },
+  Walk:         { base: 15, growth: 1.40, freeUses: 2, dailyCap: 10 }, // 250 XP per visit
+  Pavilion:     { base: 10, growth: 1.35, freeUses: 2, dailyCap: 10 }, // +50 Stars per visit
+};
+
+export function utcDayKey(ts: number = Date.now()): string {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+// `uses` comes from a save/cloud row, so it is treated as untrusted (wrong types -> 0 uses).
+export function structureUsesToday(uses: any, type: string): number {
+  if (!uses || typeof uses !== 'object' || uses.day !== utcDayKey()) return 0;
+  const n = uses.counts && typeof uses.counts === 'object' ? uses.counts[type] : 0;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+export function getStructurePrice(uses: any, type: string): { cost: number; used: number; cap?: number; soldOut: boolean } {
+  const rule = STRUCTURE_PRICING[type];
+  const used = structureUsesToday(uses, type);
+  if (!rule) return { cost: 10, used, soldOut: false };
+  const steps = Math.max(0, used - rule.freeUses);
+  return { cost: Math.round(rule.base * Math.pow(rule.growth, steps)), used, cap: rule.dailyCap, soldOut: rule.dailyCap !== undefined && used >= rule.dailyCap };
+}
+
+export function bumpStructureUses(uses: any, type: string): { day: string; counts: Record<string, number> } {
+  const today = utcDayKey();
+  const counts: Record<string, number> = uses && uses.day === today && uses.counts && typeof uses.counts === 'object' ? { ...uses.counts } : {};
+  counts[type] = structureUsesToday(uses, type) + 1;
+  return { day: today, counts };
+}
+
 export const STRUCTURE_TEMPLATES = [
   { 
     type: 'Blitz', 

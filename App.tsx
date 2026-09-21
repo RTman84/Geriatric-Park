@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { getWorldStructures, worldCellKey } from './services/worldMap';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
 import ElderInteraction from './components/ElderInteraction';
@@ -42,7 +43,9 @@ import {
   INITIAL_ACHIEVEMENTS,
   XP_FOR_LEVEL_UP,
   ELDER_AVATARS,
-  STRUCTURE_TEMPLATES,
+  STRUCTURE_PRICING,
+  getStructurePrice,
+  bumpStructureUses,
   WORLD_PATHS,
   TRAINING_BASE_COST,
   STAT_BONUS_PER_LEVEL,
@@ -271,6 +274,7 @@ const INITIAL_STATE: GameState = {
   pensionBalance: 0.00,
   economyVersion: ECONOMY_VERSION,
   lastCourtPurseClaim: 0,
+  structureUses: { day: '', counts: {} },
   pendingYield: 0.00,
   communityReserve: 0, // strictly player/ad-funded -- no free seed (was 5.00)
   earningsBreakdown: { passive: 0, active: 0, sponsorship: 0 },
@@ -373,6 +377,7 @@ const App: React.FC = () => {
   type Toast = { id: number; text: string; tone: 'good' | 'bad' };
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
+  const structureCellRef = useRef<string>('');
   const NEGATIVE_TOAST = /^(need |not enough|insufficient|invalid|failed|already|max squad|you can'?t|assign|no pending|minimum|community (reserve|pool) is|all sponsorship|this parcel|📭)|wandered off|\bneeds (to reach|\d)/i;
   const notify = useCallback((text: string, tone?: 'good' | 'bad') => {
     const resolved = tone ?? (NEGATIVE_TOAST.test(text) ? 'bad' : 'good');
@@ -627,14 +632,12 @@ const App: React.FC = () => {
       });
       setState(prev => ({ ...prev, nearbyItems: seedItems, itemsLastSpawnedAt: Date.now(), itemsLastSpawnLat: lat, itemsLastSpawnLng: lng }));
     }
-    if (state.nearbyStructures.length === 0) {
-      const newStructures = Array.from({ length: 12 }, (_, i) => {
-        const template = STRUCTURE_TEMPLATES[Math.floor(Math.random() * STRUCTURE_TEMPLATES.length)];
-        const sLat = lat + (Math.random() - 0.5) * 0.04;
-        const sLng = lng + (Math.random() - 0.5) * 0.04;
-        return { id: `struct_${sLat.toFixed(4)}_${sLng.toFixed(4)}`, ...template, lat: sLat, lng: sLng } as Structure;
-      });
-      setState(prev => ({ ...prev, nearbyStructures: newStructures }));
+    // Buildings are a shared world: same real-world spots for every player (see services/worldMap.ts).
+    const cellKey = worldCellKey(lat, lng);
+    if (state.nearbyStructures.length === 0 || structureCellRef.current !== cellKey) {
+      structureCellRef.current = cellKey;
+      const worldStructures = getWorldStructures(lat, lng);
+      setState(prev => ({ ...prev, nearbyStructures: worldStructures }));
     }
   }, [state.hasStarted, state.nearbyItems.length, state.itemsLastSpawnedAt, state.nearbyStructures.length, state.currentLocation.lat, state.currentLocation.lng]);
 
@@ -1185,18 +1188,24 @@ const App: React.FC = () => {
     notify(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
   }, [state.allElders, state.settings.sfxEnabled]);
 
+  const eventPrice = getStructurePrice(state.structureUses, activeEvent?.type ?? '');
+
   const handleHealSquad = useCallback(() => {
-    if (state.legacyTokens < 25) return notify("Need 25 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Heal');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens - 25, allElders: prev.allElders.map(e => ({ ...e, hp: e.maxHp })) }));
+    setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Heal'), allElders: prev.allElders.map(e => ({ ...e, hp: e.maxHp })) }));
     notify("Squad restored!");
     setActiveEvent(null);
-  }, [state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
 
   const handlePlayShuffleboard = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
     if (team.length === 0) return notify("Assign a squad first!");
-    if (state.legacyTokens < 20) return notify("Need 20 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Shuffleboard');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     if (!activeEvent) return;
     setIsEventPlaying(true);
     setTimeout(() => {
@@ -1209,20 +1218,20 @@ const App: React.FC = () => {
           const isAlreadyHeld = prev.heldStructureIds.includes(activeEvent.id);
           const { xp, level } = applyXpGain(prev.xp, prev.level, 100);
           return {
-            ...prev, legacyTokens: prev.legacyTokens - 20, xp, level,
+            ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Shuffleboard'), xp, level,
             heldStructureIds: isAlreadyHeld ? prev.heldStructureIds : [...prev.heldStructureIds, activeEvent.id],
             shuffleboard: { currentKing: { id: 'player', name: 'Your Squad', elderIcon: '🧑‍🦽', heldSince: Date.now(), teamIds: team.map(e => e.id) } }
           };
         } else {
           const { xp, level } = applyXpGain(prev.xp, prev.level, 25);
-          return { ...prev, legacyTokens: prev.legacyTokens - 20, xp, level };
+          return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Shuffleboard'), xp, level };
         }
       });
       handleQuestProgress('shuffleboard');
       setEventResult(success ? "Your squad holds the court!" : "The court kings were too tough!");
       setIsEventPlaying(false);
     }, 1500);
-  }, [state.legacyTokens, state.allElders, state.settings.sfxEnabled, activeEvent, handleQuestProgress]);
+  }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled, activeEvent, handleQuestProgress]);
 
   // Shuffleboard panel handlers
   const handlePassiveShuffleResult = useCallback((won: boolean, tokensEarned: number) => {
@@ -1455,7 +1464,9 @@ const App: React.FC = () => {
   }, [state.settings.sfxEnabled]);
 
   const handleGardenScavenge = useCallback(() => {
-    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Garden');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
     setTimeout(() => {
       const poolItem = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
@@ -1464,47 +1475,53 @@ const App: React.FC = () => {
       setState(prev => {
         const nextInventory = success ? [...prev.inventory, { id: 'garden_' + Date.now(), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, slot: poolItem.slot as any || 'Accessory', description: poolItem.description || '' }] : prev.inventory;
         const { xp, level } = applyXpGain(prev.xp, prev.level, 50);
-        return { ...prev, legacyTokens: prev.legacyTokens - 10, xp, level, inventory: nextInventory };
+        return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Garden'), xp, level, inventory: nextInventory };
       });
       setEventResult(success ? `You found a ${poolItem.name}!` : "You only found some weeds today.");
       setIsEventPlaying(false);
     }, 1200);
-  }, [state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
 
   const handleMallWalk = useCallback(() => {
-    if (state.legacyTokens < 15) return notify("Need 15 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Walk');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const xpGain = 250;
       setState(prev => {
         const { xp, level } = applyXpGain(prev.xp, prev.level, xpGain);
-        return { ...prev, legacyTokens: prev.legacyTokens - 15, xp, level };
+        return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Walk'), xp, level };
       });
       setEventResult(`Great workout! Your squad gained ${xpGain} XP.`);
       setIsEventPlaying(false);
     }, 1500);
-  }, [state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
 
   const handlePavilionPotluck = useCallback(() => {
-    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Pavilion');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const scoreGain = 50;
       setState(prev => {
         const { xp, level } = applyXpGain(prev.xp, prev.level, 50);
-        return { ...prev, legacyTokens: prev.legacyTokens - 10, parkCommunityScore: prev.parkCommunityScore + scoreGain, xp, level };
+        return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Pavilion'), parkCommunityScore: prev.parkCommunityScore + scoreGain, xp, level };
       });
       setEventResult(`The potluck was a hit! Community Score +${scoreGain}.`);
       setIsEventPlaying(false);
     }, 1500);
-  }, [state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
 
   const handleMarketVisit = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
     if (team.length === 0) return notify("Assign a squad first!");
-    if (state.legacyTokens < 30) return notify("Need 30 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Market');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
     setTimeout(() => {
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1518,15 +1535,17 @@ const App: React.FC = () => {
           return { ...e, [boostedStat]: (e[boostedStat] as number) + 2 };
         });
         const { xp, level } = applyXpGain(prev.xp, prev.level, 75);
-        return { ...prev, legacyTokens: prev.legacyTokens - 30, allElders: nextElders, xp, level };
+        return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Market'), allElders: nextElders, xp, level };
       });
       setEventResult(`Fresh produce! Your whole squad's ${statNames[boostedStat]} +2.`);
       setIsEventPlaying(false);
     }, 1500);
-  }, [state.legacyTokens, state.allElders, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled]);
 
   const handlePlayBingo = useCallback(() => {
-    if (state.legacyTokens < 10) return notify("Need 10 Tokens!");
+    const price = getStructurePrice(state.structureUses, 'Blitz');
+    if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
+    if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setTimeout(() => {
@@ -1536,7 +1555,7 @@ const App: React.FC = () => {
       setState(prev => {
         const { xp, level } = applyXpGain(prev.xp, prev.level, success ? 100 : 20);
         return {
-          ...prev, legacyTokens: prev.legacyTokens - 10 + prize,
+          ...prev, legacyTokens: prev.legacyTokens - price.cost + prize, structureUses: bumpStructureUses(prev.structureUses, 'Blitz'),
           xp, level,
           parkCommunityScore: prev.parkCommunityScore + (success ? 10 : 2)
         };
@@ -1545,7 +1564,7 @@ const App: React.FC = () => {
       setIsEventPlaying(false);
       handleQuestProgress('bingo');
     }, 2000);
-  }, [state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   // PP is the real-money-shaped currency (WITHDRAWAL_MINIMUM = 10 PP), so it should only ever
   // be created by things traceable to real ad revenue: the ad-watch share below, and Dividend
@@ -2268,15 +2287,20 @@ const App: React.FC = () => {
               <div className="text-8xl mb-8 self-center animate-bounce">{activeEvent.icon}</div>
               <h3 className="text-3xl font-black uppercase text-center mb-3 italic tracking-tighter">{activeEvent.name}</h3>
               <p className="text-center mb-8 text-sm font-bold uppercase tracking-widest opacity-60 leading-relaxed">{activeEvent.description}</p>
+              {STRUCTURE_PRICING[activeEvent.type] && (
+                <p className="text-center -mt-4 mb-6 text-sm font-bold uppercase tracking-widest opacity-70">
+                  {eventPrice.soldOut ? 'Daily limit reached — resets at midnight UTC' : `Visits today: ${eventPrice.used}${eventPrice.cap !== undefined ? ` / ${eventPrice.cap}` : ''} · price rises with each visit`}
+                </p>
+              )}
               <div className="space-y-4">
                 {eventResult && <div className="p-4 bg-[var(--accent-500-a10)] rounded-xl text-center text-base font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
-                {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Drawing...' : 'Play Bingo (10 🎟️)'}</button>}
-                {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? 'Defend Court (20 🎟️)' : 'Clash for Court (20 🎟️)'}</button>}
-                {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad (25 🎟️)</button>}
-                {activeEvent.type === 'Garden' && <button onClick={handleGardenScavenge} disabled={isEventPlaying} className="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Searching...' : 'Scavenge Garden (10 🎟️)'}</button>}
-                {activeEvent.type === 'Walk' && <button onClick={handleMallWalk} disabled={isEventPlaying} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Walking...' : 'Train at Mall (15 🎟️)'}</button>}
-                {activeEvent.type === 'Pavilion' && <button onClick={handlePavilionPotluck} disabled={isEventPlaying} className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Eating...' : 'Host Potluck (10 🎟️)'}</button>}
-                {activeEvent.type === 'Market' && <button onClick={handleMarketVisit} disabled={isEventPlaying} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Shopping...' : 'Visit Market (30 🎟️)'}</button>}
+                {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Drawing...' : `Play Bingo (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? `Defend Court (${eventPrice.cost} 🎟️)` : `Clash for Court (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} disabled={eventPrice.soldOut} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad ({eventPrice.cost} 🎟️)</button>}
+                {activeEvent.type === 'Garden' && <button onClick={handleGardenScavenge} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Searching...' : `Scavenge Garden (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Walk' && <button onClick={handleMallWalk} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Walking...' : `Train at Mall (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Pavilion' && <button onClick={handlePavilionPotluck} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Eating...' : `Host Potluck (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Market' && <button onClick={handleMarketVisit} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Shopping...' : `Visit Market (${eventPrice.cost} 🎟️)`}</button>}
                 <button onClick={() => { setActiveEvent(null); setEventResult(null); }} className="w-full bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase active:scale-95 transition-transform">Close</button>
               </div>
             </div>

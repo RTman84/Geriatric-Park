@@ -133,6 +133,21 @@ Challenge stakes.
 **Open:** turn this into an hourly/daily expected-value table per source and sink, then tune
 against it. Rule: any new Ticket source needs a matching sink or a daily cap.
 
+## 6b. Map-building prices (2026-09-20) — `STRUCTURE_PRICING` in `constants.tsx`
+Ticket price is flat for `freeUses` visits per UTC day, then multiplies by `growth` per extra visit; `dailyCap` is a hard stop. Resets at midnight UTC (client-side count in `structureUses`; move server-side with the Bundle F ledger).
+
+| Building | Base | Free uses | Growth | Daily cap | Note |
+|---|---|---|---|---|---|
+| Farmers Market | 30 | 1 | x1.50 | 8 | permanent +2 squad stat per visit; ladder 30,30,45,68,101,152,228,342 |
+| Bingo Blitz | 10 | 0 | x1.35 | 12 | pays +13 Tickets on average at base price (40% x 50, else 5) -> profitable only for the first ~3 plays/day |
+| Mall Circuit | 15 | 2 | x1.40 | 10 | 250 XP per visit |
+| Potluck Pavilion | 10 | 2 | x1.35 | 10 | +50 Stars per visit |
+| Community Garden | 10 | 2 | x1.30 | 12 | 70% chance of an item |
+| Silver Springs | 25 | 2 | x1.25 | none | full heal |
+| Grand Shuffle Court | 20 | 2 | x1.25 | 15 | |
+
+Buildings are a shared world: `services/worldMap.ts` places them from a seeded grid so every player sees the same buildings at the same spots. Never change `WORLD_SEED` / `WORLD_CELL_DEG` after launch.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend
