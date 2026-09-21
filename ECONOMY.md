@@ -160,8 +160,18 @@ Replaces "stake any amount, winner takes all" (a squad stronger than the rival w
 ## 6d. Park Assets are itemised (2026-09-21)
 `parkAssets` = `{ itemId: count }`, shown in Bank ("Your Park Assets", with per-item PP/hr) and on the Park tab. Purchases made before this update are not itemised; Bank shows their combined rate as "Earlier purchases".
 
-## Known faucet still to fix (Bundle B2)
-Golden Games Tower: 20-300 Tickets per win at the base tiers with only a 3-minute shared cooldown (up to several hundred Tickets/hour for a squad that can win). Needs the same daily-paid-win cap + first-clear treatment as the Challenge ladder.
+## 6e. Court longevity caps (2026-09-21) -- same pattern as the Challenge ladder
+Found by audit: three Court modes could be farmed all day. Fixed with a daily paid-match cap (UTC day; extra matches are friendly: 25% XP, no Tickets/Materials/Stars).
+| Mode | Problem | Now |
+|---|---|---|
+| Golden Games Tower | 20-300 Tickets/win on a 3-minute cooldown (thousands/hour); Materials `(tier+1)*2` per win, unbounded, and Tickets + Materials paid on losses too | Base purses cut to ~25% (bronze 5-10, silver 12-22, gold 25-40, legendary 50-75, still x1.04 per tier), loss consolation 2/3/5/6, Materials `min(12, 2+tier)` per win and 1 per loss. First 5 matches/day pay; first-ever win in a tier pays 3x once. Cooldown unchanged (3 min) |
+| Auto-Play | Every 10 min: 5-57 Tickets + 100 XP per win (about 4,000 Tickets and 14,000 XP a day) | Every 30 min, 2-20 Tickets; first 8 collections/day pay |
+| Daily Tournament | Unlimited throws, each +10 Tickets/+75 XP, and only the BEST throw counts on the board, so the most throws won | 5 throws per tournament window (`TOURNAMENT_DAILY_THROWS`); the counter resets with the window |
+Progress counters live in `goldenGames.paid`, `autoPlayPaid`, `tournamentThrows` (client-side for now; move server-side with the Bundle F ledger). Leaderboard scores are still submitted by the client, so a modified client could post any score until the ledger exists.
+
+## Watch list (not fixed, verify in testing)
+- Scrapping Elders pays `4 x level x rarity` Tickets; check that capture -> scrap cannot be looped faster than intended once wild Elder spawn rates are measured.
+- Quest/Task rewards are a fixed list that can be claimed once; the planned Tasks rotation (Bundle D) needs daily caps from the start.
 
 ## 7. Retuning checklist (when real ad data arrives)
 

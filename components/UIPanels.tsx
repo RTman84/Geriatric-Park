@@ -12,6 +12,8 @@ import {
   GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
   CHALLENGE_TIERS, CHALLENGE_MAX_TIERS, CHALLENGE_DAILY_PAID_WINS, CHALLENGE_FIRST_CLEAR_MULT, CHALLENGE_VARIANCE,
   normalizeChallengeLadder, rollChallenge, utcDayKey, ownedAssetCount,
+  GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
+  TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle,
 } from '../constants';
 import { 
@@ -359,15 +361,17 @@ interface ShuffleboardProps {
   lastCourtPurseClaim?: number;
   onClaimCourtPurse?: () => void;
   heldStructureIds: string[];
-  onPassiveResult: (won: boolean, tokensEarned: number) => void;
+  onPassiveResult: (won: boolean, tokensEarned: number) => { tickets: number; paid: boolean };
   onTournamentPlay: (score: number) => void;
   onChallenge: (tierIndex: number, won: boolean) => { paid: boolean; tickets: number; firstClear: boolean };
   challengeLadder?: { highestCleared: number; day: string; paidWins: number };
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
-  goldenGames: { highestLeagueCleared: number; nextMatchAt: number };
-  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => number;
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number; paid?: { day: string; count: number } };
+  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => { tickets: number; materials: number; paid: boolean; firstClear: boolean };
+  tournamentThrows?: number;
+  autoPlayPaid?: { day: string; count: number };
   leaderboard: { top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
   leaderboardAvailable: boolean;
   leaderboardError: boolean;
@@ -381,7 +385,7 @@ interface ShuffleboardProps {
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge, challengeLadder,
-  tournamentScore, tournamentEndsAt, passiveMatchAt,
+  tournamentScore, tournamentEndsAt, passiveMatchAt, tournamentThrows = 0, autoPlayPaid,
   goldenGames, onGoldenGamesResult,
   friends, friendBattle, onFriendBattleResult,
   leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onAddFriendFromLeaderboard
@@ -436,18 +440,18 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const wobble = 0.9 + Math.random() * 0.2;
       const progressPct = Math.min(150, (teamStrength / AUTO_PLAY_BENCHMARK_POWER) * 100 * wobble);
       const won = progressPct >= 100;
-      const tokensEarned = Math.floor(5 + (progressPct / 100) * 35);
-      onPassiveResult(won, tokensEarned);
+      const tokensEarned = Math.floor(AUTO_PLAY_MIN_TICKETS + (progressPct / 100) * AUTO_PLAY_TICKET_SPAN);
+      const res = onPassiveResult(won, tokensEarned);
       setLastResultWon(won);
-      setLastResult(won
-        ? `Your Elders cleared the match (${Math.round(progressPct)}% squad readiness)! +${tokensEarned} 🎟️`
-        : `Solid progress, not quite a win (${Math.round(progressPct)}% squad readiness) — +${tokensEarned} 🎟️`);
+      setLastResult((won
+        ? `Your Elders cleared the match (${Math.round(progressPct)}% squad readiness)! +${res.tickets} 🎟️`
+        : `Solid progress, not quite a win (${Math.round(progressPct)}% squad readiness) — +${res.tickets} 🎟️`) + (res.paid ? '' : ' Daily paid collections used — friendly round, reduced XP.'));
       setIsPlaying(false);
     }, 1500);
   };
 
   const handleTournamentPlay = () => {
-    if (team.length === 0) return;
+    if (team.length === 0 || tournamentThrows >= TOURNAMENT_DAILY_THROWS) return;
     setIsPlaying(true);
     setTimeout(() => {
       const score = Math.floor(teamStrength * (0.5 + Math.random()));
@@ -504,11 +508,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const ticketsEarned = won
         ? Math.floor(league.winTicketsMin + Math.random() * (league.winTicketsMax - league.winTicketsMin))
         : league.lossTickets;
-      const materialsEarned = onGoldenGamesResult(selectedLeague, won, ticketsEarned);
+      const res = onGoldenGamesResult(selectedLeague, won, ticketsEarned);
       setLastResultWon(won);
-      setLastResult(won
-        ? `Your squad triumphed at the ${league.name}! +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`
-        : `Outplayed at the ${league.name} — consolation: +${ticketsEarned} 🎟️ +${materialsEarned} 🧱`);
+      setLastResult((res.firstClear ? 'FIRST WIN bonus x3! ' : '') + (won
+        ? `Your squad triumphed at the ${league.name}! +${res.tickets} 🎟️ +${res.materials} 🧱`
+        : `Outplayed at the ${league.name} — consolation: +${res.tickets} 🎟️ +${res.materials} 🧱`) + (res.paid || res.firstClear ? '' : ' Daily paid matches used — friendly match, reduced XP.'));
       setIsPlaying(false);
     }, 1500);
   };
@@ -603,7 +607,11 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Reward Range</span>
-              <span className="text-[var(--accent-500)]">5–57 🎟️</span>
+              <span className="text-[var(--accent-500)]">{AUTO_PLAY_MIN_TICKETS}–{Math.floor(AUTO_PLAY_MIN_TICKETS + 1.5 * AUTO_PLAY_TICKET_SPAN)} 🎟️</span>
+            </div>
+            <div className="flex justify-between text-[15px] font-black uppercase mt-2">
+              <span className="opacity-60">Paid Collections Left</span>
+              <span className="text-[var(--accent-500)]">{Math.max(0, AUTO_PLAY_DAILY_PAID - dailyCountToday(autoPlayPaid))} / {AUTO_PLAY_DAILY_PAID}</span>
             </div>
           </div>
           {team.length === 0 ? (
@@ -705,10 +713,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
           <button
             onClick={handleTournamentPlay}
-            disabled={isPlaying || team.length === 0}
+            disabled={isPlaying || team.length === 0 || tournamentThrows >= TOURNAMENT_DAILY_THROWS}
             className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${!isPlaying && team.length > 0 ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
-            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : '🥏 Throw for Score'}
+            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : tournamentThrows >= TOURNAMENT_DAILY_THROWS ? 'No throws left — resets with the timer' : `🥏 Throw for Score (${TOURNAMENT_DAILY_THROWS - tournamentThrows} left)`}
           </button>
         </div>
       )}
@@ -843,6 +851,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               </span>
             </div>
           </div>
+
+          <p className={`text-[14px] font-black uppercase text-center mb-4 ${GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid) > 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid) > 0 ? `${GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid)} of ${GOLDEN_GAMES_DAILY_PAID_MATCHES} paid matches left today` : 'Daily paid matches used — resets at midnight UTC'} · first win in a tier pays ×{GOLDEN_GAMES_FIRST_CLEAR_MULT}
+          </p>
 
           <button
             onClick={handleLeagueMatch}

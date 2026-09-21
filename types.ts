@@ -118,6 +118,8 @@ export interface GameState {
   googleEmail?: string;
   pensionBalance: number;
   structureUses?: { day: string; counts: Record<string, number> }; // map-building visits today (UTC) -> escalating Ticket prices
+  autoPlayPaid?: { day: string; count: number }; // Auto-Play collections that paid today (UTC)
+  tournamentThrows?: number; // throws used in the current tournament window
   parkAssets?: Record<string, number>; // Park Assets bought with Pending Yield: itemId -> how many
   challengeLadder?: { highestCleared: number; day: string; paidWins: number }; // Elder Challenge rival ladder progress (-1 = none cleared)
   lastCourtPurseClaim?: number; // when the Champion's purse was last collected (once per reign)
@@ -184,7 +186,7 @@ export interface GameState {
   mailbox: MailMessage[];
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
-  goldenGames: { highestLeagueCleared: number; nextMatchAt: number }; // -1 = none cleared yet
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number; paid?: { day: string; count: number } }; // -1 = none cleared yet
   friendBattle: { nextMatchAt: number; rewardDay?: string; rewardsToday?: number };
   settings: GameSettings;
   tournamentScore: number;

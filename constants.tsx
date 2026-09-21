@@ -281,10 +281,10 @@ export interface GoldenGamesLeague {
 // purely so the data model stays bounded; in practice this is far more
 // runway than any squad will realistically climb through soon.
 const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
-  { id: 'bronze', name: 'Bronze Clubhouse', icon: '🥉', minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 20, winTicketsMax: 40, winElderXp: 25, winCommunityScore: 10, lossTickets: 8, lossElderXp: 8 },
-  { id: 'silver', name: 'Silver Sunroom', icon: '🥈', minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 50, winTicketsMax: 90, winElderXp: 45, winCommunityScore: 20, lossTickets: 12, lossElderXp: 12 },
-  { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 100, winTicketsMax: 160, winElderXp: 70, winCommunityScore: 35, lossTickets: 18, lossElderXp: 18 },
-  { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 200, winTicketsMax: 300, winElderXp: 100, winCommunityScore: 60, lossTickets: 25, lossElderXp: 25 },
+  { id: 'bronze', name: 'Bronze Clubhouse', icon: '🥉', minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 5, winTicketsMax: 10, winElderXp: 25, winCommunityScore: 10, lossTickets: 2, lossElderXp: 8 },
+  { id: 'silver', name: 'Silver Sunroom', icon: '🥈', minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 12, winTicketsMax: 22, winElderXp: 45, winCommunityScore: 20, lossTickets: 3, lossElderXp: 12 },
+  { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 25, winTicketsMax: 40, winElderXp: 70, winCommunityScore: 35, lossTickets: 5, lossElderXp: 18 },
+  { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 50, winTicketsMax: 75, winElderXp: 100, winCommunityScore: 60, lossTickets: 6, lossElderXp: 25 },
 ];
 export const GOLDEN_GAMES_MAX_TIERS = 100;
 // Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
@@ -381,6 +381,35 @@ export function rollChallenge(myPower: number, tier: ChallengeTier): { won: bool
 export function ownedAssetCount(parkAssets: any, id: string): number {
   const n = parkAssets && typeof parkAssets === 'object' ? parkAssets[id] : 0;
   return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+// --- Court longevity caps (2026-09-21) ----------------------------------------------------------------
+// Same idea as the Challenge ladder and Friend Battle: only a limited number of matches per UTC day pay
+// Tickets/Materials/full XP; extra matches are friendly (25% XP, no Tickets), so nothing can be farmed all day.
+// Golden Games: purses were 20-300 Tickets per win on a 3-minute cooldown (thousands of Tickets/hour), plus
+// Materials that grew linearly with tier and were paid on LOSSES too. Base purses cut to ~25%, growth per
+// tier unchanged (1.04x), Materials capped, and the first clear of each tier pays 3x once.
+export const GOLDEN_GAMES_DAILY_PAID_MATCHES = 5;
+export const GOLDEN_GAMES_FIRST_CLEAR_MULT = 3;
+export const GOLDEN_GAMES_UNPAID_XP_SHARE = 0.25;
+export function goldenGamesMaterials(leagueIndex: number, won: boolean): number {
+  return won ? Math.min(12, 2 + leagueIndex) : 1;
+}
+// Auto-Play: steady background progress, deliberately the lowest-paying mode.
+export const AUTO_PLAY_INTERVAL_MS = 30 * 60 * 1000;
+export const AUTO_PLAY_DAILY_PAID = 8;
+export const AUTO_PLAY_MIN_TICKETS = 2;
+export const AUTO_PLAY_TICKET_SPAN = 12; // + up to span x readiness (max 150%) on top of the minimum
+export const AUTO_PLAY_UNPAID_XP_SHARE = 0.25;
+// Daily Tournament: only the best throw counts on the leaderboard, so unlimited throws just meant the player
+// who threw the most won. A fixed number of throws per tournament window makes the board about squads.
+export const TOURNAMENT_DAILY_THROWS = 5;
+// { day, count } counters that reset each UTC day (untrusted saves: any shape is tolerated).
+export function dailyCountToday(x: any): number {
+  return x && typeof x === 'object' && x.day === utcDayKey() && typeof x.count === 'number' && Number.isFinite(x.count) && x.count > 0 ? Math.floor(x.count) : 0;
+}
+export function bumpDaily(x: any): { day: string; count: number } {
+  return { day: utcDayKey(), count: dailyCountToday(x) + 1 };
 }
 
 // ─── Friend Battle (Phase 3, social system) ──────────────────────────────────

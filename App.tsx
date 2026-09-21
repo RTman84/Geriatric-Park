@@ -45,6 +45,16 @@ import {
   ELDER_AVATARS,
   STRUCTURE_PRICING,
   utcDayKey,
+  GOLDEN_GAMES_DAILY_PAID_MATCHES,
+  GOLDEN_GAMES_FIRST_CLEAR_MULT,
+  GOLDEN_GAMES_UNPAID_XP_SHARE,
+  goldenGamesMaterials,
+  AUTO_PLAY_INTERVAL_MS,
+  AUTO_PLAY_DAILY_PAID,
+  AUTO_PLAY_UNPAID_XP_SHARE,
+  TOURNAMENT_DAILY_THROWS,
+  dailyCountToday,
+  bumpDaily,
   ownedAssetCount,
   CHALLENGE_TIERS,
   CHALLENGE_MAX_TIERS,
@@ -236,6 +246,11 @@ function grantElderXp(elder: Elder, amount: number): Elder {
 // Grants Elder XP to every Elder currently on the active Team (the squad that
 // "participated"), used by activities that don't pass an explicit roster
 // (Shuffleboard Auto-Play/Tournament/Challenge).
+// Saved/cloud counters are untrusted: anything that isn't a finite non-negative number counts as 0.
+function safeCount(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+}
+
 function grantElderXpToTeam(elders: Elder[], amount: number): Elder[] {
   return elders.map(e => (e.status === 'Team' ? grantElderXp(e, amount) : e));
 }
@@ -284,6 +299,8 @@ const INITIAL_STATE: GameState = {
   lastCourtPurseClaim: 0,
   structureUses: { day: '', counts: {} },
   parkAssets: {},
+  autoPlayPaid: { day: '', count: 0 },
+  tournamentThrows: 0,
   challengeLadder: { highestCleared: -1, day: '', paidWins: 0 },
   pendingYield: 0.00,
   communityReserve: 0, // strictly player/ad-funded -- no free seed (was 5.00)
@@ -675,7 +692,7 @@ const App: React.FC = () => {
   // fresh 24h window. Applied whenever state is loaded (local or cloud).
   const applyTournamentRollover = (s: GameState): GameState => {
     if (s.tournamentEndsAt <= Date.now()) {
-      return { ...s, tournamentScore: 0, tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000 };
+      return { ...s, tournamentScore: 0, tournamentThrows: 0, tournamentEndsAt: Date.now() + 24 * 60 * 60 * 1000 };
     }
     return s;
   };
@@ -1245,23 +1262,32 @@ const App: React.FC = () => {
   }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled, activeEvent, handleQuestProgress]);
 
   // Shuffleboard panel handlers
-  const handlePassiveShuffleResult = useCallback((won: boolean, tokensEarned: number) => {
+  const handlePassiveShuffleResult = useCallback((won: boolean, tokensEarned: number): { tickets: number; paid: boolean } => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
+    // Auto-Play is background progress, so only AUTO_PLAY_DAILY_PAID collections a day pay Tickets/full XP.
+    const paid = dailyCountToday(state.autoPlayPaid) < AUTO_PLAY_DAILY_PAID;
+    const tickets = paid ? tokensEarned : 0;
+    const share = paid ? 1 : AUTO_PLAY_UNPAID_XP_SHARE;
     setState(prev => {
-      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? 100 : 25);
+      const { xp, level } = applyXpGain(prev.xp, prev.level, Math.round((won ? 100 : 25) * share));
       return {
         ...prev,
-        legacyTokens: prev.legacyTokens + tokensEarned,
+        legacyTokens: prev.legacyTokens + tickets,
         xp, level,
-        allElders: grantElderXpToTeam(prev.allElders, won ? 30 : 10),
-        parkCommunityScore: prev.parkCommunityScore + (won ? 15 : 5),
-        passiveMatchAt: Date.now() + 10 * 60 * 1000,
+        allElders: grantElderXpToTeam(prev.allElders, Math.round((won ? 30 : 10) * share)),
+        parkCommunityScore: prev.parkCommunityScore + (paid ? (won ? 15 : 5) : 0),
+        passiveMatchAt: Date.now() + AUTO_PLAY_INTERVAL_MS,
+        autoPlayPaid: paid ? bumpDaily(prev.autoPlayPaid) : prev.autoPlayPaid,
       };
     });
     handleQuestProgress('shuffleboard');
-  }, [state.settings.sfxEnabled, handleQuestProgress]);
+    return { tickets, paid };
+  }, [state.settings.sfxEnabled, state.autoPlayPaid, handleQuestProgress]);
 
   const handleTournamentPlay = useCallback((score: number) => {
+    // Fixed throws per tournament window: only the best throw counts on the leaderboard, so unlimited
+    // throws would just reward whoever threw the most.
+    if (safeCount(state.tournamentThrows) >= TOURNAMENT_DAILY_THROWS) { notify('No throws left in this tournament — a fresh round starts when the timer resets.'); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const newBest = Math.max(state.tournamentScore, score);
     setState(prev => {
@@ -1269,6 +1295,7 @@ const App: React.FC = () => {
       return {
         ...prev,
         tournamentScore: Math.max(prev.tournamentScore, score),
+        tournamentThrows: safeCount(prev.tournamentThrows) + 1,
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, 20),
         legacyTokens: prev.legacyTokens + 10,
@@ -1278,7 +1305,7 @@ const App: React.FC = () => {
     if (isCloudAccountsConfigured()) {
       submitTournamentScore(newBest).then(() => refreshLeaderboard()).catch(e => console.error('Leaderboard submit failed', e));
     }
-  }, [state.settings.sfxEnabled, state.tournamentScore, handleQuestProgress, refreshLeaderboard]);
+  }, [state.settings.sfxEnabled, state.tournamentScore, state.tournamentThrows, handleQuestProgress, refreshLeaderboard]);
 
   // Elder Challenge (Rival Ladder, see CHALLENGE_TIERS in constants.tsx). The panel rolls the duel and reports
   // the outcome; the daily paid-win cap, first-clear bonus and all rewards are decided HERE so the panel can't
@@ -1320,31 +1347,38 @@ const App: React.FC = () => {
   // GOLDEN_GAMES_LEAGUES; ticketsEarned is pre-rolled by ShuffleboardPanel
   // using that league's win/loss ranges (same pattern as the other 3 modes,
   // which already resolve client-side and just report the outcome up).
-  const handleGoldenGamesResult = useCallback((leagueIndex: number, won: boolean, ticketsEarned: number): number => {
+  const handleGoldenGamesResult = useCallback((leagueIndex: number, won: boolean, ticketsRolled: number): { tickets: number; materials: number; paid: boolean; firstClear: boolean } => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
     const league = GOLDEN_GAMES_LEAGUES[leagueIndex];
-    if (!league) return 0;
-    // Building Materials scale gently with tier, same spirit as Ticket
-    // scaling -- higher tiers are worth more to climb for reasons beyond
-    // just Tickets now that Materials exist.
-    const materialsEarned = won ? (leagueIndex + 1) * 2 : Math.ceil((leagueIndex + 1) / 2);
+    if (!league) return { tickets: 0, materials: 0, paid: false, firstClear: false };
+    // Longevity caps (see GOLDEN_GAMES_* in constants.tsx): the first GOLDEN_GAMES_DAILY_PAID_MATCHES matches
+    // each UTC day pay; beyond that only a tier's first-ever win pays (3x, one time); anything else is friendly.
+    const paid = dailyCountToday(state.goldenGames.paid) < GOLDEN_GAMES_DAILY_PAID_MATCHES;
+    const firstClear = won && leagueIndex > state.goldenGames.highestLeagueCleared;
+    const pays = paid || firstClear;
+    const mult = firstClear ? GOLDEN_GAMES_FIRST_CLEAR_MULT : 1;
+    const ticketsEarned = pays ? ticketsRolled * mult : 0;
+    const materialsEarned = pays ? goldenGamesMaterials(leagueIndex, won) * mult : 0;
+    const xpShare = pays ? 1 : GOLDEN_GAMES_UNPAID_XP_SHARE;
+    const elderXp = Math.round((won ? league.winElderXp : league.lossElderXp) * xpShare);
     setState(prev => {
-      const { xp, level } = applyXpGain(prev.xp, prev.level, won ? league.winElderXp * 3 : league.lossElderXp);
+      const { xp, level } = applyXpGain(prev.xp, prev.level, Math.round((won ? league.winElderXp * 3 : league.lossElderXp) * xpShare));
       return {
         ...prev,
         legacyTokens: prev.legacyTokens + ticketsEarned,
         buildingMaterials: prev.buildingMaterials + materialsEarned,
         xp, level,
-        allElders: grantElderXpToTeam(prev.allElders, won ? league.winElderXp : league.lossElderXp),
-        parkCommunityScore: prev.parkCommunityScore + (won ? league.winCommunityScore : 0),
+        allElders: grantElderXpToTeam(prev.allElders, elderXp),
+        parkCommunityScore: prev.parkCommunityScore + (won && pays ? league.winCommunityScore : 0),
         goldenGames: {
           highestLeagueCleared: won ? Math.max(prev.goldenGames.highestLeagueCleared, leagueIndex) : prev.goldenGames.highestLeagueCleared,
           nextMatchAt: Date.now() + GOLDEN_GAMES_COOLDOWN_MS,
+          paid: paid ? bumpDaily(prev.goldenGames.paid) : prev.goldenGames.paid,
         },
       };
     });
-    return materialsEarned;
-  }, [state.settings.sfxEnabled]);
+    return { tickets: ticketsEarned, materials: materialsEarned, paid, firstClear };
+  }, [state.settings.sfxEnabled, state.goldenGames]);
 
   const handleFriendBattleResult = useCallback((won: boolean, ticketsRolled: number, friendUserId: string): { tickets: number; materials: number; rewarded: boolean } => {
     if (state.settings.sfxEnabled) audioManager.playSFX(won ? 'victory' : 'hit');
@@ -2038,6 +2072,8 @@ const App: React.FC = () => {
               challengeLadder={state.challengeLadder}
               tournamentScore={state.tournamentScore}
               tournamentEndsAt={state.tournamentEndsAt}
+              tournamentThrows={safeCount(state.tournamentThrows)}
+              autoPlayPaid={state.autoPlayPaid}
               passiveMatchAt={state.passiveMatchAt}
               goldenGames={state.goldenGames}
               onGoldenGamesResult={handleGoldenGamesResult}
