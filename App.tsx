@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getWorldStructures, worldCellKey } from './services/worldMap';
+import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
+import { ArenaPanel } from './components/ArenaPanel';
+import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
 import ElderInteraction from './components/ElderInteraction';
@@ -45,6 +47,10 @@ import {
   ELDER_AVATARS,
   STRUCTURE_PRICING,
   utcDayKey,
+  arenaAttackCost,
+  factionById,
+  type FactionId,
+  getElderPower,
   GOLDEN_GAMES_DAILY_PAID_MATCHES,
   GOLDEN_GAMES_FIRST_CLEAR_MULT,
   GOLDEN_GAMES_UNPAID_XP_SHARE,
@@ -299,6 +305,7 @@ const INITIAL_STATE: GameState = {
   lastCourtPurseClaim: 0,
   structureUses: { day: '', counts: {} },
   parkAssets: {},
+  stationedAt: {},
   autoPlayPaid: { day: '', count: 0 },
   tournamentThrows: 0,
   challengeLadder: { highestCleared: -1, day: '', paidWins: 0 },
@@ -417,6 +424,10 @@ const App: React.FC = () => {
   }, []);
   const showNotice = useCallback((message: string) => notify(message, 'bad'), [notify]);
   const [showGroundsPanel, setShowGroundsPanel] = useState(false);
+  const [arenaInfo, setArenaInfo] = useState<Record<string, ArenaInfo>>({});
+  const [arenaMe, setArenaMe] = useState<ArenaMe | null>(null);
+  const [activeArenaId, setActiveArenaId] = useState<string | null>(null);
+  const [arenaBusy, setArenaBusy] = useState(false);
   const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
@@ -876,6 +887,112 @@ const App: React.FC = () => {
     else if (fresh.length > 1) notify(`📬 ${fresh.length} new Mailbox messages`, 'good');
   }, [state.mailbox, isLoaded, cloudSyncSettled, notify]);
 
+  // ---- Arenas (shared-world gyms; see ARENA_DESIGN.md and api/arena.ts) ----------------------------------
+  const arenaCellKey = worldCellKey(state.currentLocation.lat, state.currentLocation.lng);
+  const arenaSites = useMemo(() => getWorldArenas(state.currentLocation.lat, state.currentLocation.lng), [arenaCellKey]);
+  const refreshArenas = useCallback(async () => {
+    if (!authSession || arenaSites.length === 0) return;
+    try {
+      const { arenas, me } = await fetchArenas(arenaSites.map(a => a.id));
+      setArenaInfo(arenas);
+      setArenaMe(me);
+      // The server is the truth for which Elders are stationed (knocked-out Elders come home by themselves).
+      const server: Record<string, string> = {};
+      for (const d of me.defenders) if (d.elderId) server[d.elderId] = d.arenaId;
+      setState(prev => {
+        const cur = prev.stationedAt && typeof prev.stationedAt === 'object' ? prev.stationedAt : {};
+        const same = Object.keys(server).length === Object.keys(cur).length && Object.keys(server).every(k => cur[k] === server[k]);
+        return same ? prev : { ...prev, stationedAt: server };
+      });
+    } catch (e) {
+      console.error('Arena refresh failed', e);
+    }
+  }, [authSession, arenaSites]);
+
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled || !state.hasStarted || !authSession) return;
+    void refreshArenas();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible' && (activeTab === 'map' || activeArenaId)) void refreshArenas();
+    }, 75 * 1000);
+    return () => clearInterval(id);
+  }, [isLoaded, cloudSyncSettled, state.hasStarted, authSession, refreshArenas, activeTab, activeArenaId]);
+
+  const runArenaAction = useCallback(async (label: string, fn: () => Promise<void>) => {
+    if (arenaBusy) return;
+    setArenaBusy(true);
+    try { await fn(); }
+    catch (e) { notify(e instanceof Error ? e.message : `${label} failed`, 'bad'); }
+    finally { setArenaBusy(false); void refreshArenas(); }
+  }, [arenaBusy, notify, refreshArenas]);
+
+  const handleArenaPickFaction = useCallback((f: FactionId) => runArenaAction('Joining a faction', async () => {
+    await chooseFaction(f);
+    notify(`${factionById(f)?.icon ?? ''} You joined the ${factionById(f)?.name ?? 'faction'}!`, 'good');
+  }), [runArenaAction, notify]);
+
+  const handleArenaStation = useCallback((elder: Elder) => runArenaAction('Stationing', async () => {
+    if (!activeArenaId) return;
+    const res = await stationElder(activeArenaId, {
+      id: elder.id, name: elder.name, type: elder.type, rarity: elder.rarity, level: elder.level, evolutionStage: elder.evolutionStage ?? 0,
+    }, getElderPower(elder));
+    setState(prev => ({
+      ...prev,
+      stationedAt: { ...(prev.stationedAt || {}), [elder.id]: activeArenaId },
+      // A stationed Elder leaves the squad (it is locked until recalled or knocked out).
+      allElders: prev.allElders.map(e => e.id === elder.id && e.status === 'Team' ? { ...e, status: 'Base' } : e),
+    }));
+    notify(res.claimed ? `🚩 ${elder.name} claimed the Arena!` : `🛡️ ${elder.name} is now defending the Arena.`, 'good');
+  }), [runArenaAction, activeArenaId, notify]);
+
+  const handleArenaRecall = useCallback(() => runArenaAction('Recalling', async () => {
+    if (!activeArenaId) return;
+    const res = await recallElder(activeArenaId);
+    setState(prev => {
+      const st = { ...(prev.stationedAt || {}) };
+      delete st[res.elderId];
+      return { ...prev, stationedAt: st };
+    });
+    notify('Your Elder is back home.', 'good');
+  }), [runArenaAction, activeArenaId, notify]);
+
+  const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
+    if (!activeArenaId) return;
+    const upfront = arenaAttackCost(arenaMe?.attacksToday ?? 0);
+    if (state.legacyTokens < upfront) { notify(`You need ${upfront} 🎟️ for another attack today.`, 'bad'); return; }
+    const { result } = await attackArena(activeArenaId);
+    const cost = arenaAttackCost(result.attackNumber - 1); // price of THIS attack, from the server's count
+    const lost = result.log.length > 0 && !result.log[result.log.length - 1].won;
+    const elderXp = 25 * result.rewardedWins + (lost ? 6 : 0);
+    if (state.settings.sfxEnabled) audioManager.playSFX(result.beaten > 0 ? 'victory' : 'hit');
+    setState(prev => {
+      const { xp, level } = applyXpGain(prev.xp, prev.level, elderXp * 2);
+      return {
+        ...prev,
+        legacyTokens: Math.max(0, prev.legacyTokens + result.tickets - cost),
+        buildingMaterials: prev.buildingMaterials + result.materials,
+        xp, level,
+        allElders: elderXp > 0 ? grantElderXpToTeam(prev.allElders, elderXp) : prev.allElders,
+      };
+    });
+    const bits = [`${result.beaten}/${result.total} defenders beaten`];
+    if (result.tickets > 0 || result.materials > 0) bits.push(`+${result.tickets} 🎟️ +${result.materials} 🧱`);
+    if (cost > 0) bits.push(`(-${cost} 🎟️ attack fee)`);
+    if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
+    notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
+  }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.settings.sfxEnabled, notify]);
+
+  const handleArenaClaimDues = useCallback(() => runArenaAction('Collecting Dues', async () => {
+    const r = await claimArenaDues();
+    notify(`💰 Arena Dues sent to your Mailbox: ${r.tickets} 🎟️ ${r.materials} 🧱`, 'good');
+    void refreshMail();
+  }), [runArenaAction, notify, refreshMail]);
+
+  const handleArenaMarkerClick = useCallback((id: string) => {
+    if (!authSession) { notify('Sign in to your account to join Arenas.', 'bad'); return; }
+    setActiveArenaId(id);
+  }, [authSession, notify]);
+
   // Real daily leaderboard — replaces the old simulated NPC list in ShuffleboardPanel.
   // Signed-out players simply see no leaderboard data (fetchLeaderboard throws on missing
   // auth token; caught and ignored here, since there's no stable cross-device identity to
@@ -1183,13 +1300,14 @@ const App: React.FC = () => {
   }, [state.adUsage.count]);
 
   const handleMoveToTeam = useCallback((id: string) => {
+    if (state.stationedAt?.[id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
     setState(prev => {
       const teamCount = prev.allElders.filter(e => e.status === 'Team').length;
       if (teamCount >= TEAM_SIZE_LIMIT) { notify(`Max squad size is ${TEAM_SIZE_LIMIT}!`); return prev; }
       if (state.settings.sfxEnabled) audioManager.playSFX('click');
       return { ...prev, allElders: prev.allElders.map(e => e.id === id ? { ...e, status: 'Team' } : e) };
     });
-  }, [state.settings.sfxEnabled]);
+  }, [state.settings.sfxEnabled, state.stationedAt, notify]);
 
   const handleMoveToStandby = useCallback((id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
@@ -1199,6 +1317,7 @@ const App: React.FC = () => {
   const handleScrapElder = useCallback((id: string) => {
     const elder = state.allElders.find(e => e.id === id);
     if (!elder) return;
+    if (state.stationedAt?.[id]) { notify('That Elder is defending an Arena — recall it before scrapping.', 'bad'); return; }
     if (state.allElders.filter(e => e.status === 'Team').length <= 1 && elder.status === 'Team') {
       notify("You can't scrap your last active squad member!");
       return;
@@ -1214,7 +1333,7 @@ const App: React.FC = () => {
       allElders: prev.allElders.filter(e => e.id !== id),
     }));
     notify(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
-  }, [state.allElders, state.settings.sfxEnabled]);
+  }, [state.allElders, state.stationedAt, state.settings.sfxEnabled]);
 
   const eventPrice = getStructurePrice(state.structureUses, activeEvent?.type ?? '');
 
@@ -2024,7 +2143,7 @@ const App: React.FC = () => {
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
               onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: e }); }}
-              onItemClick={handleCollectItem} onEventClick={setActiveEvent}
+              onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} onArenaClick={handleArenaMarkerClick}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
@@ -2350,6 +2469,20 @@ const App: React.FC = () => {
         {guideTarget && (
           <ElderInteraction elder={guideTarget} onSuccess={handleGuideSuccess} onFail={handleGuideFail} onClose={handleGuideFail} />
         )}
+
+        {activeArenaId && (() => {
+          const site = arenaSites.find(a => a.id === activeArenaId);
+          if (!site) return null;
+          return (
+            <ArenaPanel
+              isDark={isDark} site={site} info={arenaInfo[activeArenaId]} me={arenaMe}
+              elders={state.allElders} stationedAt={state.stationedAt || {}} tokens={state.legacyTokens} busy={arenaBusy}
+              onClose={() => setActiveArenaId(null)}
+              onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall}
+              onAttack={handleArenaAttack} onClaimDues={handleArenaClaimDues}
+            />
+          );
+        })()}
 
         {activeEvent && (
           <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md">

@@ -11,7 +11,7 @@ interface TutorialStep {
   icon: React.ReactNode;
 }
 
-// To add a new card later (e.g. Arena once it exists), just append an entry here --
+// To add a new card later, just add an entry here --
 // the dots, button labels, and Settings > How to Play all read from this array.
 const STEPS: TutorialStep[] = [
   {
@@ -58,6 +58,11 @@ const STEPS: TutorialStep[] = [
     title: "Friends, Battles & Mail",
     description: "Add friends with your friend code, visit their Grounds for Materials once a day, or challenge their squad in Friend Battle. Win and you collect the rewards. Lose and your friend gets the defender's bounty. When someone battles you, a note arrives in your Mailbox (the bell icon).",
     icon: <EnvelopeIcon className="w-12 h-12 text-rose-500" />
+  },
+  {
+    title: "Arenas & Factions",
+    description: "Community Arenas 🏟️ sit in the same spots on the map for every player. Join a faction, station an Elder to claim or defend an Arena alongside your faction-mates, and attack Arenas held by the other factions. Wins pay Tickets and Building Materials, and stationed Elders earn daily Dues by Mailbox. A stationed Elder leaves your squad until you recall it. Arenas never pay PP.",
+    icon: <TrophyIcon className="w-12 h-12 text-rose-500" />
   },
   {
     title: "Shop & Passes",

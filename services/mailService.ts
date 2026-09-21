@@ -6,12 +6,13 @@ import type { MailMessage } from '../types';
 export interface InboxRow {
   id: string;
   sender_name: string;
-  kind: 'friend_battle';
+  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues';
   day: string;
   attacker_wins: number;
   defender_wins: number;
   reward_tickets: number;
   reward_materials: number;
+  note?: string | null;
   updated_at: string;
 }
 
@@ -53,19 +54,42 @@ function plural(n: number, one: string, many: string): string {
 }
 
 function rowToMessage(row: InboxRow): MailMessage {
+  const base = {
+    id: `${MAIL_ID_PREFIX}${row.id}`,
+    claimed: false,
+    timestamp: Date.parse(row.updated_at) || Date.now(),
+  };
+  const reward = row.reward_tickets > 0 ? { type: 'Tokens' as const, value: row.reward_tickets } : undefined;
+  const materials = row.reward_materials > 0 ? row.reward_materials : undefined;
+  if (row.kind === 'arena_knockout') {
+    const n = row.attacker_wins;
+    return {
+      ...base,
+      sender: row.sender_name,
+      subject: `🏟️ Arena: ${row.sender_name} knocked out ${n} of your ${plural(n, 'Elder', 'Elders')}`,
+      body: `${row.note || 'An Elder of yours was knocked out at an Arena.'} ${n > 1 ? `That happened ${n} times today. ` : ''}Your Elders are safe and back home — here's a little consolation.`,
+      reward, materials,
+    };
+  }
+  if (row.kind === 'arena_dues') {
+    return {
+      ...base,
+      sender: 'Arena Committee',
+      subject: '🏟️ Arena Dues',
+      body: `${row.note || 'Your stationed Elders earned Arena Dues.'} Claim them below.`,
+      reward, materials,
+    };
+  }
   const total = row.attacker_wins + row.defender_wins;
   const parts: string[] = [`${row.sender_name} challenged your squad ${total} ${plural(total, 'time', 'times')} today.`];
   parts.push(`Your squad held them off ${row.defender_wins} ${plural(row.defender_wins, 'time', 'times')}; they won ${row.attacker_wins}.`);
   if (row.reward_tickets > 0) parts.push("Nicely defended — here's your defender's bounty!");
   return {
-    id: `${MAIL_ID_PREFIX}${row.id}`,
+    ...base,
     sender: row.sender_name,
     subject: `⚔️ Friend Battle: ${row.sender_name}`,
     body: parts.join(' '),
-    reward: row.reward_tickets > 0 ? { type: 'Tokens', value: row.reward_tickets } : undefined,
-    materials: row.reward_materials > 0 ? row.reward_materials : undefined,
-    claimed: false,
-    timestamp: Date.parse(row.updated_at) || Date.now(),
+    reward, materials,
   };
 }
 

@@ -55,7 +55,9 @@ const MAX_REWARDED_DEFENSES_PER_DAY = 5;
 const MAX_BATTLES_PER_PAIR_PER_DAY = 20;
 const INBOX_WINDOW_DAYS = 14;
 
-const MAIL_FIELDS = 'id, sender_name, kind, day, attacker_wins, defender_wins, reward_tickets, reward_materials, updated_at';
+const MAIL_FIELDS_LEGACY = 'id, sender_name, kind, day, attacker_wins, defender_wins, reward_tickets, reward_materials, updated_at';
+// Migration 008 added `note` (Arena notices). If it has not been run yet, fall back to the old column list.
+const MAIL_FIELDS = `${MAIL_FIELDS_LEGACY}, note`;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function handler(req: Request): Promise<Response> {
@@ -68,13 +70,15 @@ export default async function handler(req: Request): Promise<Response> {
     // by row id when merging into its Mailbox, so re-fetching is harmless.
     if (req.method === 'GET') {
       const since = new Date(Date.now() - INBOX_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
+      const readInbox = (fields: string) => supabase
         .from('mail_inbox')
-        .select(MAIL_FIELDS)
+        .select(fields)
         .eq('recipient_id', userId)
         .gte('updated_at', since)
         .order('updated_at', { ascending: true })
         .limit(100);
+      let { data, error } = await readInbox(MAIL_FIELDS);
+      if (error && String(error.message).includes('note')) ({ data, error } = await readInbox(MAIL_FIELDS_LEGACY));
       if (error) {
         console.error('Mail read failed', error.message);
         return serverJson({ error: 'Mail unavailable', detail: error.message }, 500);

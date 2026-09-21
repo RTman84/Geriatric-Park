@@ -58,3 +58,33 @@ export function getWorldStructures(lat: number, lng: number, ring = 1): Structur
   }
   return out;
 }
+
+// --- Arenas -----------------------------------------------------------------------------------------
+// Shared like the buildings above: a cell holds an Arena with probability ARENA_CELL_CHANCE, at a fixed spot.
+// THE SAME MATH IS DUPLICATED INSIDE api/arena.ts (shared imports are not bundled on Vercel here) -- if you
+// change anything in this section, change it there too, or the server will reject Arenas the map shows.
+export const ARENA_CELL_CHANCE = 0.4;
+const ARENA_SALT = 1000;
+export const ARENA_NAMES = [
+  'Sunny Acres Clubhouse', 'Maple Court Rec Hall', 'Bingo Bluff Arena', 'Shady Oaks Lodge',
+  'Lakeside Legends Hall', 'Golden Years Gym', 'Cedar Springs Pavilion', 'Old Timers Coliseum',
+];
+export interface ArenaSite { id: string; name: string; lat: number; lng: number }
+
+export function getWorldArenas(lat: number, lng: number, ring = 1): ArenaSite[] {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+  const cx0 = Math.floor(lng / WORLD_CELL_DEG);
+  const cy0 = Math.floor(lat / WORLD_CELL_DEG);
+  const out: ArenaSite[] = [];
+  for (let cy = cy0 - ring; cy <= cy0 + ring; cy++) {
+    for (let cx = cx0 - ring; cx <= cx0 + ring; cx++) {
+      const rand = rng(hash32(cx, cy, ARENA_SALT));
+      if (rand() >= ARENA_CELL_CHANCE) continue;
+      const aLat = (cy + 0.15 + rand() * 0.7) * WORLD_CELL_DEG;
+      const aLng = (cx + 0.15 + rand() * 0.7) * WORLD_CELL_DEG;
+      const name = ARENA_NAMES[Math.floor(rand() * ARENA_NAMES.length)];
+      out.push({ id: `a_${cx}_${cy}`, name, lat: aLat, lng: aLng });
+    }
+  }
+  return out;
+}

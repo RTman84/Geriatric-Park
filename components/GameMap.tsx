@@ -3,7 +3,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
-import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, PLAYER_MARKER_IMG, WORLD_PATHS } from '../constants';
+import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, PLAYER_MARKER_IMG, WORLD_PATHS, factionById } from '../constants';
+import type { ArenaSite } from '../services/worldMap';
 import { 
   PlusCircleIcon, 
   MinusCircleIcon, 
@@ -25,6 +26,9 @@ interface GameMapProps {
   nearbyStructures: Structure[];
   heldStructureIds: string[];
   ownedParcels: Parcel[];
+  arenas?: ArenaSite[];
+  arenaFactions?: Record<string, string | null>;
+  onArenaClick?: (id: string) => void;
   roamingElders?: Elder[];
   unreadMailCount?: number;
   onElderClick: (elder: Elder) => void;
@@ -73,6 +77,9 @@ const GameMap: React.FC<GameMapProps> = ({
   nearbyStructures,
   heldStructureIds,
   ownedParcels,
+  arenas = [],
+  arenaFactions = {},
+  onArenaClick,
   roamingElders = [],
   unreadMailCount = 0,
   onElderClick,
@@ -227,6 +234,22 @@ const GameMap: React.FC<GameMapProps> = ({
                   <p className="text-[15px] opacity-60">{st.description}</p>
                 </div>
               </Popup>
+            </Marker>
+          );
+        })}
+        {/* Arenas (shared world gyms): ring colour = the faction that holds it */}
+        {arenas.map(a => {
+          const f = factionById(arenaFactions[a.id]);
+          return (
+            <Marker
+              key={a.id}
+              position={[a.lat, a.lng]}
+              icon={createCustomIcon('🏟️', 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square')}
+              eventHandlers={{ click: () => onArenaClick && onArenaClick(a.id) }}
+            >
+              <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">
+                {f ? `${f.icon} ${a.name}` : a.name}
+              </Tooltip>
             </Marker>
           );
         })}

@@ -120,6 +120,7 @@ export interface GameState {
   structureUses?: { day: string; counts: Record<string, number> }; // map-building visits today (UTC) -> escalating Ticket prices
   autoPlayPaid?: { day: string; count: number }; // Auto-Play collections that paid today (UTC)
   tournamentThrows?: number; // throws used in the current tournament window
+  stationedAt?: Record<string, string>; // elderId -> Arena id (server is the source of truth; locks the Elder)
   parkAssets?: Record<string, number>; // Park Assets bought with Pending Yield: itemId -> how many
   challengeLadder?: { highestCleared: number; day: string; paidWins: number }; // Elder Challenge rival ladder progress (-1 = none cleared)
   lastCourtPurseClaim?: number; // when the Champion's purse was last collected (once per reign)

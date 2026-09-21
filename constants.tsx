@@ -412,6 +412,31 @@ export function bumpDaily(x: any): { day: string; count: number } {
   return { day: utcDayKey(), count: dailyCountToday(x) + 1 };
 }
 
+// --- Arenas (see ARENA_DESIGN.md). The server (api/arena.ts) is the source of truth for the rules; the
+// numbers below are the ones the client needs to DISPLAY prices and limits. Keep them in sync with the top of
+// api/arena.ts. Arenas never pay PP or raise passive income.
+export type FactionId = 'early_birds' | 'night_owls' | 'sunday_drivers';
+export const FACTIONS: { id: FactionId; name: string; icon: string; color: string; blurb: string }[] = [
+  { id: 'early_birds', name: 'Early Birds', icon: '🌅', color: '#f59e0b', blurb: 'Dinner at 4pm sharp. First in line, every time.' },
+  { id: 'night_owls', name: 'Night Owls', icon: '🦉', color: '#6366f1', blurb: 'Still up for the late-late show. Reading glasses on.' },
+  { id: 'sunday_drivers', name: 'Sunday Drivers', icon: '🚗', color: '#14b8a6', blurb: 'Fifteen under the limit, blinker on since Tuesday.' },
+];
+export const factionById = (id: any) => FACTIONS.find(f => f.id === id);
+export const ARENA_MAX_SLOTS = 6;
+export const ARENA_MAX_PER_PLAYER = 3;
+export const ARENA_FREE_ATTACKS = 5;
+export const ARENA_MAX_ATTACKS_PER_DAY = 20;
+export const ARENA_ATTACK_COST_BASE = 10;
+export const ARENA_ATTACK_COST_GROWTH = 1.4;
+export const ARENA_ATTACK_COOLDOWN_MIN = 10;
+export const ARENA_REWARDED_WINS_PER_DAY = 10;
+export const ARENA_DUES_MAX_HOURS = 12;
+// Attack number n (0-based, how many attacks you already made today): free for the first few, then Tickets.
+export function arenaAttackCost(attacksToday: number): number {
+  const n = Math.max(0, Math.floor(attacksToday) || 0);
+  return n < ARENA_FREE_ATTACKS ? 0 : Math.round(ARENA_ATTACK_COST_BASE * Math.pow(ARENA_ATTACK_COST_GROWTH, n - ARENA_FREE_ATTACKS));
+}
+
 // ─── Friend Battle (Phase 3, social system) ──────────────────────────────────
 // Async PvP against a friend's synced Squad Power snapshot -- not a live
 // match, no coordination needed. Resolved the same squad-power-vs-difficulty

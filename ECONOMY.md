@@ -160,6 +160,16 @@ Replaces "stake any amount, winner takes all" (a squad stronger than the rival w
 ## 6d. Park Assets are itemised (2026-09-21)
 `parkAssets` = `{ itemId: count }`, shown in Bank ("Your Park Assets", with per-item PP/hr) and on the Park tab. Purchases made before this update are not itemised; Bank shows their combined rate as "Earlier purchases".
 
+## 6f. Arenas, Phase A (2026-09-21) -- rules live in `api/arena.ts`, display copies in `constants.tsx`
+Never PP, never passive. All rewards are Tickets + Building Materials (+ Elder/account XP for attackers), all capped:
+| Source | Amount | Cap |
+|---|---|---|
+| Attacker: beaten defender | 8-15 Tickets + 1 Material each | first 10 beaten defenders per UTC day; XP 25 per rewarded win (+6 on a loss) |
+| Arena Dues (holders) | 1 Ticket/hour + 1 Material per 6 h, per stationed Elder, up to 12 h each | one collection per UTC day (by Mailbox); at most 3 Elders stationed, so <= 36 Tickets + 6 Materials/day |
+| Knocked-out owner consolation | 5 Tickets by Mailbox | max 20 per attacker per day |
+| Sink: attacks | 5 free/day, then 10 x 1.4^n Tickets | hard cap 20 attacks/day; 10-minute cooldown per Arena |
+Elder XP for Dues is not built yet (Dues pay Tickets/Materials only). Squad Power and Elder power are client-synced, the same trust level as Friend Battle, until the Bundle F ledger.
+
 ## 6e. Court longevity caps (2026-09-21) -- same pattern as the Challenge ladder
 Found by audit: three Court modes could be farmed all day. Fixed with a daily paid-match cap (UTC day; extra matches are friendly: 25% XP, no Tickets/Materials/Stars).
 | Mode | Problem | Now |
