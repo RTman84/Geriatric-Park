@@ -50,7 +50,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # The GitHub runner already ships the Android SDK; just accept licenses and make sure API 36 is there.
+      - name: Prepare Android SDK
+        run: |
+          SDKM="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null || echo "sdkmanager step failed; Gradle will try to fetch what it needs"
 
       - name: Build debug APK
         working-directory: android
