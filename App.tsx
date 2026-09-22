@@ -47,6 +47,12 @@ import {
   ELDER_AVATARS,
   STRUCTURE_PRICING,
   utcDayKey,
+  utcWeekKey,
+  DAILY_QUEST_POOL,
+  WEEKLY_QUEST_POOL,
+  generateQuests,
+  ACHIEVEMENT_CONDITIONS,
+  NEW_ACHIEVEMENTS,
   arenaAttackCost,
   factionById,
   type FactionId,
@@ -327,17 +333,12 @@ const INITIAL_STATE: GameState = {
   itemsLastSpawnLat: 0,
   itemsLastSpawnLng: 0,
   heldStructureIds: [],
-  quests: [
-    { id: 'q1', type: 'Daily', title: 'Neighborhood Watch', description: 'Collect 5 items from the map.', progress: 0, target: 5, completed: false, rewardXP: 150, rewardTokens: 25, rewardStars: 5 },
-    { id: 'q2', type: 'Daily', title: 'Gentle Persuasion', description: 'Win 2 arguments with wild residents.', progress: 0, target: 2, completed: false, rewardXP: 200, rewardTokens: 50, rewardStars: 8 },
-    { id: 'q3', type: 'Daily', title: 'Court Presence', description: 'Play 3 shuffleboard matches.', progress: 0, target: 3, completed: false, rewardXP: 175, rewardTokens: 40, rewardStars: 6 },
-    { id: 'q4', type: 'Daily', title: 'Sponsor Support', description: 'Watch 3 sponsor videos.', progress: 0, target: 3, completed: false, rewardXP: 100, rewardTokens: 30, rewardStars: 4 },
-    { id: 'q5', type: 'Daily', title: 'Bingo Night', description: 'Participate in 2 Bingo sessions.', progress: 0, target: 2, completed: false, rewardXP: 150, rewardTokens: 35, rewardStars: 6 },
-    { id: 'q6', type: 'Weekly', title: 'Bingo Marathon', description: 'Participate in 5 Bingo Blitz sessions.', progress: 0, target: 5, completed: false, rewardXP: 1000, rewardTokens: 250, rewardStars: 25 },
-    { id: 'q7', type: 'Weekly', title: 'Court Dominator', description: 'Win 10 shuffleboard matches.', progress: 0, target: 10, completed: false, rewardXP: 1500, rewardTokens: 400, rewardStars: 35 },
-    { id: 'q8', type: 'Weekly', title: 'Pension Earner', description: 'Earn 0.50 PP in passive income.', progress: 0, target: 50, completed: false, rewardXP: 2000, rewardTokens: 500, rewardStars: 40 },
-  ],
-  achievements: INITIAL_ACHIEVEMENTS,
+  quests: [...generateQuests(DAILY_QUEST_POOL, 'Daily', utcDayKey(), 5), ...generateQuests(WEEKLY_QUEST_POOL, 'Weekly', utcWeekKey(), 3)],
+  questsGeneratedDay: utcDayKey(),
+  questsGeneratedWeek: utcWeekKey(),
+  battleWins: 0,
+  faction: null,
+  achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
   builtAmenityIds: [],
@@ -771,6 +772,21 @@ const App: React.FC = () => {
     }),
   });
 
+  // Bundle D (2026-09-21): Tasks moved from a fixed hand-written list to pools the game draws from (see
+  // constants.tsx). Old saves have quest objects with no `kind` field, which the new progress-matching
+  // logic needs -- replace any quest missing it with a fresh draw of its type (this forfeits in-progress,
+  // unclaimed progress on that one save, once, but nothing already claimed). Achievements grew from 4 fixed
+  // entries to 10; merge by id so completed status survives and new ones are added rather than replacing
+  // the array outright.
+  const migrateQuestsAndAchievements = (s: GameState): GameState => {
+    const quests = Array.isArray(s.quests) && s.quests.every(q => typeof (q as any).kind === 'string')
+      ? s.quests
+      : [...generateQuests(DAILY_QUEST_POOL, 'Daily', s.questsGeneratedDay || utcDayKey(), 5), ...generateQuests(WEEKLY_QUEST_POOL, 'Weekly', s.questsGeneratedWeek || utcWeekKey(), 3)];
+    const savedById = new Map((s.achievements || []).map(a => [a.id, a]));
+    const achievements = [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS].map(def => savedById.get(def.id) ?? def);
+    return { ...s, quests, achievements };
+  };
+
   // Load save
   useEffect(() => {
     try {
@@ -778,7 +794,7 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(parsed), settings: { ...INITIAL_STATE.settings, ...parsed.settings }, version: GAME_VERSION })));
+          const hydrated = migrateQuestsAndAchievements(migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(parsed), settings: { ...INITIAL_STATE.settings, ...parsed.settings }, version: GAME_VERSION }))));
           prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
           setState(hydrated);
         }
@@ -830,7 +846,7 @@ const App: React.FC = () => {
         cloudRevisionRef.current = cloudSave.client_revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(cloudSave.client_revision));
         const cloudData = cloudSave.save_data as any;
-        const hydrated = migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(cloudData), settings: { ...INITIAL_STATE.settings, ...cloudData?.settings }, version: GAME_VERSION })));
+        const hydrated = migrateQuestsAndAchievements(migrateElders(applySeasonRollover(applyTournamentRollover({ ...INITIAL_STATE, ...migrateEconomy(cloudData), settings: { ...INITIAL_STATE.settings, ...cloudData?.settings }, version: GAME_VERSION }))));
         prevLevelRef.current = hydrated.level; // restoring a save is not "leveling up"
         setState(hydrated);
       }
@@ -929,6 +945,7 @@ const App: React.FC = () => {
   const handleArenaPickFaction = useCallback((f: FactionId) => runArenaAction('Joining a faction', async () => {
     await chooseFaction(f);
     notify(`${factionById(f)?.icon ?? ''} You joined the ${factionById(f)?.name ?? 'faction'}!`, 'good');
+    setState(prev => ({ ...prev, faction: f }));
   }), [runArenaAction, notify]);
 
   const handleArenaStation = useCallback((elder: Elder) => runArenaAction('Stationing', async () => {
@@ -980,6 +997,7 @@ const App: React.FC = () => {
     if (cost > 0) bits.push(`(-${cost} 🎟️ attack fee)`);
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
+    setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.settings.sfxEnabled, notify]);
 
   const handleArenaClaimDues = useCallback(() => runArenaAction('Collecting Dues', async () => {
@@ -1139,27 +1157,53 @@ const App: React.FC = () => {
   };
 
   // Updated quest progress tracking
-  const handleQuestProgress = useCallback((type: string, amount: number = 1) => {
+  const handleQuestProgress = useCallback((kind: string, amount: number = 1) => {
     setState(prev => ({
       ...prev,
-      quests: prev.quests.map(q => {
-        if (q.completed) return q;
-        let matched = false;
-        if (type === 'collect' && q.title.includes('Watch')) matched = true;
-        if (type === 'battle' && q.title.includes('Gentle')) matched = true;
-        if (type === 'bingo' && (q.title.includes('Bingo') || q.title.includes('bingo'))) matched = true;
-        if (type === 'shuffleboard' && q.title.includes('Court')) matched = true;
-        if (type === 'tournament' && q.title.includes('Court')) matched = true;
-        if (type === 'challenge' && q.title.includes('Court')) matched = true;
-        if (type === 'ad' && q.title.includes('Sponsor')) matched = true;
-        if (matched) {
-          const newProgress = Math.min(q.target, q.progress + amount);
-          return { ...q, progress: newProgress };
-        }
-        return q;
-      })
+      quests: prev.quests.map(q => (!q.completed && q.kind === kind) ? { ...q, progress: Math.min(q.target, q.progress + amount) } : q),
     }));
   }, []);
+
+  // Task rotation (Bundle D): once a UTC day/week rolls over, replace the unclaimed quests of that type with
+  // a fresh draw from the pool. Claimed quests already paid out, so only their SLOT is replaced -- nothing is
+  // taken back. This runs as an effect (not inside handleQuestProgress) so it fires even on days with no play.
+  useEffect(() => {
+    const day = utcDayKey(); const week = utcWeekKey();
+    if (state.questsGeneratedDay === day && state.questsGeneratedWeek === week) return;
+    setState(prev => {
+      const dayChanged = prev.questsGeneratedDay !== day;
+      const weekChanged = prev.questsGeneratedWeek !== week;
+      if (!dayChanged && !weekChanged) return prev;
+      const kept = prev.quests.filter(q => (q.type === 'Daily' && !dayChanged) || (q.type === 'Weekly' && !weekChanged));
+      const fresh = [
+        ...(dayChanged ? generateQuests(DAILY_QUEST_POOL, 'Daily', day, 5) : []),
+        ...(weekChanged ? generateQuests(WEEKLY_QUEST_POOL, 'Weekly', week, 3) : []),
+      ];
+      return { ...prev, quests: [...kept, ...fresh], questsGeneratedDay: day, questsGeneratedWeek: week };
+    });
+  }, [state.questsGeneratedDay, state.questsGeneratedWeek]);
+
+  // Achievements ("Feats"): checked here, in one place, instead of never. Sticky -- an achievement already
+  // marked completed is left alone even if the condition that earned it later stops being true.
+  useEffect(() => {
+    setState(prev => {
+      let changed = false;
+      let tokens = prev.legacyTokens, score = prev.parkCommunityScore, rate = prev.pensionRate;
+      const achievements = prev.achievements.map(a => {
+        if (a.completed) return a;
+        const check = ACHIEVEMENT_CONDITIONS[a.id];
+        if (!check || !check(prev)) return a;
+        changed = true;
+        if (a.rewardType === 'Tokens') tokens += a.rewardValue;
+        else if (a.rewardType === 'CommunityScore') score += a.rewardValue;
+        else if (a.rewardType === 'YieldBonus') rate += a.rewardValue;
+        return { ...a, completed: true };
+      });
+      if (!changed) return prev;
+      if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+      return { ...prev, achievements, legacyTokens: tokens, parkCommunityScore: score, pensionRate: rate };
+    });
+  }, [state.allElders.length, state.parkCommunityScore, state.battleWins, state.pensionBalance, state.parkAssets, state.challengeLadder?.highestCleared, state.goldenGames?.highestLeagueCleared, state.stationedAt, state.faction]);
 
   const handleClaimSeasonReward = useCallback((level: number) => {
     const currentLevel = Math.min(Math.floor(state.season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
@@ -1517,6 +1561,7 @@ const App: React.FC = () => {
           : `⚔️ Victory over ${opponentName}!\nToday's battle rewards are used up — this one is for bragging rights.`)
       : `⚔️ ${opponentName}'s squad held their ground.\nYour Elders still earned XP.`,
       won ? 'good' : 'bad');
+    handleQuestProgress('friend_battle');
     void notifyFriendBattle(friendUserId, won).catch(e => {
       console.error('Friend battle notification failed', e);
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
@@ -1664,8 +1709,9 @@ const App: React.FC = () => {
       });
       setEventResult(success ? `You found a ${poolItem.name}!` : "You only found some weeds today.");
       setIsEventPlaying(false);
+      handleQuestProgress('garden');
     }, 1200);
-  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleMallWalk = useCallback(() => {
     const price = getStructurePrice(state.structureUses, 'Walk');
@@ -1681,8 +1727,9 @@ const App: React.FC = () => {
       });
       setEventResult(`Great workout! Your squad gained ${xpGain} XP.`);
       setIsEventPlaying(false);
+      handleQuestProgress('mall');
     }, 1500);
-  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handlePavilionPotluck = useCallback(() => {
     const price = getStructurePrice(state.structureUses, 'Pavilion');
@@ -1698,8 +1745,9 @@ const App: React.FC = () => {
       });
       setEventResult(`The potluck was a hit! Community Score +${scoreGain}.`);
       setIsEventPlaying(false);
+      handleQuestProgress('potluck');
     }, 1500);
-  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleMarketVisit = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
@@ -1724,8 +1772,9 @@ const App: React.FC = () => {
       });
       setEventResult(`Fresh produce! Your whole squad's ${statNames[boostedStat]} +2.`);
       setIsEventPlaying(false);
+      handleQuestProgress('market');
     }, 1500);
-  }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled]);
+  }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handlePlayBingo = useCallback(() => {
     const price = getStructurePrice(state.structureUses, 'Blitz');
@@ -1832,6 +1881,7 @@ const App: React.FC = () => {
   // pass is done (ELDER_AVATARS[type][1]/[2] currently duplicate [0]); stats and
   // comfortGeneration update correctly regardless.
   const handleEvolveElder = useCallback((elderId: string) => {
+    let evolved = false;
     setState(prev => {
       const elder = prev.allElders.find(e => e.id === elderId);
       if (!elder) return prev;
@@ -1859,6 +1909,7 @@ const App: React.FC = () => {
 
       const multiplier = EVOLUTION_STAT_MULTIPLIER[nextStage];
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+      evolved = true;
       return {
         ...prev,
         legacyTokens: prev.legacyTokens - cost,
@@ -1879,7 +1930,9 @@ const App: React.FC = () => {
         }),
       };
     });
-  }, [state.settings.sfxEnabled]);
+    // handleQuestProgress is declared above this handler, so it is safe to reference here.
+    if (evolved) handleQuestProgress('evolve');
+  }, [state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleExportSave = () => {
     const dataStr = JSON.stringify(state);
@@ -1952,6 +2005,7 @@ const App: React.FC = () => {
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
     handleQuestProgress('battle');
+    setState(prev => ({ ...prev, battleWins: (prev.battleWins ?? 0) + 1 }));
     if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
 

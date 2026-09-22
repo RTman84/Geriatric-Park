@@ -183,6 +183,26 @@ Progress counters live in `goldenGames.paid`, `autoPlayPaid`, `tournamentThrows`
 - Scrapping Elders pays `4 x level x rarity` Tickets; check that capture -> scrap cannot be looped faster than intended once wild Elder spawn rates are measured.
 - Quest/Task rewards are a fixed list that can be claimed once; the planned Tasks rotation (Bundle D) needs daily caps from the start.
 
+## 6g. Tasks now rotate; Feats are actually checked (Bundle D, 2026-09-21)
+Tasks (Quests) were a fixed, hand-written list of 8 that never changed. They are now drawn from pools
+(`DAILY_QUEST_POOL` 13 entries / `WEEKLY_QUEST_POOL` 8 entries in constants.tsx): 5 dailies redraw every UTC
+day, 3 weeklies redraw every UTC week (Monday), deterministically per day/week so reloading doesn't reshuffle
+mid-day. Matching is now by a `kind` field instead of matching substrings of the title, so new quest text
+doesn't risk silently matching the wrong progress event. New kinds added: `market`, `garden`, `mall`,
+`potluck`, `arena`, `friend_battle`, `evolve` (each wired to its existing handler).
+
+Feats (Achievements) had 4 entries and nothing ever checked or completed them -- confirmed dead since launch.
+They are now evaluated in one effect (`checkAchievements`-equivalent in App.tsx), sticky (never un-complete
+once earned), reading only already-existing state plus one new counter (`battleWins`) and one new mirror
+field (`faction`, synced from the Arena faction pick for achievement purposes only -- `api/arena.ts` stays the
+source of truth for the real faction). 6 new Feats reflect this arc's work: Investor (Park Assets), Rival
+Slayer (Challenge ladder rank 10), Tower Climber (Golden Games league 5), Arena Defender, Faction Founder,
+Neighborhood Legend (25 battle wins).
+
+Old saves: quests missing the new `kind` field are replaced with a fresh draw of that type (forfeits one
+save's in-progress, unclaimed quest progress, once); achievements are merged by id so a completed status
+survives and the 6 new entries are added rather than the array being replaced outright.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend

@@ -10,7 +10,7 @@ import {
   ClipboardDocumentListIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline';
-import { ElderType, PowerType, Achievement } from './types';
+import { ElderType, PowerType, Achievement, Quest } from './types';
 
 // Every image below is imported (not referenced by a hardcoded /public path).
 // Vite content-hashes imported assets at build time -- e.g.
@@ -837,6 +837,89 @@ export const NAV_ITEMS = [
   { id: 'quests', label: 'Tasks', icon: <ClipboardDocumentListIcon className="w-6 h-6" /> },
   { id: 'pass', label: 'Pass', icon: <TicketIcon className="w-6 h-6" /> },
   { id: 'bank', label: 'Bank', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+];
+
+// --- Task rotation (Bundle D, 2026-09-21) -------------------------------------------------------------
+// Replaces the fixed 8-quest list (never rotated) with pools the game draws from each UTC day/week, so
+// Tasks stay varied instead of being the same 5 dailies forever. `kind` is what handleQuestProgress
+// matches against -- add a kind here only once something in App.tsx actually reports progress for it.
+export interface QuestTemplate {
+  kind: string; title: string; description: string; target: number;
+  rewardXP: number; rewardTokens: number; rewardStars: number;
+}
+export const DAILY_QUEST_POOL: QuestTemplate[] = [
+  { kind: 'collect', title: 'Neighborhood Watch', description: 'Collect 6 items from the map.', target: 6, rewardXP: 150, rewardTokens: 25, rewardStars: 5 },
+  { kind: 'battle', title: 'Gentle Persuasion', description: 'Win 2 arguments with wild residents.', target: 2, rewardXP: 200, rewardTokens: 50, rewardStars: 8 },
+  { kind: 'shuffleboard', title: 'Court Presence', description: 'Play 3 Court matches (any mode).', target: 3, rewardXP: 175, rewardTokens: 40, rewardStars: 6 },
+  { kind: 'ad', title: 'Sponsor Support', description: 'Watch 3 sponsor videos.', target: 3, rewardXP: 100, rewardTokens: 30, rewardStars: 4 },
+  { kind: 'bingo', title: 'Bingo Night', description: 'Play 2 Bingo Blitz sessions.', target: 2, rewardXP: 150, rewardTokens: 35, rewardStars: 6 },
+  { kind: 'challenge', title: "Rival's Rematch", description: 'Fight 2 Elder Challenge duels.', target: 2, rewardXP: 180, rewardTokens: 30, rewardStars: 6 },
+  { kind: 'tournament', title: 'Practice Throws', description: 'Take 2 Daily Tournament throws.', target: 2, rewardXP: 120, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'market', title: 'Farmers Market Run', description: 'Visit the Farmers Market once.', target: 1, rewardXP: 90, rewardTokens: 15, rewardStars: 4 },
+  { kind: 'garden', title: 'Garden Scavenge', description: 'Scavenge the Community Garden twice.', target: 2, rewardXP: 100, rewardTokens: 20, rewardStars: 4 },
+  { kind: 'mall', title: 'Mall Circuit Laps', description: 'Train at the Mall Circuit twice.', target: 2, rewardXP: 100, rewardTokens: 20, rewardStars: 4 },
+  { kind: 'potluck', title: 'Potluck Pavilion', description: 'Host one Potluck.', target: 1, rewardXP: 90, rewardTokens: 15, rewardStars: 6 },
+  { kind: 'arena', title: 'Arena Skirmish', description: 'Attack an Arena once.', target: 1, rewardXP: 130, rewardTokens: 25, rewardStars: 6 },
+  { kind: 'friend_battle', title: 'Friendly Rivalry', description: 'Fight 1 Friend Battle.', target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+];
+export const WEEKLY_QUEST_POOL: QuestTemplate[] = [
+  { kind: 'bingo', title: 'Bingo Marathon', description: 'Play 6 Bingo Blitz sessions.', target: 6, rewardXP: 1000, rewardTokens: 250, rewardStars: 30 },
+  { kind: 'shuffleboard', title: 'Court Dominator', description: 'Play 12 Court matches (any mode).', target: 12, rewardXP: 1500, rewardTokens: 400, rewardStars: 35 },
+  { kind: 'challenge', title: 'Ladder Climber', description: 'Fight 8 Elder Challenge duels.', target: 8, rewardXP: 1400, rewardTokens: 350, rewardStars: 30 },
+  { kind: 'arena', title: 'Arena Campaign', description: 'Attack Arenas 5 times.', target: 5, rewardXP: 1300, rewardTokens: 300, rewardStars: 35 },
+  { kind: 'friend_battle', title: 'Rivalry Week', description: 'Fight 4 Friend Battles.', target: 4, rewardXP: 1000, rewardTokens: 250, rewardStars: 25 },
+  { kind: 'battle', title: 'Neighborhood Legend', description: 'Win 12 wild-resident battles.', target: 12, rewardXP: 1400, rewardTokens: 300, rewardStars: 30 },
+  { kind: 'evolve', title: 'Grow the Family', description: 'Evolve 1 Elder.', target: 1, rewardXP: 1200, rewardTokens: 200, rewardStars: 30 },
+  { kind: 'ad', title: 'Sponsor Champion', description: 'Watch 12 sponsor videos this week.', target: 12, rewardXP: 800, rewardTokens: 200, rewardStars: 20 },
+];
+export function utcWeekKey(ts: number = Date.now()): string {
+  const d = new Date(ts); const day = (d.getUTCDay() + 6) % 7; // Monday = 0
+  d.setUTCDate(d.getUTCDate() - day); d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+// Deterministic-enough shuffle keyed by a day/week string, so a given day's picks don't change on reload.
+function seededShuffle<T>(arr: T[], seedStr: string): T[] {
+  let h = 0; for (let i = 0; i < seedStr.length; i++) h = (Math.imul(h, 31) + seedStr.charCodeAt(i)) | 0;
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    h = (Math.imul(h, 1103515245) + 12345) | 0;
+    const j = Math.abs(h) % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+export function generateQuests(pool: QuestTemplate[], type: 'Daily' | 'Weekly', seedKey: string, count: number): Quest[] {
+  return seededShuffle(pool, `${type}:${seedKey}`).slice(0, count).map((t, i) => ({
+    id: `${type === 'Daily' ? 'd' : 'w'}-${seedKey}-${i}`, type, title: t.title, description: t.description, kind: t.kind,
+    progress: 0, target: t.target, completed: false, rewardXP: t.rewardXP, rewardTokens: t.rewardTokens, rewardStars: t.rewardStars,
+  }));
+}
+
+// --- Achievements ("Feats"): now actually evaluated (2026-09-21) --------------------------------------
+// Previously these 4 entries existed but nothing ever checked or completed them. Conditions read only from
+// the saved GameState, are checked in one place (checkAchievements in App.tsx), and are STICKY: once an
+// achievement's condition has ever been true it stays completed even if the underlying value later drops
+// (e.g. Park Assets sold, Elders released) -- checkAchievements only evaluates achievements that are not
+// already completed.
+export const ACHIEVEMENT_CONDITIONS: Record<string, (s: any) => boolean> = {
+  a1: s => s.allElders.length > 0,
+  a2: s => s.parkCommunityScore >= 100,
+  a3: s => (s.battleWins ?? 0) >= 5,
+  a4: s => s.pensionBalance >= 1.0,
+  a5: s => Object.values(s.parkAssets ?? {}).some((n: any) => typeof n === 'number' && n > 0),
+  a6: s => (s.challengeLadder?.highestCleared ?? -1) >= 9,           // cleared rank 10
+  a7: s => (s.goldenGames?.highestLeagueCleared ?? -1) >= 4,          // cleared the 5th league
+  a8: s => Object.keys(s.stationedAt ?? {}).length > 0,               // defended an Arena at least once
+  a9: s => !!s.faction,
+  a10: s => (s.battleWins ?? 0) >= 25,
+};
+export const NEW_ACHIEVEMENTS: Achievement[] = [
+  { id: 'a5', title: 'Investor', description: 'Buy your first Park Asset.', completed: false, rewardType: 'Tokens', rewardValue: 40, icon: '📦' },
+  { id: 'a6', title: 'Rival Slayer', description: 'Clear rank 10 on the Elder Challenge ladder.', completed: false, rewardType: 'Tokens', rewardValue: 60, icon: '⚔️' },
+  { id: 'a7', title: 'Tower Climber', description: 'Clear the 5th Golden Games league.', completed: false, rewardType: 'Tokens', rewardValue: 80, icon: '🏆' },
+  { id: 'a8', title: 'Arena Defender', description: 'Station an Elder at an Arena.', completed: false, rewardType: 'CommunityScore', rewardValue: 15, icon: '🏟️' },
+  { id: 'a9', title: 'Faction Founder', description: 'Join a faction.', completed: false, rewardType: 'CommunityScore', rewardValue: 10, icon: '🚩' },
+  { id: 'a10', title: 'Neighborhood Legend', description: 'Win 25 wild-resident battles.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00002, icon: '🎖️' },
 ];
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
