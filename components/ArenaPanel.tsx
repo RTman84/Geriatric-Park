@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Elder, ElderType } from '../types';
 import {
   ELDER_AVATARS, ElderAvatarImg, FACTIONS, factionById, FactionId, getElderPower,
-  ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, arenaAttackCost,
+  ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, ARENA_FACTION_LOCK_DAYS, arenaAttackCost,
 } from '../constants';
 import type { ArenaInfo, ArenaMe, ArenaDefender } from '../services/arenaService';
 import type { ArenaSite } from '../services/worldMap';
@@ -39,6 +39,11 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
 }) => {
   const [choosing, setChoosing] = useState(false);
   const [pendingFaction, setPendingFaction] = useState<FactionId | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<FactionId | null>(null);
+  const daysUntilSwitch = me?.factionChangedAt
+    ? Math.max(0, Math.ceil((Date.parse(me.factionChangedAt) + ARENA_FACTION_LOCK_DAYS * 86400000 - Date.now()) / 86400000))
+    : 0;
   const muted = isDark ? 'text-slate-300' : 'text-slate-600';
   const card = `p-4 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`;
   const holder = info?.faction ?? null;
@@ -91,9 +96,42 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
           </div>
         ) : (
           <>
-            <div className={`${card} mb-4 flex items-center justify-between`}>
-              <span className="font-black uppercase text-[14px]" style={{ color: factionById(myFaction)?.color }}>{factionById(myFaction)?.icon} You: {factionById(myFaction)?.name}</span>
-              <span className={`text-[13px] font-black uppercase ${muted}`}>Attacks left: {attacksLeft}/{ARENA_MAX_ATTACKS_PER_DAY}</span>
+            <div className={`${card} mb-4`}>
+              <div className="flex items-center justify-between">
+                <span className="font-black uppercase text-[14px]" style={{ color: factionById(myFaction)?.color }}>{factionById(myFaction)?.icon} You: {factionById(myFaction)?.name}</span>
+                <span className={`text-[13px] font-black uppercase ${muted}`}>Attacks left: {attacksLeft}/{ARENA_MAX_ATTACKS_PER_DAY}</span>
+              </div>
+              {!switching ? (
+                <button disabled={busy} onClick={() => setSwitching(true)} className={`mt-2 text-[13px] font-black uppercase underline ${muted}`}>
+                  Switch faction
+                </button>
+              ) : (
+                <div className="mt-3 pt-3 border-t border-dashed border-slate-500/30">
+                  {me.defenders.length > 0 ? (
+                    <p className="text-[13px] font-bold text-amber-500">Recall every Elder you have stationed (in every Arena) before switching factions.</p>
+                  ) : daysUntilSwitch > 0 ? (
+                    <p className={`text-[13px] font-bold ${muted}`}>You can switch factions again in {daysUntilSwitch} day{daysUntilSwitch === 1 ? '' : 's'}.</p>
+                  ) : (
+                    <>
+                      <p className={`text-[13px] font-bold mb-2 ${muted}`}>Switching locks you into the new faction for {ARENA_FACTION_LOCK_DAYS} days.</p>
+                      <div className="flex gap-2">
+                        {FACTIONS.filter(f => f.id !== myFaction).map(f => (
+                          <button key={f.id} disabled={busy} onClick={() => setSwitchTarget(f.id)}
+                            className={`flex-1 py-2 rounded-xl text-[13px] font-black uppercase border-2 ${switchTarget === f.id ? '' : isDark ? 'border-slate-700' : 'border-slate-200'}`}
+                            style={switchTarget === f.id ? { borderColor: f.color, color: f.color } : undefined}>
+                            {f.icon} {f.name}
+                          </button>
+                        ))}
+                      </div>
+                      <button disabled={busy || !switchTarget} onClick={() => { if (switchTarget) { onPickFaction(switchTarget); setSwitching(false); setSwitchTarget(null); } }}
+                        className={`mt-2 w-full py-2.5 rounded-xl font-black uppercase text-[13px] ${switchTarget && !busy ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>
+                        Confirm switch ({ARENA_FACTION_LOCK_DAYS}-day lock)
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => { setSwitching(false); setSwitchTarget(null); }} className={`mt-2 text-[12px] font-bold underline ${muted}`}>Cancel</button>
+                </div>
+              )}
             </div>
 
             {shieldMins > 0 && <p className="text-[14px] font-black uppercase text-sky-500 mb-3">🛡️ New holders are shielded for {shieldMins} more min</p>}
@@ -150,12 +188,17 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
             {me.defenders.length > 0 && (
               <div className={`${card} mt-4`}>
                 <p className="font-black uppercase text-[14px] mb-1">Arena Dues</p>
+                {me.defenders.length > 1 && (
+                  <p className={`text-[13px] font-bold mb-2 ${muted}`}>
+                    One claim covers every Elder you have stationed, across all {me.defenders.length} of your Arenas — not just this one.
+                  </p>
+                )}
                 <p className={`text-[14px] font-bold ${muted}`}>
-                  {me.duesClaimedToday ? 'Collected for today — new Dues keep building.' : `Ready: ${me.dues.tickets} 🎟️ · ${me.dues.materials} 🧱 (${me.dues.hours}h, max 12h per Elder). Sent to your Mailbox.`}
+                  {me.duesClaimedToday ? 'Already collected today (from any Arena) — new Dues keep building for tomorrow.' : `Ready: ${me.dues.tickets} 🎟️ · ${me.dues.materials} 🧱 across all your stationed Elders (${me.dues.hours}h combined, max 12h per Elder). A freshly stationed Elder starts at 0 and builds up hourly. Sent to your Mailbox.`}
                 </p>
                 <button disabled={busy || me.duesClaimedToday || (me.dues.tickets <= 0 && me.dues.materials <= 0)} onClick={onClaimDues}
                   className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[14px] ${!busy && !me.duesClaimedToday && (me.dues.tickets > 0 || me.dues.materials > 0) ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>
-                  Collect Dues (once a day)
+                  {me.duesClaimedToday ? 'Collected for today' : 'Collect Dues (once a day, all Arenas)'}
                 </button>
               </div>
             )}

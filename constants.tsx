@@ -422,6 +422,7 @@ export const FACTIONS: { id: FactionId; name: string; icon: string; color: strin
   { id: 'sunday_drivers', name: 'Sunday Drivers', icon: '🚗', color: '#14b8a6', blurb: 'Fifteen under the limit, blinker on since Tuesday.' },
 ];
 export const factionById = (id: any) => FACTIONS.find(f => f.id === id);
+export const ARENA_FACTION_LOCK_DAYS = 30;
 export const ARENA_MAX_SLOTS = 6;
 export const ARENA_MAX_PER_PLAYER = 3;
 export const ARENA_FREE_ATTACKS = 5;

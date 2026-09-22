@@ -232,6 +232,19 @@ design -- it conflates "most recently saved" with "most complete," which is exac
 data-loss scenario. The Bundle F server-authoritative ledger should replace this with a real
 monotonic counter the SERVER assigns (increment-on-write), not a client-supplied wall-clock value.
 
+## 6i. Arena feedback from first real test (2026-09-22)
+Two-account test worked correctly overall (shield timer held, faction colors updated). Two real gaps found:
+- **Arena Dues is ONE claim per player per day covering every stationed Elder across every Arena, not
+  a separate claim per Arena** -- the panel showed the same "Collect Dues" card in each Arena
+  independently with no explanation, so claiming from one Arena and then finding the second Arena's
+  claim already used looked like a bug. Copy in `ArenaPanel.tsx` now says this explicitly, and shows
+  how many Arenas the combined total covers. A defender stationed only minutes ago also naturally
+  contributes ~0 to the total (Dues build up hourly) -- also now called out in the copy.
+- **No way to switch factions existed in the UI at all**, even though `api/arena.ts` already supports
+  it (30-day lock, must have zero stationed defenders). Added a "Switch faction" control to
+  `ArenaPanel.tsx` next to the "You: <faction>" line, showing days remaining if still locked, or a
+  faction picker + confirm if eligible.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend
