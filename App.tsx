@@ -386,6 +386,13 @@ const App: React.FC = () => {
   const [leaderboardError, setLeaderboardError] = useState(false);
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadingStuckLong, setLoadingStuckLong] = useState(false);
+  // Independent of cloud config, so the escape hatch also appears for a genuinely stuck LOCAL load
+  // (no cloud account involved at all), not only the cloud-sync case.
+  useEffect(() => {
+    const t = setTimeout(() => setLoadingStuckLong(true), 12000);
+    return () => clearTimeout(t);
+  }, []);
   const [wildElders, setWildElders] = useState<Elder[]>([]);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -1076,7 +1083,8 @@ const App: React.FC = () => {
       // actually see) only syncs during a cloud save, so trigger one
       // immediately rather than leaving it stale until some unrelated
       // gameplay action happens to save next.
-      if (isCloudAccountsConfigured()) {
+      // Same guard as the two autosave effects: never push before cloudSyncSettled is confirmed.
+      if (isCloudAccountsConfigured() && cloudSyncSettled) {
         const revision = Date.now();
         cloudRevisionRef.current = revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1109,13 +1117,29 @@ const App: React.FC = () => {
     }
   }, [state.settings.musicEnabled, state.hasStarted, battleOpponent]);
 
+  // BUG FOUND AND FIXED (2026-09-22): this effect used to push to the cloud whenever
+  // `isLoaded && state.hasStarted` were true -- it did NOT wait for `cloudSyncSettled`. The 8-second
+  // safety timeout a few effects up sets `cloudCheckDone` (unblocking the loading screen) WITHOUT
+  // waiting for the real cloud fetch, specifically so a hung network request can never trap the
+  // player. But that means: on a slow/hung connection, the player could see StarterSelection, pick a
+  // starter (hasStarted becomes true), and 2 seconds later THIS effect would upload that brand-new,
+  // near-empty save using `Date.now()` as the revision. Since a fresh timestamp is always numerically
+  // greater than an old one, the server's "reject if clientRevision <= existing" check (see
+  // api/account/save.ts) would ACCEPT it and silently overwrite a real, much larger save with a
+  // blank one -- indistinguishable from an account reset, and with no confirmation or warning. This
+  // is believed to be what happened to a real player's account on 2026-09-22.
+  // Fix: never push to the cloud until `cloudSyncSettled` is true, i.e. until the real cloud fetch has
+  // actually finished (success or failure) -- not just the 8-second bypass. Local (localStorage) saves
+  // are unaffected and still happen immediately, so nothing is lost if the player keeps playing while
+  // the cloud fetch is still catching up; once it resolves, syncFromCloud's own revision check (see
+  // above) still applies and will correctly prefer real cloud progress over a few seconds of new play.
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLoaded && state.hasStarted) {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
         catch (e) { console.error("Save failed", e); }
 
-        if (isCloudAccountsConfigured()) {
+        if (isCloudAccountsConfigured() && cloudSyncSettled) {
           const revision = Date.now();
           cloudRevisionRef.current = revision;
           localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1125,7 +1149,7 @@ const App: React.FC = () => {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [state, isLoaded]);
+  }, [state, isLoaded, cloudSyncSettled]);
 
   // Flush an immediate save when the tab is hidden/closed, so a quick
   // reload right after an action doesn't lose anything still waiting
@@ -1134,7 +1158,8 @@ const App: React.FC = () => {
     const flush = () => {
       if (!isLoaded || !state.hasStarted) return;
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
-      if (isCloudAccountsConfigured()) {
+      // Same fix as the debounced autosave above: never push to the cloud before cloudSyncSettled.
+      if (isCloudAccountsConfigured() && cloudSyncSettled) {
         const revision = Date.now();
         cloudRevisionRef.current = revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1148,7 +1173,7 @@ const App: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', flush);
     };
-  }, [state, isLoaded]);
+  }, [state, isLoaded, cloudSyncSettled]);
 
   const triggerTab = (id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
@@ -2118,10 +2143,34 @@ const App: React.FC = () => {
     assets: state.pensionRate,
   }), [state.pensionRate]);
 
+  // BUG FOUND AND FIXED (2026-09-22): this button was visible, unlabeled as destructive, and
+  // required no confirmation, on a screen shown for a moment on every single app launch. A stray or
+  // curious tap here permanently wiped local progress with a single click. It's now hidden until the
+  // loading screen has genuinely been stuck for a while (loadingStuckLong), relabeled to say plainly
+  // what it does, and requires an explicit confirm before it does anything.
   if (!isLoaded || !cloudCheckDone) return (
-    <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-white font-black uppercase tracking-widest gap-6">
+    <div className="h-full w-full bg-slate-900 flex flex-col items-center justify-center text-white font-black uppercase tracking-widest gap-6 px-6 text-center">
       <div className="animate-pulse">Initializing...</div>
-      <button onClick={() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }} className="text-[15px] opacity-40 hover:opacity-100 transition-opacity border border-white/20 px-4 py-2 rounded-xl">Clear Save & Reset</button>
+      {loadingStuckLong && (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-[13px] font-bold normal-case tracking-normal opacity-60 max-w-xs">
+            Taking longer than usual. If this is stuck, you can reset LOCAL data on this device only —
+            this does not touch your signed-in account's cloud save, but any progress made only on
+            this device and never synced will be lost.
+          </p>
+          <button
+            onClick={() => {
+              if (window.confirm('Reset local data on this device? This cannot be undone. Your signed-in cloud save (if any) is not affected.')) {
+                localStorage.removeItem(SAVE_KEY);
+                window.location.reload();
+              }
+            }}
+            className="text-[15px] opacity-70 hover:opacity-100 transition-opacity border border-white/20 px-4 py-2 rounded-xl normal-case tracking-normal"
+          >
+            Reset local data on this device
+          </button>
+        </div>
+      )}
     </div>
   );
 

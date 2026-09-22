@@ -203,6 +203,35 @@ Old saves: quests missing the new `kind` field are replaced with a fresh draw of
 save's in-progress, unclaimed quest progress, once); achievements are merged by id so a completed status
 survives and the 6 new entries are added rather than the array being replaced outright.
 
+## 6h. Cloud-save overwrite bug found and fixed (2026-09-22)
+A real player's account appeared "reset" on 2026-09-22. Root cause found by tracing the code, not
+guessed: the app's 8-second "never trap the player on the loading screen" safety timeout unblocks the
+UI (`cloudCheckDone`) WITHOUT waiting for the actual cloud fetch to finish. If that fetch was slow or
+hung, the player could see Starter Selection, pick a starter, and 2 seconds later the debounced
+autosave effect would push that brand-new, near-empty save to the cloud using `Date.now()` as the
+revision number. Since a fresh timestamp is always greater than an old one, the server's monotonic
+revision check (`api/account/save.ts`, rejects `clientRevision <= existing`) would ACCEPT the write and
+silently overwrite a real, much larger save with a blank one -- no confirmation, no warning, no
+recoverable trace on the client side. This is believed to be exactly what happened.
+
+Fix: the two autosave-to-cloud effects (debounced, and flush-on-hide) plus the display-name-change
+save trigger now additionally require `cloudSyncSettled` -- a flag that is ONLY set once the real
+cloud fetch has actually completed (success or failure), separate from `cloudCheckDone` which the 8s
+timeout can set early. Local (localStorage) saves are unaffected and still happen immediately, so nothing
+is lost by waiting; once the real cloud fetch does resolve, its own revision check still correctly
+prefers real cloud progress over a few seconds of freshly-started local play.
+
+Also fixed the same day: the "Clear Save & Reset" button on the loading screen was unlabeled as
+destructive, required no confirmation, and was visible on every single app launch (loading screens are
+normally on-screen for under a second, but a curious or accidental tap wiped local progress instantly).
+It's now hidden until the loading screen has genuinely been stuck for 12+ seconds, relabeled to say
+plainly what it does and that it doesn't touch the cloud save, and requires an explicit confirm.
+
+**Not yet fixed / worth doing next:** the client-chosen `Date.now()` revision scheme is fragile by
+design -- it conflates "most recently saved" with "most complete," which is exactly backwards in a
+data-loss scenario. The Bundle F server-authoritative ledger should replace this with a real
+monotonic counter the SERVER assigns (increment-on-write), not a client-supplied wall-clock value.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend
