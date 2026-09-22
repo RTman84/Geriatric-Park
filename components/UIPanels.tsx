@@ -1333,9 +1333,13 @@ export const BasePanel: React.FC<{
               <div className="flex items-center gap-6">
                 <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
+                    <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
+                  </div>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
-                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts</p>
+                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {(e.xp ?? 0)}/{xpForElderLevel(e.level)}</p>
                   <div className="flex gap-2 mt-3">
                     {e.status === 'Team' 
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
@@ -1395,6 +1399,7 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
                   <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
                   <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                 </div>
+                <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
                 <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {xp}/{xpForElderLevel(e.level)}</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
