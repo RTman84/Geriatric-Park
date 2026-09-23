@@ -245,6 +245,35 @@ Two-account test worked correctly overall (shield timer held, faction colors upd
   `ArenaPanel.tsx` next to the "You: <faction>" line, showing days remaining if still locked, or a
   faction picker + confirm if eligible.
 
+## 6j. Every Park building now has a real use (2026-09-22)
+7 buildings were pure decoration -- built once, leveled for nothing, no functional effect ever. Each
+now has a distinct, level-scaling use (still Tickets/Materials/comfort/QoL only, never PP or passive
+income, per the standing rule):
+| Building | Use |
+|---|---|
+| Water Aerobics Pool | Heals all Team Elders a % of max HP per hour (passive tick) |
+| Bird Watching Post | Now a producer: small Materials/hr (moved category: decoration -> production) |
+| Early Bird Line | % off every map-building's Ticket price (`STRUCTURE_PRICING`), applied in one place (`getDiscountedPrice` in App.tsx) so every handler and display gets it automatically |
+| Complaint Desk | Small Community Score trickle per hour (passive tick) |
+| Nap Pod Row | % output bonus to every OTHER producing building (stacks with Elder Comfort's existing bonus) |
+| Prune Juice Bar | Now a producer: small Tickets/hr (moved category: decoration -> production) |
+| Shuffleboard Court (decoration) | Flat Tickets added to the Court Champion purse, per level |
+
+`GroundsPanel.tsx` now shows each effect's current value and the next-level preview, so leveling any
+of these is no longer invisible. Helper functions live next to `producerStored` in constants.tsx
+(`totalProducerBoost`, `totalHpRegenPerTick`, `totalScoreTricklePerTick`, `totalStructureDiscountPct`,
+`totalCourtPurseBonus`).
+
+## 6k. Golden Games Tower tier-naming bug found and fixed (2026-09-22)
+Generated tiers (beyond the 4 hand-tuned ones) were named with Roman numerals ("Legendary Circuit
+II", "III", ...) up to 20, then fell back to a literal `Tier ${step + 1}` string -- but `step` counts
+only GENERATED tiers, while the tab number and detail card show the OVERALL tier number. The two
+differ by exactly 3 (the hand-tuned tier count), so from tier 24 onward -- more than 3/4 of the
+100-tier tower -- the button's own name showed a tier number 3 lower than the rest of the screen for
+the same tier (reported: viewing Tier 33, button said "Legendary Circuit Tier 30"). Fixed by always
+using the real overall tier number in the name (`Legendary Circuit — Tier ${i + 1}`), so it can never
+disagree with the tab or detail card again.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend

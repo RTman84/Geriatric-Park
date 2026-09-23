@@ -88,3 +88,59 @@ export function getWorldArenas(lat: number, lng: number, ring = 1): ArenaSite[] 
   }
   return out;
 }
+
+// --- Raids -------------------------------------------------------------------------------------------
+// A deterministic schedule: 3 daily windows (90 minutes each), and for each (Arena, window) a seeded
+// roll decides whether it hosts a Raid this time, and if so, which of the 6 bosses (see RAID_BOSSES in
+// constants.tsx for names/flavor/art -- only the numeric bits live here). No rows are written until
+// someone actually hits it (api/arena.ts creates the row lazily on first hit) -- everyone computes the
+// same upcoming schedule with no server round-trip, the same way Arena placement works above.
+// THE SAME MATH IS DUPLICATED INSIDE api/arena.ts -- change both places together.
+export const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
+export const RAID_WINDOW_MINUTES = 90;
+export const RAID_CHANCE = 0.12;
+const RAID_SALT = 2000;
+// Two bosses per tier (index 0-5); HP multipliers differ per boss even within a tier, purely for
+// texture, matching the ARENA_DESIGN.md flavor notes (the DMV Clerk's absurdly padded HP, etc.).
+export const RAID_BASE_HP = [3000, 6000, 10000]; // by tier (1,2,3)
+export const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85]; // per boss_index 0-5
+
+export interface RaidSlot { arenaId: string; slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
+
+function raidSlotStart(dayStartMs: number, hourUtc: number): number { return dayStartMs + hourUtc * 3600000; }
+
+/** All Raid slots (past, current, or upcoming) for one Arena within +-2 days of `now`, for schedule display. */
+export function getArenaRaidSlots(arenaId: string, now: number = Date.now()): RaidSlot[] {
+  const m = ARENA_ID_RE_FOR_RAIDS.exec(arenaId);
+  if (!m) return [];
+  const cx = parseInt(m[1], 10), cy = parseInt(m[2], 10);
+  const out: RaidSlot[] = [];
+  for (let dayOffset = -1; dayOffset <= 1; dayOffset++) {
+    const day = new Date(now); day.setUTCHours(0, 0, 0, 0); day.setUTCDate(day.getUTCDate() + dayOffset);
+    const dayKey = day.toISOString().slice(0, 10);
+    const dayStart = day.getTime();
+    for (let slot = 0; slot < RAID_WINDOW_HOURS_UTC.length; slot++) {
+      const hour = RAID_WINDOW_HOURS_UTC[slot];
+      const slotStart = raidSlotStart(dayStart, hour);
+      const rand = rng(hash32(cx, cy, RAID_SALT + slot * 10000 + dayOffset * 100000 + hashDay(dayKey)));
+      if (rand() >= RAID_CHANCE) continue;
+      const tier = 1 + Math.floor(rand() * 3);
+      const bossInTier = rand() < 0.5 ? 0 : 1;
+      const bossIndex = (tier - 1) * 2 + bossInTier;
+      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex]);
+      out.push({ arenaId, slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
+    }
+  }
+  return out.sort((a, b) => a.slotStart - b.slotStart);
+}
+
+const ARENA_ID_RE_FOR_RAIDS = /^a_(-?\d{1,7})_(-?\d{1,7})$/;
+function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
+
+/** The Raid this Arena is currently hosting, or the next upcoming one, or null. */
+export function getActiveOrNextRaid(arenaId: string, now: number = Date.now()): RaidSlot | null {
+  const slots = getArenaRaidSlots(arenaId, now);
+  const active = slots.find(s => s.slotStart <= now && now < s.slotEnd);
+  if (active) return active;
+  return slots.find(s => s.slotStart > now) ?? null;
+}

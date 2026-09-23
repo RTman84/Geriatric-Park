@@ -8,6 +8,9 @@ create table if not exists public.arena_raids (
   tier integer not null check (tier between 1 and 3),
   starts_at timestamptz not null,
   ends_at timestamptz not null,
+  boss_index integer not null check (boss_index between 0 and 5),
+  max_hp bigint not null check (max_hp > 0),
+  damage_total bigint not null default 0 check (damage_total >= 0),
   settled boolean not null default false,
   defeated boolean,
   created_at timestamptz not null default now()

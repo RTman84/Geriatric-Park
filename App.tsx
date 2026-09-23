@@ -53,6 +53,11 @@ import {
   generateQuests,
   ACHIEVEMENT_CONDITIONS,
   NEW_ACHIEVEMENTS,
+  totalProducerBoost,
+  totalHpRegenPerTick,
+  totalScoreTricklePerTick,
+  totalStructureDiscountPct,
+  totalCourtPurseBonus,
   arenaAttackCost,
   factionById,
   type FactionId,
@@ -563,10 +568,23 @@ const App: React.FC = () => {
         // becomes real, reserve-capped PP when the player chooses to Cash Out
         // (or spend it on Park Assets) from the Bank panel. This replaces
         // the earlier reserve-cap-on-accrual stopgap.
+        // Water Aerobics Pool / Complaint Desk (2026-09-22): small, level-scaling quality-of-life
+        // effects on the same tick as passive income. Neither is PP or a passive-income rate --
+        // HP regen only helps Team Elders survive longer between heals, and the score trickle is a
+        // slow, capped-by-nature nicety (Community Score has no cash value), so neither breaks the
+        // "buildings never pay PP or raise passive income" rule.
+        const hpRegenFrac = totalHpRegenPerTick(prev.builtAmenityIds, prev.amenityLevels);
+        const scoreTrickle = totalScoreTricklePerTick(prev.builtAmenityIds, prev.amenityLevels);
         return {
           ...prev,
           pendingYield: prev.pendingYield + accrued,
           lastActiveTime: now,
+          allElders: hpRegenFrac > 0
+            ? prev.allElders.map(e => (e.status === 'Team' && e.hp < e.maxHp)
+                ? { ...e, hp: Math.min(e.maxHp, e.hp + e.maxHp * hpRegenFrac) }
+                : e)
+            : prev.allElders,
+          parkCommunityScore: prev.parkCommunityScore + scoreTrickle,
         };
       });
     }, PASSIVE_TICK_MS);
@@ -1404,10 +1422,19 @@ const App: React.FC = () => {
     notify(`${elder.name} was scrapped for ${ticketPayout} 🎟️.`);
   }, [state.allElders, state.stationedAt, state.settings.sfxEnabled]);
 
-  const eventPrice = getStructurePrice(state.structureUses, activeEvent?.type ?? '');
+  // Early Bird Line (Park building) discounts every map-building price -- applied in ONE place so
+  // every call site (7 handlers + 2 display spots) gets it automatically rather than each needing to
+  // remember to apply the discount separately.
+  const getDiscountedPrice = useCallback((type: string) => {
+    const raw = getStructurePrice(state.structureUses, type);
+    const discount = totalStructureDiscountPct(state.builtAmenityIds, state.amenityLevels);
+    return discount > 0 && raw.cost > 0 ? { ...raw, cost: Math.max(1, Math.round(raw.cost * (1 - discount))) } : raw;
+  }, [state.structureUses, state.builtAmenityIds, state.amenityLevels]);
+
+  const eventPrice = getDiscountedPrice(activeEvent?.type ?? '');
 
   const handleHealSquad = useCallback(() => {
-    const price = getStructurePrice(state.structureUses, 'Heal');
+    const price = getDiscountedPrice('Heal');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -1419,7 +1446,7 @@ const App: React.FC = () => {
   const handlePlayShuffleboard = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
     if (team.length === 0) return notify("Assign a squad first!");
-    const price = getStructurePrice(state.structureUses, 'Shuffleboard');
+    const price = getDiscountedPrice('Shuffleboard');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     if (!activeEvent) return;
@@ -1633,9 +1660,11 @@ const App: React.FC = () => {
     if (!isCourtChampion(king, now)) { notify("You're not the Court Champion right now — beat the Grand Shuffle Court on the map to take the title."); return; }
     if ((state.lastCourtPurseClaim ?? 0) >= (king?.heldSince ?? 0)) { notify("You've already collected this reign's purse. Win the court again after your title runs out."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens + COURT_PURSE_TICKETS, lastCourtPurseClaim: now }));
-    notify(`👑 Champion's purse collected! +${COURT_PURSE_TICKETS} 🎟️`);
-  }, [state.shuffleboard.currentKing, state.lastCourtPurseClaim, state.settings.sfxEnabled]);
+    // Shuffleboard Court (Park building) adds a flat bonus to the purse per level.
+    const purse = COURT_PURSE_TICKETS + totalCourtPurseBonus(state.builtAmenityIds, state.amenityLevels);
+    setState(prev => ({ ...prev, legacyTokens: prev.legacyTokens + purse, lastCourtPurseClaim: now }));
+    notify(`👑 Champion's purse collected! +${purse} 🎟️`);
+  }, [state.shuffleboard.currentKing, state.lastCourtPurseClaim, state.settings.sfxEnabled, state.builtAmenityIds, state.amenityLevels]);
 
   const handleBuildAmenity = useCallback((amenityId: string) => {
     const amenity = AMENITIES.find(a => a.id === amenityId);
@@ -1659,7 +1688,7 @@ const App: React.FC = () => {
     const amenity = AMENITIES.find(a => a.id === amenityId);
     if (!amenity?.producer || !state.builtAmenityIds.includes(amenityId)) return;
     const now = Date.now();
-    const amount = producerStored(amenity, getBuildingLevel(state.amenityLevels, amenityId), state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders));
+    const amount = producerStored(amenity, getBuildingLevel(state.amenityLevels, amenityId), state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels));
     if (amount <= 0) { notify(`${amenity.name} has nothing to collect yet.`); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
     setState(prev => ({
@@ -1683,7 +1712,7 @@ const App: React.FC = () => {
     if (state.buildingMaterials < matCost) { notify(`Need ${matCost} 🧱 to upgrade ${amenity.name}.`); return; }
     if (state.legacyTokens < ticketCost) { notify(`Need ${ticketCost} 🎟️ to upgrade ${amenity.name}.`); return; }
     const now = Date.now();
-    const pending = amenity.producer ? producerStored(amenity, level, state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders)) : 0;
+    const pending = amenity.producer ? producerStored(amenity, level, state.amenityCollectedAt?.[amenityId], now, comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)) : 0;
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
       ...prev,
@@ -1719,7 +1748,7 @@ const App: React.FC = () => {
   }, [state.settings.sfxEnabled]);
 
   const handleGardenScavenge = useCallback(() => {
-    const price = getStructurePrice(state.structureUses, 'Garden');
+    const price = getDiscountedPrice('Garden');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
@@ -1739,7 +1768,7 @@ const App: React.FC = () => {
   }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handleMallWalk = useCallback(() => {
-    const price = getStructurePrice(state.structureUses, 'Walk');
+    const price = getDiscountedPrice('Walk');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
@@ -1757,7 +1786,7 @@ const App: React.FC = () => {
   }, [state.structureUses, state.legacyTokens, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handlePavilionPotluck = useCallback(() => {
-    const price = getStructurePrice(state.structureUses, 'Pavilion');
+    const price = getDiscountedPrice('Pavilion');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
@@ -1777,7 +1806,7 @@ const App: React.FC = () => {
   const handleMarketVisit = useCallback(() => {
     const team = state.allElders.filter(e => e.status === 'Team');
     if (team.length === 0) return notify("Assign a squad first!");
-    const price = getStructurePrice(state.structureUses, 'Market');
+    const price = getDiscountedPrice('Market');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
@@ -1802,7 +1831,7 @@ const App: React.FC = () => {
   }, [state.structureUses, state.legacyTokens, state.allElders, state.settings.sfxEnabled, handleQuestProgress]);
 
   const handlePlayBingo = useCallback(() => {
-    const price = getStructurePrice(state.structureUses, 'Blitz');
+    const price = getDiscountedPrice('Blitz');
     if (price.soldOut) return notify("Come back tomorrow -- this building has reached its daily limit.");
     if (state.legacyTokens < price.cost) return notify(`Need ${price.cost} Tokens!`);
     setIsEventPlaying(true);
@@ -2251,7 +2280,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getStructurePrice(state.structureUses, 'Heal')} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
@@ -2663,7 +2692,7 @@ const App: React.FC = () => {
           <GroundsPanel
             isDark={isDark}
             parcelCount={state.ownedParcels.length}
-            comfortBonus={comfortOutputBonus(state.allElders)}
+            comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)}
             buildingMaterials={state.buildingMaterials}
             builtAmenityIds={state.builtAmenityIds}
             amenityLevels={state.amenityLevels ?? {}}

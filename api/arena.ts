@@ -60,6 +60,52 @@ const DUES_TICKETS_PER_HOUR = 1;
 const DUES_HOURS_PER_MATERIAL = 6;
 const MAX_IDS = 12;
 
+// ---- Raids: DUPLICATE of services/worldMap.ts's Raid section. Keep identical. ------------------------
+const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
+const RAID_WINDOW_MINUTES = 90;
+const RAID_CHANCE = 0.12;
+const RAID_SALT = 2000;
+const RAID_BASE_HP = [3000, 6000, 10000];
+const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85];
+const RAID_FREE_ATTEMPTS = 2;
+const RAID_EXTRA_ATTEMPT_COST = 15;
+const RAID_MAX_REWARDED_PER_DAY = 3;
+const RAID_PARTICIPATION_TICKETS = 10;
+const RAID_PARTICIPATION_MATERIALS = 2;
+const RAID_DEFEAT_BONUS_MATERIALS = 8;
+function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
+interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
+function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
+  const m = ARENA_ID_RE.exec(arenaId);
+  if (!m) return [];
+  const cx = parseInt(m[1], 10), cy = parseInt(m[2], 10);
+  const out: RaidSlot[] = [];
+  for (let dayOffset = -1; dayOffset <= 1; dayOffset++) {
+    const day = new Date(now); day.setUTCHours(0, 0, 0, 0); day.setUTCDate(day.getUTCDate() + dayOffset);
+    const dayKey = day.toISOString().slice(0, 10);
+    const dayStart = day.getTime();
+    for (let slot = 0; slot < RAID_WINDOW_HOURS_UTC.length; slot++) {
+      const hour = RAID_WINDOW_HOURS_UTC[slot];
+      const slotStart = dayStart + hour * 3600000;
+      const rand = rng(hash32(cx, cy, RAID_SALT + slot * 10000 + dayOffset * 100000 + hashDay(dayKey)));
+      if (rand() >= RAID_CHANCE) continue;
+      const tier = 1 + Math.floor(rand() * 3);
+      const bossInTier = rand() < 0.5 ? 0 : 1;
+      const bossIndex = (tier - 1) * 2 + bossInTier;
+      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex]);
+      out.push({ slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
+    }
+  }
+  return out;
+}
+function activeOrNextRaid(arenaId: string, now: number): RaidSlot | null {
+  const slots = raidSlotsFor(arenaId, now);
+  return slots.find(s => s.slotStart <= now && now < s.slotEnd) ?? slots.filter(s => s.slotStart > now).sort((a, b) => a.slotStart - b.slotStart)[0] ?? null;
+}
+function raidById(arenaId: string, raidId: string, now: number): RaidSlot | null {
+  return raidSlotsFor(arenaId, now).find(s => s.raidId === raidId) ?? null;
+}
+
 // ---- Shared world grid: DUPLICATE of services/worldMap.ts (Arena section). Keep identical. ---------------
 const WORLD_SEED = 20260920;
 const WORLD_CELL_DEG = 0.02;
@@ -176,15 +222,16 @@ async function upsertDaily(supabase: SupabaseClient, userId: string, patch: { at
 
 // Best-effort mail (a failed notice must never fail the action that caused it).
 async function sendMail(supabase: SupabaseClient, row: {
-  recipient: string; sender: string; senderName: string; kind: 'arena_knockout' | 'arena_dues';
-  addWins?: number; tickets: number; materials: number; note: string; cap?: number;
+  recipient: string; sender: string; senderName: string; kind: 'arena_knockout' | 'arena_dues' | 'raid_result';
+  addWins?: number; tickets: number; materials: number; note: string; cap?: number; ref?: string;
 }) {
   try {
     const day = todayKey();
+    const ref = row.ref ?? '';
     const now = new Date().toISOString();
     for (let attempt = 0; attempt < 2; attempt++) {
       const { data: existing, error: lookupErr } = await supabase.from('mail_inbox').select('id, attacker_wins, reward_tickets, reward_materials')
-        .eq('recipient_id', row.recipient).eq('sender_id', row.sender).eq('kind', row.kind).eq('day', day).maybeSingle();
+        .eq('recipient_id', row.recipient).eq('sender_id', row.sender).eq('kind', row.kind).eq('day', day).eq('ref', ref).maybeSingle();
       if (lookupErr) { console.error('Arena mail lookup failed', lookupErr.message); return; }
       const cap = row.cap ?? Infinity;
       if (existing) {
@@ -199,7 +246,7 @@ async function sendMail(supabase: SupabaseClient, row: {
         return;
       }
       const { error } = await supabase.from('mail_inbox').insert({
-        recipient_id: row.recipient, sender_id: row.sender, sender_name: row.senderName, kind: row.kind, day,
+        recipient_id: row.recipient, sender_id: row.sender, sender_name: row.senderName, kind: row.kind, day, ref,
         attacker_wins: row.addWins ?? 0, defender_wins: 0,
         reward_tickets: Math.min(cap, row.tickets), reward_materials: row.materials, note: row.note, updated_at: now,
       });
@@ -208,6 +255,56 @@ async function sendMail(supabase: SupabaseClient, row: {
     }
   } catch (e) { console.error('Arena mail crashed', e); }
 }
+
+// Lazily creates the arena_raids row for a slot on first contact (nobody ever queries a raid that
+// never gets a hit, so most slots that roll "true" but nobody attacks never need a row at all).
+async function getOrCreateRaidRow(supabase: SupabaseClient, arenaId: string, slot: RaidSlot) {
+  const { data: existing, error } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+  if (error) return { error: dbFail('raid read', error) };
+  if (existing) return { row: existing };
+  const fresh = {
+    raid_id: slot.raidId, arena_id: arenaId, tier: slot.tier, boss_index: slot.bossIndex,
+    starts_at: new Date(slot.slotStart).toISOString(), ends_at: new Date(slot.slotEnd).toISOString(),
+    max_hp: slot.maxHp, damage_total: 0, settled: false, defeated: null,
+  };
+  const { error: insErr } = await supabase.from('arena_raids').upsert(fresh, { onConflict: 'raid_id', ignoreDuplicates: true });
+  if (insErr) return { error: dbFail('raid create', insErr) };
+  const { data: after, error: reErr } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+  if (reErr) return { error: dbFail('raid re-read', reErr) };
+  return { row: after ?? fresh };
+}
+
+// Settles a Raid once (settled flips from false to true exactly once). Called either right after the
+// hit that pushes damage_total over max_hp (defeated), or opportunistically whenever anyone touches an
+// Arena whose most recent Raid window has closed and never got a killing blow (survived). Rewards go
+// out by Mailbox, capped at RAID_MAX_REWARDED_PER_DAY rewarded Raids per player per day (arena_player_daily.raid_rewards).
+async function settleRaid(supabase: SupabaseClient, raidRow: any, defeated: boolean): Promise<Response | null> {
+  const { error: setErr } = await supabase.from('arena_raids').update({ settled: true, defeated }).eq('raid_id', raidRow.raid_id).eq('settled', false);
+  if (setErr) return dbFail('raid settle', setErr);
+  const { data: hits, error: hitsErr } = await supabase.from('arena_raid_hits').select('user_id, damage, attempts').eq('raid_id', raidRow.raid_id).gt('attempts', 0);
+  if (hitsErr) { console.error('Raid hits read failed', hitsErr.message); return null; }
+  const boss = RAID_BOSS_NAMES[raidRow.boss_index] ?? 'the Raid boss';
+  for (const h of hits ?? []) {
+    const day = todayKey();
+    const { data: daily, error: dErr } = await supabase.from('arena_player_daily').select('raid_rewards').eq('user_id', h.user_id).eq('day', day).maybeSingle();
+    if (dErr) { console.error('Raid daily read failed', dErr.message); continue; }
+    const already = num(daily?.raid_rewards, 0);
+    if (already >= RAID_MAX_REWARDED_PER_DAY) continue;
+    const { error: upErr } = await supabase.from('arena_player_daily').upsert({ user_id: h.user_id, day, raid_rewards: already + 1 }, { onConflict: 'user_id,day' });
+    if (upErr) { console.error('Raid daily write failed', upErr.message); continue; }
+    const tickets = RAID_PARTICIPATION_TICKETS;
+    const materials = RAID_PARTICIPATION_MATERIALS + (defeated ? RAID_DEFEAT_BONUS_MATERIALS : 0);
+    await sendMail(supabase, {
+      recipient: h.user_id, sender: h.user_id, senderName: boss, kind: 'raid_result', ref: raidRow.raid_id,
+      tickets, materials,
+      note: defeated
+        ? `${boss} was defeated! Everyone who joined in gets a bonus.`
+        : `The window closed and ${boss} is still standing — here's something for pitching in.`,
+    });
+  }
+  return null;
+}
+const RAID_BOSS_NAMES = ['The HOA President', 'The DMV Clerk', 'The Golf-Cart Marshal', 'The Early-Bird Buffet Line', 'Charley Horse', 'The Prune Juice Reckoning'];
 
 export default async function handler(req: Request): Promise<Response> {
   try {

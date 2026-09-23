@@ -1063,7 +1063,7 @@ export const QuestPanel: React.FC<{
             <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Tasks</h2>
             <p className="text-[15px] text-slate-300 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
           </div>
-          <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
+          <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{Math.round(parkScore)} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
         <div className={`mt-4 pt-4 border-t text-[14px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
           Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
@@ -1272,7 +1272,7 @@ export const BasePanel: React.FC<{
           <div>
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Dividend</h3>
             <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest`}>Passive reward for management</p>
-            <p className="text-[13px] text-amber-500 font-black uppercase tracking-widest mt-1">{parkScore} ⭐ boosts this payout</p>
+            <p className="text-[13px] text-amber-500 font-black uppercase tracking-widest mt-1">{Math.round(parkScore)} ⭐ boosts this payout</p>
           </div>
           <StarIcon className={`w-8 h-8 ${canClaim ? 'text-amber-500' : 'text-slate-200'}`} />
         </div>

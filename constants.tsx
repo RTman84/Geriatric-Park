@@ -294,7 +294,7 @@ const GOLDEN_GAMES_GROWTH = 1.10;
 const GOLDEN_GAMES_TICKET_GROWTH = 1.04;
 const GOLDEN_GAMES_XP_GROWTH = 1.05;
 const GOLDEN_GAMES_SCORE_GROWTH = 1.03;
-const ROMAN = ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+// (Roman-numeral naming removed 2026-09-22 -- see bug note in generateGoldenGamesTiers below.)
 
 function generateGoldenGamesTiers(): GoldenGamesLeague[] {
   const tiers = [...GOLDEN_GAMES_BASE_TIERS];
@@ -305,10 +305,17 @@ function generateGoldenGamesTiers(): GoldenGamesLeague[] {
     const tMult = Math.pow(GOLDEN_GAMES_TICKET_GROWTH, step);
     const xMult = Math.pow(GOLDEN_GAMES_XP_GROWTH, step);
     const sMult = Math.pow(GOLDEN_GAMES_SCORE_GROWTH, step);
-    const romanSuffix = step < ROMAN.length ? ROMAN[step] : `Tier ${step + 1}`;
+    // BUG FOUND AND FIXED (2026-09-22): this used to spell out Roman numerals ('II', 'III', ...) up to
+    // 20, then fall back to the literal string `Tier ${step + 1}` -- but `step` counts GENERATED tiers
+    // only (starting after the 4 hand-tuned ones), while every other part of the UI (the tab number,
+    // the detail card's "Tier N") shows the OVERALL tier number `i + 1`. Those two numbers differ by
+    // exactly 3 (the count of hand-tuned tiers before this one), so once the Roman numerals ran out
+    // (tier 24 onward -- more than 3/4 of the 100-tier tower), the button's own label showed a tier
+    // number that was 3 lower than what the rest of the screen showed for the exact same tier. Always
+    // use the real overall tier number now, so the name can never disagree with the tab/detail card.
     tiers.push({
       id: `legendary-${step}`,
-      name: `Legendary Circuit ${romanSuffix}`,
+      name: `Legendary Circuit — Tier ${i + 1}`,
       icon: '🏆',
       minSquadPower: Math.round(base.minSquadPower * mult),
       difficultyMin: Math.round(base.difficultyMin * mult),
@@ -423,6 +430,30 @@ export const FACTIONS: { id: FactionId; name: string; icon: string; color: strin
 ];
 export const factionById = (id: any) => FACTIONS.find(f => f.id === id);
 export const ARENA_FACTION_LOCK_DAYS = 30;
+
+// --- Raid bosses (Phase B, 2026-09-22) ---------------------------------------------------------------
+// Two per tier, one from each of three themes so the joke doesn't wear thin. `hp` here is DISPLAY ONLY
+// -- api/arena.ts computes the real max_hp server-side from the same seeded roll; this array must stay
+// in this exact order (index = boss_index from services/worldMap.ts / the server).
+export interface RaidBoss { name: string; icon: string; flavor: string; mechanic: string; tier: 1 | 2 | 3 }
+export const RAID_BOSSES: RaidBoss[] = [
+  { tier: 1, name: 'The HOA President', icon: '🏘️', flavor: 'Cites you for a garden gnome "in violation of Article 12, Subsection C."', mechanic: 'A slice of the health bar is "Pending Appeal" — it creeps back up unless the whole community piles on together.' },
+  { tier: 1, name: 'The DMV Clerk', icon: '🪪', flavor: '"Now serving number 47." You are number 112.', mechanic: 'Absurdly padded health for its tier. The fight isn\'t dangerous — it\'s just long.' },
+  { tier: 2, name: 'The Golf-Cart Marshal', icon: '🛺', flavor: 'Terrorizes the walking paths at a blistering 12 mph. Writes tickets for socks with sandals.', mechanic: 'Zips around unpredictably — a tougher-than-average fight for its tier.' },
+  { tier: 2, name: 'The Early-Bird Buffet Line', icon: '🍽️', flavor: 'Camped at the dining hall since 3:45 for the 4:00 special. Will not be moved.', mechanic: 'More of a crowd than a single foe — a bit easier to whittle down than the Marshal.' },
+  { tier: 3, name: 'Charley Horse', icon: '🦵', flavor: 'Strikes mid-shuffleboard-swing with zero warning.', mechanic: 'Comes and goes — check back often, since a fresh cramp can flare up any time the window is open.' },
+  { tier: 3, name: 'The Prune Juice Reckoning', icon: '🧃', flavor: '"Hits like nature intended."', mechanic: 'Everyone gets exactly 2 attempts. A 3rd "isn\'t happening."' },
+];
+export const RAID_FREE_ATTEMPTS = 2;
+export const RAID_EXTRA_ATTEMPT_COST = 15; // Tickets, for a 3rd+ attempt beyond the free 2
+export const RAID_MAX_REWARDED_PER_DAY = 3;
+export function raidCountdownLabel(msUntil: number): string {
+  if (msUntil <= 0) return 'now';
+  const mins = Math.round(msUntil / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ${mins % 60}m`;
+}
 export const ARENA_MAX_SLOTS = 6;
 export const ARENA_MAX_PER_PLAYER = 3;
 export const ARENA_FREE_ATTACKS = 5;
@@ -628,18 +659,26 @@ export interface Amenity {
   // Working buildings make a limited amount of one resource. Benefits are Tickets/Materials only:
   // buildings NEVER pay PP or raise passive income (economy rule, see ECONOMY.md).
   producer?: { output: 'materials' | 'tickets'; basePerHour: number; perLevelPerHour: number };
+  // Other real uses (2026-09-22): every non-producer building used to level up for nothing. These give
+  // each one a distinct, level-scaling effect. Still Tickets/Materials/comfort/QoL only -- never PP or
+  // passive income, same standing rule as producers.
+  hpRegen?: { basePerHour: number; perLevelPerHour: number };       // % of max HP restored per hour, all Team Elders
+  producerBoost?: { basePct: number; perLevelPct: number };         // % bonus to every OTHER producing building's output
+  structureDiscount?: { basePct: number; perLevelPct: number };     // % off every map-building's Ticket price
+  scoreTrickle?: { basePerHour: number; perLevelPerHour: number };  // Community Score gained per hour, just for existing
+  courtPurseBonus?: { perLevel: number };                           // flat Tickets added to the Court Champion purse
 }
 export const AMENITIES: Amenity[] = [
   { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home. Upgrade it to make room for more residents.', capacityBonus: 6, capacityPerLevel: 3 },
   { id: 'trail', name: 'Nature Trail', icon: amenityTrail, category: 'production', cost: 25, flavor: 'A gently paved loop. Walkers drop off Building Materials they find along the way.', producer: { output: 'materials', basePerHour: 1, perLevelPerHour: 0.5 } },
   { id: 'grocery', name: 'Grocery Store', icon: amenityGrocery, category: 'production', cost: 30, flavor: 'Coupon day is sacred here. The savings turn into Tickets.', producer: { output: 'tickets', basePerHour: 3, perLevelPerHour: 1.5 } },
-  { id: 'aerobics', name: 'Water Aerobics Pool', icon: amenityAerobics, category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio.' },
-  { id: 'birdwatch', name: 'Bird Watching Post', icon: amenityBirdwatch, category: 'decoration', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory.' },
-  { id: 'earlybird', name: 'Early Bird Line', icon: amenityEarlybird, category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15.' },
-  { id: 'complaints', name: 'Complaint Desk', icon: amenityComplaints, category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming.' },
-  { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping.' },
-  { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'decoration', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.' },
-  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- this one is just for looking nice.' },
+  { id: 'aerobics', name: 'Water Aerobics Pool', icon: amenityAerobics, category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio. Also, somehow, therapeutic.', hpRegen: { basePerHour: 4, perLevelPerHour: 2 } },
+  { id: 'birdwatch', name: 'Bird Watching Post', icon: amenityBirdwatch, category: 'production', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory. Dropped feathers and lost lens caps add up.', producer: { output: 'materials', basePerHour: 0.75, perLevelPerHour: 0.35 } },
+  { id: 'earlybird', name: 'Early Bird Line', icon: amenityEarlybird, category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15. Loyalty has its perks.', structureDiscount: { basePct: 3, perLevelPct: 1.5 } },
+  { id: 'complaints', name: 'Complaint Desk', icon: amenityComplaints, category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming. Somehow this counts as community involvement.', scoreTrickle: { basePerHour: 0.5, perLevelPerHour: 0.25 } },
+  { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping. A well-rested park is a productive park.', producerBoost: { basePct: 4, perLevelPct: 2 } },
+  { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'production', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.', producer: { output: 'tickets', basePerHour: 2, perLevelPerHour: 1 } },
+  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- but a nicer court means a richer champion\'s purse.', courtPurseBonus: { perLevel: 5 } },
 ];
 // Max residents. The Retirement Cottage is the housing building: it raises capacity, and every level
 // raises it more. Existing rosters above capacity are grandfathered (nothing is removed) -- the cap
@@ -673,6 +712,40 @@ export function producerRatePerHour(amenity: Amenity, level: number): number {
   return amenity.producer.basePerHour + amenity.producer.perLevelPerHour * (level - 1);
 }
 // How much a working building is holding right now (whole units), capped at its storage limit.
+// Sum of every OTHER built producing building's boost (Nap Pod Row), as a fraction (0.04 = +4%).
+// Passed into producerStored's `outputBonus` for every OTHER producer -- Nap Pod Row does not boost itself.
+export function totalProducerBoost(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.producerBoost && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + (a.producerBoost!.basePct + a.producerBoost!.perLevelPct * (getBuildingLevel(levels, a.id) - 1)) / 100, 0);
+}
+// HP restored per PASSIVE_TICK_MS tick, from every built Water-Aerobics-style building, as a fraction of max HP.
+export function totalHpRegenPerTick(builtIds: string[], levels: Record<string, number> | undefined): number {
+  const perHour = AMENITIES
+    .filter(a => a.hpRegen && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.hpRegen!.basePerHour + a.hpRegen!.perLevelPerHour * (getBuildingLevel(levels, a.id) - 1), 0);
+  return (perHour / 100) * (PASSIVE_TICK_MS / 3600000);
+}
+// Community Score gained per PASSIVE_TICK_MS tick, from every built Complaint-Desk-style building.
+export function totalScoreTricklePerTick(builtIds: string[], levels: Record<string, number> | undefined): number {
+  const perHour = AMENITIES
+    .filter(a => a.scoreTrickle && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.scoreTrickle!.basePerHour + a.scoreTrickle!.perLevelPerHour * (getBuildingLevel(levels, a.id) - 1), 0);
+  return perHour * (PASSIVE_TICK_MS / 3600000);
+}
+// % off map-building Ticket prices (0.03 = 3% off), from every built Early-Bird-Line-style building.
+export function totalStructureDiscountPct(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.structureDiscount && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.structureDiscount!.basePct + a.structureDiscount!.perLevelPct * (getBuildingLevel(levels, a.id) - 1), 0) / 100;
+}
+// Flat Tickets added to the Court Champion purse, from every built Shuffleboard-Court-style building.
+export function totalCourtPurseBonus(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.courtPurseBonus && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.courtPurseBonus!.perLevel * getBuildingLevel(levels, a.id), 0);
+}
+
 export function producerStored(amenity: Amenity, level: number, lastCollectedAt: number | undefined, now: number, outputBonus = 0): number {
   const rate = producerRatePerHour(amenity, level);
   if (rate <= 0) return 0;

@@ -5,6 +5,31 @@ import {
   producerRatePerHour, producerStored, MAX_BUILDING_LEVEL, BUILDING_STORAGE_HOURS, type Amenity,
 } from '../constants';
 
+// True for any building whose level actually changes something -- used to decide whether to show a
+// level badge / "Lv N" upgrade button, vs. a plain "Built" badge for something truly decorative.
+function hasLevelEffect(a: Amenity): boolean {
+  return a.capacityBonus !== undefined || !!a.producer || !!a.hpRegen || !!a.producerBoost || !!a.structureDiscount || !!a.scoreTrickle || !!a.courtPurseBonus;
+}
+// One short line describing what a level of this building is currently worth, for the non-producer,
+// non-housing effect types added 2026-09-22.
+function effectLine(a: Amenity, level: number): string | null {
+  if (a.hpRegen) return `Heals Team Elders ${(a.hpRegen.basePerHour + a.hpRegen.perLevelPerHour * (level - 1)).toFixed(1)}% max HP/hr`;
+  if (a.producerBoost) return `+${(a.producerBoost.basePct + a.producerBoost.perLevelPct * (level - 1)).toFixed(1)}% output on every other working building`;
+  if (a.structureDiscount) return `${(a.structureDiscount.basePct + a.structureDiscount.perLevelPct * (level - 1)).toFixed(1)}% off every map-building price`;
+  if (a.scoreTrickle) return `+${(a.scoreTrickle.basePerHour + a.scoreTrickle.perLevelPerHour * (level - 1)).toFixed(2)} ⭐/hr`;
+  if (a.courtPurseBonus) return `+${a.courtPurseBonus.perLevel * level} 🎟️ added to the Court Champion purse`;
+  return null;
+}
+// Same, but for what the NEXT level would give -- shown in the upgrade button.
+function nextEffectPreview(a: Amenity, nextLevel: number): string {
+  if (a.hpRegen) return `(${(a.hpRegen.basePerHour + a.hpRegen.perLevelPerHour * (nextLevel - 1)).toFixed(1)}%/hr heal)`;
+  if (a.producerBoost) return `(+${(a.producerBoost.basePct + a.producerBoost.perLevelPct * (nextLevel - 1)).toFixed(1)}% to other buildings)`;
+  if (a.structureDiscount) return `(${(a.structureDiscount.basePct + a.structureDiscount.perLevelPct * (nextLevel - 1)).toFixed(1)}% off prices)`;
+  if (a.scoreTrickle) return `(+${(a.scoreTrickle.basePerHour + a.scoreTrickle.perLevelPerHour * (nextLevel - 1)).toFixed(2)} ⭐/hr)`;
+  if (a.courtPurseBonus) return `(+${a.courtPurseBonus.perLevel * nextLevel} 🎟️ purse)`;
+  return '';
+}
+
 interface GroundsPanelProps {
   isDark: boolean;
   parcelCount?: number;
@@ -58,6 +83,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
     let preview = '';
     if (amenity.capacityBonus !== undefined) preview = `(+${amenity.capacityPerLevel ?? 0} capacity)`;
     else if (amenity.producer) preview = `(${producerRatePerHour(amenity, level + 1)}/hr)`;
+    else preview = nextEffectPreview(amenity, level + 1);
     return (
       <button
         onClick={() => onUpgrade(amenity.id)}
@@ -87,6 +113,8 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
     const level = getBuildingLevel(amenityLevels, amenity.id);
     const isHousing = amenity.category === 'housing';
     const isWorking = !!amenity.producer;
+    const levels = hasLevelEffect(amenity);
+    const otherEffect = !isHousing && !isWorking ? effectLine(amenity, level) : null;
     const stored = isWorking && built ? producerStored(amenity, level, amenityCollectedAt[amenity.id], now, comfortBonus) : 0;
     const rate = isWorking ? producerRatePerHour(amenity, level) * (1 + comfortBonus) : 0;
     const cap = Math.floor(rate * BUILDING_STORAGE_HOURS);
@@ -102,7 +130,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
             <p className={`font-black text-sm uppercase flex items-center gap-2 ${strong}`}>
               <span className="truncate">{amenity.name}</span>
               {built && <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
-              {built && (isHousing || isWorking) && <span className={`text-[12px] font-black flex-shrink-0 ${accent}`}>Lv {level}</span>}
+              {built && levels && <span className={`text-[12px] font-black flex-shrink-0 ${accent}`}>Lv {level}</span>}
             </p>
             <p className={`text-[13px] ${body}`}>{amenity.flavor}</p>
             {isHousing && (
@@ -115,9 +143,12 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
                 Makes {rate}{unit}/hr · holds up to {cap}{unit}
               </p>
             )}
+            {otherEffect && built && (
+              <p className={`text-[13px] font-black mt-1 ${accent}`}>{otherEffect}</p>
+            )}
           </div>
           {!built && renderBuildButton(amenity)}
-          {built && !isHousing && !isWorking && <span className={`text-[12px] font-black uppercase flex-shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Built</span>}
+          {built && !levels && <span className={`text-[12px] font-black uppercase flex-shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Built</span>}
         </div>
 
         {built && isWorking && (
@@ -137,7 +168,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
             </div>
           </div>
         )}
-        {built && (isHousing || isWorking) && renderUpgrade(amenity)}
+        {built && levels && renderUpgrade(amenity)}
       </div>
     );
   };

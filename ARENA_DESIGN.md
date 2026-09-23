@@ -32,7 +32,35 @@ Same seeded-grid method as the map buildings (`services/worldMap.ts`): each ~2 k
 
 ## 5. Raids (scheduled, cooperative, asynchronous)
 - **Schedule (deterministic, no cron):** 3 daily windows, each 90 minutes, at 15:00, 19:00 and 00:00 UTC (11am / 3pm / 8pm Eastern). For each Arena and window, a seeded roll (`RAID_CHANCE` ≈ 12%) decides if it hosts a Raid, so roughly 1–2 Raids a day among the ~4 Arenas near a player. The marker shows a **countdown** up to an hour ahead, then the boss and remaining time.
-- **Boss:** tier 1–3 picked by the same roll (e.g. The HOA President, The Golf-Cart Marshal, The Tax Man). Boss HP is a pool sized so about 5–8 players are needed.
+- **Boss:** picked by the same seeded roll from a roster of 6, 2 per theme so the joke doesn't wear
+  thin, two bosses per tier so a given tier still has variety (`RAID_BOSSES` in constants.tsx once
+  built). Boss HP is a pool sized so about 5–8 players are needed; HP scales up with tier, not with
+  the roster slot within a tier.
+
+  **Tier 1 — Bureaucracy & Authority**
+  1. 🏘️ **The HOA President** — cites you for a garden gnome "in violation of Article 12, Subsection
+     C." Flavor mechanic: a chunk of the boss's health bar is labeled "Pending Appeal" and regenerates
+     slightly between hits unless enough players pile on in the same window — bureaucracy stalls you
+     if you don't show up in force.
+  2. 🪪 **The DMV Clerk** — "Now serving number 47" when you're number 112. Flavor mechanic: absurdly
+     high HP for its tier but does essentially nothing back — the "damage" is entirely how long the
+     fight drags on, not danger.
+
+  **Tier 2 — Everyday Retirement-Life Menaces**
+  3. 🛺 **The Golf-Cart Marshal** — patrols the walking paths at a blistering 12 mph, writes tickets
+     for wearing socks with sandals. Flavor mechanic: periodically "revs up," briefly boosting the
+     shared damage needed that window (represents dodging the cart).
+  4. 🍽️ **The Early-Bird Buffet Line** — arrives at the dining hall at 3:45 for the 4:00 special and
+     will not be moved. Flavor mechanic: a horde rather than one boss — visually many small icons
+     whose combined HP bar is the "line," so it feels like wearing down a crowd, not one enemy.
+
+  **Tier 3 — Exaggerated Aging Hazards (played for laughs, kept light)**
+  5. 🦵 **Charley Horse** — a leg cramp that "strikes without warning" mid-shuffleboard swing. Flavor
+     mechanic: random "surprise attack" bursts add a one-time spike to the required damage window,
+     rewarding players who keep checking back rather than hitting once and forgetting about it.
+  6. 🧃 **The Prune Juice Reckoning** — "hits like nature intended." Flavor mechanic: every participant
+     gets exactly 2 attempts and a cheeky note that a 3rd "isn't happening" — reinforces the existing
+     2-attempts-per-Raid rule with a joke instead of just a number.
 - **Fight:** 2 attempts per Raid per player (second costs Tickets). Each hit adds your Squad Power × 0.8–1.2 to the shared damage total. **All factions cooperate against the boss.**
 - **Result:** the first request after the window closes settles it (no scheduler needed). Everyone who hit gets a participation reward by mail; if the boss fell, a bonus (Materials / Upgrade Parts, later an Arena Card).
 
@@ -57,7 +85,16 @@ Server resolves every fight from **server-held values** (synced squad power, sto
 Match the existing amenity diorama style: glossy cartoon mobile-game diorama on a round stone-and-grass base, wooden name sign, warm cozy retirement-community details, white background, no text except the sign.
 1. **Arena building**: "Community Clubhouse Arena" — a cozy brick clubhouse with a bocce/shuffleboard ring in front, three empty flagpoles on the roof (faction banners get overlaid in-game), sign reads "ARENA".
 2. **Faction emblems (3, flat badge icons)**: sunrise rooster (Early Birds), owl with reading glasses (Night Owls), classic sedan with a tiny flag (Sunday Drivers); each on a round shield in amber / indigo / teal.
-3. Later: raid boss portraits (3 tiers) and an Arena Card frame.
+3. **Raid boss portraits (6, one per boss above)** — same diorama base/sign style as the amenities,
+   but each boss gets a comic "action pose" instead of standing still, since they're meant to be funny:
+   - HOA President: clipboard raised, red pen mid-circle, one eyebrow arched
+   - DMV Clerk: sliding a "take a number" ticket dispenser forward with a completely blank expression
+   - Golf-Cart Marshal: leaning forward over the wheel, sunglasses, a tiny dust cloud behind the cart
+   - Early-Bird Buffet Line: a cluster of trays/plates stacked precariously, steam rising, "RESERVED"
+     placards scattered around
+   - Charley Horse: a leg mid-cramp with comic-book style motion lines/stars, wincing
+   - Prune Juice Reckoning: a giant novelty prune-juice carton/jug with a mischievous grin
+   Later still: an Arena Card frame (Phase C).
 
 ## 11. Build phases
 - **Phase A — Arena core:** migration 008 (Arenas + factions), `api/arena.ts`, faction picker, markers, ArenaPanel (station/attack/recall/dues), mail messages. Needs art #1 and #2 (placeholder emoji until then).
