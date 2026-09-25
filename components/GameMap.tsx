@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
 import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, PLAYER_MARKER_IMG, WORLD_PATHS, factionById } from '../constants';
 import type { ArenaSite } from '../services/worldMap';
+import type { ArenaRaidInfo } from '../services/arenaService';
 import { 
   PlusCircleIcon, 
   MinusCircleIcon, 
@@ -28,6 +29,7 @@ interface GameMapProps {
   ownedParcels: Parcel[];
   arenas?: ArenaSite[];
   arenaFactions?: Record<string, string | null>;
+  arenaRaids?: Record<string, ArenaRaidInfo | null>;
   onArenaClick?: (id: string) => void;
   roamingElders?: Elder[];
   unreadMailCount?: number;
@@ -79,6 +81,7 @@ const GameMap: React.FC<GameMapProps> = ({
   ownedParcels,
   arenas = [],
   arenaFactions = {},
+  arenaRaids = {},
   onArenaClick,
   roamingElders = [],
   unreadMailCount = 0,
@@ -92,7 +95,7 @@ const GameMap: React.FC<GameMapProps> = ({
   const [zoom, setZoom] = useState(18);
   const [isFollowing, setIsFollowing] = useState(true);
 
-  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false, shape: 'circle' | 'square' = 'circle') => {
+  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false, shape: 'circle' | 'square' = 'circle', badge?: { text: string; color: string; pulse?: boolean }) => {
     const glow = isRoaming ? 'box-shadow: 0 0 15px #4f46e5, 0 0 5px #4f46e5;' : 'box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
     const isImage = /^(\/|https?:|data:)/.test(emojiOrSrc);
     const outerRadius = shape === 'circle' ? '50%' : '18px';
@@ -106,12 +109,32 @@ const GameMap: React.FC<GameMapProps> = ({
       ? `<img src="${emojiOrSrc}" style="width: 100%; height: 100%; object-fit: ${fit}; border-radius: ${innerRadius};" draggable="false" />`
       : emojiOrSrc;
     const innerStyle = isImage ? '' : `font-size: ${size}px;`;
+    const wrapSize = size + 12;
+    // A raid badge (or any future corner badge) needs to poke outside the main
+    // circle/square, so it lives in an outer position:relative wrapper rather than
+    // inside the inner element, which clips its own content with overflow:hidden.
+    const badgeHtml = badge
+      ? `<div style="position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; padding:0 4px; background:${badge.color}; color:#fff; border-radius:10px; border:2px solid white; font-size:10px; font-weight:900; line-height:16px; text-align:center; white-space:nowrap; ${badge.pulse ? 'animation: raid-badge-pulse 1.4s ease-in-out infinite;' : ''}">${badge.text}</div>`
+      : '';
     return L.divIcon({
-      html: `<div style="${innerStyle} background: ${color}; border-radius: ${outerRadius}; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>`,
+      html: `<div style="position: relative; width: ${wrapSize}px; height: ${wrapSize}px;"><div style="${innerStyle} background: ${color}; border-radius: ${outerRadius}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>${badgeHtml}</div>`,
       className: 'custom-div-icon',
-      iconSize: [size + 12, size + 12],
-      iconAnchor: [(size + 12) / 2, (size + 12) / 2],
+      iconSize: [wrapSize, wrapSize],
+      iconAnchor: [wrapSize / 2, wrapSize / 2],
     });
+  };
+
+  // Small corner badge for an Arena marker: a countdown to an upcoming Raid, or a
+  // live remaining-HP percentage while one is active. Null once settled/none.
+  const getRaidBadge = (raid: ArenaRaidInfo | null | undefined): { text: string; color: string; pulse?: boolean } | undefined => {
+    if (!raid || raid.settled) return undefined;
+    if (raid.active) {
+      const hpPct = raid.maxHp > 0 ? Math.max(0, Math.round((1 - raid.damageTotal / raid.maxHp) * 100)) : 0;
+      return { text: `⚔️${hpPct}%`, color: '#dc2626', pulse: true };
+    }
+    const minsToStart = Math.max(0, Math.round((new Date(raid.startsAt).getTime() - Date.now()) / 60000));
+    const text = minsToStart >= 60 ? `⏳${Math.round(minsToStart / 60)}h` : `⏳${minsToStart}m`;
+    return { text, color: '#f59e0b' };
   };
 
   const playerIcon = createCustomIcon(PLAYER_MARKER_IMG, 50, '#4f46e5', true);
@@ -240,15 +263,16 @@ const GameMap: React.FC<GameMapProps> = ({
         {/* Arenas (shared world gyms): ring colour = the faction that holds it */}
         {arenas.map(a => {
           const f = factionById(arenaFactions[a.id]);
+          const raidBadge = getRaidBadge(arenaRaids[a.id]);
           return (
             <Marker
               key={a.id}
               position={[a.lat, a.lng]}
-              icon={createCustomIcon('🏟️', 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square')}
+              icon={createCustomIcon('🏟️', 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square', raidBadge)}
               eventHandlers={{ click: () => onArenaClick && onArenaClick(a.id) }}
             >
               <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">
-                {f ? `${f.icon} ${a.name}` : a.name}
+                {f ? `${f.icon} ${a.name}` : a.name}{raidBadge ? (arenaRaids[a.id]?.active ? ' · Raid!' : ' · Raid soon') : ''}
               </Tooltip>
             </Marker>
           );
@@ -300,6 +324,10 @@ const GameMap: React.FC<GameMapProps> = ({
         }
         .animate-spin-slow {
           animation: spin-slow 8s linear infinite;
+        }
+        @keyframes raid-badge-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
         }
       `}</style>
     </div>

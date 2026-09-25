@@ -2292,7 +2292,7 @@ const App: React.FC = () => {
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
               onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: e }); }}
-              onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} onArenaClick={handleArenaMarkerClick}
+              onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} arenaRaids={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.raid]))} onArenaClick={handleArenaMarkerClick}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
