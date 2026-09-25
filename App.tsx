@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
 import { ArenaPanel } from './components/ArenaPanel';
-import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, type ArenaInfo, type ArenaMe } from './services/arenaService';
+import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, raidHit, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
 import ElderInteraction from './components/ElderInteraction';
@@ -59,6 +59,8 @@ import {
   totalStructureDiscountPct,
   totalCourtPurseBonus,
   arenaAttackCost,
+  RAID_FREE_ATTEMPTS,
+  RAID_EXTRA_ATTEMPT_COST,
   factionById,
   type FactionId,
   getElderPower,
@@ -1030,6 +1032,21 @@ const App: React.FC = () => {
     notify(`💰 Arena Dues sent to your Mailbox: ${r.tickets} 🎟️ ${r.materials} 🧱`, 'good');
     void refreshMail();
   }), [runArenaAction, notify, refreshMail]);
+
+  const handleArenaRaidHit = useCallback(() => runArenaAction('Joining the fight', async () => {
+    // Extra attempts (beyond RAID_FREE_ATTEMPTS) cost Tickets client-side, same pattern as the Arena
+    // attack fee: the server enforces the attempt COUNT, the client owns the Tickets ledger.
+    const priorAttempts = (activeArenaId ? arenaInfo[activeArenaId]?.raid?.myAttempts : undefined) ?? 0;
+    const cost = priorAttempts >= RAID_FREE_ATTEMPTS ? RAID_EXTRA_ATTEMPT_COST : 0;
+    if (state.legacyTokens < cost) { notify(`You need ${cost} 🎟️ to join this fight again today.`, 'bad'); return; }
+    const { result } = await raidHit(activeArenaId!);
+    if (state.settings.sfxEnabled) audioManager.playSFX(result.settled && result.defeated ? 'victory' : 'hit');
+    setState(prev => ({ ...prev, legacyTokens: Math.max(0, prev.legacyTokens - cost) }));
+    const bits = [`+${result.damage.toLocaleString()} damage`];
+    if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
+    notify(`🐲 ${bits.join(' · ')}`, 'good');
+    if (result.settled) void refreshMail();
+  }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.settings.sfxEnabled, notify, refreshMail]);
 
   const handleArenaMarkerClick = useCallback((id: string) => {
     if (!authSession) { notify('Sign in to your account to join Arenas.', 'bad'); return; }
@@ -2611,7 +2628,7 @@ const App: React.FC = () => {
               elders={state.allElders} stationedAt={state.stationedAt || {}} tokens={state.legacyTokens} busy={arenaBusy}
               onClose={() => setActiveArenaId(null)}
               onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall}
-              onAttack={handleArenaAttack} onClaimDues={handleArenaClaimDues}
+              onAttack={handleArenaAttack} onClaimDues={handleArenaClaimDues} onRaidHit={handleArenaRaidHit}
             />
           );
         })()}

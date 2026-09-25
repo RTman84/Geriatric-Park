@@ -1,6 +1,8 @@
 # Geriatric Park — Arenas (gyms, factions, raids) — design v1 (2026-09-21)
 
-> **Status:** Phase A (Arena core) is BUILT (migration `008_arenas.sql`, `api/arena.ts`, `components/ArenaPanel.tsx`, map markers, Mailbox notices, tutorial card). Phase B (Raids) and C (Cards/bids) are not started. Differences from the plan below: Dues pay Tickets/Materials only (no Elder XP yet) and are collected once per day by Mailbox; recalling an Elder does not pay Dues; no proximity check (you only see Arenas in the map cells around you). Rules and numbers live in `api/arena.ts`.
+> **Status:** Phase A (Arena core) AND Phase B (Raids) are BUILT and server-tested (see ECONOMY.md §6l). Not yet done: a raid countdown badge on the map marker itself.
+>
+> **Status (superseded detail):** Phase A (Arena core) is BUILT (migration `008_arenas.sql`, `api/arena.ts`, `components/ArenaPanel.tsx`, map markers, Mailbox notices, tutorial card). Phase B (Raids) and C (Cards/bids) are not started. Differences from the plan below: Dues pay Tickets/Materials only (no Elder XP yet) and are collected once per day by Mailbox; recalling an Elder does not pay Dues; no proximity check (you only see Arenas in the map cells around you). Rules and numbers live in `api/arena.ts`.
 
 Goal: a Pokémon-GO-style gym system that fits our existing rules. Players join one of three factions, capture shared map Arenas, stack defenders to hold them, and everyone can join scheduled community Raids. **Arenas never pay PP and never raise passive income** (standing rules). Rewards are Tickets, Building Materials, Elder XP, and later Arena Cards / Upgrade Parts.
 

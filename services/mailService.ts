@@ -6,7 +6,7 @@ import type { MailMessage } from '../types';
 export interface InboxRow {
   id: string;
   sender_name: string;
-  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues';
+  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result';
   day: string;
   attacker_wins: number;
   defender_wins: number;
@@ -77,6 +77,15 @@ function rowToMessage(row: InboxRow): MailMessage {
       sender: 'Arena Committee',
       subject: '🏟️ Arena Dues',
       body: `${row.note || 'Your stationed Elders earned Arena Dues.'} Claim them below.`,
+      reward, materials,
+    };
+  }
+  if (row.kind === 'raid_result') {
+    return {
+      ...base,
+      sender: row.sender_name,
+      subject: `🐲 Raid: ${row.sender_name}`,
+      body: row.note || 'A Raid you joined has ended.',
       reward, materials,
     };
   }

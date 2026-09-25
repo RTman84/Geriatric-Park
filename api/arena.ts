@@ -73,6 +73,8 @@ const RAID_MAX_REWARDED_PER_DAY = 3;
 const RAID_PARTICIPATION_TICKETS = 10;
 const RAID_PARTICIPATION_MATERIALS = 2;
 const RAID_DEFEAT_BONUS_MATERIALS = 8;
+const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
+const RAID_MAX_ATTEMPTS_PER_PLAYER = 6; // safety cap so one Ticket-rich player can't solo a boss meant for 5-8 squads
 function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
 interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
 function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
@@ -306,6 +308,43 @@ async function settleRaid(supabase: SupabaseClient, raidRow: any, defeated: bool
 }
 const RAID_BOSS_NAMES = ['The HOA President', 'The DMV Clerk', 'The Golf-Cart Marshal', 'The Early-Bird Buffet Line', 'Charley Horse', 'The Prune Juice Reckoning'];
 
+async function settleIfDue(supabase: SupabaseClient, arenaId: string, now: number): Promise<Response | null> {
+  const slots = raidSlotsFor(arenaId, now).filter(s => s.slotEnd <= now);
+  if (slots.length === 0) return null;
+  const mostRecent = slots.sort((a, b) => b.slotEnd - a.slotEnd)[0];
+  const { data: row, error } = await supabase.from('arena_raids').select('*').eq('raid_id', mostRecent.raidId).maybeSingle();
+  if (error) { console.error('Raid due-check failed', error.message); return null; }
+  if (!row || row.settled) return null; // never hit -> nothing to settle, nothing owed
+  return settleRaid(supabase, row, row.damage_total >= row.max_hp);
+}
+
+// Builds the `raid` block returned to the client for one Arena: null if no raid is active or coming up
+// soon, otherwise countdown/boss/HP info plus this player's own damage/attempts if they've hit it.
+async function raidInfoFor(supabase: SupabaseClient, arenaId: string, userId: string, now: number) {
+  const settleErr = await settleIfDue(supabase, arenaId, now);
+  if (settleErr) return { error: settleErr };
+  const slot = activeOrNextRaid(arenaId, now);
+  if (!slot) return { raid: null };
+  const boss = RAID_BOSS_NAMES[slot.bossIndex] ?? 'the Raid boss';
+  const active = slot.slotStart <= now;
+  let damageTotal = 0, settled = false, defeated: boolean | null = null, myDamage = 0, myAttempts = 0;
+  if (active) {
+    const { data: row, error } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+    if (error) return { error: dbFail('raid read', error) };
+    if (row) { damageTotal = Math.min(num(row.damage_total, 0), slot.maxHp); settled = !!row.settled; defeated = row.defeated; }
+    const { data: hit, error: hitErr } = await supabase.from('arena_raid_hits').select('damage, attempts').eq('raid_id', slot.raidId).eq('user_id', userId).maybeSingle();
+    if (hitErr) return { error: dbFail('raid hit read', hitErr) };
+    if (hit) { myDamage = num(hit.damage, 0); myAttempts = num(hit.attempts, 0); }
+  }
+  return {
+    raid: {
+      raidId: slot.raidId, tier: slot.tier, bossIndex: slot.bossIndex, bossName: boss,
+      startsAt: new Date(slot.slotStart).toISOString(), endsAt: new Date(slot.slotEnd).toISOString(),
+      active, maxHp: slot.maxHp, damageTotal, settled, defeated, myDamage, myAttempts,
+    },
+  };
+}
+
 export default async function handler(req: Request): Promise<Response> {
   try {
     const context = await requireAccount(req);
@@ -341,6 +380,8 @@ export default async function handler(req: Request): Promise<Response> {
             id: d.id, mine: d.user_id === userId, owner: names[d.user_id] || 'Park Visitor',
             elder: d.elder, power: d.power, placedAt: d.placed_at,
           }));
+          const raidResult = await raidInfoFor(supabase, id, userId, now);
+          if ('error' in raidResult) return raidResult.error as Response;
           arenas[id] = {
             name: arenaName(id),
             faction: defenders.length > 0 ? (st?.faction ?? null) : null,
@@ -348,6 +389,7 @@ export default async function handler(req: Request): Promise<Response> {
             priorityUntil: st?.priority_until && ms(st.priority_until) > now ? st.priority_until : null,
             shieldUntil: st?.shield_until && ms(st.shield_until) > now ? st.shield_until : null,
             defenders,
+            raid: raidResult.raid,
           };
         }
       }
@@ -398,6 +440,54 @@ export default async function handler(req: Request): Promise<Response> {
         note: `Your stationed Elders earned Dues over ${dues.hours} hours.`,
       });
       return serverJson({ tickets: dues.tickets, materials: dues.materials, hours: dues.hours });
+    }
+
+    // ---------------------------------------------------------------- raid_hit
+    if (action === 'raid_hit') {
+      const raidArenaId = String(body?.arenaId || '');
+      if (!arenaName(raidArenaId)) return fail(400, 'That is not an Arena.');
+      if (me.squadPower <= 0) return fail(400, 'Put an Elder on your squad and let it sync first.');
+      const settleErr = await settleIfDue(supabase, raidArenaId, now);
+      if (settleErr) return settleErr;
+      const slot = activeOrNextRaid(raidArenaId, now);
+      if (!slot || slot.slotStart > now) return fail(400, 'No Raid battle is active at this Arena right now.');
+      const rowResult = await getOrCreateRaidRow(supabase, raidArenaId, slot);
+      if ('error' in rowResult) return rowResult.error as Response;
+      let row = rowResult.row;
+      if (row.settled) return fail(409, 'This Raid has already ended.');
+      if (now >= slot.slotEnd) {
+        const err = await settleRaid(supabase, row, num(row.damage_total, 0) >= row.max_hp);
+        if (err) return err;
+        return fail(409, "This Raid's window just closed.");
+      }
+      const { data: hitRow, error: hitReadErr } = await supabase.from('arena_raid_hits')
+        .select('damage, attempts').eq('raid_id', slot.raidId).eq('user_id', userId).maybeSingle();
+      if (hitReadErr) return dbFail('raid hit read', hitReadErr);
+      const attemptsSoFar = num(hitRow?.attempts, 0);
+      if (attemptsSoFar >= RAID_MAX_ATTEMPTS_PER_PLAYER) return fail(429, `You've hit ${RAID_BOSS_NAMES[slot.bossIndex]} enough times for this Raid — let others take a swing.`);
+      // Tickets for extra attempts are charged client-side (same pattern as the Arena attack fee) --
+      // the server only enforces the attempt count, never touches the Tickets balance itself.
+      const damage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
+      const { error: hitUpErr } = await supabase.from('arena_raid_hits').upsert({
+        raid_id: slot.raidId, user_id: userId, power: me.squadPower,
+        damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,
+      }, { onConflict: 'raid_id,user_id' });
+      if (hitUpErr) return dbFail('raid hit write', hitUpErr);
+      const newTotal = num(row.damage_total, 0) + damage;
+      const { error: totalErr } = await supabase.from('arena_raids').update({ damage_total: newTotal }).eq('raid_id', slot.raidId);
+      if (totalErr) return dbFail('raid total write', totalErr);
+      let settled = false, defeated: boolean | null = null;
+      if (newTotal >= row.max_hp) {
+        const err = await settleRaid(supabase, { ...row, damage_total: newTotal }, true);
+        if (err) return err;
+        settled = true; defeated = true;
+      }
+      return serverJson({
+        result: {
+          bossName: RAID_BOSS_NAMES[slot.bossIndex] ?? 'the Raid boss', damage, damageTotal: Math.min(newTotal, row.max_hp),
+          maxHp: row.max_hp, settled, defeated, attemptsUsed: attemptsSoFar + 1, freeAttemptsLeft: Math.max(0, RAID_FREE_ATTEMPTS - (attemptsSoFar + 1)),
+        },
+      });
     }
 
     // Everything below acts on one Arena.

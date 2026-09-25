@@ -3,8 +3,10 @@ import { Elder, ElderType } from '../types';
 import {
   ELDER_AVATARS, ElderAvatarImg, FACTIONS, factionById, FactionId, getElderPower,
   ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, ARENA_FACTION_LOCK_DAYS, arenaAttackCost,
+  raidBossByIndex, raidCountdownLabel, RAID_FREE_ATTEMPTS, RAID_EXTRA_ATTEMPT_COST, RAID_MAX_ATTEMPTS_PER_PLAYER,
 } from '../constants';
 import type { ArenaInfo, ArenaMe, ArenaDefender } from '../services/arenaService';
+import type { RaidHitResult } from '../services/arenaService';
 import type { ArenaSite } from '../services/worldMap';
 
 interface ArenaPanelProps {
@@ -22,6 +24,7 @@ interface ArenaPanelProps {
   onRecall: () => void;
   onAttack: () => void;
   onClaimDues: () => void;
+  onRaidHit: () => void;
 }
 
 const minsLeft = (iso: string | null) => (iso ? Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 60000)) : 0);
@@ -35,8 +38,10 @@ const DefenderAvatar: React.FC<{ d: ArenaDefender }> = ({ d }) => {
 };
 
 export const ArenaPanel: React.FC<ArenaPanelProps> = ({
-  isDark, site, info, me, elders, stationedAt, tokens, busy, onClose, onPickFaction, onStation, onRecall, onAttack, onClaimDues,
+  isDark, site, info, me, elders, stationedAt, tokens, busy, onClose, onPickFaction, onStation, onRecall, onAttack, onClaimDues, onRaidHit,
 }) => {
+  const [nowTick, setNowTick] = useState(Date.now());
+  React.useEffect(() => { const t = setInterval(() => setNowTick(Date.now()), 15000); return () => clearInterval(t); }, []);
   const [choosing, setChoosing] = useState(false);
   const [pendingFaction, setPendingFaction] = useState<FactionId | null>(null);
   const [switching, setSwitching] = useState(false);
@@ -135,6 +140,54 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
             </div>
 
             {shieldMins > 0 && <p className="text-[14px] font-black uppercase text-sky-500 mb-3">🛡️ New holders are shielded for {shieldMins} more min</p>}
+            {info?.raid && (() => {
+              const raid = info.raid!;
+              const boss = raidBossByIndex(raid.bossIndex);
+              if (!raid.active) {
+                const msUntil = Date.parse(raid.startsAt) - nowTick;
+                return (
+                  <div className={`${card} mb-4`}>
+                    <p className="font-black uppercase text-[14px] mb-1">🐲 Raid incoming</p>
+                    <p className={`text-[14px] font-bold ${muted}`}>{boss.icon} {boss.name} arrives in {raidCountdownLabel(msUntil)}. Come back with friends — this one needs a crowd.</p>
+                  </div>
+                );
+              }
+              const pct = Math.min(100, Math.round((raid.damageTotal / raid.maxHp) * 100));
+              const msLeft = Date.parse(raid.endsAt) - nowTick;
+              const extraCost = Math.max(0, raid.myAttempts - RAID_FREE_ATTEMPTS + 1) * RAID_EXTRA_ATTEMPT_COST;
+              const nextCost = raid.myAttempts < RAID_FREE_ATTEMPTS ? 0 : extraCost;
+              const atCap = raid.myAttempts >= RAID_MAX_ATTEMPTS_PER_PLAYER;
+              const canHit = !raid.settled && !busy && msLeft > 0 && !atCap && tokens >= nextCost && (me?.squadPower ?? 0) > 0;
+              return (
+                <div className={`${card} mb-4`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-black uppercase text-[14px]">{boss.icon} {boss.name}</p>
+                    <span className={`text-[12px] font-black uppercase ${muted}`}>{raid.settled ? 'Ended' : `${raidCountdownLabel(msLeft)} left`}</span>
+                  </div>
+                  <p className={`text-[13px] font-bold mb-2 ${muted}`}>{boss.flavor}</p>
+                  <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                    <div className="h-full bg-rose-500 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className={`text-[13px] font-bold mt-1 ${muted}`}>{raid.damageTotal.toLocaleString()} / {raid.maxHp.toLocaleString()} HP · your hits: {raid.myAttempts}</p>
+                  {raid.settled ? (
+                    <p className={`text-[14px] font-black uppercase mt-2 ${raid.defeated ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {raid.defeated ? '🎉 Defeated! Rewards sent by Mailbox.' : 'Window closed — thanks for pitching in, check your Mailbox.'}
+                    </p>
+                  ) : (
+                    <>
+                      <button disabled={!canHit} onClick={onRaidHit}
+                        className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[14px] ${canHit ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>
+                        {atCap ? "You've hit this boss enough — let others in" : `⚔️ Join the fight${nextCost > 0 ? ` (${nextCost} 🎟️)` : ' (free)'}`}
+                      </button>
+                      {!atCap && raid.myAttempts >= RAID_FREE_ATTEMPTS && (
+                        <p className={`text-[12px] font-bold mt-1 ${muted}`}>Free attempts used — extra hits cost Tickets.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
             {priorityBlocks && <p className="text-[14px] font-black uppercase text-amber-500 mb-3">{factionById(info?.priorityFaction)?.icon} {factionById(info?.priorityFaction)?.name} have first claim for {priorityMins} more min</p>}
 
             <p className={`text-[14px] font-black uppercase tracking-widest mb-2 ${muted}`}>Defenders ({defenders.length}/{ARENA_MAX_SLOTS})</p>

@@ -12,6 +12,12 @@ export interface ArenaInfo {
   priorityUntil: string | null;
   shieldUntil: string | null;
   defenders: ArenaDefender[];
+  raid: ArenaRaidInfo | null;
+}
+export interface ArenaRaidInfo {
+  raidId: string; tier: 1 | 2 | 3; bossIndex: number; bossName: string;
+  startsAt: string; endsAt: string; active: boolean; maxHp: number; damageTotal: number;
+  settled: boolean; defeated: boolean | null; myDamage: number; myAttempts: number;
 }
 export interface ArenaMe {
   faction: FactionId | null;
@@ -58,3 +64,8 @@ export const stationElder = (arenaId: string, elder: ArenaElderSnapshot, power: 
 export const recallElder = (arenaId: string): Promise<{ ok: true; elderId: string }> => post({ action: 'recall', arenaId });
 export const attackArena = (arenaId: string): Promise<{ result: ArenaAttackResult }> => post({ action: 'attack', arenaId });
 export const claimArenaDues = (): Promise<{ tickets: number; materials: number; hours: number }> => post({ action: 'claim_dues' });
+export interface RaidHitResult {
+  bossName: string; damage: number; damageTotal: number; maxHp: number;
+  settled: boolean; defeated: boolean | null; attemptsUsed: number; freeAttemptsLeft: number;
+}
+export const raidHit = (arenaId: string): Promise<{ result: RaidHitResult }> => post({ action: 'raid_hit', arenaId });

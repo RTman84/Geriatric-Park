@@ -274,6 +274,32 @@ the same tier (reported: viewing Tier 33, button said "Legendary Circuit Tier 30
 using the real overall tier number in the name (`Legendary Circuit — Tier ${i + 1}`), so it can never
 disagree with the tab or detail card again.
 
+## 6l. Raids, Phase B (2026-09-22/23) -- wired up and tested
+Boss data/constants were already scaffolded in `constants.tsx` (6 bosses, 2 per theme, tier 1-3) and
+`api/arena.ts` had the pure scheduling/settlement helpers written but never actually called. This pass
+wired it end to end and tested the server logic against the in-memory fake-Supabase harness (12
+scenarios: active-raid detection, non-arena rejection, attempt cap, two-squad cooperative defeat,
+rejecting hits on a settled raid, defeat mail to every participant, damage display capped at max HP,
+weak-squad survival path, settle-on-read via a plain GET after the window closes with NO further hits,
+survival mail, and rejecting a hit on an upcoming-not-yet-active window). All passed.
+- `GET /api/arena` now includes a `raid` block per Arena: null, upcoming (countdown only, no DB row
+  needed), or active/settled (boss, HP bar, this player's damage/attempts).
+- New `raid_hit` POST action: 2 free attempts, extra attempts cost `RAID_EXTRA_ATTEMPT_COST` (15)
+  Tickets each (charged client-side, same pattern as the Arena attack fee), hard-capped at
+  `RAID_MAX_ATTEMPTS_PER_PLAYER` (6) so one Ticket-rich player can't solo a boss meant for 5-8 squads.
+  Damage = squad power x 0.8-1.2, same trust level as Arena attacks (server-held squad power).
+- Settlement happens the instant a hit brings total damage to/above max HP (immediate "defeated" mail
+  to every participant), OR opportunistically on ANY subsequent request (a hit or even a plain GET)
+  once the window has closed, whichever comes first -- a boss that survives still pays participation
+  rewards to whoever hit it, they just don't have to come back and hit it again to collect.
+- Client: `ArenaPanel.tsx` shows a countdown card for upcoming raids and a live HP bar / hit button /
+  result banner for active or settled ones; `raid_result` Mailbox messages render with the boss's flavor
+  text baked into the server-side mail note.
+- **Not yet done:** a raid badge/countdown on the Arena map marker itself (currently only visible after
+  opening the Arena panel) -- worth adding next session, small.
+- **Numbers are a first guess, not playtested:** tier HP pools (4000/12000/30000), participation
+  rewards, and the attempt cap all need real Raid data before trusting them.
+
 ## 7. Retuning checklist (when real ad data arrives)
 
 1. Set `ASSUMED_AD_REVENUE_PER_VIEW_USD` to the measured net revenue per rewarded view (watch the trend

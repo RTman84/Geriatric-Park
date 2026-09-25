@@ -447,6 +447,8 @@ export const RAID_BOSSES: RaidBoss[] = [
 export const RAID_FREE_ATTEMPTS = 2;
 export const RAID_EXTRA_ATTEMPT_COST = 15; // Tickets, for a 3rd+ attempt beyond the free 2
 export const RAID_MAX_REWARDED_PER_DAY = 3;
+export const RAID_MAX_ATTEMPTS_PER_PLAYER = 6; // matches api/arena.ts
+export const raidBossByIndex = (i: number) => RAID_BOSSES[Math.max(0, Math.min(RAID_BOSSES.length - 1, i))];
 export function raidCountdownLabel(msUntil: number): string {
   if (msUntil <= 0) return 'now';
   const mins = Math.round(msUntil / 60000);
