@@ -15,6 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle,
+  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, getEffectiveGearBoost, getGearUpgradeCost,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1154,8 +1155,8 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
 // ─── Base Panel ───────────────────────────────────────────────────────────────
 
 export const BasePanel: React.FC<{ 
-  elders: Elder[], inventory: Gear[], tokens: number, 
-  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, 
+  elders: Elder[], inventory: Gear[], tokens: number, materials: number,
+  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUpgradeGear: (itemId: string) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
   onMoveToStandby: (id: string) => void, lastCheckIn?: number, 
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
@@ -1166,7 +1167,7 @@ export const BasePanel: React.FC<{
   parkScore?: number,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
-}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
+}> = ({ elders, inventory, tokens, materials, onHealAll, onEquipElder, onUpgradeGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
@@ -1295,9 +1296,10 @@ export const BasePanel: React.FC<{
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-3">
               {inventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
+                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? { borderColor: GEAR_RARITY_COLOR[item.rarity ?? 'Common'] } : undefined}>
                   <ItemIcon name={item.name} icon={item.icon} size={32} className="mb-1" />
                   <span className={`text-[12px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
+                  {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
                 </button>
               ))}
             </div>
@@ -1310,7 +1312,25 @@ export const BasePanel: React.FC<{
           <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
             <div className="flex justify-center mb-6 animate-bounce"><ItemIcon name={selectedItem.name} icon={selectedItem.icon} size={72} /></div>
             <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
-            <p className="text-[15px] text-center mb-4 text-[var(--accent-400)] uppercase font-black tracking-widest">{selectedItem.description}</p>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <RarityBadge rarity={selectedItem.rarity ?? 'Common'} />
+              <span className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{selectedItem.level ?? 1} / {GEAR_MAX_LEVEL}</span>
+            </div>
+            <p className="text-[15px] text-center mb-1 text-[var(--accent-400)] uppercase font-black tracking-widest">{selectedItem.description}</p>
+            <p className={`text-[13px] text-center mb-4 font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Effective boost: +{getEffectiveGearBoost(selectedItem)}</p>
+            {(selectedItem.level ?? 1) < GEAR_MAX_LEVEL && (() => {
+              const cost = getGearUpgradeCost(selectedItem);
+              const canAfford = tokens >= cost.tickets && materials >= cost.materials;
+              return (
+                <button
+                  onClick={() => onUpgradeGear(selectedItem.id)}
+                  disabled={!canAfford}
+                  className={`mb-4 w-full py-3 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
+                >
+                  Upgrade — {cost.tickets} 🎟️ + {cost.materials} 🧱
+                </button>
+              );
+            })()}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
               {elders.map(e => (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>

@@ -67,6 +67,8 @@ export interface Gear {
   description: string;
   icon: string;
   slot: 'Head' | 'Body' | 'Accessory';
+  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+  level: number; // upgrade level, starts at 1
 }
 
 export interface BingoBlitzState {

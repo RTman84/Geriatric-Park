@@ -168,6 +168,10 @@ import {
   UI_THEMES,
   DEFAULT_UI_THEME_ID,
   applyUITheme,
+  rollGearRarity,
+  getEffectiveGearBoost,
+  getGearUpgradeCost,
+  GEAR_MAX_LEVEL,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -1304,7 +1308,7 @@ const App: React.FC = () => {
       if (item.type === 'LegacyToken') {
         nextTokens += (item.boost || 25);
       } else if (item.type === 'Equipment') {
-        nextInventory.push({ id: 'inv_' + Math.random().toString(36).substr(2, 9), name: item.name, icon: item.icon, boost: item.boost || 2, description: item.description || '', slot: item.slot || 'Accessory' });
+        nextInventory.push({ id: 'inv_' + Math.random().toString(36).substr(2, 9), name: item.name, icon: item.icon, boost: item.boost || 2, description: item.description || '', slot: item.slot || 'Accessory', rarity: rollGearRarity(), level: 1 });
       } else if (item.type === 'StatBoost') {
         const team = nextElders.filter(e => e.status === 'Team');
         if (team.length > 0) {
@@ -1774,7 +1778,7 @@ const App: React.FC = () => {
       const success = Math.random() > 0.3;
       if (state.settings.sfxEnabled) audioManager.playSFX(success ? 'collect' : 'hit');
       setState(prev => {
-        const nextInventory = success ? [...prev.inventory, { id: 'garden_' + Date.now(), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, slot: poolItem.slot as any || 'Accessory', description: poolItem.description || '' }] : prev.inventory;
+        const nextInventory = success ? [...prev.inventory, { id: 'garden_' + Date.now(), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, slot: poolItem.slot as any || 'Accessory', description: poolItem.description || '', rarity: rollGearRarity(), level: 1 }] : prev.inventory;
         const { xp, level } = applyXpGain(prev.xp, prev.level, 50);
         return { ...prev, legacyTokens: prev.legacyTokens - price.cost, structureUses: bumpStructureUses(prev.structureUses, 'Garden'), xp, level, inventory: nextInventory };
       });
@@ -1921,7 +1925,7 @@ const App: React.FC = () => {
       if (reward.type === 'Tokens') nextTokens += reward.value as number;
       else {
         const poolItem = ITEM_POOL.find(i => i.name === reward.value);
-        if (poolItem) nextInventory.push({ id: 'daily_' + Math.random().toString(36).substr(2, 9), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, description: poolItem.description || '', slot: poolItem.slot as any || 'Accessory' });
+        if (poolItem) nextInventory.push({ id: 'daily_' + Math.random().toString(36).substr(2, 9), name: poolItem.name, icon: poolItem.icon, boost: poolItem.boost || 2, description: poolItem.description || '', slot: poolItem.slot as any || 'Accessory', rarity: rollGearRarity(), level: 1 });
       }
       if (prev.settings.sfxEnabled) audioManager.playSFX('victory');
       return { ...prev, lastLoginTimestamp: now, dailyBoostsCount: newStreak, legacyTokens: nextTokens, inventory: nextInventory };
@@ -1935,15 +1939,32 @@ const App: React.FC = () => {
       const nextElders = prev.allElders.map(e => {
         if (e.id !== elderId) return e;
         const updated = { ...e };
-        if (item.slot === 'Head') updated.wit += item.boost;
-        if (item.slot === 'Body') updated.tenacity += item.boost;
-        if (item.slot === 'Accessory') { updated.strength += Math.ceil(item.boost / 2); updated.agility += Math.floor(item.boost / 2); }
+        if (item.slot === 'Head') updated.wit += getEffectiveGearBoost(item);
+        if (item.slot === 'Body') updated.tenacity += getEffectiveGearBoost(item);
+        if (item.slot === 'Accessory') { const b = getEffectiveGearBoost(item); updated.strength += Math.ceil(b / 2); updated.agility += Math.floor(b / 2); }
         return updated;
       });
       return { ...prev, inventory: nextInventory, allElders: nextElders };
     });
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
   }, [state.settings.sfxEnabled]);
+
+  const handleUpgradeGear = useCallback((itemId: string) => {
+    setState(prev => {
+      const item = prev.inventory.find(i => i.id === itemId);
+      if (!item) return prev;
+      const level = item.level ?? 1;
+      if (level >= GEAR_MAX_LEVEL) { notify('Already at max level.'); return prev; }
+      const cost = getGearUpgradeCost(item);
+      if (prev.legacyTokens < cost.tickets || prev.buildingMaterials < cost.materials) {
+        notify(`Need ${cost.tickets} Tickets + ${cost.materials} Materials to upgrade.`);
+        return prev;
+      }
+      const nextInventory = prev.inventory.map(i => i.id === itemId ? { ...i, level: level + 1 } : i);
+      return { ...prev, legacyTokens: prev.legacyTokens - cost.tickets, buildingMaterials: prev.buildingMaterials - cost.materials, inventory: nextInventory };
+    });
+    if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+  }, [state.settings.sfxEnabled, notify]);
 
   // Evolution (Phase 4, 9-8-26 evolution spec). Stage 0->1 is level-gated only.
   // Stage 1->2 is level-gated for everyone, but Common/Rare pay a much steeper
@@ -2297,7 +2318,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUpgradeGear={handleUpgradeGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
@@ -2307,7 +2328,7 @@ const App: React.FC = () => {
                 setState(prev => ({...prev, legacyTokens: prev.legacyTokens - item.price, allElders: prev.allElders.map(e => e.id === target.id ? {...e, hp: Math.min(e.maxHp, e.hp + 50)} : e)}));
               }
             } else if (item.slot) {
-              setState(prev => ({...prev, legacyTokens: prev.legacyTokens - item.price, inventory: [...prev.inventory, { id: 'shop_'+Date.now(), name: item.name, icon: item.icon, boost: item.boost, slot: item.slot, description: item.description }]}));
+              setState(prev => ({...prev, legacyTokens: prev.legacyTokens - item.price, inventory: [...prev.inventory, { id: 'shop_'+Date.now(), name: item.name, icon: item.icon, boost: item.boost, slot: item.slot, description: item.description, rarity: 'Common', level: 1 }]}));
             } else {
               // Booster/shuffleboard items — just deduct tokens for now
               setState(prev => ({...prev, legacyTokens: prev.legacyTokens - item.price}));

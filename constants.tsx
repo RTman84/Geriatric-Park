@@ -1156,6 +1156,56 @@ export const SHOP_ITEMS = [
   { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts competitive spirit slightly.', slot: 'Accessory', boost: 5 }
 ];
 
+// --- Gear rarity & upgrades ---
+// Equipment items (found on the map, from the Garden, or daily rewards) roll a rarity tier that
+// scales their stat boost; Shop items are a guaranteed purchase (no luck involved) so they're
+// always Common. An item can then be upgraded in the Inventory (spending Tickets + Materials)
+// before it's given to an Elder -- boost is baked into the Elder's stats at that point (existing
+// consume-on-equip behavior), so upgrade before equipping, not after.
+export type GearRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+
+export const GEAR_RARITY_MULTIPLIER: Record<GearRarity, number> = {
+  Common: 1, Rare: 1.3, Epic: 1.7, Legendary: 2.2,
+};
+
+export const GEAR_RARITY_COLOR: Record<GearRarity, string> = {
+  Common: '#94a3b8', Rare: '#3b82f6', Epic: '#a855f7', Legendary: '#f59e0b',
+};
+
+const GEAR_RARITY_WEIGHTS: [GearRarity, number][] = [
+  ['Common', 60], ['Rare', 28], ['Epic', 10], ['Legendary', 2],
+];
+
+export function rollGearRarity(): GearRarity {
+  const total = GEAR_RARITY_WEIGHTS.reduce((sum, [, w]) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (const [rarity, weight] of GEAR_RARITY_WEIGHTS) {
+    if (roll < weight) return rarity;
+    roll -= weight;
+  }
+  return 'Common';
+}
+
+export const GEAR_MAX_LEVEL = 5;
+const GEAR_UPGRADE_BONUS_PER_LEVEL = 0.15; // +15% of base boost per level above 1
+const GEAR_UPGRADE_COST_BASE = { tickets: 40, materials: 3 };
+const GEAR_UPGRADE_COST_GROWTH = 1.5;
+
+export function getEffectiveGearBoost(item: { boost: number; rarity?: GearRarity; level?: number }): number {
+  const mult = GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1;
+  const lvl = item.level ?? 1;
+  return Math.round(item.boost * mult * (1 + (lvl - 1) * GEAR_UPGRADE_BONUS_PER_LEVEL));
+}
+
+export function getGearUpgradeCost(item: { level?: number }): { tickets: number; materials: number } {
+  const lvl = item.level ?? 1;
+  const scale = Math.pow(GEAR_UPGRADE_COST_GROWTH, lvl - 1);
+  return {
+    tickets: Math.round(GEAR_UPGRADE_COST_BASE.tickets * scale),
+    materials: Math.round(GEAR_UPGRADE_COST_BASE.materials * scale),
+  };
+}
+
 export const SEASONAL_REWARDS = [
   { level: 1, icon: '🎟️', name: 'Starter Kit', free: '100 Tickets', tickets: 100 },
   { level: 2, icon: '🍭', name: 'Sweet Treat', free: '15 Tickets', tickets: 15 },
