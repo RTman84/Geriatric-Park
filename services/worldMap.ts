@@ -98,7 +98,9 @@ export function getWorldArenas(lat: number, lng: number, ring = 1): ArenaSite[] 
 // THE SAME MATH IS DUPLICATED INSIDE api/arena.ts -- change both places together.
 export const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
 export const RAID_WINDOW_MINUTES = 90;
-export const RAID_CHANCE = 0.12;
+// TEMP FOR LIVE TESTING (2026-09-25): raised from 0.12 to make raids land reliably during a
+// testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with api/arena.ts's copy.
+export const RAID_CHANCE = 0.6;
 const RAID_SALT = 2000;
 // Two bosses per tier (index 0-5); HP multipliers differ per boss even within a tier, purely for
 // texture, matching the ARENA_DESIGN.md flavor notes (the DMV Clerk's absurdly padded HP, etc.).

@@ -63,7 +63,9 @@ const MAX_IDS = 12;
 // ---- Raids: DUPLICATE of services/worldMap.ts's Raid section. Keep identical. ------------------------
 const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
 const RAID_WINDOW_MINUTES = 90;
-const RAID_CHANCE = 0.12;
+// TEMP FOR LIVE TESTING (2026-09-25): raised from 0.12 to make raids land reliably during a
+// testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with services/worldMap.ts's copy.
+const RAID_CHANCE = 0.6;
 const RAID_SALT = 2000;
 const RAID_BASE_HP = [3000, 6000, 10000];
 const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85];
