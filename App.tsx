@@ -172,6 +172,7 @@ import {
   getEffectiveGearBoost,
   getGearUpgradeCost,
   GEAR_MAX_LEVEL,
+  GEAR_MAX_PER_ELDER,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -667,7 +668,7 @@ const App: React.FC = () => {
           level: Math.floor(Math.random() * 5) + 1,
           rarity: wildRarity,
           bio: '', comfortGeneration: getBaseComfortGeneration(wildRarity), captured: false,
-          xp: 0, evolutionStage: 0,
+          xp: 0, evolutionStage: 0, gearConsumedCount: 0,
           lat: spawnLat, lng: spawnLng,
           happiness: 100, hp: 80, maxHp: 80, strength: 10, wit: 10, agility: 8, tenacity: 8,
           equipment: {}, status: 'Base', isRoaming: true, pathId, pathProgress,
@@ -791,11 +792,13 @@ const App: React.FC = () => {
       const withDefaults = {
         xp: 0,
         evolutionStage: 0 as 0 | 1 | 2,
+        gearConsumedCount: 0,
         ...e,
       };
       if (!Number.isFinite(withDefaults.xp)) withDefaults.xp = 0;
       if (!Number.isFinite(withDefaults.level)) withDefaults.level = 1;
       if (!Number.isFinite(withDefaults.comfortGeneration)) withDefaults.comfortGeneration = 0;
+      if (!Number.isFinite(withDefaults.gearConsumedCount)) withDefaults.gearConsumedCount = 0;
       if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
         return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
       }
@@ -1934,11 +1937,17 @@ const App: React.FC = () => {
   }, [state.lastLoginTimestamp, state.settings.sfxEnabled]);
 
   const handleEquipElder = useCallback((elderId: string, item: Gear) => {
+    const target = state.allElders.find(e => e.id === elderId);
+    if (target && (target.gearConsumedCount ?? 0) >= GEAR_MAX_PER_ELDER) {
+      notify(`${target.name} has already been given the max of ${GEAR_MAX_PER_ELDER} items.`, 'bad');
+      return;
+    }
     setState(prev => {
       const nextInventory = prev.inventory.filter(i => i.id !== item.id);
       const nextElders = prev.allElders.map(e => {
         if (e.id !== elderId) return e;
-        const updated = { ...e };
+        if ((e.gearConsumedCount ?? 0) >= GEAR_MAX_PER_ELDER) return e;
+        const updated = { ...e, gearConsumedCount: (e.gearConsumedCount ?? 0) + 1 };
         if (item.slot === 'Head') updated.wit += getEffectiveGearBoost(item);
         if (item.slot === 'Body') updated.tenacity += getEffectiveGearBoost(item);
         if (item.slot === 'Accessory') { const b = getEffectiveGearBoost(item); updated.strength += Math.ceil(b / 2); updated.agility += Math.floor(b / 2); }
@@ -1947,7 +1956,7 @@ const App: React.FC = () => {
       return { ...prev, inventory: nextInventory, allElders: nextElders };
     });
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
-  }, [state.settings.sfxEnabled]);
+  }, [state.settings.sfxEnabled, state.allElders, notify]);
 
   const handleUpgradeGear = useCallback((itemId: string) => {
     setState(prev => {

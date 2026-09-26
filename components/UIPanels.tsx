@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle,
-  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, getEffectiveGearBoost, getGearUpgradeCost,
+  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, GEAR_MAX_PER_ELDER, getEffectiveGearBoost, getGearUpgradeCost,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1332,12 +1332,16 @@ export const BasePanel: React.FC<{
               );
             })()}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
-              {elders.map(e => (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
+              {elders.map(e => {
+                const full = (e.gearConsumedCount ?? 0) >= GEAR_MAX_PER_ELDER;
+                return (
+                <button key={e.id} disabled={full} onClick={() => { if (!full) { onEquipElder(e.id, selectedItem); setSelectedItem(null); } }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 transition-all ${full ? 'opacity-40 cursor-not-allowed' : 'active:scale-95 hover:border-[var(--accent-500)]'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                   <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={48} />
                   <div className={`flex-1 text-left min-w-0 text-[17px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
+                  <div className={`text-[12px] font-black uppercase ${full ? 'text-red-400' : 'opacity-40'}`}>{e.gearConsumedCount ?? 0}/{GEAR_MAX_PER_ELDER}{full ? ' Full' : ''}</div>
                 </button>
-              ))}
+                );
+              })}
             </div>
             <button onClick={() => setSelectedItem(null)} className="mt-8 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase text-[15px] active:scale-95 transition-transform">Cancel</button>
           </div>

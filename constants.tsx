@@ -1191,6 +1191,8 @@ const GEAR_UPGRADE_BONUS_PER_LEVEL = 0.15; // +15% of base boost per level above
 const GEAR_UPGRADE_COST_BASE = { tickets: 40, materials: 3 };
 const GEAR_UPGRADE_COST_GROWTH = 1.5;
 
+export const GEAR_MAX_PER_ELDER = 3; // caps unbounded permanent stat-stacking (see App.tsx handleEquipElder)
+
 export function getEffectiveGearBoost(item: { boost: number; rarity?: GearRarity; level?: number }): number {
   const mult = GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1;
   const lvl = item.level ?? 1;

@@ -215,6 +215,7 @@ export interface Elder {
   captured: boolean;
   xp: number;
   evolutionStage: 0 | 1 | 2;
+  gearConsumedCount: number; // caps total items ever equipped -- see App.tsx handleEquipElder
   lat: number;
   lng: number;
   equipment: {
