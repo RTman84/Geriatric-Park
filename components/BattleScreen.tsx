@@ -42,18 +42,11 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
   const textIdCounter = useRef(0);
 
   const getEffectiveCombatStats = (elder: Elder) => {
-    let s = elder.strength;
-    let w = elder.wit;
-    let a = elder.agility;
-    let t = elder.tenacity;
-
-    if (elder.equipment.head) w += elder.equipment.head.boost;
-    if (elder.equipment.body) t += elder.equipment.body.boost;
-    if (elder.equipment.accessory) {
-      s += Math.ceil(elder.equipment.accessory.boost / 2);
-      a += Math.floor(elder.equipment.accessory.boost / 2);
-    }
-    return { strength: s, wit: w, agility: a, tenacity: t };
+    // Equipment boosts are already permanently baked into these base stats at equip time
+    // (see App.tsx handleEquipElder) -- elder.equipment.head/body/accessory now genuinely
+    // track which item occupies which slot (for swap/unequip UI), but adding their .boost
+    // again here would double-count every equipped item's effect in battle specifically.
+    return { strength: elder.strength, wit: elder.wit, agility: elder.agility, tenacity: elder.tenacity };
   };
 
   const addFloatingText = (text: string, side: 'player' | 'opponent') => {
