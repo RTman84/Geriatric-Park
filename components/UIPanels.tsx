@@ -1336,10 +1336,10 @@ export const BasePanel: React.FC<{
                 const sellValue = getGearSellValue(selectedItem);
                 return (
                   <button
-                    onClick={() => { if (window.confirm(`Sell ${selectedItem.name} for ${sellValue.tickets} 🎟️ + ${sellValue.materials} 🧱?`)) { onSellGear(selectedItem.id); setSelectedItem(null); } }}
+                    onClick={() => { onSellGear(selectedItem.id); setSelectedItem(null); }}
                     className="py-3 px-4 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
                   >
-                    Sell
+                    Sell — {sellValue.tickets} 🎟️ + {sellValue.materials} 🧱
                   </button>
                 );
               })()}

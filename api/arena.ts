@@ -76,14 +76,14 @@ const RAID_PARTICIPATION_TICKETS = 10;
 const RAID_PARTICIPATION_MATERIALS = 2;
 const RAID_DEFEAT_BONUS_MATERIALS = 8;
 const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
-const RAID_MAX_ATTEMPTS_PER_PLAYER = 6; // safety cap so one Ticket-rich player can't solo a boss meant for 5-8 squads
-// 2026-09-27 rebalance: raw squad power fed damage directly with no ceiling, so a single strong
-// squad could one-shot a raid regardless of its HP -- confirmed live (one hit ended a Tier 1 raid).
-// Bumping HP alone would only get out-scaled again as squads keep growing. The real fix is a hard
-// per-hit cap: at 15% of max HP, even a player who spends all RAID_MAX_ATTEMPTS_PER_PLAYER (6) hits
-// tops out at 90% of the boss's HP -- structurally guarantees at least one other participant is
-// always needed, no matter how strong any single squad becomes in the future.
-const RAID_MAX_DAMAGE_PCT_PER_HIT = 0.15;
+// 2026-09-27 rebalance (round 2, per player feedback): with a small player base, a strict cap
+// risked raids stalling because too few concurrent people could realistically stack enough hits
+// within a 90-min window. Raised the per-hit cap to 20% and lowered the attempt ceiling to 4 (was
+// 6) to compensate -- 4 x 20% = 80%, so the "always needs someone else" guarantee still holds no
+// matter how strong or Ticket-rich a single squad is, while just 2 free attempts alone now covers
+// 40% of a boss, meaning as few as 3 players using only their free swings can clear one.
+const RAID_MAX_ATTEMPTS_PER_PLAYER = 4; // matches constants.tsx's copy
+const RAID_MAX_DAMAGE_PCT_PER_HIT = 0.2;
 function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
 interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
 function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {

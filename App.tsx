@@ -1991,6 +1991,7 @@ const App: React.FC = () => {
       const item = prev.inventory.find(i => i.id === itemId);
       if (!item) return prev;
       const value = getGearSellValue(item);
+      notify(`Sold ${item.name} for ${value.tickets} 🎟️ + ${value.materials} 🧱`, 'good');
       return {
         ...prev,
         inventory: prev.inventory.filter(i => i.id !== itemId),
@@ -1999,7 +2000,7 @@ const App: React.FC = () => {
       };
     });
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
-  }, [state.settings.sfxEnabled]);
+  }, [state.settings.sfxEnabled, notify]);
 
   const handleUpgradeGear = useCallback((itemId: string) => {
     setState(prev => {
