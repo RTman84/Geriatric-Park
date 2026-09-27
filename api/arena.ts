@@ -76,14 +76,23 @@ const RAID_PARTICIPATION_TICKETS = 10;
 const RAID_PARTICIPATION_MATERIALS = 2;
 const RAID_DEFEAT_BONUS_MATERIALS = 8;
 const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
-// 2026-09-27 rebalance (round 2, per player feedback): with a small player base, a strict cap
-// risked raids stalling because too few concurrent people could realistically stack enough hits
-// within a 90-min window. Raised the per-hit cap to 20% and lowered the attempt ceiling to 4 (was
-// 6) to compensate -- 4 x 20% = 80%, so the "always needs someone else" guarantee still holds no
-// matter how strong or Ticket-rich a single squad is, while just 2 free attempts alone now covers
-// 40% of a boss, meaning as few as 3 players using only their free swings can clear one.
-const RAID_MAX_ATTEMPTS_PER_PLAYER = 4; // matches constants.tsx's copy
-const RAID_MAX_DAMAGE_PCT_PER_HIT = 0.2;
+// 2026-09-27 rebalance (round 3, per player feedback): a FLAT damage-per-hit cap doesn't actually
+// create tier difficulty variance for a strong squad -- since the cap is a % of maxHp, damage per
+// hit scales proportionally with tier size, so hit-count-to-clear stays roughly constant across
+// tiers for anyone whose raw power exceeds the cap threshold. Real Pokemon-GO-style variance (some
+// raids soloable, some genuinely need a group) needs the CAP ITSELF to vary by tier, not just HP.
+// Attempts restored to 10 (was lowered to 4 last round) for retention -- grinding a raid across
+// several visits is a good reason to come back, and tier's cap (not attempt count) now governs
+// solo-feasibility. Tier 1: 50% -- trivially soloable in ~2 hits, quick "easy raid" for anyone.
+// Tier 2: 20% -- soloable by a dedicated player spending several of their 10 attempts, but much
+// faster with help. Tier 3: 8% -- 10 x 8% = 80% < 100%, so NO single squad, however strong or
+// Ticket-rich, can ever fully solo it -- guarantees real cooperation on the hardest tier.
+const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches constants.tsx's copy
+const RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER = [0.5, 0.2, 0.08]; // by tier (1,2,3), matches constants.tsx's copy
+// Per-instance "power flux" (deterministic, seeded the same as everything else in this function --
+// see the extra rand() call below) so two raids of the same tier/boss never feel identical.
+const RAID_FLUX_MIN = 0.85;
+const RAID_FLUX_RANGE = 0.45; // flux rolls in [0.85, 1.30]
 function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
 interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
 function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
@@ -103,7 +112,8 @@ function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
       const tier = 1 + Math.floor(rand() * 3);
       const bossInTier = rand() < 0.5 ? 0 : 1;
       const bossIndex = (tier - 1) * 2 + bossInTier;
-      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex]);
+      const flux = RAID_FLUX_MIN + rand() * RAID_FLUX_RANGE;
+      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex] * flux);
       out.push({ slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
     }
   }
@@ -477,7 +487,8 @@ export default async function handler(req: Request): Promise<Response> {
       // Tickets for extra attempts are charged client-side (same pattern as the Arena attack fee) --
       // the server only enforces the attempt count, never touches the Tickets balance itself.
       const rawDamage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
-      const damage = Math.min(rawDamage, Math.round(slot.maxHp * RAID_MAX_DAMAGE_PCT_PER_HIT));
+      const capPct = RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[slot.tier - 1] ?? RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER.length - 1];
+      const damage = Math.min(rawDamage, Math.round(slot.maxHp * capPct));
       const { error: hitUpErr } = await supabase.from('arena_raid_hits').upsert({
         raid_id: slot.raidId, user_id: userId, power: me.squadPower,
         damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,

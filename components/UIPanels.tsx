@@ -1307,24 +1307,31 @@ export const BasePanel: React.FC<{
         </div>
       </div>
 
-      {selectedItem && (
+      {selectedItem && (() => {
+        // selectedItem is a one-time snapshot taken when the item was tapped -- it does NOT
+        // update when `inventory` changes underneath it (e.g. after Upgrade), so the modal used
+        // to keep showing pre-upgrade level/boost until closed and reopened. Look the item up
+        // live by id every render instead, falling back to the snapshot only if it's gone
+        // (e.g. it was just sold or equipped from another tab).
+        const item = inventory.find(i => i.id === selectedItem.id) ?? selectedItem;
+        return (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
           <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl h-[85vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
-            <div className="flex justify-center mb-6 animate-bounce flex-shrink-0"><ItemIcon name={selectedItem.name} icon={selectedItem.icon} size={72} /></div>
-            <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none flex-shrink-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
+            <div className="flex justify-center mb-6 animate-bounce flex-shrink-0"><ItemIcon name={item.name} icon={item.icon} size={72} /></div>
+            <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none flex-shrink-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {item.name}</h3>
             <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
-              <RarityBadge rarity={selectedItem.rarity ?? 'Common'} />
-              <span className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{selectedItem.level ?? 1} / {GEAR_MAX_LEVEL}</span>
+              <RarityBadge rarity={item.rarity ?? 'Common'} />
+              <span className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1} / {GEAR_MAX_LEVEL}</span>
             </div>
-            <p className="text-[15px] text-center mb-1 text-[var(--accent-400)] uppercase font-black tracking-widest flex-shrink-0">{selectedItem.description}</p>
-            <p className={`text-[13px] text-center mb-4 font-bold flex-shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Effective boost: +{getEffectiveGearBoost(selectedItem)}</p>
+            <p className="text-[15px] text-center mb-1 text-[var(--accent-400)] uppercase font-black tracking-widest flex-shrink-0">{item.description}</p>
+            <p className={`text-[13px] text-center mb-4 font-bold flex-shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Effective boost: +{getEffectiveGearBoost(item)}</p>
             <div className="flex gap-2 mb-4 flex-shrink-0">
-              {(selectedItem.level ?? 1) < GEAR_MAX_LEVEL && (() => {
-                const cost = getGearUpgradeCost(selectedItem);
+              {(item.level ?? 1) < GEAR_MAX_LEVEL && (() => {
+                const cost = getGearUpgradeCost(item);
                 const canAfford = tokens >= cost.tickets && materials >= cost.materials;
                 return (
                   <button
-                    onClick={() => onUpgradeGear(selectedItem.id)}
+                    onClick={() => onUpgradeGear(item.id)}
                     disabled={!canAfford}
                     className={`flex-1 py-3 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
                   >
@@ -1333,10 +1340,10 @@ export const BasePanel: React.FC<{
                 );
               })()}
               {onSellGear && (() => {
-                const sellValue = getGearSellValue(selectedItem);
+                const sellValue = getGearSellValue(item);
                 return (
                   <button
-                    onClick={() => { onSellGear(selectedItem.id); setSelectedItem(null); }}
+                    onClick={() => { onSellGear(item.id); setSelectedItem(null); }}
                     className="py-3 px-4 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
                   >
                     Sell — {sellValue.tickets} 🎟️ + {sellValue.materials} 🧱
@@ -1346,14 +1353,14 @@ export const BasePanel: React.FC<{
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-3 px-1">
               {elders.map(e => {
-                const slotKey = selectedItem.slot === 'Head' ? 'head' : selectedItem.slot === 'Body' ? 'body' : 'accessory';
+                const slotKey = item.slot === 'Head' ? 'head' : item.slot === 'Body' ? 'body' : 'accessory';
                 const occupant = e.equipment?.[slotKey];
                 return (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
+                <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
                   <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={48} />
                   <div className="flex-1 text-left min-w-0">
                     <div className={`text-[17px] font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
-                    <div className={`text-[11px] font-black uppercase truncate ${occupant ? 'text-amber-500' : 'opacity-40'}`}>{occupant ? `Replaces: ${occupant.name}` : `Empty ${selectedItem.slot} slot`}</div>
+                    <div className={`text-[11px] font-black uppercase truncate ${occupant ? 'text-amber-500' : 'opacity-40'}`}>{occupant ? `Replaces: ${occupant.name}` : `Empty ${item.slot} slot`}</div>
                   </div>
                 </button>
                 );
@@ -1362,7 +1369,8 @@ export const BasePanel: React.FC<{
             <button onClick={() => setSelectedItem(null)} className="mt-8 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase text-[15px] active:scale-95 transition-transform flex-shrink-0">Cancel</button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Park Registry */}
       <div className="mb-24">

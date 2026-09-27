@@ -104,6 +104,10 @@ const RAID_SALT = 2000;
 // texture, matching the ARENA_DESIGN.md flavor notes (the DMV Clerk's absurdly padded HP, etc.).
 export const RAID_BASE_HP = [3000, 6000, 10000]; // by tier (1,2,3)
 export const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85]; // per boss_index 0-5
+// Per-instance "power flux" -- keep in sync with api/arena.ts's copy (same values, same position
+// in the rand() sequence) so two raids of the same tier/boss never feel identical.
+const RAID_FLUX_MIN = 0.85;
+const RAID_FLUX_RANGE = 0.45; // flux rolls in [0.85, 1.30]
 
 export interface RaidSlot { arenaId: string; slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
 
@@ -127,7 +131,10 @@ export function getArenaRaidSlots(arenaId: string, now: number = Date.now()): Ra
       const tier = 1 + Math.floor(rand() * 3);
       const bossInTier = rand() < 0.5 ? 0 : 1;
       const bossIndex = (tier - 1) * 2 + bossInTier;
-      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex]);
+      // Deterministic "power flux" -- same extra rand() call, same position, as api/arena.ts, so
+      // both sides predict the identical maxHp with no server round-trip.
+      const flux = RAID_FLUX_MIN + rand() * RAID_FLUX_RANGE;
+      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex] * flux);
       out.push({ arenaId, slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
     }
   }
