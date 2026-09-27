@@ -65,7 +65,7 @@ const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
 const RAID_WINDOW_MINUTES = 90;
 // TEMP FOR LIVE TESTING (2026-09-25): raised from 0.12 to make raids land reliably during a
 // testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with services/worldMap.ts's copy.
-const RAID_CHANCE = 0.6;
+const RAID_CHANCE = 0.12; // restored from 0.6 after live testing was confirmed working (2026-09-27)
 const RAID_SALT = 2000;
 const RAID_BASE_HP = [3000, 6000, 10000];
 const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85];
@@ -77,6 +77,13 @@ const RAID_PARTICIPATION_MATERIALS = 2;
 const RAID_DEFEAT_BONUS_MATERIALS = 8;
 const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
 const RAID_MAX_ATTEMPTS_PER_PLAYER = 6; // safety cap so one Ticket-rich player can't solo a boss meant for 5-8 squads
+// 2026-09-27 rebalance: raw squad power fed damage directly with no ceiling, so a single strong
+// squad could one-shot a raid regardless of its HP -- confirmed live (one hit ended a Tier 1 raid).
+// Bumping HP alone would only get out-scaled again as squads keep growing. The real fix is a hard
+// per-hit cap: at 15% of max HP, even a player who spends all RAID_MAX_ATTEMPTS_PER_PLAYER (6) hits
+// tops out at 90% of the boss's HP -- structurally guarantees at least one other participant is
+// always needed, no matter how strong any single squad becomes in the future.
+const RAID_MAX_DAMAGE_PCT_PER_HIT = 0.15;
 function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
 interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
 function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
@@ -469,7 +476,8 @@ export default async function handler(req: Request): Promise<Response> {
       if (attemptsSoFar >= RAID_MAX_ATTEMPTS_PER_PLAYER) return fail(429, `You've hit ${RAID_BOSS_NAMES[slot.bossIndex]} enough times for this Raid — let others take a swing.`);
       // Tickets for extra attempts are charged client-side (same pattern as the Arena attack fee) --
       // the server only enforces the attempt count, never touches the Tickets balance itself.
-      const damage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
+      const rawDamage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
+      const damage = Math.min(rawDamage, Math.round(slot.maxHp * RAID_MAX_DAMAGE_PCT_PER_HIT));
       const { error: hitUpErr } = await supabase.from('arena_raid_hits').upsert({
         raid_id: slot.raidId, user_id: userId, power: me.squadPower,
         damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,
