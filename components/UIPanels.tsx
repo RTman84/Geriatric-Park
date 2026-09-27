@@ -1315,17 +1315,22 @@ export const BasePanel: React.FC<{
         // (e.g. it was just sold or equipped from another tab).
         const item = inventory.find(i => i.id === selectedItem.id) ?? selectedItem;
         return (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl h-[85vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
-            <div className="flex justify-center mb-6 animate-bounce flex-shrink-0"><ItemIcon name={item.name} icon={item.icon} size={72} /></div>
-            <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none flex-shrink-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {item.name}</h3>
-            <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
-              <RarityBadge rarity={item.rarity ?? 'Common'} />
-              <span className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1} / {GEAR_MAX_LEVEL}</span>
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-[3rem] p-6 flex flex-col border shadow-2xl h-[90vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
+            {/* Compact header: icon+name+rarity all on one row, description capped to 2 lines --
+                a long description used to push the Elder list down to almost nothing. */}
+            <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+              <ItemIcon name={item.name} icon={item.icon} size={44} />
+              <div className="flex-1 min-w-0">
+                <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <RarityBadge rarity={item.rarity ?? 'Common'} />
+                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{GEAR_MAX_LEVEL} · +{getEffectiveGearBoost(item)}</span>
+                </div>
+              </div>
             </div>
-            <p className="text-[15px] text-center mb-1 text-[var(--accent-400)] uppercase font-black tracking-widest flex-shrink-0">{item.description}</p>
-            <p className={`text-[13px] text-center mb-4 font-bold flex-shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Effective boost: +{getEffectiveGearBoost(item)}</p>
-            <div className="flex gap-2 mb-4 flex-shrink-0">
+            <p className={`text-[12px] mb-3 flex-shrink-0 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{item.description}</p>
+            <div className="flex gap-2 mb-3 flex-shrink-0">
               {(item.level ?? 1) < GEAR_MAX_LEVEL && (() => {
                 const cost = getGearUpgradeCost(item);
                 const canAfford = tokens >= cost.tickets && materials >= cost.materials;
@@ -1333,7 +1338,7 @@ export const BasePanel: React.FC<{
                   <button
                     onClick={() => onUpgradeGear(item.id)}
                     disabled={!canAfford}
-                    className={`flex-1 py-3 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
+                    className={`flex-1 py-2.5 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
                   >
                     Upgrade — {cost.tickets} 🎟️ + {cost.materials} 🧱
                   </button>
@@ -1344,29 +1349,39 @@ export const BasePanel: React.FC<{
                 return (
                   <button
                     onClick={() => { onSellGear(item.id); setSelectedItem(null); }}
-                    className="py-3 px-4 rounded-2xl font-black uppercase text-[13px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
+                    className="py-2.5 px-3 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
                   >
                     Sell — {sellValue.tickets} 🎟️ + {sellValue.materials} 🧱
                   </button>
                 );
               })()}
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-3 px-1">
+            <div className={`text-[11px] font-black uppercase tracking-widest mb-2 flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Give to an Elder</div>
+            {/* min-h guarantees at least ~2 Elder rows are always visible no matter how much
+                room the header/description/buttons above end up taking. */}
+            <div className="flex-1 min-h-[220px] overflow-y-auto custom-scrollbar space-y-2 px-1 -mx-1">
               {elders.map(e => {
                 const slotKey = item.slot === 'Head' ? 'head' : item.slot === 'Body' ? 'body' : 'accessory';
                 const occupant = e.equipment?.[slotKey];
                 return (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
-                  <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={48} />
+                <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-3 rounded-[1.5rem] border flex items-center gap-3 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
+                  <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={40} />
                   <div className="flex-1 text-left min-w-0">
-                    <div className={`text-[17px] font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
-                    <div className={`text-[11px] font-black uppercase truncate ${occupant ? 'text-amber-500' : 'opacity-40'}`}>{occupant ? `Replaces: ${occupant.name}` : `Empty ${item.slot} slot`}</div>
+                    <div className={`text-[14px] font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
+                    {occupant ? (
+                      <div className="flex items-center gap-1 text-[10px] font-black uppercase text-amber-500 truncate">
+                        <ItemIcon name={occupant.name} icon={occupant.icon} size={14} />
+                        Replaces {occupant.name} (+{getEffectiveGearBoost(occupant)})
+                      </div>
+                    ) : (
+                      <div className="text-[10px] font-black uppercase opacity-40">Empty {item.slot} slot</div>
+                    )}
                   </div>
                 </button>
                 );
               })}
             </div>
-            <button onClick={() => setSelectedItem(null)} className="mt-8 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase text-[15px] active:scale-95 transition-transform flex-shrink-0">Cancel</button>
+            <button onClick={() => setSelectedItem(null)} className="mt-4 bg-slate-100 text-slate-600 font-black py-3 rounded-2xl uppercase text-[14px] active:scale-95 transition-transform flex-shrink-0">Cancel</button>
           </div>
         </div>
         );
