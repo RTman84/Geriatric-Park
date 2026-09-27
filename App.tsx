@@ -171,8 +171,8 @@ import {
   rollGearRarity,
   getEffectiveGearBoost,
   getGearUpgradeCost,
+  getGearSellValue,
   GEAR_MAX_LEVEL,
-  GEAR_MAX_PER_ELDER,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -668,7 +668,7 @@ const App: React.FC = () => {
           level: Math.floor(Math.random() * 5) + 1,
           rarity: wildRarity,
           bio: '', comfortGeneration: getBaseComfortGeneration(wildRarity), captured: false,
-          xp: 0, evolutionStage: 0, gearConsumedCount: 0,
+          xp: 0, evolutionStage: 0,
           lat: spawnLat, lng: spawnLng,
           happiness: 100, hp: 80, maxHp: 80, strength: 10, wit: 10, agility: 8, tenacity: 8,
           equipment: {}, status: 'Base', isRoaming: true, pathId, pathProgress,
@@ -792,13 +792,12 @@ const App: React.FC = () => {
       const withDefaults = {
         xp: 0,
         evolutionStage: 0 as 0 | 1 | 2,
-        gearConsumedCount: 0,
         ...e,
       };
       if (!Number.isFinite(withDefaults.xp)) withDefaults.xp = 0;
       if (!Number.isFinite(withDefaults.level)) withDefaults.level = 1;
       if (!Number.isFinite(withDefaults.comfortGeneration)) withDefaults.comfortGeneration = 0;
-      if (!Number.isFinite(withDefaults.gearConsumedCount)) withDefaults.gearConsumedCount = 0;
+      if (!withDefaults.equipment || typeof withDefaults.equipment !== 'object') withDefaults.equipment = {};
       if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
         return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
       }
@@ -1937,26 +1936,70 @@ const App: React.FC = () => {
   }, [state.lastLoginTimestamp, state.settings.sfxEnabled]);
 
   const handleEquipElder = useCallback((elderId: string, item: Gear) => {
-    const target = state.allElders.find(e => e.id === elderId);
-    if (target && (target.gearConsumedCount ?? 0) >= GEAR_MAX_PER_ELDER) {
-      notify(`${target.name} has already been given the max of ${GEAR_MAX_PER_ELDER} items.`, 'bad');
-      return;
-    }
     setState(prev => {
       const nextInventory = prev.inventory.filter(i => i.id !== item.id);
+      let bumpedItem: Gear | null = null;
+      const slotKey = item.slot === 'Head' ? 'head' : item.slot === 'Body' ? 'body' : 'accessory';
       const nextElders = prev.allElders.map(e => {
         if (e.id !== elderId) return e;
-        if ((e.gearConsumedCount ?? 0) >= GEAR_MAX_PER_ELDER) return e;
-        const updated = { ...e, gearConsumedCount: (e.gearConsumedCount ?? 0) + 1 };
-        if (item.slot === 'Head') updated.wit += getEffectiveGearBoost(item);
-        if (item.slot === 'Body') updated.tenacity += getEffectiveGearBoost(item);
-        if (item.slot === 'Accessory') { const b = getEffectiveGearBoost(item); updated.strength += Math.ceil(b / 2); updated.agility += Math.floor(b / 2); }
+        const updated = { ...e, equipment: { ...e.equipment } };
+        const current = updated.equipment[slotKey];
+        if (current) {
+          // Return the previously equipped item to inventory and undo its stat contribution --
+          // exactly reversible since getEffectiveGearBoost depends only on the item itself.
+          const oldBoost = getEffectiveGearBoost(current);
+          if (slotKey === 'head') updated.wit -= oldBoost;
+          if (slotKey === 'body') updated.tenacity -= oldBoost;
+          if (slotKey === 'accessory') { updated.strength -= Math.ceil(oldBoost / 2); updated.agility -= Math.floor(oldBoost / 2); }
+          bumpedItem = current;
+        }
+        const newBoost = getEffectiveGearBoost(item);
+        if (slotKey === 'head') updated.wit += newBoost;
+        if (slotKey === 'body') updated.tenacity += newBoost;
+        if (slotKey === 'accessory') { updated.strength += Math.ceil(newBoost / 2); updated.agility += Math.floor(newBoost / 2); }
+        updated.equipment[slotKey] = item;
         return updated;
       });
-      return { ...prev, inventory: nextInventory, allElders: nextElders };
+      return { ...prev, inventory: bumpedItem ? [...nextInventory, bumpedItem] : nextInventory, allElders: nextElders };
     });
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
-  }, [state.settings.sfxEnabled, state.allElders, notify]);
+  }, [state.settings.sfxEnabled]);
+
+  const handleUnequipElder = useCallback((elderId: string, slotKey: 'head' | 'body' | 'accessory') => {
+    setState(prev => {
+      let freedItem: Gear | null = null;
+      const nextElders = prev.allElders.map(e => {
+        if (e.id !== elderId) return e;
+        const current = e.equipment?.[slotKey];
+        if (!current) return e;
+        const updated = { ...e, equipment: { ...e.equipment } };
+        const boost = getEffectiveGearBoost(current);
+        if (slotKey === 'head') updated.wit -= boost;
+        if (slotKey === 'body') updated.tenacity -= boost;
+        if (slotKey === 'accessory') { updated.strength -= Math.ceil(boost / 2); updated.agility -= Math.floor(boost / 2); }
+        delete updated.equipment[slotKey];
+        freedItem = current;
+        return updated;
+      });
+      if (!freedItem) return prev;
+      return { ...prev, inventory: [...prev.inventory, freedItem], allElders: nextElders };
+    });
+  }, []);
+
+  const handleSellGear = useCallback((itemId: string) => {
+    setState(prev => {
+      const item = prev.inventory.find(i => i.id === itemId);
+      if (!item) return prev;
+      const value = getGearSellValue(item);
+      return {
+        ...prev,
+        inventory: prev.inventory.filter(i => i.id !== itemId),
+        legacyTokens: prev.legacyTokens + value.tickets,
+        buildingMaterials: prev.buildingMaterials + value.materials,
+      };
+    });
+    if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+  }, [state.settings.sfxEnabled]);
 
   const handleUpgradeGear = useCallback((itemId: string) => {
     setState(prev => {
@@ -2327,7 +2370,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUpgradeGear={handleUpgradeGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />}
+          {activeTab === 'base' && <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
