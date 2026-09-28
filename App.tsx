@@ -2799,12 +2799,14 @@ const App: React.FC = () => {
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
         {showParkHub && (
-          <div className={`fixed inset-0 z-[120] overflow-y-auto ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+          <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
+            <div className={`max-w-lg mx-auto min-h-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
             <div className={`sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b backdrop-blur ${isDark ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-50/90 border-slate-200'}`}>
               <h2 className={`text-lg font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Hub</h2>
               <button onClick={() => setShowParkHub(false)} className="px-4 py-2 rounded-full bg-[var(--accent-600)] text-white text-[13px] font-black uppercase tracking-widest active:scale-95">✕ Close</button>
             </div>
             <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
+            </div>
           </div>
         )}
 

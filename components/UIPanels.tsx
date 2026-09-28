@@ -1292,13 +1292,13 @@ export const BasePanel: React.FC<{
       {/* Inventory */}
       <div className="mb-10">
         <h3 className={`text-[17px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Inventory</h3>
-        <div className={`p-6 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
+        <div className={`p-4 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
           {inventory.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {inventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? { borderColor: GEAR_RARITY_COLOR[item.rarity ?? 'Common'] } : undefined}>
-                  <ItemIcon name={item.name} icon={item.icon} size={32} className="mb-1" />
-                  <span className={`text-[12px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
+                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? { borderColor: GEAR_RARITY_COLOR[item.rarity ?? 'Common'] } : undefined}>
+                  <ItemIcon name={item.name} icon={item.icon} size={52} />
+                  <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                   {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
                 </button>
               ))}
@@ -1408,16 +1408,18 @@ export const BasePanel: React.FC<{
                       {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => {
                         const item = e.equipment?.[slotKey];
                         return (
-                          <button
-                            key={slotKey}
-                            disabled={!item}
-                            onClick={() => item && window.confirm(`Unequip ${item.name} from ${e.name}? It will return to your Inventory.`) && onUnequipElder(e.id, slotKey)}
-                            title={item ? `${item.name} (tap to unequip)` : `Empty ${slotKey} slot`}
-                            className={`w-9 h-9 rounded-xl border-2 flex items-center justify-center text-[16px] ${item ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}
-                            style={{ borderColor: item ? GEAR_RARITY_COLOR[item.rarity ?? 'Common'] : undefined }}
-                          >
-                            {item ? <ItemIcon name={item.name} icon={item.icon} size={18} /> : '·'}
-                          </button>
+                          <div key={slotKey} className="flex flex-col items-center gap-0.5">
+                            <button
+                              disabled={!item}
+                              onClick={() => item && onUnequipElder(e.id, slotKey)}
+                              title={item ? `${item.name} (tap to unequip)` : `Empty ${slotKey} slot`}
+                              className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${item ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}
+                              style={{ borderColor: item ? GEAR_RARITY_COLOR[item.rarity ?? 'Common'] : undefined }}
+                            >
+                              {item ? <ItemIcon name={item.name} icon={item.icon} size={32} /> : <span className="text-[18px] opacity-60">+</span>}
+                            </button>
+                            <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey}</span>
+                          </div>
                         );
                       })}
                     </div>

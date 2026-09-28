@@ -44,9 +44,15 @@ interface ParkSceneProps {
 }
 
 const pillBase: React.CSSProperties = {
-  position: 'absolute', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900,
-  textTransform: 'uppercase', letterSpacing: 0.5, padding: '3px 9px', borderRadius: 999, border: '2px solid rgba(255,255,255,0.85)',
+  whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.5,
+  padding: '3px 9px', borderRadius: 999, border: '2px solid rgba(255,255,255,0.85)',
   boxShadow: '0 2px 6px rgba(0,0,0,0.35)', color: '#fff', lineHeight: 1.2,
+};
+// Name plate drawn in the app's own type instead of relying on the (angled, sometimes unreadable) signs baked into the art.
+const nameBar: React.CSSProperties = {
+  fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.4, color: '#fff', textAlign: 'center',
+  background: 'rgba(45,30,15,0.88)', border: '2px solid rgba(255,255,255,0.85)', borderRadius: 10, padding: '3px 8px',
+  lineHeight: 1.15, maxWidth: 124, boxShadow: '0 2px 6px rgba(0,0,0,0.35)', cursor: 'pointer',
 };
 
 const ParkScene: React.FC<ParkSceneProps> = ({
@@ -89,8 +95,6 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         const stored = built && amenity.producer
           ? producerStored(amenity, level, amenityCollectedAt[id], now, comfortBonus) : 0;
         const icon = amenity.producer?.output === 'tickets' ? '🎟️' : '🧱';
-        const pillTop = `${((y + BH - 6) / BG_H) * 100}%`;
-        const pillLeft = `${(xc / BG_W) * 100}%`;
         return (
           <React.Fragment key={id}>
             <button
@@ -101,29 +105,34 @@ const ParkScene: React.FC<ParkSceneProps> = ({
                 width: `${(BW / BG_W) * 100}%`, padding: 0, border: 0, background: 'none', cursor: 'pointer',
               }}
             >
-              <img src={ART[id]} alt={amenity.name} draggable={false} style={{
+              <img src={ART[id]} alt="" draggable={false} style={{
                 width: '100%', display: 'block',
                 filter: built ? 'drop-shadow(0 6px 6px rgba(0,0,0,0.35))' : 'grayscale(1) brightness(1.15) drop-shadow(0 4px 4px rgba(0,0,0,0.25))',
                 opacity: built ? 1 : 0.42,
               }} />
+              {built && (
+                <span style={{
+                  position: 'absolute', top: '6%', left: '4%', background: '#f59e0b', color: '#3b2400', border: '2px solid #fff',
+                  borderRadius: 999, fontSize: 10, fontWeight: 900, padding: '1px 7px', boxShadow: '0 2px 4px rgba(0,0,0,0.35)',
+                }}>Lv {level}</span>
+              )}
             </button>
-            {built && stored > 0 && !readOnly && onCollect ? (
-              <button
-                onClick={() => onCollect(id)}
-                style={{ ...pillBase, top: pillTop, left: pillLeft, background: '#16a34a', cursor: 'pointer' }}
-              >
-                Collect {icon} {stored}
-              </button>
-            ) : built ? (
-              <div style={{ ...pillBase, top: pillTop, left: pillLeft, background: 'rgba(30,30,30,0.78)' }}>Lv {level}</div>
-            ) : (
-              <button
-                onClick={onOpenGrounds}
-                style={{ ...pillBase, top: pillTop, left: pillLeft, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}
-              >
-                Build · {amenity.cost} 🧱
-              </button>
-            )}
+            {/* Stacked labels under the building: name plate, then (only when there is something to do) an action pill */}
+            <div style={{
+              position: 'absolute', top: `${((y + BH - 6) / BG_H) * 100}%`, left: `${(xc / BG_W) * 100}%`,
+              transform: 'translateX(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            }}>
+              <button onClick={onOpenGrounds} style={{ ...nameBar, opacity: built ? 1 : 0.85 }}>{amenity.name}</button>
+              {built && stored > 0 && !readOnly && onCollect ? (
+                <button onClick={() => onCollect(id)} style={{ ...pillBase, background: '#16a34a', cursor: 'pointer' }}>
+                  Collect {icon} {stored}
+                </button>
+              ) : !built ? (
+                <button onClick={onOpenGrounds} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
+                  Build · {amenity.cost} 🧱
+                </button>
+              ) : null}
+            </div>
           </React.Fragment>
         );
       })}
