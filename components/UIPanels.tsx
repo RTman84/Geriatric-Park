@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle,
-  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue,
+  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1156,7 +1156,7 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
 
 export const BasePanel: React.FC<{ 
   elders: Elder[], inventory: Gear[], tokens: number, materials: number,
-  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
+  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
   onMoveToStandby: (id: string) => void, lastCheckIn?: number, 
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
@@ -1361,7 +1361,7 @@ export const BasePanel: React.FC<{
                 room the header/description/buttons above end up taking. */}
             <div className="flex-1 min-h-[220px] overflow-y-auto custom-scrollbar space-y-2 px-1 -mx-1">
               {elders.map(e => {
-                const slotKey = item.slot === 'Head' ? 'head' : item.slot === 'Body' ? 'body' : 'accessory';
+                const slotKey = gearSlotKey(item.slot);
                 const occupant = e.equipment?.[slotKey];
                 return (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-3 rounded-[1.5rem] border flex items-center gap-3 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
@@ -1405,7 +1405,7 @@ export const BasePanel: React.FC<{
                   <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {(e.xp ?? 0)}/{xpForElderLevel(e.level)}</p>
                   {onUnequipElder && (
                     <div className="flex gap-2 mt-2">
-                      {(['head', 'body', 'accessory'] as const).map(slotKey => {
+                      {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => {
                         const item = e.equipment?.[slotKey];
                         return (
                           <button

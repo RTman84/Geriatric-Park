@@ -172,6 +172,7 @@ import {
   getEffectiveGearBoost,
   getGearUpgradeCost,
   getGearSellValue,
+  gearSlotKey,
   GEAR_MAX_LEVEL,
 } from './constants';
 
@@ -798,6 +799,19 @@ const App: React.FC = () => {
       if (!Number.isFinite(withDefaults.level)) withDefaults.level = 1;
       if (!Number.isFinite(withDefaults.comfortGeneration)) withDefaults.comfortGeneration = 0;
       if (!withDefaults.equipment || typeof withDefaults.equipment !== 'object') withDefaults.equipment = {};
+      // One-time migration: before the 4-slot split, an equipped Accessory item baked its boost in as
+      // strength +ceil(b/2) / agility +floor(b/2). Accessory is now pure Strength (Charm owns Agility),
+      // so move the agility half back to strength -- otherwise unequipping would subtract the full
+      // boost from Strength and leave a stray Agility bonus behind.
+      if (!withDefaults.gearSlotsV2) {
+        const acc = withDefaults.equipment.accessory;
+        if (acc && Number.isFinite(acc.boost)) {
+          const half = Math.floor(getEffectiveGearBoost(acc) / 2);
+          withDefaults.strength += half;
+          withDefaults.agility -= half;
+        }
+        withDefaults.gearSlotsV2 = true;
+      }
       if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
         return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
       }
@@ -1939,7 +1953,7 @@ const App: React.FC = () => {
     setState(prev => {
       const nextInventory = prev.inventory.filter(i => i.id !== item.id);
       let bumpedItem: Gear | null = null;
-      const slotKey = item.slot === 'Head' ? 'head' : item.slot === 'Body' ? 'body' : 'accessory';
+      const slotKey = gearSlotKey(item.slot);
       const nextElders = prev.allElders.map(e => {
         if (e.id !== elderId) return e;
         const updated = { ...e, equipment: { ...e.equipment } };
@@ -1950,13 +1964,15 @@ const App: React.FC = () => {
           const oldBoost = getEffectiveGearBoost(current);
           if (slotKey === 'head') updated.wit -= oldBoost;
           if (slotKey === 'body') updated.tenacity -= oldBoost;
-          if (slotKey === 'accessory') { updated.strength -= Math.ceil(oldBoost / 2); updated.agility -= Math.floor(oldBoost / 2); }
+          if (slotKey === 'accessory') updated.strength -= oldBoost;
+          if (slotKey === 'charm') updated.agility -= oldBoost;
           bumpedItem = current;
         }
         const newBoost = getEffectiveGearBoost(item);
         if (slotKey === 'head') updated.wit += newBoost;
         if (slotKey === 'body') updated.tenacity += newBoost;
-        if (slotKey === 'accessory') { updated.strength += Math.ceil(newBoost / 2); updated.agility += Math.floor(newBoost / 2); }
+        if (slotKey === 'accessory') updated.strength += newBoost;
+        if (slotKey === 'charm') updated.agility += newBoost;
         updated.equipment[slotKey] = item;
         return updated;
       });
@@ -1965,7 +1981,7 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
   }, [state.settings.sfxEnabled]);
 
-  const handleUnequipElder = useCallback((elderId: string, slotKey: 'head' | 'body' | 'accessory') => {
+  const handleUnequipElder = useCallback((elderId: string, slotKey: 'head' | 'body' | 'accessory' | 'charm') => {
     setState(prev => {
       let freedItem: Gear | null = null;
       const nextElders = prev.allElders.map(e => {
@@ -1976,7 +1992,8 @@ const App: React.FC = () => {
         const boost = getEffectiveGearBoost(current);
         if (slotKey === 'head') updated.wit -= boost;
         if (slotKey === 'body') updated.tenacity -= boost;
-        if (slotKey === 'accessory') { updated.strength -= Math.ceil(boost / 2); updated.agility -= Math.floor(boost / 2); }
+        if (slotKey === 'accessory') updated.strength -= boost;
+        if (slotKey === 'charm') updated.agility -= boost;
         delete updated.equipment[slotKey];
         freedItem = current;
         return updated;

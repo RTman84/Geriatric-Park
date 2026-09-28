@@ -66,7 +66,7 @@ export interface Gear {
   boost: number;
   description: string;
   icon: string;
-  slot: 'Head' | 'Body' | 'Accessory';
+  slot: 'Head' | 'Body' | 'Accessory' | 'Charm';
   rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
   level: number; // upgrade level, starts at 1
 }
@@ -221,7 +221,9 @@ export interface Elder {
     head?: Gear;
     body?: Gear;
     accessory?: Gear;
+    charm?: Gear;
   };
+  gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;
   hp: number;
   maxHp: number;

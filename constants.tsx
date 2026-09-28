@@ -1140,20 +1140,20 @@ export const STRUCTURE_TEMPLATES = [
 export const ITEM_POOL = [
   { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 2, slot: 'Head', description: 'Increases Wit by 2.' },
   { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength and Agility.' },
+  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength by 2.' },
   { name: 'Hard Candy', icon: '🍭', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
-  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases stats via nostalgic vibes.' },
+  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases Strength via nostalgic vibes.' },
   { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
   { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Accessory', description: 'A classic piece that boosts efficiency.' }
+  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Charm', description: 'A classic piece that boosts Agility.' }
 ];
 
 export const SHOP_ITEMS = [
   { id: 's1', name: 'High-Fiber Muffin', icon: '🧁', price: 50, description: 'Instantly restores 50 HP.' },
   { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity by 6.', slot: 'Body', boost: 6 },
   { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit by 4.', slot: 'Head', boost: 4 },
-  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts competitive spirit slightly.', slot: 'Accessory', boost: 5 }
+  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts Agility with a touch of luck.', slot: 'Charm', boost: 5 }
 ];
 
 // --- Gear rarity & upgrades ---
@@ -1163,6 +1163,16 @@ export const SHOP_ITEMS = [
 // before it's given to an Elder -- boost is baked into the Elder's stats at that point (existing
 // consume-on-equip behavior), so upgrade before equipping, not after.
 export type GearRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+
+// Maps an item's display slot to its key on Elder.equipment. Kept in one place since every stat-
+// mutation site (equip/unequip/battle) needs to agree on it -- adding a 5th slot only means
+// touching this function and the stat-effect switch in App.tsx's equip/unequip handlers.
+export function gearSlotKey(slot: 'Head' | 'Body' | 'Accessory' | 'Charm'): 'head' | 'body' | 'accessory' | 'charm' {
+  if (slot === 'Head') return 'head';
+  if (slot === 'Body') return 'body';
+  if (slot === 'Charm') return 'charm';
+  return 'accessory';
+}
 
 export const GEAR_RARITY_MULTIPLIER: Record<GearRarity, number> = {
   Common: 1, Rare: 1.3, Epic: 1.7, Legendary: 2.2,
