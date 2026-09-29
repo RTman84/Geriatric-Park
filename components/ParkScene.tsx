@@ -36,7 +36,7 @@ interface ParkSceneProps {
   rosterCount: number;
   capacity: number;
   materials: number;
-  onOpenGrounds: () => void;
+  onOpenGrounds?: () => void;
   onOpenHub?: () => void;
   onCollect?: (amenityId: string) => void;
   readOnly?: boolean; // for visiting a friend's park later: no collect / hub buttons
@@ -80,7 +80,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
             ? <div style={{ ...barBtn, pointerEvents: 'none' }}>{title ?? 'Park'}</div>
             : <button onClick={onOpenHub} style={barBtn}>🏠 Park Hub</button>}
           <div style={{ ...barBtn, pointerEvents: 'none' }}>👥 {rosterCount}/{capacity}</div>
-          <button onClick={onOpenGrounds} style={barBtn}>🏡 Grounds</button>
+          {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}>🏡 Grounds</button> : <div style={{ width: 1 }} />}
         </div>
       </div>
 
@@ -98,11 +98,11 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         return (
           <React.Fragment key={id}>
             <button
-              onClick={onOpenGrounds}
+              onClick={readOnly ? undefined : onOpenGrounds}
               aria-label={amenity.name}
               style={{
                 position: 'absolute', left: `${((xc - BW / 2) / BG_W) * 100}%`, top: `${(y / BG_H) * 100}%`,
-                width: `${(BW / BG_W) * 100}%`, padding: 0, border: 0, background: 'none', cursor: 'pointer',
+                width: `${(BW / BG_W) * 100}%`, padding: 0, border: 0, background: 'none', cursor: readOnly ? 'default' : 'pointer',
               }}
             >
               <img src={ART[id]} alt="" draggable={false} style={{
@@ -122,15 +122,17 @@ const ParkScene: React.FC<ParkSceneProps> = ({
               position: 'absolute', top: `${((y + BH - 6) / BG_H) * 100}%`, left: `${(xc / BG_W) * 100}%`,
               transform: 'translateX(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
-              <button onClick={onOpenGrounds} style={{ ...nameBar, opacity: built ? 1 : 0.85 }}>{amenity.name}</button>
+              <button onClick={readOnly ? undefined : onOpenGrounds} style={{ ...nameBar, opacity: built ? 1 : 0.85, cursor: readOnly ? 'default' : 'pointer' }}>{amenity.name}</button>
               {built && stored > 0 && !readOnly && onCollect ? (
                 <button onClick={() => onCollect(id)} style={{ ...pillBase, background: '#16a34a', cursor: 'pointer' }}>
                   Collect {icon} {stored}
                 </button>
-              ) : !built ? (
+              ) : !built && !readOnly ? (
                 <button onClick={onOpenGrounds} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
                   Build · {amenity.cost} 🧱
                 </button>
+              ) : !built && readOnly ? (
+                <div style={{ ...pillBase, background: 'rgba(90,90,90,0.7)' }}>Not built</div>
               ) : null}
             </div>
           </React.Fragment>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, isImagePath } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD } from '../constants';
+import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 
 interface FriendsPanelProps {
@@ -43,6 +44,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [toggleBusy, setToggleBusy] = useState(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [visitFeedback, setVisitFeedback] = useState<string | null>(null);
+  const [viewingParkFriendId, setViewingParkFriendId] = useState<string | null>(null);
   const [battleBusyId, setBattleBusyId] = useState<string | null>(null);
   const [battleFeedback, setBattleFeedback] = useState<{ friendId: string; text: string } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -237,21 +239,13 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                   </button>
                   {isExpanded && (
                     <div className={`px-3 pb-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
-                      <p className={`text-[12px] font-black uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Their Grounds</p>
-                      {builtAmenities.length === 0 ? (
-                        <p className="text-[13px] italic opacity-50 mb-3">Nothing built yet.</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {builtAmenities.map(a => (
-                            <div key={a.id} title={a.name} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] font-bold ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
-                              <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
-                                {isImagePath(a.icon) ? <img src={a.icon} alt={a.name} className="w-full h-full object-cover" /> : <span>{a.icon}</span>}
-                              </div>
-                              <span>{a.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <p className={`text-[12px] font-black uppercase tracking-widest mt-3 mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Their Park</p>
+                      <button
+                        onClick={() => setViewingParkFriendId(friend.user_id)}
+                        className={`w-full mb-3 py-2 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
+                      >
+                        🌳 View Park {builtAmenities.length > 0 ? `(${builtAmenities.length} built)` : '(nothing built yet)'}
+                      </button>
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => handleBattle(friend.user_id)}
@@ -289,6 +283,32 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
           </div>
         </div>
       </div>
+      {viewingParkFriendId && (() => {
+        const friend = data?.friends.find(f => f.user_id === viewingParkFriendId);
+        if (!friend) return null;
+        return (
+          <div className="fixed inset-0 z-[220] bg-black/80">
+            <div className="max-w-lg mx-auto h-full overflow-y-auto">
+              <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur">
+                <span className="text-white font-black uppercase text-sm truncate">{friend.display_name || 'Park Visitor'}'s Park</span>
+                <button onClick={() => setViewingParkFriendId(null)} className="px-3 py-1.5 rounded-full bg-white/15 text-white text-[12px] font-black uppercase">✕ Close</button>
+              </div>
+              <ParkScene
+                isDark={isDark}
+                builtAmenityIds={friend.built_amenities ?? []}
+                amenityLevels={{}}
+                amenityCollectedAt={{}}
+                comfortBonus={0}
+                rosterCount={0}
+                capacity={0}
+                materials={0}
+                readOnly
+                title={`${friend.display_name || 'Park Visitor'}'s Park`}
+              />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
