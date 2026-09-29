@@ -1140,8 +1140,9 @@ const App: React.FC = () => {
       // actually see) only syncs during a cloud save, so trigger one
       // immediately rather than leaving it stale until some unrelated
       // gameplay action happens to save next.
-      // Same guard as the two autosave effects: never push before cloudSyncSettled is confirmed.
-      if (isCloudAccountsConfigured() && cloudSyncSettled) {
+      // Same guard as the two autosave effects below (kept consistent even though this site can only
+      // run while already signed in): never push, or bump the local revision counter, without a real session.
+      if (isCloudAccountsConfigured() && cloudSyncSettled && authSession) {
         const revision = Date.now();
         cloudRevisionRef.current = revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1196,7 +1197,16 @@ const App: React.FC = () => {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
         catch (e) { console.error("Save failed", e); }
 
-        if (isCloudAccountsConfigured() && cloudSyncSettled) {
+        // 2026-09-28 fix: this used to only check cloudSyncSettled, not authSession. cloudSyncSettled
+        // becomes true almost immediately on mount even while signed out (see syncFromCloud's finally
+        // block), so any local play on a NEW device -- even just the passive-income tick -- bumped
+        // cloudRevisionRef to Date.now() before the player ever signed in. When they later signed in,
+        // their real (older) cloud save's revision lost the ">" check below against that freshly-bumped
+        // local one, and syncFromCloud silently skipped restoring it -- while the sign-in itself still
+        // succeeded, so Settings/Mailbox (separate, always-authenticated fetches) looked fine and the
+        // player was left thinking only their game progress specifically had failed to load. Requiring
+        // authSession here means an unauthenticated device never touches the revision counter at all.
+        if (isCloudAccountsConfigured() && cloudSyncSettled && authSession) {
           const revision = Date.now();
           cloudRevisionRef.current = revision;
           localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1206,7 +1216,7 @@ const App: React.FC = () => {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [state, isLoaded, cloudSyncSettled]);
+  }, [state, isLoaded, cloudSyncSettled, authSession]);
 
   // Flush an immediate save when the tab is hidden/closed, so a quick
   // reload right after an action doesn't lose anything still waiting
@@ -1215,8 +1225,8 @@ const App: React.FC = () => {
     const flush = () => {
       if (!isLoaded || !state.hasStarted) return;
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
-      // Same fix as the debounced autosave above: never push to the cloud before cloudSyncSettled.
-      if (isCloudAccountsConfigured() && cloudSyncSettled) {
+      // Same fix as the debounced autosave above: never push, or bump the revision counter, without a real session.
+      if (isCloudAccountsConfigured() && cloudSyncSettled && authSession) {
         const revision = Date.now();
         cloudRevisionRef.current = revision;
         localStorage.setItem(`${SAVE_KEY}_rev`, String(revision));
@@ -1230,7 +1240,7 @@ const App: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', flush);
     };
-  }, [state, isLoaded, cloudSyncSettled]);
+  }, [state, isLoaded, cloudSyncSettled, authSession]);
 
   const triggerTab = (id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
@@ -2300,7 +2310,12 @@ const App: React.FC = () => {
           <button
             onClick={() => {
               if (window.confirm('Reset local data on this device? This cannot be undone. Your signed-in cloud save (if any) is not affected.')) {
+                // Also clear the local revision counter -- leaving it behind was a real bug: it made
+                // this button ineffective for the exact case it exists to fix, since a stale high
+                // revision from before the reset would still outrank a real cloud save on the next
+                // sign-in and silently block the restore (see the authSession fix above, 2026-09-28).
                 localStorage.removeItem(SAVE_KEY);
+                localStorage.removeItem(`${SAVE_KEY}_rev`);
                 window.location.reload();
               }
             }}
