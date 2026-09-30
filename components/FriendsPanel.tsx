@@ -296,7 +296,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
               <ParkScene
                 isDark={isDark}
                 builtAmenityIds={friend.built_amenities ?? []}
-                amenityLevels={{}}
+                amenityLevels={friend.amenity_levels ?? {}}
                 amenityCollectedAt={{}}
                 comfortBonus={0}
                 rosterCount={0}

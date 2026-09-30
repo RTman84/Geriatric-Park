@@ -100,6 +100,17 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       squad_power: squadPowerFrom(saveData),
       favorite_elders: favoriteElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
+      // Friend's park otherwise always showed Lv 1 -- sanitized the same way as any other
+      // untrusted-save field: only keep finite integer levels >= 1, keyed by a string id.
+      amenity_levels: (() => {
+        const raw = saveData?.amenityLevels;
+        if (!raw || typeof raw !== 'object') return {};
+        const out: Record<string, number> = {};
+        for (const [id, lvl] of Object.entries(raw)) {
+          if (typeof id === 'string' && Number.isFinite(lvl as number) && (lvl as number) >= 1) out[id] = Math.floor(lvl as number);
+        }
+        return out;
+      })(),
       updated_at: new Date().toISOString(),
     };
 

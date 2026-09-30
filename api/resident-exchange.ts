@@ -1,0 +1,158 @@
+// Self-contained on purpose (see the note at the top of api/friends.ts): shared helper files
+// were not being included in the deployed function bundle. Edge runtime is required.
+export const config = { runtime: 'edge' };
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+type AccountContext = { userId: string; supabase: SupabaseClient };
+
+function serverJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+}
+
+function getBearerToken(req: Request): string | null {
+  const value = req.headers.get('authorization') || '';
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function requireAccount(req: Request): Promise<AccountContext | Response> {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = getBearerToken(req);
+
+  if (!url || !serviceKey) return serverJson({ error: 'Account service is not configured' }, 503);
+  if (!token || token.length > 8192) return serverJson({ error: 'Authentication required' }, 401);
+
+  const supabase = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { 'X-Geriatric-Park-Server': 'resident-exchange-api' } },
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
+
+  return { userId: data.user.id, supabase };
+}
+
+function isAccountContext(value: AccountContext | Response): value is AccountContext {
+  return value instanceof Response === false;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VALID_DURATIONS = [8, 12, 24];
+const OWNER_MAX_ACTIVE = 3; // how many of YOUR OWN Elders can be away at once, across all friends
+const HOST_MAX_VISITORS = 3; // how many visiting Elders any one host can have at once, across all senders
+const RESIDENT_XP_PER_HOUR = 15;
+const HOST_MATERIALS_PER_PLACEMENT = 4;
+
+const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, placed_at, ends_at';
+
+export default async function handler(req: Request): Promise<Response> {
+  try {
+    const context = await requireAccount(req);
+    if (!isAccountContext(context)) return context;
+    const { supabase, userId } = context;
+
+    if (req.method === 'GET') {
+      const [{ data: mine, error: mineErr }, { data: hosting, error: hostErr }] = await Promise.all([
+        supabase.from('resident_exchange').select(`${ROW_FIELDS}, host:player_profiles!resident_exchange_host_id_fkey(display_name)`).eq('owner_id', userId),
+        supabase.from('resident_exchange').select(`${ROW_FIELDS}, owner:player_profiles!resident_exchange_owner_id_fkey(display_name)`).eq('host_id', userId),
+      ]);
+      if (mineErr || hostErr) {
+        const msg = (mineErr || hostErr)?.message;
+        console.error('Resident Exchange read failed', msg);
+        return serverJson({ error: 'Resident Exchange unavailable', detail: msg }, 500);
+      }
+      return serverJson({ mine: mine ?? [], hosting: hosting ?? [] });
+    }
+
+    if (req.method === 'POST') {
+      let body: any;
+      try { body = await req.json(); } catch { return serverJson({ error: 'Invalid JSON' }, 400); }
+
+      if (body?.action === 'place') {
+        const hostId = String(body?.hostId || '');
+        const elderId = String(body?.elderId || '');
+        const elderName = String(body?.elderName || '').slice(0, 60) || 'An Elder';
+        const elderType = String(body?.elderType || '');
+        const evoStage = Number.isInteger(body?.elderEvolutionStage) ? body.elderEvolutionStage : 0;
+        const durationHours = Number(body?.durationHours);
+
+        if (!UUID_RE.test(hostId)) return serverJson({ error: 'Invalid hostId' }, 400);
+        if (hostId === userId) return serverJson({ error: "You can't send an Elder to your own park." }, 400);
+        if (!elderId) return serverJson({ error: 'Invalid elderId' }, 400);
+        if (!VALID_DURATIONS.includes(durationHours)) return serverJson({ error: 'durationHours must be 8, 12, or 24.' }, 400);
+
+        // Only accepted friends can host each other's Elders (mirrors the same-direction check
+        // already used for Friend Battle mail -- acceptance writes a mirrored row both ways).
+        const { data: link, error: linkErr } = await supabase
+          .from('friend_requests').select('id').eq('requester_id', userId).eq('addressee_id', hostId).eq('status', 'accepted').maybeSingle();
+        if (linkErr) { console.error('Resident Exchange friend check failed', linkErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: linkErr.message }, 500); }
+        if (!link) return serverJson({ error: 'You can only visit a friend\'s park.' }, 403);
+
+        const { count: ownerCount, error: ownerCountErr } = await supabase
+          .from('resident_exchange').select('id', { count: 'exact', head: true }).eq('owner_id', userId);
+        if (ownerCountErr) { console.error('Resident Exchange owner-count failed', ownerCountErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: ownerCountErr.message }, 500); }
+        if ((ownerCount ?? 0) >= OWNER_MAX_ACTIVE) return serverJson({ error: `You already have ${OWNER_MAX_ACTIVE} Elders visiting friends.` }, 409);
+
+        const { count: hostCount, error: hostCountErr } = await supabase
+          .from('resident_exchange').select('id', { count: 'exact', head: true }).eq('host_id', hostId);
+        if (hostCountErr) { console.error('Resident Exchange host-count failed', hostCountErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: hostCountErr.message }, 500); }
+        if ((hostCount ?? 0) >= HOST_MAX_VISITORS) return serverJson({ error: "That friend's park is full of visitors right now." }, 409);
+
+        const now = new Date();
+        const endsAt = new Date(now.getTime() + durationHours * 3600000);
+        const { data: inserted, error: insertErr } = await supabase.from('resident_exchange').insert({
+          owner_id: userId, host_id: hostId, elder_id: elderId, elder_name: elderName, elder_type: elderType,
+          elder_evolution_stage: evoStage, duration_hours: durationHours, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
+        }).select(ROW_FIELDS).maybeSingle();
+        if (insertErr) {
+          if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
+            return serverJson({ error: 'That Elder is already visiting a friend.' }, 409);
+          }
+          console.error('Resident Exchange insert failed', insertErr.message);
+          return serverJson({ error: 'Resident Exchange unavailable', detail: insertErr.message }, 500);
+        }
+
+        const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
+        const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
+        const today = now.toISOString().slice(0, 10);
+        const { error: mailErr } = await supabase.from('mail_inbox').insert({
+          recipient_id: hostId, sender_id: userId, sender_name: senderName, kind: 'resident_exchange_host',
+          day: today, ref: inserted!.id, reward_materials: HOST_MATERIALS_PER_PLACEMENT, updated_at: now.toISOString(),
+        });
+        if (mailErr) console.error('Resident Exchange host-mail failed (placement still succeeded)', mailErr.message);
+
+        return serverJson({ placement: inserted });
+      }
+
+      if (body?.action === 'recall') {
+        const placementId = String(body?.placementId || '');
+        if (!UUID_RE.test(placementId)) return serverJson({ error: 'Invalid placementId' }, 400);
+
+        const { data: row, error: rowErr } = await supabase.from('resident_exchange').select(ROW_FIELDS).eq('id', placementId).maybeSingle();
+        if (rowErr) { console.error('Resident Exchange recall lookup failed', rowErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: rowErr.message }, 500); }
+        if (!row || row.owner_id !== userId) return serverJson({ error: 'Placement not found' }, 404);
+
+        const elapsedHours = (Date.now() - Date.parse(row.placed_at)) / 3600000;
+        const xpEarned = Math.max(0, Math.round(Math.min(elapsedHours, row.duration_hours) * RESIDENT_XP_PER_HOUR));
+
+        const { error: delErr } = await supabase.from('resident_exchange').delete().eq('id', placementId);
+        if (delErr) { console.error('Resident Exchange recall delete failed', delErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: delErr.message }, 500); }
+
+        return serverJson({ elderId: row.elder_id, xpEarned });
+      }
+
+      return serverJson({ error: 'Unknown action' }, 400);
+    }
+
+    return serverJson({ error: 'Method not allowed' }, 405);
+  } catch (e) {
+    console.error('Resident Exchange handler crashed', e);
+    return serverJson({ error: 'Resident Exchange unavailable', detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
+}
