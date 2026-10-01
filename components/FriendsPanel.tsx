@@ -3,6 +3,8 @@ import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, C
 import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
+import type { ResidentExchangeRow } from '../services/residentExchangeService';
+import type { Elder } from '../types';
 
 interface FriendsPanelProps {
   isDark: boolean;
@@ -20,6 +22,11 @@ interface FriendsPanelProps {
   onVisit: (friendUserId: string) => void;
   onBattle: (friendUserId: string) => string;
   battleReadyAt: number;
+  elders: Elder[];
+  residentExchangeMine: ResidentExchangeRow[];
+  residentExchangeHosting: ResidentExchangeRow[];
+  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24) => void;
+  onRecallResident: (placementId: string) => void;
   hasSquad: boolean;
 }
 
@@ -34,7 +41,7 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   return { icon: rank.icon, title: rank.title };
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, battleReadyAt, hasSquad }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, battleReadyAt, hasSquad, elders, residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -45,6 +52,19 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [visitFeedback, setVisitFeedback] = useState<string | null>(null);
   const [viewingParkFriendId, setViewingParkFriendId] = useState<string | null>(null);
+  const [placingForFriendId, setPlacingForFriendId] = useState<string | null>(null);
+  const [pickedElderId, setPickedElderId] = useState<string | null>(null);
+  const [pickedDuration, setPickedDuration] = useState<8 | 12 | 24>(8);
+
+  const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
+  const availableToSend = elders.filter(e => e.captured && !placedElderIds.has(e.id));
+
+  function timeLeftLabel(endsAtIso: string): string {
+    const ms = Date.parse(endsAtIso) - Date.now();
+    if (ms <= 0) return 'Ready now';
+    const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  }
   const [battleBusyId, setBattleBusyId] = useState<string | null>(null);
   const [battleFeedback, setBattleFeedback] = useState<{ friendId: string; text: string } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -129,6 +149,30 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
             {copied ? <CheckCircleIcon className="w-5 h-5" /> : <ClipboardDocumentIcon className="w-5 h-5" />}
           </button>
         </div>
+
+        {/* Resident Exchange: Elders you've sent out, and friends' Elders staying at your park */}
+        {(residentExchangeMine.length > 0 || residentExchangeHosting.length > 0) && (
+          <div className={`rounded-2xl p-4 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+            <p className={`text-[12px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Resident Exchange</p>
+            {residentExchangeMine.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-2 py-1.5">
+                <span className="text-[13px] font-bold truncate">{r.elder_name} <span className="opacity-50">@ {r.host?.display_name || 'a friend'}</span></span>
+                <button
+                  onClick={() => onRecallResident(r.id)}
+                  className="flex-shrink-0 px-3 py-1 rounded-full bg-[var(--accent-600)] text-white text-[11px] font-black uppercase"
+                >
+                  Recall · {timeLeftLabel(r.ends_at)}
+                </button>
+              </div>
+            ))}
+            {residentExchangeHosting.map(r => (
+              <div key={r.id} className="flex items-center gap-2 py-1.5 text-[13px] opacity-70">
+                <SparklesIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{r.owner?.display_name || 'A friend'}'s {r.elder_name} is visiting · {timeLeftLabel(r.ends_at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Add a friend */}
         <div className="mb-6">
@@ -246,6 +290,53 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       >
                         🌳 View Park {builtAmenities.length > 0 ? `(${builtAmenities.length} built)` : '(nothing built yet)'}
                       </button>
+                      <button
+                        onClick={() => { setPlacingForFriendId(placingForFriendId === friend.user_id ? null : friend.user_id); setPickedElderId(null); }}
+                        className={`w-full mb-3 py-2 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
+                      >
+                        🏡 Leave a Folk Here
+                      </button>
+                      {placingForFriendId === friend.user_id && (
+                        <div className={`rounded-xl p-3 mb-3 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+                          {availableToSend.length === 0 ? (
+                            <p className="text-[12px] italic opacity-50">No Elders free to send right now.</p>
+                          ) : (
+                            <>
+                              <select
+                                value={pickedElderId ?? ''}
+                                onChange={e => setPickedElderId(e.target.value || null)}
+                                className={`w-full mb-2 p-2 rounded-lg text-[13px] font-bold ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
+                              >
+                                <option value="">Choose an Elder…</option>
+                                {availableToSend.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                              </select>
+                              <div className="flex gap-2 mb-2">
+                                {[8, 12, 24].map(h => (
+                                  <button
+                                    key={h}
+                                    onClick={() => setPickedDuration(h as 8 | 12 | 24)}
+                                    className={`flex-1 py-1.5 rounded-lg text-[12px] font-black ${pickedDuration === h ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'}`}
+                                  >
+                                    {h}h
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                disabled={!pickedElderId}
+                                onClick={() => {
+                                  const elder = elders.find(e => e.id === pickedElderId);
+                                  if (!elder) return;
+                                  onPlaceResident(friend.user_id, elder, pickedDuration);
+                                  setPlacingForFriendId(null);
+                                }}
+                                className="w-full py-2 rounded-lg bg-[var(--accent-600)] text-white text-[12px] font-black uppercase disabled:opacity-40"
+                              >
+                                Send for {pickedDuration}h
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => handleBattle(friend.user_id)}

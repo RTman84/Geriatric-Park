@@ -22,6 +22,7 @@ import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { fetchInbox, notifyFriendBattle, mergeInboxIntoMailbox, MAIL_ID_PREFIX } from './services/mailService';
 import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
+import { fetchResidentExchange, placeResident, recallResident, type ResidentExchangeRow } from './services/residentExchangeService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon, UserGroupIcon
 } from '@heroicons/react/24/solid';
@@ -281,6 +282,12 @@ function grantElderXpToTeam(elders: Elder[], amount: number): Elder[] {
   return elders.map(e => (e.status === 'Team' ? grantElderXp(e, amount) : e));
 }
 
+// Resident Exchange recall: the specific Elder is identified by id (it may be on Team or Standby),
+// not "whichever Elders happen to be on Team right now" like grantElderXpToTeam.
+function grantElderXpById(elders: Elder[], elderId: string, amount: number): Elder[] {
+  return elders.map(e => (e.id === elderId ? grantElderXp(e, amount) : e));
+}
+
 // One-time rescale of every PP-denominated value in a save from the old simulated
 // $0.10/ad scale to the $0.008/ad assumption (Economy v2). Runs on RAW save data
 // before it is merged over INITIAL_STATE, and is idempotent via economyVersion.
@@ -454,6 +461,8 @@ const App: React.FC = () => {
   const [friendsData, setFriendsData] = useState<FriendsData | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [residentExchangeMine, setResidentExchangeMine] = useState<ResidentExchangeRow[]>([]);
+  const [residentExchangeHosting, setResidentExchangeHosting] = useState<ResidentExchangeRow[]>([]);
 
   const refreshFriends = useCallback(async () => {
     if (!isCloudAccountsConfigured()) return;
@@ -470,10 +479,43 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const refreshResidentExchange = useCallback(async () => {
+    if (!isCloudAccountsConfigured()) return;
+    try {
+      const { mine, hosting } = await fetchResidentExchange();
+      setResidentExchangeMine(mine);
+      setResidentExchangeHosting(hosting);
+    } catch (e) {
+      console.error('Resident Exchange fetch failed', e);
+    }
+  }, []);
+
+  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24) => {
+    try {
+      await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours);
+      notify(`${elder.name} is off visiting for ${durationHours}h!`, 'good');
+      void refreshResidentExchange();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not place that Elder.', 'bad');
+    }
+  }, [notify, refreshResidentExchange]);
+
+  const handleRecallResident = useCallback(async (placementId: string) => {
+    try {
+      const { elderId, xpEarned } = await recallResident(placementId);
+      setState(prev => ({ ...prev, allElders: grantElderXpById(prev.allElders, elderId, xpEarned) }));
+      notify(`Welcome home! +${xpEarned} Elder XP.`, 'good');
+      void refreshResidentExchange();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not recall that Elder.', 'bad');
+    }
+  }, [notify, refreshResidentExchange]);
+
   const handleOpenFriends = useCallback(() => {
     setShowFriendsPanel(true);
     void refreshFriends();
-  }, [refreshFriends]);
+    void refreshResidentExchange();
+  }, [refreshFriends, refreshResidentExchange]);
 
   const handleSendFriendRequest = useCallback(async (code: string): Promise<string> => {
     const { result } = await sendFriendRequest(code);
@@ -1102,11 +1144,11 @@ const App: React.FC = () => {
     // takes too long, same as if no cloud save existed.
     const timeout = setTimeout(() => setCloudCheckDone(true), 8000);
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); void refreshFriends(); }
+      if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); void refreshFriends(); void refreshResidentExchange(); }
       void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     });
     return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); };
-  }, [syncFromCloud, refreshLeaderboard, refreshFriends]);
+  }, [syncFromCloud, refreshLeaderboard, refreshFriends, refreshResidentExchange]);
 
   useEffect(() => {
     setDisplayNameInput(authSession?.user.displayName ?? '');
@@ -2794,6 +2836,11 @@ const App: React.FC = () => {
             onBattle={handleBattleFriendFromList}
             battleReadyAt={state.friendBattle.nextMatchAt}
             hasSquad={state.allElders.some(e => e.status === 'Team' && e.captured)}
+            elders={state.allElders}
+            residentExchangeMine={residentExchangeMine}
+            residentExchangeHosting={residentExchangeHosting}
+            onPlaceResident={handlePlaceResident}
+            onRecallResident={handleRecallResident}
           />
         )}
 
