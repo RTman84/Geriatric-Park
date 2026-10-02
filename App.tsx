@@ -524,14 +524,15 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials') => {
+  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', asLoan = false) => {
     if (state.stationedAt?.[elder.id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
     if (elder.status === 'Team' && state.allElders.filter(e => e.status === 'Team').length <= 1) {
       notify('Keep at least one Elder on your squad before sending this one away.', 'bad');
       return;
     }
     try {
-      await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours, giftType);
+      await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours, giftType,
+        asLoan ? { level: elder.level, rarity: elder.rarity, powerType: String(elder.powerType), strength: elder.strength, wit: elder.wit, agility: elder.agility, tenacity: elder.tenacity, maxHp: elder.maxHp, hp: elder.maxHp } : undefined);
       setState(prev => ({
         ...prev,
         allElders: prev.allElders.map(e => e.id === elder.id
@@ -539,7 +540,7 @@ const App: React.FC = () => {
           : e),
       }));
       setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'exchange_send') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
-      notify(`${elder.name} is off visiting for ${durationHours}h!`, 'good');
+      notify(asLoan ? `${elder.name} is on loan for ${durationHours}h!` : `${elder.name} is off visiting for ${durationHours}h!`, 'good');
       void refreshResidentExchange();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Could not place that Elder.', 'bad');
@@ -2399,6 +2400,21 @@ const App: React.FC = () => {
   }, [state.hasStarted]);
 
   const activeTeam = useMemo(() => state.allElders.filter(e => e.status === 'Team'), [state.allElders]);
+  // Squad Loan: Elders friends have lent to us. Built from the lender's stat snapshot, never stored in the save,
+  // and only added to Battle and Court (not Arenas/Raids/Friend Battle, which read your own saved squad).
+  const borrowedElders = useMemo<Elder[]>(() => residentExchangeHosting
+    .filter(r => r.mode === 'loan' && r.snapshot && new Date(r.ends_at).getTime() > Date.now())
+    .map(r => {
+      const sn = r.snapshot!;
+      return {
+        id: `loan_${r.id}`, name: r.elder_name, type: r.elder_type as ElderType, powerType: sn.powerType as PowerType,
+        level: sn.level, rarity: sn.rarity, bio: 'On loan from a friend.', comfortGeneration: 0, captured: true, xp: 0,
+        evolutionStage: (r.elder_evolution_stage ?? 0) as 0 | 1 | 2, lat: 0, lng: 0, equipment: {}, happiness: 100,
+        hp: sn.maxHp, maxHp: sn.maxHp, strength: sn.strength, wit: sn.wit, agility: sn.agility, tenacity: sn.tenacity,
+        status: 'Team' as const, borrowed: true, loanedBy: r.owner?.display_name || 'a friend',
+      } as Elder;
+    }), [residentExchangeHosting]);
+  const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);
   const isDark = state.settings.darkTheme;
   const unreadMailCount = useMemo(() => state.mailbox.filter(m => !m.claimed).length, [state.mailbox]);
@@ -2538,7 +2554,7 @@ const App: React.FC = () => {
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
-          {activeTab === 'team' && <TeamPanel isDark={isDark} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
+          {activeTab === 'team' && <TeamPanel isDark={isDark} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={() => setShowGroundsPanel(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
@@ -2570,7 +2586,7 @@ const App: React.FC = () => {
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
               isDark={isDark}
-              elders={state.allElders}
+              elders={[...state.allElders, ...borrowedElders]}
               tokens={state.legacyTokens}
               shuffleboardKing={state.shuffleboard.currentKing}
               lastCourtPurseClaim={state.lastCourtPurseClaim ?? 0}
@@ -2853,7 +2869,7 @@ const App: React.FC = () => {
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
-            <BattleScreen playerTeam={activeTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} guideBlockedReason={state.allElders.filter(e => e.captured).length >= getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length) ? 'Park full' : undefined} sfxEnabled={state.settings.sfxEnabled} />
+            <BattleScreen playerTeam={battleTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} guideBlockedReason={state.allElders.filter(e => e.captured).length >= getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length) ? 'Park full' : undefined} sfxEnabled={state.settings.sfxEnabled} />
           </div>
         )}
 

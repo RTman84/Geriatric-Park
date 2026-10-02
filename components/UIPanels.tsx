@@ -1480,7 +1480,7 @@ export const BasePanel: React.FC<{
 
 // ─── Team Panel ───────────────────────────────────────────────────────────────
 
-export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, legacyTokens?: number }> = ({ elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
+export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, legacyTokens?: number }> = ({ borrowed = [], elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
   const team = elders.filter(e => e.status === 'Team');
   const squadPower = getSquadPower(team);
   return (
@@ -1492,6 +1492,13 @@ export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string
           <span className="font-black text-lg text-[var(--accent-500)] leading-none">{squadPower}</span>
         </div>
       </div>
+      {borrowed.map(b => (
+        <div key={b.id} className={`mb-6 p-4 rounded-2xl border-2 ${isDark ? 'bg-sky-900/30 border-sky-700 text-sky-100' : 'bg-sky-50 border-sky-200 text-sky-800'}`}>
+          <p className="text-[12px] font-black uppercase tracking-widest opacity-70">🤝 On loan from {b.loanedBy}</p>
+          <p className="text-[16px] font-black">{b.name} · Lv {b.level} {b.rarity} · Power {getElderPower(b)}</p>
+          <p className="text-[13px] font-bold opacity-80">Fights alongside your squad in Battles and Court games. Not used in Arenas or Raids.</p>
+        </div>
+      ))}
       <div className="space-y-6">
         {team.map(e => {
           const stage = e.evolutionStage ?? 0;

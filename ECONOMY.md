@@ -316,3 +316,9 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
   Building output = round(h / 4) extra hours on one working building the host picks, never beyond its 8h storage cap.
 - Caps: a host receives at most 6 gifts per UTC day; a host has at most 3 visitors at once; gifts never pay PP or raise passive income.
 - Quests: Good Neighbor / Friendly Visitor (send) and Gracious Host / Open House (claim hosted gifts) pay Tickets/XP/Stars only.
+
+## Squad Loan (2026-10-02)
+- Owner lends one Elder to an accepted friend for 8/12/24h (uses the same Resident Exchange table, `mode = 'loan'`, migration 012). The owner still earns Elder XP (15/hour stayed). The host gets NO gift: the combat help is the reward.
+- Limits: a borrower holds one loaned Elder at a time; the lender's 3-Elders-away cap still applies. A loaned Elder fights in Battles and Court games only. It is never used in Arenas, Raids or Friend Battle (those read the player's own saved squad), takes no permanent damage, and earns the borrower no Elder XP.
+- Stats come from a snapshot taken at lending time (client-supplied, clamped by the API, same trust level as synced Squad Power; hardened by the Bundle F ledger).
+- Not gated by level yet. If strong players lending to new ones proves unbalanced, add a lower-level-friends-only rule here first.

@@ -26,7 +26,7 @@ interface FriendsPanelProps {
   stationedIds?: string[]; // Elders defending an Arena can't be sent away
   residentExchangeMine: ResidentExchangeRow[];
   residentExchangeHosting: ResidentExchangeRow[];
-  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost') => void;
+  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost', asLoan?: boolean) => void;
   onRecallResident: (placementId: string) => void;
   hasSquad: boolean;
 }
@@ -56,6 +56,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [placingForFriendId, setPlacingForFriendId] = useState<string | null>(null);
   const [pickedElderId, setPickedElderId] = useState<string | null>(null);
   const [pickedDuration, setPickedDuration] = useState<8 | 12 | 24>(8);
+  const [pickedLoan, setPickedLoan] = useState(false);
   const [pickedGift, setPickedGift] = useState<'materials' | 'quest' | 'boost'>('materials');
 
   const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
@@ -161,7 +162,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
             <p className={`text-[12px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Resident Exchange</p>
             {residentExchangeMine.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-2 py-1.5">
-                <span className="text-[13px] font-bold truncate">{r.elder_name} <span className="opacity-50">@ {r.host?.display_name || 'a friend'}</span></span>
+                <span className="text-[13px] font-bold truncate">{r.mode === 'loan' ? '🤝 ' : ''}{r.elder_name} <span className="opacity-50">@ {r.host?.display_name || 'a friend'}</span></span>
                 <button
                   onClick={() => onRecallResident(r.id)}
                   className="flex-shrink-0 px-3 py-1 rounded-full bg-[var(--accent-600)] text-white text-[11px] font-black uppercase"
@@ -173,7 +174,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
             {residentExchangeHosting.map(r => (
               <div key={r.id} className="flex items-center gap-2 py-1.5 text-[13px] opacity-70">
                 <SparklesIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{r.owner?.display_name || 'A friend'}'s {r.elder_name} is visiting · {timeLeftLabel(r.ends_at)}</span>
+                <span className="truncate">{r.owner?.display_name || 'A friend'}'s {r.elder_name} is {r.mode === 'loan' ? 'on loan to you' : 'visiting'} · {timeLeftLabel(r.ends_at)}</span>
               </div>
             ))}
           </div>
@@ -326,6 +327,14 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                                   </button>
                                 ))}
                               </div>
+                              <div className="flex gap-2 mb-2">
+                                {([[false, '🏡 Visit'], [true, '🤝 Squad Loan']] as const).map(([v, label]) => (
+                                  <button key={label} onClick={() => setPickedLoan(v)} className={`flex-1 py-1.5 rounded-lg text-[12px] font-black ${pickedLoan === v ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'}`}>{label}</button>
+                                ))}
+                              </div>
+                              {pickedLoan ? (
+                                <p className="text-[11px] opacity-70 mb-2">Your friend borrows this Elder for Battles and Court games (not Arenas or Raids). They can borrow one Elder at a time. You still earn Elder XP while it is away.</p>
+                              ) : (<>
                               <p className="text-[11px] font-black uppercase opacity-50 mb-1">Gift for your friend when it comes home</p>
                               <div className="flex gap-2 mb-1">
                                 {([['materials', '🧱 Materials'], ['quest', '📋 Quest'], ['boost', '⚙️ Output']] as const).map(([g, label]) => (
@@ -341,12 +350,13 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                               <p className="text-[11px] opacity-60 mb-2">
                                 {pickedGift === 'materials' ? `About ${Math.max(1, Math.round(pickedDuration * 0.5))} Building Materials.` : pickedGift === 'quest' ? `+${Math.max(1, Math.round(pickedDuration / 4))} progress on a Quest they choose.` : `+${Math.max(1, Math.round(pickedDuration / 4))}h of output on a working building they choose.`} Scales down if recalled early.
                               </p>
+                              </>)}
                               <button
                                 disabled={!pickedElderId}
                                 onClick={() => {
                                   const elder = elders.find(e => e.id === pickedElderId);
                                   if (!elder) return;
-                                  onPlaceResident(friend.user_id, elder, pickedDuration, pickedGift);
+                                  onPlaceResident(friend.user_id, elder, pickedDuration, pickedGift, pickedLoan);
                                   setPlacingForFriendId(null);
                                 }}
                                 className="w-full py-2 rounded-lg bg-[var(--accent-600)] text-white text-[12px] font-black uppercase disabled:opacity-40"

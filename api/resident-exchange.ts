@@ -47,6 +47,22 @@ const VALID_DURATIONS = [8, 12, 24];
 const OWNER_MAX_ACTIVE = 3; // how many of YOUR OWN Elders can be away at once, across all friends
 const HOST_MAX_VISITORS = 3; // how many visiting Elders any one host can have at once, across all senders
 const RESIDENT_XP_PER_HOUR = 15;
+const HOST_MAX_LOANS = 1; // a borrower can have one loaned Elder at a time (Squad Loan)
+const RARITIES = ['Common', 'Rare', 'Epic', 'Legendary'];
+const clampNum = (v: unknown, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));
+// Combat snapshot of a loaned Elder. Client-supplied (same trust level as synced Squad Power) but clamped here.
+function cleanSnapshot(raw: any) {
+  if (!raw || typeof raw !== 'object') return null;
+  const maxHp = clampNum(raw.maxHp, 1, 5000);
+  return {
+    level: clampNum(raw.level, 1, 100),
+    rarity: RARITIES.includes(raw.rarity) ? raw.rarity : 'Common',
+    powerType: String(raw.powerType || 'Strength').slice(0, 20),
+    strength: clampNum(raw.strength, 0, 3000), wit: clampNum(raw.wit, 0, 3000),
+    agility: clampNum(raw.agility, 0, 3000), tenacity: clampNum(raw.tenacity, 0, 3000),
+    maxHp, hp: clampNum(raw.hp, 1, maxHp),
+  };
+}
 const VALID_GIFTS = ['materials', 'quest', 'boost'];
 const HOST_MAX_GIFTS_PER_DAY = 6; // spam/farming guard: gifts any one host can receive per UTC day
 const MIN_GIFT_HOURS = 1; // an Elder recalled within the first hour earns the host nothing
@@ -55,7 +71,7 @@ const giftMaterials = (h: number) => Math.max(1, Math.round(h * 0.5)); // 24h = 
 const giftQuestPoints = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6
 const giftBoostHours = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6 extra hours of one building's output (client caps at its storage limit)
 
-const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, gift_type, placed_at, ends_at';
+const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, gift_type, mode, snapshot, placed_at, ends_at';
 
 export default async function handler(req: Request): Promise<Response> {
   try {
@@ -88,10 +104,13 @@ export default async function handler(req: Request): Promise<Response> {
         const evoStage = Number.isInteger(body?.elderEvolutionStage) ? body.elderEvolutionStage : 0;
         const durationHours = Number(body?.durationHours);
         const giftType = body?.giftType === undefined ? 'materials' : String(body.giftType);
+        const mode = body?.mode === 'loan' ? 'loan' : 'visit';
+        const snapshot = mode === 'loan' ? cleanSnapshot(body?.snapshot) : null;
 
         if (!UUID_RE.test(hostId)) return serverJson({ error: 'Invalid hostId' }, 400);
         if (hostId === userId) return serverJson({ error: "You can't send an Elder to your own park." }, 400);
         if (!elderId) return serverJson({ error: 'Invalid elderId' }, 400);
+        if (mode === 'loan' && !snapshot) return serverJson({ error: 'Invalid Elder snapshot' }, 400);
         if (!VALID_GIFTS.includes(giftType)) return serverJson({ error: 'Invalid giftType' }, 400);
         if (!VALID_DURATIONS.includes(durationHours)) return serverJson({ error: 'durationHours must be 8, 12, or 24.' }, 400);
 
@@ -108,15 +127,16 @@ export default async function handler(req: Request): Promise<Response> {
         if ((ownerCount ?? 0) >= OWNER_MAX_ACTIVE) return serverJson({ error: `You already have ${OWNER_MAX_ACTIVE} Elders visiting friends.` }, 409);
 
         const { count: hostCount, error: hostCountErr } = await supabase
-          .from('resident_exchange').select('id', { count: 'exact', head: true }).eq('host_id', hostId);
+          .from('resident_exchange').select('id', { count: 'exact', head: true }).eq('host_id', hostId).eq('mode', mode);
         if (hostCountErr) { console.error('Resident Exchange host-count failed', hostCountErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: hostCountErr.message }, 500); }
-        if ((hostCount ?? 0) >= HOST_MAX_VISITORS) return serverJson({ error: "That friend's park is full of visitors right now." }, 409);
+        if (mode === 'loan' && (hostCount ?? 0) >= HOST_MAX_LOANS) return serverJson({ error: 'That friend already has a borrowed Elder.' }, 409);
+        if (mode === 'visit' && (hostCount ?? 0) >= HOST_MAX_VISITORS) return serverJson({ error: "That friend's park is full of visitors right now." }, 409);
 
         const now = new Date();
         const endsAt = new Date(now.getTime() + durationHours * 3600000);
         const { data: inserted, error: insertErr } = await supabase.from('resident_exchange').insert({
           owner_id: userId, host_id: hostId, elder_id: elderId, elder_name: elderName, elder_type: elderType,
-          elder_evolution_stage: evoStage, duration_hours: durationHours, gift_type: giftType, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
+          elder_evolution_stage: evoStage, duration_hours: durationHours, gift_type: giftType, mode, snapshot, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
         }).select(ROW_FIELDS).maybeSingle();
         if (insertErr) {
           if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
@@ -146,7 +166,7 @@ export default async function handler(req: Request): Promise<Response> {
         // Host gift, paid now that the visit is over. Failure here never blocks the owner's return/XP.
         const stayedHours = Math.min(Math.max(0, elapsedHours), row.duration_hours);
         let giftSent = false;
-        if (stayedHours >= MIN_GIFT_HOURS) {
+        if (row.mode !== 'loan' && stayedHours >= MIN_GIFT_HOURS) { // loans pay the owner's XP only; the host's reward is the combat help itself
           try {
             const now = new Date();
             const today = now.toISOString().slice(0, 10);

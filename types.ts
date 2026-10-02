@@ -237,6 +237,8 @@ export interface Elder {
   awayUntil?: number; // set while visiting a friend's park (Resident Exchange); status is parked at 'Base' meanwhile so every squad/combat filter skips it
   awayPrevStatus?: 'Team' | 'Porch' | 'Base';
   awayHost?: string;
+  borrowed?: boolean; // Squad Loan: a friend's Elder on loan to you (never saved; usable in Battle and Court only)
+  loanedBy?: string;
   isRoaming?: boolean;
   despawnAt?: number;
   pathId?: string;
