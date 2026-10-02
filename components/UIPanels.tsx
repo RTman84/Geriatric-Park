@@ -1424,7 +1424,12 @@ export const BasePanel: React.FC<{
                       })}
                     </div>
                   )}
-                  <div className="flex gap-2 mt-3">
+                  {e.awayUntil && (
+                    <div className={`mt-3 p-2 rounded-xl text-[13px] font-black text-center ${isDark ? 'bg-sky-900/40 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>
+                      🏡 At {e.awayHost || "a friend"}'s park · {e.awayUntil > Date.now() ? `${Math.ceil((e.awayUntil - Date.now()) / 3600000)}h left` : 'returning…'}
+                    </div>
+                  )}
+                  <div className={`flex gap-2 mt-3 ${e.awayUntil ? 'opacity-40 pointer-events-none' : ''}`}>
                     {e.status === 'Team' 
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
                       : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-[var(--accent-600)] text-white shadow-lg shadow-[var(--accent-900-a10)]">Assign to Squad</button>

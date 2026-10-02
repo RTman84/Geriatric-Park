@@ -232,6 +232,9 @@ export interface Elder {
   agility: number;
   tenacity: number;
   status: 'Team' | 'Porch' | 'Base';
+  awayUntil?: number; // set while visiting a friend's park (Resident Exchange); status is parked at 'Base' meanwhile so every squad/combat filter skips it
+  awayPrevStatus?: 'Team' | 'Porch' | 'Base';
+  awayHost?: string;
   isRoaming?: boolean;
   despawnAt?: number;
   pathId?: string;

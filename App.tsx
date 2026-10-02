@@ -479,37 +479,98 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const recallRef = useRef<(id: string) => Promise<void>>(async () => {});
+  const autoRecalling = useRef<Set<string>>(new Set());
+
   const refreshResidentExchange = useCallback(async () => {
     if (!isCloudAccountsConfigured()) return;
     try {
       const { mine, hosting } = await fetchResidentExchange();
       setResidentExchangeMine(mine);
       setResidentExchangeHosting(hosting);
+      // Keep local "away" flags in step with the server: fill in host names, and bring home any Elder
+      // whose placement no longer exists (e.g. recalled from another device).
+      setState(prev => {
+        const byElder = new Map(mine.map(r => [r.elder_id, r]));
+        let changed = false;
+        const allElders = prev.allElders.map(e => {
+          const row = byElder.get(e.id);
+          if (row) {
+            const hostName = row.host?.display_name || 'a friend';
+            const until = new Date(row.ends_at).getTime();
+            if (e.awayUntil === until && e.awayHost === hostName) return e;
+            changed = true;
+            return { ...e, awayUntil: until, awayHost: hostName, awayPrevStatus: e.awayPrevStatus ?? (e.status === 'Base' ? 'Base' : e.status), status: 'Base' as const };
+          }
+          if (e.awayUntil) {
+            changed = true;
+            const { awayUntil, awayHost, awayPrevStatus, ...rest } = e;
+            return { ...rest, status: awayPrevStatus === 'Porch' ? 'Porch' as const : 'Base' as const };
+          }
+          return e;
+        });
+        return changed ? { ...prev, allElders } : prev;
+      });
+      // Auto-return: anyone whose timer has run out comes home and is paid without a manual tap.
+      const now = Date.now();
+      for (const r of mine) {
+        if (new Date(r.ends_at).getTime() <= now && !autoRecalling.current.has(r.id)) {
+          autoRecalling.current.add(r.id);
+          void recallRef.current(r.id).finally(() => autoRecalling.current.delete(r.id));
+        }
+      }
     } catch (e) {
       console.error('Resident Exchange fetch failed', e);
     }
   }, []);
 
   const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24) => {
+    if (state.stationedAt?.[elder.id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
+    if (elder.status === 'Team' && state.allElders.filter(e => e.status === 'Team').length <= 1) {
+      notify('Keep at least one Elder on your squad before sending this one away.', 'bad');
+      return;
+    }
     try {
       await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours);
+      setState(prev => ({
+        ...prev,
+        allElders: prev.allElders.map(e => e.id === elder.id
+          ? { ...e, awayPrevStatus: e.status, awayUntil: Date.now() + durationHours * 3600000, status: 'Base' as const }
+          : e),
+      }));
       notify(`${elder.name} is off visiting for ${durationHours}h!`, 'good');
       void refreshResidentExchange();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Could not place that Elder.', 'bad');
     }
-  }, [notify, refreshResidentExchange]);
+  }, [notify, refreshResidentExchange, state.stationedAt, state.allElders]);
 
   const handleRecallResident = useCallback(async (placementId: string) => {
     try {
       const { elderId, xpEarned } = await recallResident(placementId);
-      setState(prev => ({ ...prev, allElders: grantElderXpById(prev.allElders, elderId, xpEarned) }));
+      setState(prev => {
+        const teamCount = prev.allElders.filter(e => e.status === 'Team').length;
+        const allElders = grantElderXpById(prev.allElders, elderId, xpEarned).map(e => {
+          if (e.id !== elderId) return e;
+          const { awayUntil, awayHost, awayPrevStatus, ...rest } = e;
+          const back = awayPrevStatus === 'Team' && teamCount < TEAM_SIZE_LIMIT ? 'Team' as const : awayPrevStatus === 'Porch' ? 'Porch' as const : 'Base' as const;
+          return { ...rest, status: back };
+        });
+        return { ...prev, allElders };
+      });
       notify(`Welcome home! +${xpEarned} Elder XP.`, 'good');
       void refreshResidentExchange();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Could not recall that Elder.', 'bad');
     }
   }, [notify, refreshResidentExchange]);
+  recallRef.current = handleRecallResident;
+
+  // Check for expired placements every minute while the app is open (timer end = automatic return).
+  useEffect(() => {
+    const t = setInterval(() => { if (residentExchangeMine.some(r => new Date(r.ends_at).getTime() <= Date.now())) void refreshResidentExchange(); }, 60000);
+    return () => clearInterval(t);
+  }, [residentExchangeMine, refreshResidentExchange]);
 
   const handleOpenFriends = useCallback(() => {
     setShowFriendsPanel(true);
@@ -1478,6 +1539,7 @@ const App: React.FC = () => {
   }, [state.adUsage.count]);
 
   const handleMoveToTeam = useCallback((id: string) => {
+    if (state.allElders.find(e => e.id === id)?.awayUntil) { notify('That Elder is visiting a friend — wait for them to come home.', 'bad'); return; }
     if (state.stationedAt?.[id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
     setState(prev => {
       const teamCount = prev.allElders.filter(e => e.status === 'Team').length;
@@ -1485,7 +1547,7 @@ const App: React.FC = () => {
       if (state.settings.sfxEnabled) audioManager.playSFX('click');
       return { ...prev, allElders: prev.allElders.map(e => e.id === id ? { ...e, status: 'Team' } : e) };
     });
-  }, [state.settings.sfxEnabled, state.stationedAt, notify]);
+  }, [state.settings.sfxEnabled, state.stationedAt, state.allElders, notify]);
 
   const handleMoveToStandby = useCallback((id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
@@ -1495,6 +1557,7 @@ const App: React.FC = () => {
   const handleScrapElder = useCallback((id: string) => {
     const elder = state.allElders.find(e => e.id === id);
     if (!elder) return;
+    if (elder.awayUntil) { notify('That Elder is visiting a friend — recall them before scrapping.', 'bad'); return; }
     if (state.stationedAt?.[id]) { notify('That Elder is defending an Arena — recall it before scrapping.', 'bad'); return; }
     if (state.allElders.filter(e => e.status === 'Team').length <= 1 && elder.status === 'Team') {
       notify("You can't scrap your last active squad member!");
