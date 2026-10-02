@@ -2913,6 +2913,7 @@ const App: React.FC = () => {
         {showFriendsPanel && (
           <FriendsPanel
             isDark={isDark}
+            stationedIds={Object.keys(state.stationedAt ?? {})}
             data={friendsData}
             loading={friendsLoading}
             error={friendsError}

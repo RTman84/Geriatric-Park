@@ -23,6 +23,7 @@ interface FriendsPanelProps {
   onBattle: (friendUserId: string) => string;
   battleReadyAt: number;
   elders: Elder[];
+  stationedIds?: string[]; // Elders defending an Arena can't be sent away
   residentExchangeMine: ResidentExchangeRow[];
   residentExchangeHosting: ResidentExchangeRow[];
   onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost') => void;
@@ -41,7 +42,7 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   return { icon: rank.icon, title: rank.title };
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, battleReadyAt, hasSquad, elders, residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, battleReadyAt, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -58,7 +59,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [pickedGift, setPickedGift] = useState<'materials' | 'quest' | 'boost'>('materials');
 
   const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
-  const availableToSend = elders.filter(e => e.captured && !placedElderIds.has(e.id));
+  const stationedSet = new Set(stationedIds);
+  const teamCount = elders.filter(e => e.status === 'Team').length;
+  // Only Elders that can actually leave: not already away, not defending an Arena, and never the last squad member.
+  const availableToSend = elders.filter(e => e.captured && !e.awayUntil && !placedElderIds.has(e.id) && !stationedSet.has(e.id) && !(e.status === 'Team' && teamCount <= 1));
 
   function timeLeftLabel(endsAtIso: string): string {
     const ms = Date.parse(endsAtIso) - Date.now();
