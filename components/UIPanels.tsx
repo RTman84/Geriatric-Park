@@ -933,7 +933,7 @@ const EXTENDED_SHOP_ITEMS = [
   { id: 's1', name: 'High-Fiber Muffin', icon: '🧁', price: 50, description: 'Instantly restores 50 HP to your lead Elder.', category: 'Consumable' },
   { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity by 6.', slot: 'Body', boost: 6, category: 'Gear' },
   { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit by 4.', slot: 'Head', boost: 4, category: 'Gear' },
-  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts competitive spirit.', slot: 'Accessory', boost: 5, category: 'Gear' },
+  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts Agility with a touch of luck.', slot: 'Charm', boost: 5, category: 'Gear' },
   // Passive boosters
   { id: 's5', name: 'Rocking Chair Upgrade', icon: '🪑', price: 500, description: 'Boosts passive income rate for 2 hours.', category: 'Booster', rateBoost: 0.00005, duration: 2 * 60 * 60 * 1000 },
   { id: 's6', name: 'Early Bird Special', icon: '🌅', price: 200, description: 'Doubles next ad reward payout.', category: 'Booster' },
