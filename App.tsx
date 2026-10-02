@@ -538,6 +538,7 @@ const App: React.FC = () => {
           ? { ...e, awayPrevStatus: e.status, awayUntil: Date.now() + durationHours * 3600000, status: 'Base' as const }
           : e),
       }));
+      setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'exchange_send') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
       notify(`${elder.name} is off visiting for ${durationHours}h!`, 'good');
       void refreshResidentExchange();
     } catch (e) {
@@ -2040,7 +2041,8 @@ const App: React.FC = () => {
         else if (msg.reward.type === 'Gear') nextInventory.push(msg.reward.value as Gear);
       }
       if (prev.settings.sfxEnabled) audioManager.playSFX('collect');
-      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
+      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
+        quests: msg.exchangeHost ? prev.quests.map(q => (!q.completed && q.kind === 'exchange_host') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) : prev.quests };
     });
   }, []);
 
@@ -2065,7 +2067,8 @@ const App: React.FC = () => {
         const shifted = Math.max(earliest, current - amount * 3600000);
         next = { ...prev, amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [targetId]: Math.min(current, shifted) } };
       }
-      return { ...next, mailbox: next.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
+      return { ...next, mailbox: next.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
+        quests: next.quests.map(q => (!q.completed && q.kind === 'exchange_host') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) };
     });
     notify('Gift applied — thanks for hosting!', 'good');
   }, [notify]);

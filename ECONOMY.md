@@ -308,3 +308,11 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
    costs and change only what the ad pays, keeping payback in "ad views" constant).
 3. Ship a save migration (bump `ECONOMY_VERSION`) if stored PP values must change.
 4. Update this file.
+
+## Resident Exchange (v2, 2026-10-02) — faucets and caps
+- Owner: 15 Elder XP per hour stayed (capped at chosen 8/12/24h), max 3 Elders away at once. Unchanged.
+- Host gift (owner picks the type at placement; paid when the Elder returns; scaled by hours stayed, none under 1h):
+  Materials = round(h x 0.5) (24h = 12); Quest progress = round(h / 4) on one active Quest the host picks (24h = 6);
+  Building output = round(h / 4) extra hours on one working building the host picks, never beyond its 8h storage cap.
+- Caps: a host receives at most 6 gifts per UTC day; a host has at most 3 visitors at once; gifts never pay PP or raise passive income.
+- Quests: Good Neighbor / Friendly Visitor (send) and Gracious Host / Open House (claim hosted gifts) pay Tickets/XP/Stars only.

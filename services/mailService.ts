@@ -97,12 +97,12 @@ function rowToMessage(row: InboxRow): MailMessage {
     const elder = bits.slice(3).join(':').slice(0, 60) || 'An Elder';
     const intro = `${elder} just finished a visit to your park and ${row.sender_name} sent a thank-you gift.`;
     if (type === 'quest' && amount > 0) {
-      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one active Quest to push forward by ${amount}.`, gift: { type: 'quest', amount, from: row.sender_name } };
+      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one active Quest to push forward by ${amount}.`, exchangeHost: true, gift: { type: 'quest', amount, from: row.sender_name } };
     }
     if (type === 'boost' && amount > 0) {
-      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one working building to add ${amount} extra ${plural(amount, 'hour', 'hours')} of output to (up to its storage limit).`, gift: { type: 'boost', amount, from: row.sender_name } };
+      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one working building to add ${amount} extra ${plural(amount, 'hour', 'hours')} of output to (up to its storage limit).`, exchangeHost: true, gift: { type: 'boost', amount, from: row.sender_name } };
     }
-    return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro}`, reward, materials };
+    return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro}`, reward, materials, exchangeHost: true };
   }
   const total = row.attacker_wins + row.defender_wins;
   const parts: string[] = [`${row.sender_name} challenged your squad ${total} ${plural(total, 'time', 'times')} today.`];

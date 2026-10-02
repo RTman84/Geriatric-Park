@@ -937,6 +937,8 @@ export const DAILY_QUEST_POOL: QuestTemplate[] = [
   { kind: 'potluck', title: 'Potluck Pavilion', description: 'Host one Potluck.', target: 1, rewardXP: 90, rewardTokens: 15, rewardStars: 6 },
   { kind: 'arena', title: 'Arena Skirmish', description: 'Attack an Arena once.', target: 1, rewardXP: 130, rewardTokens: 25, rewardStars: 6 },
   { kind: 'friend_battle', title: 'Friendly Rivalry', description: 'Fight 1 Friend Battle.', target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'exchange_send', title: 'Good Neighbor', description: "Send an Elder to visit a friend's park.", target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'exchange_host', title: 'Gracious Host', description: "Claim a thank-you gift from a visiting Elder.", target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
 ];
 export const WEEKLY_QUEST_POOL: QuestTemplate[] = [
   { kind: 'bingo', title: 'Bingo Marathon', description: 'Play 6 Bingo Blitz sessions.', target: 6, rewardXP: 1000, rewardTokens: 250, rewardStars: 30 },
@@ -947,6 +949,8 @@ export const WEEKLY_QUEST_POOL: QuestTemplate[] = [
   { kind: 'battle', title: 'Neighborhood Legend', description: 'Win 12 wild-resident battles.', target: 12, rewardXP: 1400, rewardTokens: 300, rewardStars: 30 },
   { kind: 'evolve', title: 'Grow the Family', description: 'Evolve 1 Elder.', target: 1, rewardXP: 1200, rewardTokens: 200, rewardStars: 30 },
   { kind: 'ad', title: 'Sponsor Champion', description: 'Watch 12 sponsor videos this week.', target: 12, rewardXP: 800, rewardTokens: 200, rewardStars: 20 },
+  { kind: 'exchange_send', title: 'Friendly Visitor', description: "Send Elders to friends' parks 3 times.", target: 3, rewardXP: 900, rewardTokens: 220, rewardStars: 25 },
+  { kind: 'exchange_host', title: 'Open House', description: 'Claim 3 thank-you gifts from visiting Elders.', target: 3, rewardXP: 900, rewardTokens: 220, rewardStars: 25 },
 ];
 export function utcWeekKey(ts: number = Date.now()): string {
   const d = new Date(ts); const day = (d.getUTCDay() + 6) % 7; // Monday = 0
