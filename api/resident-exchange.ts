@@ -47,9 +47,15 @@ const VALID_DURATIONS = [8, 12, 24];
 const OWNER_MAX_ACTIVE = 3; // how many of YOUR OWN Elders can be away at once, across all friends
 const HOST_MAX_VISITORS = 3; // how many visiting Elders any one host can have at once, across all senders
 const RESIDENT_XP_PER_HOUR = 15;
-const HOST_MATERIALS_PER_PLACEMENT = 4;
+const VALID_GIFTS = ['materials', 'quest', 'boost'];
+const HOST_MAX_GIFTS_PER_DAY = 6; // spam/farming guard: gifts any one host can receive per UTC day
+const MIN_GIFT_HOURS = 1; // an Elder recalled within the first hour earns the host nothing
+// Gift sizes scale with hours actually stayed (capped at the chosen duration), same rule as Elder XP.
+const giftMaterials = (h: number) => Math.max(1, Math.round(h * 0.5)); // 24h = 12
+const giftQuestPoints = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6
+const giftBoostHours = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6 extra hours of one building's output (client caps at its storage limit)
 
-const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, placed_at, ends_at';
+const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, gift_type, placed_at, ends_at';
 
 export default async function handler(req: Request): Promise<Response> {
   try {
@@ -81,10 +87,12 @@ export default async function handler(req: Request): Promise<Response> {
         const elderType = String(body?.elderType || '');
         const evoStage = Number.isInteger(body?.elderEvolutionStage) ? body.elderEvolutionStage : 0;
         const durationHours = Number(body?.durationHours);
+        const giftType = body?.giftType === undefined ? 'materials' : String(body.giftType);
 
         if (!UUID_RE.test(hostId)) return serverJson({ error: 'Invalid hostId' }, 400);
         if (hostId === userId) return serverJson({ error: "You can't send an Elder to your own park." }, 400);
         if (!elderId) return serverJson({ error: 'Invalid elderId' }, 400);
+        if (!VALID_GIFTS.includes(giftType)) return serverJson({ error: 'Invalid giftType' }, 400);
         if (!VALID_DURATIONS.includes(durationHours)) return serverJson({ error: 'durationHours must be 8, 12, or 24.' }, 400);
 
         // Only accepted friends can host each other's Elders (mirrors the same-direction check
@@ -108,7 +116,7 @@ export default async function handler(req: Request): Promise<Response> {
         const endsAt = new Date(now.getTime() + durationHours * 3600000);
         const { data: inserted, error: insertErr } = await supabase.from('resident_exchange').insert({
           owner_id: userId, host_id: hostId, elder_id: elderId, elder_name: elderName, elder_type: elderType,
-          elder_evolution_stage: evoStage, duration_hours: durationHours, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
+          elder_evolution_stage: evoStage, duration_hours: durationHours, gift_type: giftType, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
         }).select(ROW_FIELDS).maybeSingle();
         if (insertErr) {
           if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
@@ -117,15 +125,6 @@ export default async function handler(req: Request): Promise<Response> {
           console.error('Resident Exchange insert failed', insertErr.message);
           return serverJson({ error: 'Resident Exchange unavailable', detail: insertErr.message }, 500);
         }
-
-        const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
-        const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
-        const today = now.toISOString().slice(0, 10);
-        const { error: mailErr } = await supabase.from('mail_inbox').insert({
-          recipient_id: hostId, sender_id: userId, sender_name: senderName, kind: 'resident_exchange_host',
-          day: today, ref: inserted!.id, reward_materials: HOST_MATERIALS_PER_PLACEMENT, updated_at: now.toISOString(),
-        });
-        if (mailErr) console.error('Resident Exchange host-mail failed (placement still succeeded)', mailErr.message);
 
         return serverJson({ placement: inserted });
       }
@@ -144,7 +143,34 @@ export default async function handler(req: Request): Promise<Response> {
         const { error: delErr } = await supabase.from('resident_exchange').delete().eq('id', placementId);
         if (delErr) { console.error('Resident Exchange recall delete failed', delErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: delErr.message }, 500); }
 
-        return serverJson({ elderId: row.elder_id, xpEarned });
+        // Host gift, paid now that the visit is over. Failure here never blocks the owner's return/XP.
+        const stayedHours = Math.min(Math.max(0, elapsedHours), row.duration_hours);
+        let giftSent = false;
+        if (stayedHours >= MIN_GIFT_HOURS) {
+          try {
+            const now = new Date();
+            const today = now.toISOString().slice(0, 10);
+            const { count: todays } = await supabase.from('mail_inbox').select('id', { count: 'exact', head: true })
+              .eq('recipient_id', row.host_id).eq('kind', 'resident_exchange_host').eq('day', today);
+            if ((todays ?? 0) < HOST_MAX_GIFTS_PER_DAY) {
+              const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
+              const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
+              const gift = row.gift_type === 'quest' || row.gift_type === 'boost' ? row.gift_type : 'materials';
+              const note = gift === 'quest' ? `gift:quest:${giftQuestPoints(stayedHours)}:${row.elder_name}`
+                : gift === 'boost' ? `gift:boost:${giftBoostHours(stayedHours)}:${row.elder_name}`
+                : `gift:materials:0:${row.elder_name}`;
+              const { error: mailErr } = await supabase.from('mail_inbox').insert({
+                recipient_id: row.host_id, sender_id: userId, sender_name: senderName, kind: 'resident_exchange_host',
+                day: today, ref: row.id, reward_materials: gift === 'materials' ? giftMaterials(stayedHours) : 0,
+                note: note.slice(0, 200), updated_at: now.toISOString(),
+              });
+              if (mailErr) console.error('Resident Exchange host-gift mail failed (recall still succeeded)', mailErr.message);
+              else giftSent = true;
+            }
+          } catch (e) { console.error('Resident Exchange host gift crashed (recall still succeeded)', e); }
+        }
+
+        return serverJson({ elderId: row.elder_id, xpEarned, giftType: row.gift_type, giftSent });
       }
 
       return serverJson({ error: 'Unknown action' }, 400);

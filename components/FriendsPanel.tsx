@@ -25,7 +25,7 @@ interface FriendsPanelProps {
   elders: Elder[];
   residentExchangeMine: ResidentExchangeRow[];
   residentExchangeHosting: ResidentExchangeRow[];
-  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24) => void;
+  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost') => void;
   onRecallResident: (placementId: string) => void;
   hasSquad: boolean;
 }
@@ -55,6 +55,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [placingForFriendId, setPlacingForFriendId] = useState<string | null>(null);
   const [pickedElderId, setPickedElderId] = useState<string | null>(null);
   const [pickedDuration, setPickedDuration] = useState<8 | 12 | 24>(8);
+  const [pickedGift, setPickedGift] = useState<'materials' | 'quest' | 'boost'>('materials');
 
   const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
   const availableToSend = elders.filter(e => e.captured && !placedElderIds.has(e.id));
@@ -321,12 +322,27 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                                   </button>
                                 ))}
                               </div>
+                              <p className="text-[11px] font-black uppercase opacity-50 mb-1">Gift for your friend when it comes home</p>
+                              <div className="flex gap-2 mb-1">
+                                {([['materials', '🧱 Materials'], ['quest', '📋 Quest'], ['boost', '⚙️ Output']] as const).map(([g, label]) => (
+                                  <button
+                                    key={g}
+                                    onClick={() => setPickedGift(g)}
+                                    className={`flex-1 py-1.5 rounded-lg text-[12px] font-black ${pickedGift === g ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[11px] opacity-60 mb-2">
+                                {pickedGift === 'materials' ? `About ${Math.max(1, Math.round(pickedDuration * 0.5))} Building Materials.` : pickedGift === 'quest' ? `+${Math.max(1, Math.round(pickedDuration / 4))} progress on a Quest they choose.` : `+${Math.max(1, Math.round(pickedDuration / 4))}h of output on a working building they choose.`} Scales down if recalled early.
+                              </p>
                               <button
                                 disabled={!pickedElderId}
                                 onClick={() => {
                                   const elder = elders.find(e => e.id === pickedElderId);
                                   if (!elder) return;
-                                  onPlaceResident(friend.user_id, elder, pickedDuration);
+                                  onPlaceResident(friend.user_id, elder, pickedDuration, pickedGift);
                                   setPlacingForFriendId(null);
                                 }}
                                 className="w-full py-2 rounded-lg bg-[var(--accent-600)] text-white text-[12px] font-black uppercase disabled:opacity-40"

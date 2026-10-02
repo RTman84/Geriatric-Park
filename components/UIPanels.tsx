@@ -83,7 +83,9 @@ const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark 
 
 // ─── Mailbox Panel ────────────────────────────────────────────────────────────
 
-export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, isDark: boolean }> = ({ messages, onClaim, isDark }) => (
+export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
+  const [giftOpenId, setGiftOpenId] = React.useState<string | null>(null);
+  return (
   <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
     <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 flex justify-between items-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
       <div className="min-w-0 flex-1">
@@ -103,6 +105,26 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
             {!msg.claimed && <div className="w-2 h-2 bg-red-500 rounded-full"></div>}
           </div>
           <p className="text-[15px] text-slate-600 mb-6 leading-relaxed">{msg.body}</p>
+          {msg.gift && !msg.claimed && (
+            <div>
+              <button onClick={() => setGiftOpenId(giftOpenId === msg.id ? null : msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
+                <GiftIcon className="w-4 h-4" /> {giftOpenId === msg.id ? 'Choose a target' : (msg.gift.type === 'quest' ? `Claim +${msg.gift.amount} Quest progress` : `Claim +${msg.gift.amount}h building output`)}
+              </button>
+              {giftOpenId === msg.id && (() => {
+                const targets = msg.gift!.type === 'quest'
+                  ? quests.filter(q => !q.completed).map(q => ({ id: q.id, label: `${q.title} (${q.progress}/${q.target})` }))
+                  : workingBuildings.map(b => ({ id: b.id, label: b.name }));
+                return (
+                  <div className="mt-3 space-y-2">
+                    {targets.length === 0 && <p className="text-[14px] text-slate-500 italic">{msg.gift!.type === 'quest' ? 'No active Quests right now — check back after they refresh.' : 'Build a working building (Nature Trail, Grocery Store…) first.'}</p>}
+                    {targets.map(t => (
+                      <button key={t.id} onClick={() => { onClaimGift?.(msg.id, t.id); setGiftOpenId(null); }} className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-black ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-slate-100 text-slate-700'}`}>{t.label}</button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
           {(msg.reward || msg.materials) && !msg.claimed && (
             <button onClick={() => onClaim(msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
               <GiftIcon className="w-4 h-4" /> Claim {[
@@ -111,17 +133,18 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
               ].filter(Boolean).join(' + ')}
             </button>
           )}
-          {!msg.reward && !msg.materials && !msg.claimed && (
+          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && (
             <button onClick={() => onClaim(msg.id)} className={`w-full font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
               Mark as Read
             </button>
           )}
-          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.reward || msg.materials) ? 'Reward Claimed' : 'Read'}</div>}
+          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
         </div>
       )) : <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black tracking-widest">Inbox is empty</div>}
     </div>
   </div>
-);
+  );
+};
 
 // ─── Bank Panel ───────────────────────────────────────────────────────────────
 

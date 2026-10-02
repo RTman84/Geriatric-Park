@@ -22,6 +22,7 @@ export interface MailMessage {
   body: string;
   reward?: { type: 'Tokens' | 'Gear'; value: number | Gear };
   materials?: number; // Building Materials, claimed together with `reward`
+  gift?: { type: 'quest' | 'boost'; amount: number; from: string }; // Resident Exchange host gift: the host picks a target when claiming
   claimed: boolean;
   timestamp: number;
 }

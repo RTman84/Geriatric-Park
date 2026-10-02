@@ -150,7 +150,7 @@ import {
   EVOLUTION_STAT_MULTIPLIER,
   GOLDEN_GAMES_LEAGUES,
   GOLDEN_GAMES_COOLDOWN_MS,
-  AMENITIES,
+  AMENITIES, BUILDING_STORAGE_HOURS,
   VISIT_COOLDOWN_MS,
   VISIT_MATERIALS_REWARD,
   getHousingCapacity,
@@ -524,14 +524,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24) => {
+  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials') => {
     if (state.stationedAt?.[elder.id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
     if (elder.status === 'Team' && state.allElders.filter(e => e.status === 'Team').length <= 1) {
       notify('Keep at least one Elder on your squad before sending this one away.', 'bad');
       return;
     }
     try {
-      await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours);
+      await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours, giftType);
       setState(prev => ({
         ...prev,
         allElders: prev.allElders.map(e => e.id === elder.id
@@ -2031,7 +2031,7 @@ const App: React.FC = () => {
   const handleClaimMail = useCallback((id: string) => {
     setState(prev => {
       const msg = prev.mailbox.find(m => m.id === id);
-      if (!msg || msg.claimed) return prev;
+      if (!msg || msg.claimed || msg.gift) return prev; // gift mail is claimed via handleClaimGift (needs a target)
       let nextTokens = prev.legacyTokens;
       let nextInventory = [...prev.inventory];
       const nextMaterials = prev.buildingMaterials + (msg.materials ?? 0);
@@ -2043,6 +2043,32 @@ const App: React.FC = () => {
       return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
     });
   }, []);
+
+  // Resident Exchange host gift: the player picks the target (a Quest or a working building) when claiming.
+  const handleClaimGift = useCallback((id: string, targetId: string) => {
+    setState(prev => {
+      const msg = prev.mailbox.find(m => m.id === id);
+      if (!msg || msg.claimed || !msg.gift) return prev;
+      const amount = Math.max(0, Math.floor(Number(msg.gift.amount) || 0));
+      let next = prev;
+      if (msg.gift.type === 'quest') {
+        const q = prev.quests.find(x => x.id === targetId && !x.completed);
+        if (!q) return prev;
+        next = { ...prev, quests: prev.quests.map(x => x.id === targetId ? { ...x, progress: Math.min(x.target, x.progress + amount) } : x) };
+      } else {
+        const a = AMENITIES.find(x => x.id === targetId);
+        if (!a?.producer || !prev.builtAmenityIds.includes(targetId)) return prev;
+        const now = Date.now();
+        const current = prev.amenityCollectedAt?.[targetId] ?? now;
+        // Backdating the last-collected time adds that many hours of stored output, never beyond the storage cap.
+        const earliest = now - BUILDING_STORAGE_HOURS * 3600000;
+        const shifted = Math.max(earliest, current - amount * 3600000);
+        next = { ...prev, amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [targetId]: Math.min(current, shifted) } };
+      }
+      return { ...next, mailbox: next.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m) };
+    });
+    notify('Gift applied — thanks for hosting!', 'good');
+  }, [notify]);
 
   const handleDailyCheckIn = useCallback(() => {
     const now = Date.now();
@@ -2528,7 +2554,7 @@ const App: React.FC = () => {
             }
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
-          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} />}
+          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} PP`);
