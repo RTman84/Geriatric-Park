@@ -327,3 +327,10 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Only benched Elders can be lent or sent to visit (squad members and Arena defenders stay home).
 - A loaned Elder counts in Battle, Court Auto-Play, Daily Tournament, Elder Challenge and Golden Games power. It does NOT count in Court Friend Battle, the Friends-list Battle button, Arenas or Raids.
 - Wild Elders are scaled when a battle starts: power = 85-115% of the player's best captured Elder (x0.9 Common, x1.0 Rare, x1.15 Epic), level = best Elder level +/-1. Battle screens show level, rarity and power for both sides.
+
+## Rarity, wild scaling and progression curves (2026-10-02)
+- Rarity now improves every Elder stat, HP and level-up growth: Common 1.0, Rare 1.2, Epic 1.45, Legendary 1.8 (`RARITY_STAT_MULTIPLIER`). Existing Elders got a one-time additive bonus (`rarityStatsV1`), so equipped gear and evolution stay intact. Comfort, scrap value and capture odds already scaled by rarity.
+- Wild Elders (Common 45%, Rare 30%, Epic 12%, Legendary 3%) are previewed before a fight: level, rarity, power and a risk label. Power = your best captured Elder x rarity tier (0.85/1.0/1.2/1.4) x a 60-150% spread. A guided Elder joins at level <= 10 with the standard stats for its level and rarity, so wide wild power cannot become a Scrap Ticket faucet or an instant power-up.
+- Golden Games and the Challenge ladder no longer compound 1.10 per tier (that passed 500,000 power, unreachable). Both follow a shared curve that is near-linear early and bends up late, ending at `PROGRESSION_MAX_POWER` = 24,000 at tier 100 (a max-level, evolved, Epic/Legendary squad is about 20-25k). Tier 10 is about 700-1,100 power, tier 50 about 5,500, tier 75 about 12,000.
+- Golden Games league unlocks and entry count only the player's own Elders, never a loaned one. A loaned Elder still helps the win roll.
+- NOT yet re-audited against these curves: Raid boss HP and damage caps, Arena power, Daily Tournament scoring, Auto-Play benchmark.

@@ -128,7 +128,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER,
+  SCRAP_RARITY_MULTIPLIER, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats, WILD_CAPTURE_LEVEL_CAP,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -255,7 +255,7 @@ function grantElderXp(elder: Elder, amount: number): Elder {
   const { xp: nextXp, level: nextLevel } = applyXpGain(elder.xp ?? 0, elder.level, amount, xpForElderLevel, ELDER_MAX_LEVEL);
   const levelsGained = nextLevel - elder.level;
   if (levelsGained <= 0) return { ...elder, xp: nextXp };
-  const statBonus = STAT_BONUS_PER_LEVEL * levelsGained;
+  const statBonus = Math.round(STAT_BONUS_PER_LEVEL * levelsGained * (RARITY_STAT_MULTIPLIER[elder.rarity] ?? 1));
   const nextMaxHp = elder.maxHp + statBonus * 2;
   return {
     ...elder,
@@ -401,6 +401,7 @@ const INITIAL_STATE: GameState = {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('map');
+  const [encounter, setEncounter] = useState<Elder | null>(null); // wild Elder preview shown before a fight
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
   const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -771,7 +772,8 @@ const App: React.FC = () => {
           spawnLat = p1.lat + (p2.lat - p1.lat) * pathProgress;
           spawnLng = p1.lng + (p2.lng - p1.lng) * pathProgress;
         }
-        const wildRarity: 'Common' | 'Rare' | 'Epic' = Math.random() > 0.8 ? 'Epic' : Math.random() > 0.5 ? 'Rare' : 'Common';
+        const rr = Math.random();
+        const wildRarity: 'Common' | 'Rare' | 'Epic' | 'Legendary' = rr > 0.97 ? 'Legendary' : rr > 0.85 ? 'Epic' : rr > 0.55 ? 'Rare' : 'Common';
         return {
           id: 'wild_' + Math.random().toString(36).substr(2, 9),
           name: getRandomElderName(type),
@@ -914,6 +916,21 @@ const App: React.FC = () => {
       // strength +ceil(b/2) / agility +floor(b/2). Accessory is now pure Strength (Charm owns Agility),
       // so move the agility half back to strength -- otherwise unequipping would subtract the full
       // boost from Strength and leave a stray Agility bonus behind.
+      // One-time rarity bonus: rarer Elders now get a stat edge at their current level (added on top, so equipped
+      // gear and evolution multipliers already baked into their stats are left alone).
+      if (!withDefaults.rarityStatsV1) {
+        if (withDefaults.rarity && withDefaults.rarity !== 'Common') {
+          const rare = standardElderStats(withDefaults.level, withDefaults.rarity);
+          const common = standardElderStats(withDefaults.level, 'Common');
+          withDefaults.strength += rare.strength - common.strength;
+          withDefaults.wit += rare.wit - common.wit;
+          withDefaults.agility += rare.agility - common.agility;
+          withDefaults.tenacity += rare.tenacity - common.tenacity;
+          withDefaults.maxHp += rare.maxHp - common.maxHp;
+          withDefaults.hp = Math.min(withDefaults.maxHp, withDefaults.hp + (rare.maxHp - common.maxHp));
+        }
+        withDefaults.rarityStatsV1 = true;
+      }
       if (!withDefaults.gearSlotsV2) {
         const acc = withDefaults.equipment.accessory;
         if (acc && Number.isFinite(acc.boost)) {
@@ -2322,10 +2339,16 @@ const App: React.FC = () => {
     if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
 
+  // Guided wild Elders join as newcomers: capped level and the standard stats for that level and rarity.
+  const normalizeCapturedElder = (e: Elder): Elder => {
+    const level = Math.min(Math.max(1, e.level), WILD_CAPTURE_LEVEL_CAP);
+    return { ...e, level, xp: 0, ...standardElderStats(level, e.rarity), hp: standardElderStats(level, e.rarity).maxHp, rarityStatsV1: true };
+  };
+
   const handleGuideSuccess = useCallback((guidedElder: Elder) => {
     setState(prev => {
       if (prev.allElders.find(e => e.id === guidedElder.id)) return prev; // already added, guard against double-fire
-      return { ...prev, allElders: [...prev.allElders, { ...guidedElder, status: 'Base', isRoaming: false }] };
+      return { ...prev, allElders: [...prev.allElders, { ...normalizeCapturedElder(guidedElder), status: 'Base', isRoaming: false }] };
     });
     setGuideTarget(null);
   }, []);
@@ -2343,7 +2366,7 @@ const App: React.FC = () => {
     setState(prev => {
       const nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
       if (opponent && !nextAllElders.find(e => e.id === opponent.id)) {
-        nextAllElders.push({ ...opponent, captured: true, status: 'Base', isRoaming: false });
+        nextAllElders.push({ ...normalizeCapturedElder(opponent), captured: true, status: 'Base', isRoaming: false });
       }
       return { ...prev, allElders: nextAllElders };
     });
@@ -2424,11 +2447,13 @@ const App: React.FC = () => {
     const mine = state.allElders.filter(e => e.captured && !e.borrowed);
     const topPower = Math.max(28, ...mine.map(e => getElderPower(e)));
     const topLevel = Math.max(1, ...mine.map(e => e.level));
-    const rarityMult = w.rarity === 'Epic' ? 1.15 : w.rarity === 'Rare' ? 1.0 : 0.9;
-    const target = topPower * rarityMult * (0.85 + Math.random() * 0.3);
+    const tier = w.rarity === 'Legendary' ? 1.4 : w.rarity === 'Epic' ? 1.2 : w.rarity === 'Rare' ? 1.0 : 0.85;
+    const spread = 0.6 + Math.random() * 0.9; // wide: from a pushover (60%) to a real threat (150%) of your best Elder
+    const target = Math.max(28, topPower * tier * spread);
     const f = target / 28; // wild base stats are 10 / 10 / 8 / 8
     const maxHp = Math.max(80, Math.round(80 + (target - 28) * 1.5));
-    return { ...w, level: Math.max(1, topLevel + Math.floor(Math.random() * 3) - 1), strength: Math.round(10 * f), wit: Math.round(10 * f), tenacity: Math.round(8 * f), agility: Math.round(8 * f), maxHp, hp: maxHp };
+    const level = Math.min(100, Math.max(1, Math.round(topLevel * spread * Math.sqrt(tier))));
+    return { ...w, level, strength: Math.round(10 * f), wit: Math.round(10 * f), tenacity: Math.round(8 * f), agility: Math.round(8 * f), maxHp, hp: maxHp };
   }, [state.allElders]);
   const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);
@@ -2565,7 +2590,7 @@ const App: React.FC = () => {
               nearbyStructures={state.nearbyStructures} heldStructureIds={state.heldStructureIds}
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
-              onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: scaleWildElder(e) }); }}
+              onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setEncounter(scaleWildElder(e)); }}
               onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} arenaRaids={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.raid]))} onArenaClick={handleArenaMarkerClick}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
@@ -2878,6 +2903,28 @@ const App: React.FC = () => {
 
                 <p className="text-[15px] text-slate-600 mb-6">Icon and title are unlocked by reaching ranks and completing achievements, and can be mixed independently.</p>
                 <button onClick={() => setShowProfilePicker(false)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Done</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {encounter && !battleOpponent && (() => {
+          const wildPower = getElderPower(encounter);
+          const best = Math.max(1, ...activeTeam.map(e => getElderPower(e)));
+          const ratio = wildPower / best;
+          const risk = ratio <= 0.8 ? { label: 'Easy', color: 'text-emerald-400' } : ratio <= 1.1 ? { label: 'Fair fight', color: 'text-amber-300' } : ratio <= 1.4 ? { label: 'Risky', color: 'text-orange-400' } : { label: 'Very dangerous', color: 'text-red-400' };
+          return (
+            <div className="fixed inset-0 z-[1900] bg-black/70 flex items-center justify-center p-6" onClick={() => setEncounter(null)}>
+              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`} onClick={ev => ev.stopPropagation()}>
+                <div className="w-28 h-28 mx-auto mb-3 relative"><ElderAvatarImg type={encounter.type} stage={encounter.evolutionStage ?? 0} fill className="rounded-[2rem]" /></div>
+                <h3 className="text-xl font-black uppercase">{encounter.name}</h3>
+                <p className="text-[15px] font-black opacity-80">Lv {encounter.level} {encounter.rarity} · PWR {wildPower}</p>
+                <p className={`text-[17px] font-black uppercase mt-2 ${risk.color}`}>{risk.label}</p>
+                <p className="text-[13px] opacity-70 mt-1">Your strongest squad Elder: PWR {best}. Chance to guide them home after a win: {Math.round(GUIDE_SUCCESS_RATE[encounter.rarity] * 100)}%. Rarer Elders are stronger in every way.</p>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => setEncounter(null)} className={`flex-1 py-3 rounded-2xl font-black uppercase text-[14px] ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>Walk away</button>
+                  <button onClick={() => { setBattleOpponent({ elder: encounter }); setEncounter(null); }} className="flex-1 py-3 rounded-2xl font-black uppercase text-[14px] bg-[var(--accent-600)] text-white">Fight</button>
+                </div>
               </div>
             </div>
           );

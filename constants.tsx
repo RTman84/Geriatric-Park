@@ -139,6 +139,30 @@ export const SEASON_XP_PER_LEVEL = 1000;
 
 export const TRAINING_BASE_COST = 50; 
 export const STAT_BONUS_PER_LEVEL = 5;
+// Rarity makes an Elder better in every way: all stats, HP and level-up growth scale by this multiplier
+// (comfort, scrap value and capture odds already scaled by rarity). Legendary is the best at everything.
+export const RARITY_STAT_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 1, Rare: 1.2, Epic: 1.45, Legendary: 1.8,
+};
+// The stats a fresh Elder of this level and rarity has (same growth per level as grantElderXp in App.tsx).
+export function standardElderStats(level: number, rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary') {
+  const L = Math.max(1, Math.floor(level) || 1) - 1;
+  const m = RARITY_STAT_MULTIPLIER[rarity] ?? 1;
+  return {
+    strength: Math.round((10 + STAT_BONUS_PER_LEVEL * L) * m),
+    wit: Math.round((10 + STAT_BONUS_PER_LEVEL * L) * m),
+    agility: Math.round((8 + Math.ceil(STAT_BONUS_PER_LEVEL / 2) * L) * m),
+    tenacity: Math.round((8 + Math.ceil(STAT_BONUS_PER_LEVEL / 2) * L) * m),
+    maxHp: Math.round((80 + STAT_BONUS_PER_LEVEL * 2 * L) * m),
+  };
+}
+// Guided wild Elders join as newcomers: level capped here, stats reset to the standard curve for that level and
+// rarity. Keeps scaled wild fights from turning captures into instant power-ups or a Scrap Ticket faucet.
+export const WILD_CAPTURE_LEVEL_CAP = 10;
+// Highest squad power a fully built late-game squad can realistically reach (6 Elders at max level, evolved,
+// Epic/Legendary, some gear). Tier 100 of the Golden Games and the Challenge ladder are pegged to this, so every
+// tier is reachable and difficulty tracks real progression instead of compounding past anything attainable.
+export const PROGRESSION_MAX_POWER = 24000;
 
 // ─── Elder progression (evolution spec, Phases 2-4) ───────────────────────────
 // Elder XP uses a separate, smaller threshold than the player's XP_FOR_LEVEL_UP
@@ -290,7 +314,13 @@ export const GOLDEN_GAMES_MAX_TIERS = 100;
 // Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
 // (Tickets 1.04x, Elder XP 1.05x, Stars 1.03x) so higher tiers are more of a
 // challenge than a faucet and progression stays slow.
-const GOLDEN_GAMES_GROWTH = 1.10;
+// Power curve for generated tiers: roughly linear early (tracks a squad gaining ~13 power per Elder level) and
+// bending upward later (evolution, rarity and gear compound), landing exactly on PROGRESSION_MAX_POWER at the last tier.
+const GG_STEPS = GOLDEN_GAMES_MAX_TIERS - GOLDEN_GAMES_BASE_TIERS.length;
+const goldenGamesPowerAt = (step: number): number => {
+  const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1].minSquadPower;
+  return base + 65 * step + (PROGRESSION_MAX_POWER - base - 65 * GG_STEPS) * Math.pow(step / GG_STEPS, 3);
+};
 const GOLDEN_GAMES_TICKET_GROWTH = 1.04;
 const GOLDEN_GAMES_XP_GROWTH = 1.05;
 const GOLDEN_GAMES_SCORE_GROWTH = 1.03;
@@ -301,7 +331,7 @@ function generateGoldenGamesTiers(): GoldenGamesLeague[] {
   const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1];
   for (let i = GOLDEN_GAMES_BASE_TIERS.length; i < GOLDEN_GAMES_MAX_TIERS; i++) {
     const step = i - GOLDEN_GAMES_BASE_TIERS.length + 1; // 1, 2, 3...
-    const mult = Math.pow(GOLDEN_GAMES_GROWTH, step);
+    const mult = goldenGamesPowerAt(step) / base.minSquadPower;
     const tMult = Math.pow(GOLDEN_GAMES_TICKET_GROWTH, step);
     const xMult = Math.pow(GOLDEN_GAMES_XP_GROWTH, step);
     const sMult = Math.pow(GOLDEN_GAMES_SCORE_GROWTH, step);
@@ -347,7 +377,8 @@ export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
 // Change CHALLENGE_MAX_TIERS to add more rungs -- rank data is generated, nothing else to edit.
 export const CHALLENGE_MAX_TIERS = 100;
 const CHALLENGE_BASE_POWER = 40;
-const CHALLENGE_POWER_GROWTH = 1.10;
+const challengePowerAt = (i: number): number =>
+  CHALLENGE_BASE_POWER + 70 * i + (PROGRESSION_MAX_POWER - CHALLENGE_BASE_POWER - 70 * (CHALLENGE_MAX_TIERS - 1)) * Math.pow(i / (CHALLENGE_MAX_TIERS - 1), 3); // same shape as the Golden Games curve
 const CHALLENGE_REWARD_GROWTH = 1.04;
 const CHALLENGE_XP_GROWTH = 1.05;
 export const CHALLENGE_VARIANCE = 0.10; // rival power swings +-10% each duel
@@ -365,7 +396,7 @@ export const CHALLENGE_TIERS: ChallengeTier[] = Array.from({ length: CHALLENGE_M
     index: i,
     rank: i + 1,
     name: CHALLENGE_RIVAL_NAMES[i % CHALLENGE_RIVAL_NAMES.length],
-    rivalPower: Math.round(CHALLENGE_BASE_POWER * Math.pow(CHALLENGE_POWER_GROWTH, i)),
+    rivalPower: Math.round(challengePowerAt(i)),
     winTickets,
     lossTickets: Math.max(3, Math.round(winTickets * 0.5)),
     winElderXp: Math.round(20 * Math.pow(CHALLENGE_XP_GROWTH, i)),

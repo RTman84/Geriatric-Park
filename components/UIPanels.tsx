@@ -430,7 +430,8 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   const [timeToLeagueMatch, setTimeToLeagueMatch] = useState(0);
 
   const team = elders.filter(e => e.status === 'Team' && e.captured);
-  const teamStrength = getSquadPower(team);
+  const teamStrength = getSquadPower(team); // includes any loaned Elder (fights/rolls)
+  const ownStrength = getSquadPower(team.filter(e => !e.borrowed)); // used for league unlocks so a loan can't skip tiers
   const isKing = isCourtChampion(shuffleboardKing, Date.now());
   const reignMsLeft = isKing ? Math.max(0, COURT_CHAMPION_DURATION_MS - (Date.now() - shuffleboardKing.heldSince)) : 0;
   const reignHoursLeft = Math.floor(reignMsLeft / 3600000);
@@ -524,7 +525,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   const handleLeagueMatch = () => {
     if (team.length === 0 || timeToLeagueMatch > 0) return;
     const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
-    if (teamStrength < league.minSquadPower) return;
+    if (ownStrength < league.minSquadPower) return;
     setIsPlaying(true);
     setTimeout(() => {
       const difficulty = league.difficultyMin + Math.random() * (league.difficultyMax - league.difficultyMin);
@@ -823,7 +824,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           {/* Compact scrollable tier strip -- 50 tiers is too many to show as full cards */}
           <div className="flex gap-2 overflow-x-auto pb-3 mb-4 -mx-2 px-2">
             {GOLDEN_GAMES_LEAGUES.map((league, i) => {
-              const isUnlocked = teamStrength >= league.minSquadPower;
+              const isUnlocked = ownStrength >= league.minSquadPower;
               const isCleared = goldenGames.highestLeagueCleared >= i;
               const isSelected = selectedLeague === i;
               return (
@@ -845,7 +846,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           {/* Detail card for the selected tier */}
           {(() => {
             const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
-            const isUnlocked = teamStrength >= league.minSquadPower;
+            const isUnlocked = ownStrength >= league.minSquadPower;
             const isCleared = goldenGames.highestLeagueCleared >= selectedLeague;
             return (
               <div className={`p-5 rounded-2xl mb-4 border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
@@ -861,7 +862,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                   </div>
                 </div>
                 <p className={`text-[14px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
-                  {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${teamStrength} — need ${league.minSquadPower - teamStrength} more`}
+                  {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${ownStrength} — need ${league.minSquadPower - teamStrength} more`}
                 </p>
               </div>
             );
@@ -882,9 +883,9 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
           <button
             onClick={handleLeagueMatch}
-            disabled={isPlaying || team.length === 0 || timeToLeagueMatch > 0 || teamStrength < GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower}
+            disabled={isPlaying || team.length === 0 || timeToLeagueMatch > 0 || ownStrength < GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower}
             className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${
-              !isPlaying && team.length > 0 && timeToLeagueMatch <= 0 && teamStrength >= GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower
+              !isPlaying && team.length > 0 && timeToLeagueMatch <= 0 && ownStrength >= GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower
                 ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'
             }`}
           >

@@ -225,6 +225,7 @@ export interface Elder {
     accessory?: Gear;
     charm?: Gear;
   };
+  rarityStatsV1?: boolean; // true once the rarity stat bonus has been applied to this Elder (2026-10-02)
   gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;
   hp: number;
