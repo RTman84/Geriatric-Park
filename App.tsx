@@ -1572,6 +1572,20 @@ const App: React.FC = () => {
     });
   }, [state.settings.sfxEnabled, state.stationedAt, state.allElders, notify]);
 
+  // Squad order = the order of Team Elders inside allElders (the first one leads in battles). Reordering keeps the
+  // same set of array slots and just rearranges which squad Elder sits in each.
+  const handleReorderTeam = useCallback((orderedIds: string[]) => {
+    setState(prev => {
+      const byId = new Map(prev.allElders.map(e => [e.id, e] as [string, Elder]));
+      const ordered = orderedIds.map(id => byId.get(id)).filter((e): e is Elder => !!e && (e as Elder).status === 'Team');
+      const slots = prev.allElders.map((e, i) => (e.status === 'Team' ? i : -1)).filter(i => i >= 0);
+      if (ordered.length !== slots.length) return prev;
+      const next = [...prev.allElders];
+      slots.forEach((slot, n) => { next[slot] = ordered[n]; });
+      return { ...prev, allElders: next };
+    });
+  }, []);
+
   const handleMoveToStandby = useCallback((id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setState(prev => ({ ...prev, allElders: prev.allElders.map(e => e.id === id ? { ...e, status: 'Base' } : e) }));
@@ -2622,7 +2636,7 @@ const App: React.FC = () => {
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
-          {activeTab === 'team' && <TeamPanel isDark={isDark} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
+          {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={() => setShowGroundsPanel(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");

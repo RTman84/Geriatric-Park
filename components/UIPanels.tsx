@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  GEAR_RARITY_COLOR, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
+  GEAR_RARITY_COLOR, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -64,22 +64,31 @@ const HealthBar: React.FC<{ hp: number; maxHp: number; isDark: boolean }> = ({ h
   );
 };
 
-const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => (
+const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => {
+  const br = getStatBreakdown(elder);
+  return (
   <div className="grid grid-cols-2 gap-2 w-full mt-2">
     {[
-      { label: 'Strength', val: elder.strength, color: 'text-orange-500', icon: BoltSolid },
-      { label: 'Wit', val: elder.wit, color: 'text-blue-500', icon: LightBulbIcon },
-      { label: 'Agility', val: elder.agility, color: 'text-emerald-500', icon: LifebuoyIcon },
-      { label: 'Tenacity', val: elder.tenacity, color: 'text-purple-500', icon: ShieldSolid }
-    ].map(s => (
-      <div key={s.label} className={`flex items-center gap-2 p-2 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+      { label: 'Strength', k: 'strength' as const, color: 'text-orange-500', icon: BoltSolid },
+      { label: 'Wit', k: 'wit' as const, color: 'text-blue-500', icon: LightBulbIcon },
+      { label: 'Agility', k: 'agility' as const, color: 'text-emerald-500', icon: LifebuoyIcon },
+      { label: 'Tenacity', k: 'tenacity' as const, color: 'text-purple-500', icon: ShieldSolid }
+    ].map(s => {
+      const b = br[s.k];
+      return (
+      <div key={s.label} className={`flex items-center gap-2 p-2 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`} title={`Total ${b.total}`}>
         <s.icon className={`w-3 h-3 ${s.color}`} />
         <span className="text-[15px] font-black uppercase opacity-60 flex-1">{s.label}</span>
-        <span className="text-[15px] font-black">{s.val}</span>
+        <span className="text-[15px] font-black">{b.base}</span>
+        {b.rarity > 0 && <span className="text-[13px] font-black text-green-500" title="Rarity bonus">+{b.rarity}</span>}
+        {b.gear > 0 && <span className="text-[13px] font-black text-green-500" title="Gear bonus">+{b.gear}</span>}
+        {b.evolution > 0 && <span className="text-[13px] font-black text-green-500" title="Evolution bonus">+{b.evolution}</span>}
       </div>
-    ))}
+      );
+    })}
   </div>
-);
+  );
+};
 
 // ─── Mailbox Panel ────────────────────────────────────────────────────────────
 
@@ -1192,6 +1201,28 @@ export const BasePanel: React.FC<{
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
 }> = ({ elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
+  const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
+  const [regDesc, setRegDesc] = React.useState(true);
+  const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
+  const [regRarity, setRegRarity] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
+  const [regType, setRegType] = React.useState<string>('All');
+  const [regStatus, setRegStatus] = React.useState<'All' | 'Squad' | 'Bench' | 'Away'>('All');
+  const regElders = React.useMemo(() => {
+    const rarityRank: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+    const indexOf = new Map<string, number>(elders.map((e, i) => [e.id, i] as [string, number]));
+    const list = elders.filter(e =>
+      (regRarity === 'All' || e.rarity === regRarity) &&
+      (regType === 'All' || String(e.type) === regType) &&
+      (regStatus === 'All' || (regStatus === 'Squad' ? e.status === 'Team' : regStatus === 'Away' ? !!e.awayUntil : (e.status !== 'Team' && !e.awayUntil))));
+    const key = (e: Elder): number | string => regSort === 'power' ? getElderPower(e) : regSort === 'level' ? e.level : regSort === 'rarity' ? (rarityRank[e.rarity] ?? 0)
+      : regSort === 'obtained' ? (e.obtainedAt ?? (indexOf.get(e.id) ?? 0)) : regSort === 'name' ? e.name.toLowerCase() : String(e.type);
+    return [...list].sort((a, b) => {
+      const ka = key(a), kb = key(b);
+      const c = typeof ka === 'string' ? ka.localeCompare(kb as string) : (ka as number) - (kb as number);
+      return (regDesc ? -c : c) || getElderPower(b) - getElderPower(a);
+    });
+  }, [elders, regSort, regDesc, regRarity, regType, regStatus]);
+  const elderTypes = React.useMemo(() => Array.from(new Set(elders.map(e => String(e.type)))), [elders]);
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
@@ -1413,9 +1444,61 @@ export const BasePanel: React.FC<{
 
       {/* Park Registry */}
       <div className="mb-24">
-        <h3 className={`text-[17px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Registry</h3>
-        <div className="space-y-6">
-          {elders.map(e => (
+        <h3 className={`text-[17px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Registry <span className="opacity-50 text-[14px]">({regElders.length}/{elders.length})</span></h3>
+        <div className={`mx-2 mb-4 p-3 rounded-2xl space-y-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select value={regSort} onChange={ev => setRegSort(ev.target.value as typeof regSort)} className={`flex-1 min-w-[8rem] rounded-xl px-3 py-2 text-[14px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="power">Sort: Power</option><option value="level">Sort: Level</option><option value="rarity">Sort: Rarity</option>
+              <option value="type">Sort: Type</option><option value="obtained">Sort: Date obtained</option><option value="name">Sort: Name</option>
+            </select>
+            <button onClick={() => setRegDesc(d => !d)} className={`px-3 py-2 rounded-xl text-[14px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>{regDesc ? '↓ High first' : '↑ Low first'}</button>
+            <button onClick={() => setRegView(v => v === 'list' ? 'grid' : 'list')} className="px-3 py-2 rounded-xl text-[14px] font-black bg-[var(--accent-600)] text-white">{regView === 'list' ? '▦ Grid' : '☰ List'}</button>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <select value={regRarity} onChange={ev => setRegRarity(ev.target.value as typeof regRarity)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              {['All', 'Common', 'Rare', 'Epic', 'Legendary'].map(r => <option key={r} value={r}>{r === 'All' ? 'All rarities' : r}</option>)}
+            </select>
+            <select value={regType} onChange={ev => setRegType(ev.target.value)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="All">All types</option>{elderTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={regStatus} onChange={ev => setRegStatus(ev.target.value as typeof regStatus)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="All">Everyone</option><option value="Squad">Squad</option><option value="Bench">Bench</option><option value="Away">Away</option>
+            </select>
+          </div>
+        </div>
+        {regView === 'grid' && (
+          <div className="grid grid-cols-2 gap-3 px-2">
+            {regElders.map(e => {
+              const br = getStatBreakdown(e);
+              return (
+                <div key={e.id} className={`p-3 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${e.awayUntil ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill /></div>
+                    <div className="min-w-0">
+                      <p className="font-black text-[14px] uppercase truncate">{e.name}</p>
+                      <p className="text-[12px] font-black opacity-70">Lv {e.level} · <span className="text-[var(--accent-500)]">PWR {getElderPower(e)}</span></p>
+                      <RarityBadge rarity={e.rarity} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 mt-2 text-center text-[11px] font-black">
+                    {([['STR', 'strength'], ['WIT', 'wit'], ['AGI', 'agility'], ['TEN', 'tenacity']] as const).map(([lab, k]) => {
+                      const bonus = br[k].rarity + br[k].gear + br[k].evolution;
+                      return <div key={k}><span className="opacity-50">{lab}</span><br />{br[k].base}{bonus > 0 && <span className="text-green-500"> +{bonus}</span>}</div>;
+                    })}
+                  </div>
+                  <p className="text-[11px] font-bold opacity-60 mt-1 truncate">{e.awayUntil ? (e.awayLoan ? '🤝 On loan' : '🏡 Visiting') : e.status === 'Team' ? '⭐ Squad' : 'Bench'} · HP {e.hp}/{e.maxHp}</p>
+                  {!e.awayUntil && (e.status === 'Team'
+                    ? <button onClick={() => onMoveToStandby(e.id)} className={`w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
+                    : <button onClick={() => onMoveToTeam(e.id)} className="w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase bg-[var(--accent-600)] text-white">Squad</button>)}
+                </div>
+              );
+            })}
+            {regElders.length === 0 && <p className="col-span-2 text-center opacity-50 italic py-8">No Elders match these filters.</p>}
+          </div>
+        )}
+        <div className={`space-y-6 ${regView === 'grid' ? 'hidden' : ''}`}>
+          {regElders.length === 0 && <p className="text-center opacity-50 italic py-8">No Elders match these filters.</p>}
+          {regElders.map(e => (
             <div key={e.id} className={`p-6 rounded-[3rem] border shadow-sm flex flex-col gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center gap-6">
                 <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
@@ -1481,7 +1564,7 @@ export const BasePanel: React.FC<{
 
 // ─── Team Panel ───────────────────────────────────────────────────────────────
 
-export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, legacyTokens?: number }> = ({ borrowed = [], elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
+export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, onReorderTeam?: (orderedIds: string[]) => void, legacyTokens?: number }> = ({ borrowed = [], onReorderTeam, elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
   const team = elders.filter(e => e.status === 'Team');
   const squadPower = getSquadPower(team);
   return (
@@ -1500,8 +1583,16 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
           <p className="text-[13px] font-bold opacity-80">Fights alongside your squad in Battles and Court games. Not used in Arenas or Raids.</p>
         </div>
       ))}
+      {onReorderTeam && team.length > 1 && (
+        <div className={`mb-5 p-3 rounded-2xl flex gap-2 items-center flex-wrap ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <span className="text-[13px] font-black uppercase opacity-60">Order squad:</span>
+          <button onClick={() => onReorderTeam([...team].sort((a, b) => getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Strongest first</button>
+          <button onClick={() => onReorderTeam([...team].sort((a, b) => b.level - a.level || getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Highest level first</button>
+          <p className="w-full text-[12px] opacity-60">The first Elder leads in battles. Use the arrows on each card to place anyone manually.</p>
+        </div>
+      )}
       <div className="space-y-6">
-        {team.map(e => {
+        {team.map((e, teamIdx) => {
           const stage = e.evolutionStage ?? 0;
           const xp = e.xp ?? 0;
           const nextLevelNeeded = stage >= 2 ? null : stage === 0 ? ELDER_EVOLUTION_STAGE1_LEVEL : ELDER_EVOLUTION_STAGE2_LEVEL;
@@ -1516,6 +1607,13 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className={`font-black text-base uppercase leading-none truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</h4>
+                  {onReorderTeam && team.length > 1 && (
+                    <span className="flex items-center gap-1 ml-auto">
+                      {teamIdx === 0 && <span className="text-[11px] font-black uppercase text-amber-500">Leads</span>}
+                      <button disabled={teamIdx === 0} onClick={() => { const ids = team.map(x => x.id); [ids[teamIdx - 1], ids[teamIdx]] = [ids[teamIdx], ids[teamIdx - 1]]; onReorderTeam(ids); }} className={`w-8 h-8 rounded-lg font-black ${teamIdx === 0 ? 'opacity-30' : ''} ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700'}`} title="Move up">↑</button>
+                      <button disabled={teamIdx === team.length - 1} onClick={() => { const ids = team.map(x => x.id); [ids[teamIdx + 1], ids[teamIdx]] = [ids[teamIdx], ids[teamIdx + 1]]; onReorderTeam(ids); }} className={`w-8 h-8 rounded-lg font-black ${teamIdx === team.length - 1 ? 'opacity-30' : ''} ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700'}`} title="Move down">↓</button>
+                    </span>
+                  )}
                   <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
                   <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                 </div>

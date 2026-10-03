@@ -156,6 +156,29 @@ export function standardElderStats(level: number, rarity: 'Common' | 'Rare' | 'E
     maxHp: Math.round((80 + STAT_BONUS_PER_LEVEL * 2 * L) * m),
   };
 }
+// Splits an Elder's displayed stat into Base + green bonuses (rarity, gear, evolution) for the registry and squad
+// screens. Evolution multiplies the whole stat (including gear), so we divide it out first; rarity is the standard
+// curve's edge over a Common of the same level (capped so it never exceeds what is actually there).
+export type StatKey = 'strength' | 'wit' | 'agility' | 'tenacity';
+export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any>; strength: number; wit: number; agility: number; tenacity: number }) {
+  const stage = e.evolutionStage ?? 0;
+  const cum = (stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
+  const std = standardElderStats(e.level, e.rarity), com = standardElderStats(e.level, 'Common');
+  const gearKey: Record<string, StatKey> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
+  const out = {} as Record<StatKey, { total: number; base: number; rarity: number; gear: number; evolution: number }>;
+  (['strength', 'wit', 'agility', 'tenacity'] as StatKey[]).forEach(k => {
+    const total = e[k];
+    const pre = total / cum;
+    let gear = 0;
+    for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && gearKey[slot] === k) gear += getEffectiveGearBoost(item as any);
+    gear = Math.min(gear, Math.max(0, Math.round(pre)));
+    const rarity = Math.max(0, Math.min(std[k] - com[k], Math.round(pre) - gear));
+    const base = Math.max(0, Math.round(pre) - gear - rarity);
+    out[k] = { total, base, rarity, gear, evolution: Math.max(0, total - base - rarity - gear) };
+  });
+  return out;
+}
+
 // Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
 // Ticket payout (wild Elders are now kept at the level and power they were fought at).
 export const SCRAP_LEVEL_CAP = 25;
