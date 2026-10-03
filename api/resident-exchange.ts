@@ -71,7 +71,7 @@ const giftMaterials = (h: number) => Math.max(1, Math.round(h * 0.5)); // 24h = 
 const giftQuestPoints = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6
 const giftBoostHours = (h: number) => Math.max(1, Math.round(h / 4)); // 24h = 6 extra hours of one building's output (client caps at its storage limit)
 
-const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, gift_type, mode, snapshot, placed_at, ends_at';
+const ROW_FIELDS = 'id, owner_id, host_id, elder_id, elder_name, elder_type, elder_evolution_stage, duration_hours, gift_type, mode, snapshot, target_id, target_label, placed_at, ends_at';
 
 export default async function handler(req: Request): Promise<Response> {
   try {
@@ -105,11 +105,21 @@ export default async function handler(req: Request): Promise<Response> {
         const durationHours = Number(body?.durationHours);
         const giftType = body?.giftType === undefined ? 'materials' : String(body.giftType);
         const mode = body?.mode === 'loan' ? 'loan' : 'visit';
+        const cleanTxt = (v: unknown, n: number) => String(v ?? '').replace(/[:\n\r]/g, ' ').trim().slice(0, n);
+        const targetId = body?.targetId ? cleanTxt(body.targetId, 40) : '';
+        const targetLabel = body?.targetLabel ? cleanTxt(body.targetLabel, 60) : '';
         const snapshot = mode === 'loan' ? cleanSnapshot(body?.snapshot) : null;
 
         if (!UUID_RE.test(hostId)) return serverJson({ error: 'Invalid hostId' }, 400);
         if (hostId === userId) return serverJson({ error: "You can't send an Elder to your own park." }, 400);
         if (!elderId) return serverJson({ error: 'Invalid elderId' }, 400);
+        if (mode === 'visit' && targetId && (giftType === 'quest' || giftType === 'boost')) {
+          const { data: hp } = await supabase.from('player_profiles').select('built_amenities, active_quests').eq('user_id', hostId).maybeSingle();
+          const okTarget = giftType === 'quest'
+            ? Array.isArray(hp?.active_quests) && hp.active_quests.some((q: any) => q?.id === targetId)
+            : Array.isArray(hp?.built_amenities) && hp.built_amenities.includes(targetId);
+          if (!okTarget) return serverJson({ error: 'That target is no longer available at your friend\'s park.' }, 400);
+        }
         if (mode === 'loan' && !snapshot) return serverJson({ error: 'Invalid Elder snapshot' }, 400);
         if (!VALID_GIFTS.includes(giftType)) return serverJson({ error: 'Invalid giftType' }, 400);
         if (!VALID_DURATIONS.includes(durationHours)) return serverJson({ error: 'durationHours must be 8, 12, or 24.' }, 400);
@@ -136,7 +146,7 @@ export default async function handler(req: Request): Promise<Response> {
         const endsAt = new Date(now.getTime() + durationHours * 3600000);
         const { data: inserted, error: insertErr } = await supabase.from('resident_exchange').insert({
           owner_id: userId, host_id: hostId, elder_id: elderId, elder_name: elderName, elder_type: elderType,
-          elder_evolution_stage: evoStage, duration_hours: durationHours, gift_type: giftType, mode, snapshot, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
+          elder_evolution_stage: evoStage, duration_hours: durationHours, gift_type: giftType, mode, snapshot, target_id: targetId || null, target_label: targetLabel || null, placed_at: now.toISOString(), ends_at: endsAt.toISOString(),
         }).select(ROW_FIELDS).maybeSingle();
         if (insertErr) {
           if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
@@ -176,9 +186,11 @@ export default async function handler(req: Request): Promise<Response> {
               const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
               const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
               const gift = row.gift_type === 'quest' || row.gift_type === 'boost' ? row.gift_type : 'materials';
-              const note = gift === 'quest' ? `gift:quest:${giftQuestPoints(stayedHours)}:${row.elder_name}`
-                : gift === 'boost' ? `gift:boost:${giftBoostHours(stayedHours)}:${row.elder_name}`
-                : `gift:materials:0:${row.elder_name}`;
+              const elderTxt = String(row.elder_name).replace(/[:\n\r]/g, ' ').slice(0, 40);
+              const tgt = `${row.target_id ?? ''}:${row.target_label ?? ''}`;
+              const note = gift === 'quest' ? `gift:quest:${giftQuestPoints(stayedHours)}:${elderTxt}:${tgt}`
+                : gift === 'boost' ? `gift:boost:${giftBoostHours(stayedHours)}:${elderTxt}:${tgt}`
+                : `gift:materials:0:${elderTxt}:`;
               const { error: mailErr } = await supabase.from('mail_inbox').insert({
                 recipient_id: row.host_id, sender_id: userId, sender_name: senderName, kind: 'resident_exchange_host',
                 day: today, ref: row.id, reward_materials: gift === 'materials' ? giftMaterials(stayedHours) : 0,

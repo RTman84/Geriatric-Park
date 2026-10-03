@@ -100,6 +100,11 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       squad_power: squadPowerFrom(saveData),
       favorite_elders: favoriteElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
+      // Active (unfinished) quests, so friends can pick one when leaving an Elder to help. Untrusted-save rules apply.
+      active_quests: (Array.isArray(saveData?.quests) ? saveData.quests : [])
+        .filter((q: any) => q && typeof q.id === 'string' && typeof q.title === 'string' && !q.completed && Number.isFinite(q.target) && Number.isFinite(q.progress))
+        .slice(0, 12)
+        .map((q: any) => ({ id: q.id.slice(0, 40), title: q.title.slice(0, 60), progress: Math.max(0, Math.floor(q.progress)), target: Math.max(1, Math.floor(q.target)) })),
       // Friend's park otherwise always showed Lv 1 -- sanitized the same way as any other
       // untrusted-save field: only keep finite integer levels >= 1, keyed by a string id.
       amenity_levels: (() => {

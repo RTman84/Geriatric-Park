@@ -526,12 +526,12 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', asLoan = false) => {
+  const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', asLoan = false, target?: { id: string; label: string }) => {
     if (state.stationedAt?.[elder.id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
     if (elder.status === 'Team') { notify('Move this Elder off your squad before sending them out.', 'bad'); return; }
     try {
       await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours, giftType,
-        asLoan ? { level: elder.level, rarity: elder.rarity, powerType: String(elder.powerType), strength: elder.strength, wit: elder.wit, agility: elder.agility, tenacity: elder.tenacity, maxHp: elder.maxHp, hp: elder.maxHp } : undefined);
+        asLoan ? { level: elder.level, rarity: elder.rarity, powerType: String(elder.powerType), strength: elder.strength, wit: elder.wit, agility: elder.agility, tenacity: elder.tenacity, maxHp: elder.maxHp, hp: elder.maxHp } : undefined, target);
       setState(prev => ({
         ...prev,
         allElders: prev.allElders.map(e => e.id === elder.id

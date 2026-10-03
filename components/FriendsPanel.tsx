@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import type { ResidentExchangeRow } from '../services/residentExchangeService';
@@ -26,7 +26,7 @@ interface FriendsPanelProps {
   stationedIds?: string[]; // Elders defending an Arena can't be sent away
   residentExchangeMine: ResidentExchangeRow[];
   residentExchangeHosting: ResidentExchangeRow[];
-  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost', asLoan?: boolean) => void;
+  onPlaceResident: (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost', asLoan?: boolean, target?: { id: string; label: string }) => void;
   onRecallResident: (placementId: string) => void;
   hasSquad: boolean;
 }
@@ -41,6 +41,22 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   const rank = getRankForLevel(profile.level);
   return { icon: rank.icon, title: rank.title };
 }
+
+// One line telling BOTH sides what an exchange is for and what each will get (amounts shown for a full stay).
+const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'): string => {
+  const hrs = r.duration_hours;
+  const owner = `${r.elder_name} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP`;
+  if (r.mode === 'loan') {
+    return side === 'mine'
+      ? `Squad Loan: ${r.host?.display_name || 'your friend'} can use ${r.elder_name} in Battles and Court. ${owner}. Your friend gets the combat help.`
+      : `Squad Loan: ${r.elder_name} fights on your squad (Battles and Court only). ${r.owner?.display_name || 'Your friend'} earns the XP; you get the help.`;
+  }
+  const where = r.target_label ? ` -> ${r.target_label}` : ' (host picks the target)';
+  const gift = r.gift_type === 'quest' ? `${exchangeGiftQuestPoints(hrs)} Quest progress${where}`
+    : r.gift_type === 'boost' ? `${exchangeGiftBoostHours(hrs)}h building output${where}`
+    : `${exchangeGiftMaterials(hrs)} Building Materials`;
+  return side === 'mine' ? `Visit: ${owner}. Host receives ${gift}. Rewards scale down if recalled early.` : `Visit: you receive ${gift} when ${r.elder_name} heads home. ${r.owner?.display_name || 'Your friend'} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP.`;
+};
 
 const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
   const [codeInput, setCodeInput] = useState('');
@@ -57,6 +73,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [pickedElderId, setPickedElderId] = useState<string | null>(null);
   const [pickedDuration, setPickedDuration] = useState<8 | 12 | 24>(8);
   const [pickedLoan, setPickedLoan] = useState(false);
+  const [pickedTargetId, setPickedTargetId] = useState<string>('');
   const [pickedGift, setPickedGift] = useState<'materials' | 'quest' | 'boost'>('materials');
 
   const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
@@ -178,6 +195,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                 <SparklesIcon className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">{r.owner?.display_name || 'A friend'}'s {r.elder_name} is {r.mode === 'loan' ? 'on loan to you' : 'visiting'} · {timeLeftLabel(r.ends_at)}</span>
               </div>
+            ))}
+            {residentExchangeHosting.map(r => (
+              <p key={r.id + 'd'} className="text-[11px] opacity-70 -mt-1 mb-1.5 leading-snug">{exchangeSummary(r, 'hosting')}</p>
             ))}
           </div>
         )}
@@ -352,13 +372,29 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                               <p className="text-[11px] opacity-60 mb-2">
                                 {pickedGift === 'materials' ? `About ${Math.max(1, Math.round(pickedDuration * 0.5))} Building Materials.` : pickedGift === 'quest' ? `+${Math.max(1, Math.round(pickedDuration / 4))} progress on a Quest they choose.` : `+${Math.max(1, Math.round(pickedDuration / 4))}h of output on a working building they choose.`} Scales down if recalled early.
                               </p>
+                              {(pickedGift === 'quest' || pickedGift === 'boost') && (() => {
+                                const opts = pickedGift === 'quest'
+                                  ? (friend.active_quests ?? []).map(q => ({ id: q.id, label: `${q.title} (${q.progress}/${q.target})` }))
+                                  : AMENITIES.filter(a => a.producer && friend.built_amenities?.includes(a.id)).map(a => ({ id: a.id, label: a.name }));
+                                return opts.length === 0 ? (
+                                  <p className="text-[11px] opacity-60 mb-2">{pickedGift === 'quest' ? 'Your friend has no active quests to help with right now.' : 'Your friend has no working buildings to boost yet.'} They can pick when claiming instead.</p>
+                                ) : (
+                                  <select value={pickedTargetId} onChange={ev => setPickedTargetId(ev.target.value)} className={`w-full mb-2 rounded-lg px-2 py-2 text-[12px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                                    <option value="">{pickedGift === 'quest' ? 'Let them choose a quest' : 'Let them choose a building'}</option>
+                                    {opts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                                  </select>
+                                );
+                              })()}
                               </>)}
                               <button
                                 disabled={!pickedElderId}
                                 onClick={() => {
                                   const elder = elders.find(e => e.id === pickedElderId);
                                   if (!elder) return;
-                                  onPlaceResident(friend.user_id, elder, pickedDuration, pickedGift, pickedLoan);
+                                  const tgtOpts = pickedGift === 'quest' ? (friend.active_quests ?? []).map(q => ({ id: q.id, label: q.title })) : AMENITIES.filter(a => a.producer).map(a => ({ id: a.id, label: a.name }));
+                                  const tgt = !pickedLoan && pickedTargetId ? tgtOpts.find(o => o.id === pickedTargetId) : undefined;
+                                  onPlaceResident(friend.user_id, elder, pickedDuration, pickedGift, pickedLoan, tgt);
+                                  setPickedTargetId('');
                                   setPlacingForFriendId(null);
                                 }}
                                 className="w-full py-2 rounded-lg bg-[var(--accent-600)] text-white text-[12px] font-black uppercase disabled:opacity-40"

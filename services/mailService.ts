@@ -94,13 +94,15 @@ function rowToMessage(row: InboxRow): MailMessage {
     const bits = typeof row.note === 'string' ? row.note.split(':') : [];
     const type = bits[1];
     const amount = Math.max(0, Math.min(100, Math.floor(Number(bits[type === 'materials' ? 2 : 2]) || 0)));
-    const elder = bits.slice(3).join(':').slice(0, 60) || 'An Elder';
+    const elder = (bits[3] || '').slice(0, 60) || 'An Elder';
+    const targetId = (bits[4] || '').slice(0, 40);
+    const targetLabel = (bits.slice(5).join(':') || '').slice(0, 60);
     const intro = `${elder} just finished a visit to your park and ${row.sender_name} sent a thank-you gift.`;
     if (type === 'quest' && amount > 0) {
-      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one active Quest to push forward by ${amount}.`, exchangeHost: true, gift: { type: 'quest', amount, from: row.sender_name } };
+      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} ${targetId ? `Quest chosen for you: ${targetLabel || 'a quest'}.` : 'Claim it and choose one active Quest to push forward by ' + amount + '.'}`, exchangeHost: true, gift: { type: 'quest', amount, from: row.sender_name, targetId: targetId || undefined, targetLabel: targetLabel || undefined } };
     }
     if (type === 'boost' && amount > 0) {
-      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} Claim it and choose one working building to add ${amount} extra ${plural(amount, 'hour', 'hours')} of output to (up to its storage limit).`, exchangeHost: true, gift: { type: 'boost', amount, from: row.sender_name } };
+      return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro} ${targetId ? `Building chosen for you: ${targetLabel || 'a building'} (+${amount} ${plural(amount, 'hour', 'hours')} of output, up to its storage limit).` : 'Claim it and choose one working building to add ' + amount + ' extra ' + plural(amount, 'hour', 'hours') + ' of output to (up to its storage limit).'}`, exchangeHost: true, gift: { type: 'boost', amount, from: row.sender_name, targetId: targetId || undefined, targetLabel: targetLabel || undefined } };
     }
     return { ...base, sender: row.sender_name, subject: `🏡 ${elder} visited your park`, body: `${intro}`, reward, materials, exchangeHost: true };
   }

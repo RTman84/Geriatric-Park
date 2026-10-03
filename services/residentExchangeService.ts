@@ -15,6 +15,8 @@ export interface ResidentExchangeRow {
   duration_hours: 8 | 12 | 24;
   gift_type?: 'materials' | 'quest' | 'boost';
   mode?: 'visit' | 'loan';
+  target_id?: string | null;
+  target_label?: string | null;
   snapshot?: LoanSnapshot | null;
   placed_at: string;
   ends_at: string;
@@ -46,9 +48,9 @@ async function post(payload: Record<string, unknown>) {
 }
 
 export const placeResident = (
-  hostId: string, elderId: string, elderName: string, elderType: string, elderEvolutionStage: number, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', loan?: LoanSnapshot
+  hostId: string, elderId: string, elderName: string, elderType: string, elderEvolutionStage: number, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', loan?: LoanSnapshot, target?: { id: string; label: string }
 ): Promise<{ placement: ResidentExchangeRow }> =>
-  post({ action: 'place', hostId, elderId, elderName, elderType, elderEvolutionStage, durationHours, giftType, ...(loan ? { mode: 'loan', snapshot: loan } : {}) });
+  post({ action: 'place', hostId, elderId, elderName, elderType, elderEvolutionStage, durationHours, giftType, ...(target ? { targetId: target.id, targetLabel: target.label } : {}), ...(loan ? { mode: 'loan', snapshot: loan } : {}) });
 
 export const recallResident = (placementId: string): Promise<{ elderId: string; xpEarned: number }> =>
   post({ action: 'recall', placementId });

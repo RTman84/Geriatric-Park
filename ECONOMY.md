@@ -348,3 +348,8 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Because high-level captures are now possible, Scrap counts an Elder's level only up to 25 (`SCRAP_LEVEL_CAP`) so capture-then-scrap cannot be a Ticket faucet. Watch this: raise or lower the cap after real play.
 - Player battles: the 5-minute cooldown is now per opponent (attacking one player never makes you wait to attack another), with a soft cap of 30 attacks per UTC day on top of the existing reward caps (first 6 wins per day pay) and the server's 20 battles per pair per day.
 - Golden Games cards show "Required X . Recommended Y"; locked cards no longer show the player's own power.
+
+## Resident Exchange targets and visibility (2026-10-03)
+- For Quest and Building-output gifts the owner now picks the host's target when leaving the Elder (from the friend's synced active quests or working buildings). The host's Mailbox then offers a one-tap claim on that target; if the target is gone by then (quest done, building missing) the host picks another.
+- Both players see a plain-language line under the Resident Exchange list: what the Elder is out for, what each side receives (amounts for a full stay), and the time left on the Recall/visit row.
+- Friends' active quests are synced to `player_profiles.active_quests` (migration 013). The server rejects a target that is not on the host's profile.

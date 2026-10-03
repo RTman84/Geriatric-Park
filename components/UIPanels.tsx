@@ -116,9 +116,15 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
           <p className="text-[15px] text-slate-600 mb-6 leading-relaxed">{msg.body}</p>
           {msg.gift && !msg.claimed && (
             <div>
+              {msg.gift.targetId && (msg.gift.type === 'quest' ? quests.some(q => q.id === msg.gift!.targetId && !q.completed) : workingBuildings.some(b => b.id === msg.gift!.targetId)) ? (
+                <button onClick={() => onClaimGift?.(msg.id, msg.gift!.targetId!)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
+                  {msg.gift.type === 'quest' ? `Claim +${msg.gift.amount} on ${msg.gift.targetLabel || 'your quest'}` : `Claim +${msg.gift.amount}h on ${msg.gift.targetLabel || 'your building'}`}
+                </button>
+              ) : (
               <button onClick={() => setGiftOpenId(giftOpenId === msg.id ? null : msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
                 <GiftIcon className="w-4 h-4" /> {giftOpenId === msg.id ? 'Choose a target' : (msg.gift.type === 'quest' ? `Claim +${msg.gift.amount} Quest progress` : `Claim +${msg.gift.amount}h building output`)}
               </button>
+              )}
               {giftOpenId === msg.id && (() => {
                 const targets = msg.gift!.type === 'quest'
                   ? quests.filter(q => !q.completed).map(q => ({ id: q.id, label: `${q.title} (${q.progress}/${q.target})` }))

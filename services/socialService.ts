@@ -17,6 +17,7 @@ export interface PlayerProfileSnapshot {
   squad_power: number;
   favorite_elders: { type: string; evolutionStage: 0 | 1 | 2; name: string }[];
   built_amenities: string[];
+  active_quests?: { id: string; title: string; progress: number; target: number }[];
   amenity_levels: Record<string, number>;
   updated_at: string;
 }

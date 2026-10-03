@@ -179,6 +179,12 @@ export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' |
   return out;
 }
 
+// What a Resident Exchange gift is worth after `hours` hours away (mirrors api/resident-exchange.ts).
+export const exchangeGiftMaterials = (h: number) => Math.max(1, Math.round(h * 0.5));
+export const exchangeGiftQuestPoints = (h: number) => Math.max(1, Math.round(h / 4));
+export const exchangeGiftBoostHours = (h: number) => Math.max(1, Math.round(h / 4));
+export const EXCHANGE_OWNER_XP_PER_HOUR = 15;
+
 // Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
 // Ticket payout (wild Elders are now kept at the level and power they were fought at).
 export const SCRAP_LEVEL_CAP = 25;
