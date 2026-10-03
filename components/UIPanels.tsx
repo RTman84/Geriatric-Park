@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle,
-  GEAR_RARITY_COLOR, GEAR_MAX_LEVEL, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
+  GEAR_RARITY_COLOR, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1349,13 +1349,13 @@ export const BasePanel: React.FC<{
                 <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
                 <div className="flex items-center gap-2 mt-0.5">
                   <RarityBadge rarity={item.rarity ?? 'Common'} />
-                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{GEAR_MAX_LEVEL} · +{getEffectiveGearBoost(item)}</span>
+                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{getGearMaxLevel(item)} · +{getEffectiveGearBoost(item)}</span>
                 </div>
               </div>
             </div>
             <p className={`text-[12px] mb-3 flex-shrink-0 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{item.description}</p>
             <div className="flex gap-2 mb-3 flex-shrink-0">
-              {(item.level ?? 1) < GEAR_MAX_LEVEL && (() => {
+              {(item.level ?? 1) < getGearMaxLevel(item) && (() => {
                 const cost = getGearUpgradeCost(item);
                 const canAfford = tokens >= cost.tickets && materials >= cost.materials;
                 return (

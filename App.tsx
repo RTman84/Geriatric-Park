@@ -175,7 +175,7 @@ import {
   getGearUpgradeCost,
   getGearSellValue,
   gearSlotKey,
-  GEAR_MAX_LEVEL,
+  getGearMaxLevel,
 } from './constants';
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
@@ -2192,7 +2192,7 @@ const App: React.FC = () => {
       const item = prev.inventory.find(i => i.id === itemId);
       if (!item) return prev;
       const level = item.level ?? 1;
-      if (level >= GEAR_MAX_LEVEL) { notify('Already at max level.'); return prev; }
+      if (level >= getGearMaxLevel(item)) { notify('Already at max level for its rarity.'); return prev; }
       const cost = getGearUpgradeCost(item);
       if (prev.legacyTokens < cost.tickets || prev.buildingMaterials < cost.materials) {
         notify(`Need ${cost.tickets} Tickets + ${cost.materials} Materials to upgrade.`);

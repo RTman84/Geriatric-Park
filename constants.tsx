@@ -1231,23 +1231,43 @@ export function rollGearRarity(): GearRarity {
   return 'Common';
 }
 
-export const GEAR_MAX_LEVEL = 5;
-const GEAR_UPGRADE_BONUS_PER_LEVEL = 0.15; // +15% of base boost per level above 1
+// Gear upgrades scale with rarity like Elder stats do: rarer gear has a higher level cap, grows faster per level
+// past level 5, and costs somewhat more to push. Levels 1-5 are IDENTICAL to the old formula for every rarity
+// (old max was 5), so gear already equipped (its boost is baked into an Elder's stats) needs no migration.
+export const GEAR_MAX_LEVEL_BY_RARITY: Record<GearRarity, number> = { Common: 10, Rare: 15, Epic: 20, Legendary: 30 };
+export function getGearMaxLevel(item: { rarity?: GearRarity }): number {
+  return GEAR_MAX_LEVEL_BY_RARITY[item.rarity ?? 'Common'] ?? 10;
+}
+const GEAR_LEGACY_MAX_LEVEL = 5;
+const GEAR_UPGRADE_BONUS_PER_LEVEL = 0.15; // +15% of base boost per level up to 5, for every rarity
+const GEAR_LATE_BONUS_PER_LEVEL = 0.10; // past level 5: +10% of base per level, x rarity (Common 1.0 ... Legendary 1.8)
 const GEAR_UPGRADE_COST_BASE = { tickets: 40, materials: 3 };
-const GEAR_UPGRADE_COST_GROWTH = 1.5;
+const GEAR_UPGRADE_COST_GROWTH = 1.5; // levels 1-5 (unchanged)
+const GEAR_LATE_TICKET_GROWTH = 1.12; // past level 5, costs climb gently so the higher caps stay reachable
+const GEAR_LATE_MATERIAL_GROWTH = 1.10;
 
 export function getEffectiveGearBoost(item: { boost: number; rarity?: GearRarity; level?: number }): number {
   const mult = GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1;
-  const lvl = item.level ?? 1;
-  return Math.round(item.boost * mult * (1 + (lvl - 1) * GEAR_UPGRADE_BONUS_PER_LEVEL));
+  const lvl = Math.max(1, item.level ?? 1);
+  const early = (Math.min(lvl, GEAR_LEGACY_MAX_LEVEL) - 1) * GEAR_UPGRADE_BONUS_PER_LEVEL;
+  // Past level 5 the per-level gain also scales with rarity (Common x1.0 ... Legendary x1.8), same as Elder growth.
+  const late = Math.max(0, lvl - GEAR_LEGACY_MAX_LEVEL) * GEAR_LATE_BONUS_PER_LEVEL * (RARITY_STAT_MULTIPLIER[item.rarity ?? 'Common'] ?? 1);
+  return Math.round(item.boost * mult * (1 + early + late));
 }
 
-export function getGearUpgradeCost(item: { level?: number }): { tickets: number; materials: number } {
-  const lvl = item.level ?? 1;
-  const scale = Math.pow(GEAR_UPGRADE_COST_GROWTH, lvl - 1);
+export function getGearUpgradeCost(item: { level?: number; rarity?: GearRarity }): { tickets: number; materials: number } {
+  const lvl = Math.max(1, item.level ?? 1);
+  if (lvl < GEAR_LEGACY_MAX_LEVEL) {
+    const scale = Math.pow(GEAR_UPGRADE_COST_GROWTH, lvl - 1);
+    return { tickets: Math.round(GEAR_UPGRADE_COST_BASE.tickets * scale), materials: Math.round(GEAR_UPGRADE_COST_BASE.materials * scale) };
+  }
+  const steps = lvl - GEAR_LEGACY_MAX_LEVEL + 1; // upgrading 5->6 is step 1
+  const baseT = GEAR_UPGRADE_COST_BASE.tickets * Math.pow(GEAR_UPGRADE_COST_GROWTH, GEAR_LEGACY_MAX_LEVEL - 1);
+  const baseM = GEAR_UPGRADE_COST_BASE.materials * Math.pow(GEAR_UPGRADE_COST_GROWTH, GEAR_LEGACY_MAX_LEVEL - 1);
+  const rarityCost = 1 + ((GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1) - 1) * 0.5; // Rare 1.15, Epic 1.35, Legendary 1.6
   return {
-    tickets: Math.round(GEAR_UPGRADE_COST_BASE.tickets * scale),
-    materials: Math.round(GEAR_UPGRADE_COST_BASE.materials * scale),
+    tickets: Math.round(baseT * Math.pow(GEAR_LATE_TICKET_GROWTH, steps) * rarityCost),
+    materials: Math.round(baseM * Math.pow(GEAR_LATE_MATERIAL_GROWTH, steps) * rarityCost),
   };
 }
 

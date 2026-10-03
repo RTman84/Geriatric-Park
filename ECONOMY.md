@@ -334,3 +334,11 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Golden Games and the Challenge ladder no longer compound 1.10 per tier (that passed 500,000 power, unreachable). Both follow a shared curve that is near-linear early and bends up late, ending at `PROGRESSION_MAX_POWER` = 24,000 at tier 100 (a max-level, evolved, Epic/Legendary squad is about 20-25k). Tier 10 is about 700-1,100 power, tier 50 about 5,500, tier 75 about 12,000.
 - Golden Games league unlocks and entry count only the player's own Elders, never a loaned one. A loaned Elder still helps the win roll.
 - NOT yet re-audited against these curves: Raid boss HP and damage caps, Arena power, Daily Tournament scoring, Auto-Play benchmark.
+
+## Gear upgrades scale with rarity (2026-10-03)
+- Level cap by rarity: Common 10, Rare 15, Epic 20, Legendary 30 (was 5 for all). `getGearMaxLevel`.
+- Levels 1-5 are unchanged for every rarity (+15% of base per level, cost 40/60/90/135 Tickets), so gear already equipped needs no migration (its boost is baked into Elder stats).
+- Past level 5: +10% of base per level x rarity (Common 1.0, Rare 1.2, Epic 1.45, Legendary 1.8). Upgrade costs climb 1.12x (Tickets) and 1.10x (Materials) per level, times a rarity factor (Rare 1.15, Epic 1.35, Legendary 1.6).
+- Boost on a base-10 item at its cap: Common 21, Rare 36, Epic 64, Legendary 134 (on top of the existing rarity multiplier on the base).
+- Total Tickets to max one piece: Common about 1.8k, Rare about 4.9k, Epic about 11.7k, Legendary about 48k (Materials about 130 / 330 / 740 / 2.6k at the earlier 0.15 tuning; recheck before launch).
+- Sell value still scales linearly with level and is a small fraction of what was spent.
