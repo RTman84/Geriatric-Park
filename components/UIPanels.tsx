@@ -492,7 +492,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (!friend) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const { won, ticketsEarned } = rollFriendBattle(teamStrength, friend.squad_power);
+      const { won, ticketsEarned } = rollFriendBattle(getSquadPower(team.filter(e => !e.borrowed)), friend.squad_power);
       const result = onFriendBattleResult(won, ticketsEarned, friend.user_id);
       setLastResultWon(won);
       setLastResult(won
@@ -1449,7 +1449,7 @@ export const BasePanel: React.FC<{
                   )}
                   {e.awayUntil && (
                     <div className={`mt-3 p-2 rounded-xl text-[13px] font-black text-center ${isDark ? 'bg-sky-900/40 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>
-                      🏡 At {e.awayHost || "a friend"}'s park · {e.awayUntil > Date.now() ? `${Math.ceil((e.awayUntil - Date.now()) / 3600000)}h left` : 'returning…'}
+                      {e.awayLoan ? '🤝 On loan to' : '🏡 At'} {e.awayHost || "a friend"}{e.awayLoan ? '' : "'s park"} · {e.awayUntil > Date.now() ? `${Math.ceil((e.awayUntil - Date.now()) / 3600000)}h left` : 'returning…'}
                     </div>
                   )}
                   <div className={`flex gap-2 mt-3 ${e.awayUntil ? 'opacity-40 pointer-events-none' : ''}`}>

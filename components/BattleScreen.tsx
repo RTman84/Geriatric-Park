@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Elder, PowerType } from '../types';
-import { ELDER_AVATARS, ElderAvatarImg, POWER_ADVANTAGE, ELDER_TYPE_STYLING, GUIDE_SUCCESS_RATE } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, POWER_ADVANTAGE, ELDER_TYPE_STYLING, GUIDE_SUCCESS_RATE, getElderPower } from '../constants';
 import { generateBattleDialogue } from '../services/geminiService';
 import { audioManager } from '../services/audioManager';
 import { PlayIcon, ArrowsRightLeftIcon, CpuChipIcon } from '@heroicons/react/24/solid';
@@ -234,6 +234,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
               <span className="text-[15px] font-black text-white uppercase tracking-widest">{opponentElder.name}</span>
               <span className="text-[15px] font-black text-red-400 tracking-widest">{oppHp} HP</span>
             </div>
+            <p className="text-[13px] font-black text-slate-300 uppercase tracking-wider mb-2">Lv {opponentElder.level} {opponentElder.rarity} · PWR {getElderPower(opponentElder)}</p>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
               <div className="h-full bg-red-500 rounded-full transition-all duration-500" style={{ width: `${(oppHp / opponentElder.maxHp) * 100}%` }}></div>
             </div>
@@ -254,6 +255,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
               <span className="text-[15px] font-black text-white uppercase tracking-widest">{activeElder.name}</span>
               <span className="text-[15px] font-black text-blue-400 tracking-widest">{activeElder.hp} HP</span>
             </div>
+            <p className="text-[13px] font-black text-slate-300 uppercase tracking-wider mb-2">{activeElder.borrowed ? `🤝 On loan from ${activeElder.loanedBy} · ` : ''}Lv {activeElder.level} {activeElder.rarity} · PWR {getElderPower(activeElder)}</p>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
               <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(activeElder.hp / activeElder.maxHp) * 100}%` }}></div>
             </div>

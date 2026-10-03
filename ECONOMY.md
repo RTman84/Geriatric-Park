@@ -322,3 +322,8 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Limits: a borrower holds one loaned Elder at a time; the lender's 3-Elders-away cap still applies. A loaned Elder fights in Battles and Court games only. It is never used in Arenas, Raids or Friend Battle (those read the player's own saved squad), takes no permanent damage, and earns the borrower no Elder XP.
 - Stats come from a snapshot taken at lending time (client-supplied, clamped by the API, same trust level as synced Squad Power; hardened by the Bundle F ledger).
 - Not gated by level yet. If strong players lending to new ones proves unbalanced, add a lower-level-friends-only rule here first.
+
+## Squad Loan and wild scaling follow-up (2026-10-02)
+- Only benched Elders can be lent or sent to visit (squad members and Arena defenders stay home).
+- A loaned Elder counts in Battle, Court Auto-Play, Daily Tournament, Elder Challenge and Golden Games power. It does NOT count in Court Friend Battle, the Friends-list Battle button, Arenas or Raids.
+- Wild Elders are scaled when a battle starts: power = 85-115% of the player's best captured Elder (x0.9 Common, x1.0 Rare, x1.15 Epic), level = best Elder level +/-1. Battle screens show level, rarity and power for both sides.

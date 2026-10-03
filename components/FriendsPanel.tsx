@@ -61,9 +61,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
 
   const placedElderIds = new Set(residentExchangeMine.map(r => r.elder_id));
   const stationedSet = new Set(stationedIds);
-  const teamCount = elders.filter(e => e.status === 'Team').length;
-  // Only Elders that can actually leave: not already away, not defending an Arena, and never the last squad member.
-  const availableToSend = elders.filter(e => e.captured && !e.awayUntil && !placedElderIds.has(e.id) && !stationedSet.has(e.id) && !(e.status === 'Team' && teamCount <= 1));
+  // Only Elders that can actually leave: not already away, not defending an Arena, and not on your squad.
+  const availableToSend = elders.filter(e => e.captured && !e.awayUntil && !placedElderIds.has(e.id) && !stationedSet.has(e.id) && e.status !== 'Team'); // squad members stay home; bench them first to send them out
 
   function timeLeftLabel(endsAtIso: string): string {
     const ms = Date.parse(endsAtIso) - Date.now();
@@ -305,7 +304,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       {placingForFriendId === friend.user_id && (
                         <div className={`rounded-xl p-3 mb-3 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
                           {availableToSend.length === 0 ? (
-                            <p className="text-[12px] italic opacity-50">No Elders free to send right now.</p>
+                            <p className="text-[12px] italic opacity-50">No Elders free to send. Squad members and Arena defenders stay home.</p>
                           ) : (
                             <>
                               <select

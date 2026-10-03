@@ -498,13 +498,14 @@ const App: React.FC = () => {
           if (row) {
             const hostName = row.host?.display_name || 'a friend';
             const until = new Date(row.ends_at).getTime();
-            if (e.awayUntil === until && e.awayHost === hostName) return e;
+            const isLoan = row.mode === 'loan';
+            if (e.awayUntil === until && e.awayHost === hostName && !!e.awayLoan === isLoan) return e;
             changed = true;
-            return { ...e, awayUntil: until, awayHost: hostName, awayPrevStatus: e.awayPrevStatus ?? (e.status === 'Base' ? 'Base' : e.status), status: 'Base' as const };
+            return { ...e, awayUntil: until, awayHost: hostName, awayLoan: isLoan, awayPrevStatus: e.awayPrevStatus ?? (e.status === 'Base' ? 'Base' : e.status), status: 'Base' as const };
           }
           if (e.awayUntil) {
             changed = true;
-            const { awayUntil, awayHost, awayPrevStatus, ...rest } = e;
+            const { awayUntil, awayHost, awayPrevStatus, awayLoan, ...rest } = e;
             return { ...rest, status: awayPrevStatus === 'Porch' ? 'Porch' as const : 'Base' as const };
           }
           return e;
@@ -526,17 +527,14 @@ const App: React.FC = () => {
 
   const handlePlaceResident = useCallback(async (hostId: string, elder: Elder, durationHours: 8 | 12 | 24, giftType: 'materials' | 'quest' | 'boost' = 'materials', asLoan = false) => {
     if (state.stationedAt?.[elder.id]) { notify('That Elder is defending an Arena — recall it first.', 'bad'); return; }
-    if (elder.status === 'Team' && state.allElders.filter(e => e.status === 'Team').length <= 1) {
-      notify('Keep at least one Elder on your squad before sending this one away.', 'bad');
-      return;
-    }
+    if (elder.status === 'Team') { notify('Move this Elder off your squad before sending them out.', 'bad'); return; }
     try {
       await placeResident(hostId, elder.id, elder.name, elder.type, elder.evolutionStage ?? 0, durationHours, giftType,
         asLoan ? { level: elder.level, rarity: elder.rarity, powerType: String(elder.powerType), strength: elder.strength, wit: elder.wit, agility: elder.agility, tenacity: elder.tenacity, maxHp: elder.maxHp, hp: elder.maxHp } : undefined);
       setState(prev => ({
         ...prev,
         allElders: prev.allElders.map(e => e.id === elder.id
-          ? { ...e, awayPrevStatus: e.status, awayUntil: Date.now() + durationHours * 3600000, status: 'Base' as const }
+          ? { ...e, awayPrevStatus: e.status, awayUntil: Date.now() + durationHours * 3600000, awayLoan: asLoan, status: 'Base' as const }
           : e),
       }));
       setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'exchange_send') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
@@ -554,7 +552,7 @@ const App: React.FC = () => {
         const teamCount = prev.allElders.filter(e => e.status === 'Team').length;
         const allElders = grantElderXpById(prev.allElders, elderId, xpEarned).map(e => {
           if (e.id !== elderId) return e;
-          const { awayUntil, awayHost, awayPrevStatus, ...rest } = e;
+          const { awayUntil, awayHost, awayPrevStatus, awayLoan, ...rest } = e;
           const back = awayPrevStatus === 'Team' && teamCount < TEAM_SIZE_LIMIT ? 'Team' as const : awayPrevStatus === 'Porch' ? 'Porch' as const : 'Base' as const;
           return { ...rest, status: back };
         });
@@ -570,9 +568,15 @@ const App: React.FC = () => {
 
   // Check for expired placements every minute while the app is open (timer end = automatic return).
   useEffect(() => {
-    const t = setInterval(() => { if (residentExchangeMine.some(r => new Date(r.ends_at).getTime() <= Date.now())) void refreshResidentExchange(); }, 60000);
-    return () => clearInterval(t);
-  }, [residentExchangeMine, refreshResidentExchange]);
+    // Every minute: lets a friend's new loan appear on the borrower's Squad/Battle/Court screens, and brings expired Elders home.
+    const t = setInterval(() => { void refreshResidentExchange(); }, 60000);
+    const onVis = () => { if (document.visibilityState === 'visible') void refreshResidentExchange(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [refreshResidentExchange]);
+
+  // Opening Squad, Court or the map battle screen always pulls the freshest loan data.
+  useEffect(() => { if (activeTab === 'team' || activeTab === 'shuffleboard' || activeTab === 'map') void refreshResidentExchange(); }, [activeTab, refreshResidentExchange]);
 
   const handleOpenFriends = useCallback(() => {
     setShowFriendsPanel(true);
@@ -2414,6 +2418,18 @@ const App: React.FC = () => {
         status: 'Team' as const, borrowed: true, loanedBy: r.owner?.display_name || 'a friend',
       } as Elder;
     }), [residentExchangeHosting]);
+  // Wild Elders scale to the player: power lands within roughly 85-115% of your strongest captured Elder (Common a bit
+  // lower, Epic higher). Based on your best Elder, not the current squad, so swapping squads can't shrink opponents.
+  const scaleWildElder = useCallback((w: Elder): Elder => {
+    const mine = state.allElders.filter(e => e.captured && !e.borrowed);
+    const topPower = Math.max(28, ...mine.map(e => getElderPower(e)));
+    const topLevel = Math.max(1, ...mine.map(e => e.level));
+    const rarityMult = w.rarity === 'Epic' ? 1.15 : w.rarity === 'Rare' ? 1.0 : 0.9;
+    const target = topPower * rarityMult * (0.85 + Math.random() * 0.3);
+    const f = target / 28; // wild base stats are 10 / 10 / 8 / 8
+    const maxHp = Math.max(80, Math.round(80 + (target - 28) * 1.5));
+    return { ...w, level: Math.max(1, topLevel + Math.floor(Math.random() * 3) - 1), strength: Math.round(10 * f), wit: Math.round(10 * f), tenacity: Math.round(8 * f), agility: Math.round(8 * f), maxHp, hp: maxHp };
+  }, [state.allElders]);
   const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);
   const isDark = state.settings.darkTheme;
@@ -2549,7 +2565,7 @@ const App: React.FC = () => {
               nearbyStructures={state.nearbyStructures} heldStructureIds={state.heldStructureIds}
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
-              onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: e }); }}
+              onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setBattleOpponent({ elder: scaleWildElder(e) }); }}
               onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} arenaRaids={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.raid]))} onArenaClick={handleArenaMarkerClick}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
