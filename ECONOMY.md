@@ -340,5 +340,5 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Levels 1-5 are unchanged for every rarity (+15% of base per level, cost 40/60/90/135 Tickets), so gear already equipped needs no migration (its boost is baked into Elder stats).
 - Past level 5: +10% of base per level x rarity (Common 1.0, Rare 1.2, Epic 1.45, Legendary 1.8). Upgrade costs climb 1.12x (Tickets) and 1.10x (Materials) per level, times a rarity factor (Rare 1.15, Epic 1.35, Legendary 1.6).
 - Boost on a base-10 item at its cap: Common 21, Rare 36, Epic 64, Legendary 134 (on top of the existing rarity multiplier on the base).
-- Total Tickets to max one piece: Common about 1.8k, Rare about 4.9k, Epic about 11.7k, Legendary about 48k (Materials about 130 / 330 / 740 / 2.6k at the earlier 0.15 tuning; recheck before launch).
+- Total Tickets to max one piece: Common about 1.8k, Rare about 4.9k, Epic about 11.7k, Legendary about 48k and Materials about 130 / 330 / 740 / 2.6k. Costs are the same as before the late-gain tuning; only the boost was lowered (0.15 to 0.10 per level).
 - Sell value still scales linearly with level and is a small fraction of what was spent.
