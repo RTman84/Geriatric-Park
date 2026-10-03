@@ -14,7 +14,7 @@ import {
   normalizeChallengeLadder, rollChallenge, utcDayKey, ownedAssetCount,
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
-  rollFriendBattle,
+  rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
   GEAR_RARITY_COLOR, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
 } from '../constants';
 import { 
@@ -402,7 +402,7 @@ interface ShuffleboardProps {
   onRetryLeaderboard: () => void;
   onAddFriendFromLeaderboard?: (userId: string) => void;
   friends: { user_id: string; display_name: string | null; squad_power: number }[];
-  friendBattle: { nextMatchAt: number };
+  friendBattle: { nextMatchAt: number; lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => { tickets: number; materials: number; rewarded: boolean };
 }
 
@@ -443,10 +443,10 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       setTimeToMatch(Math.max(0, passiveMatchAt - Date.now()));
       setTimeToTournament(Math.max(0, tournamentEndsAt - Date.now()));
       setTimeToLeagueMatch(Math.max(0, goldenGames.nextMatchAt - Date.now()));
-      setTimeToFriendBattle(Math.max(0, friendBattle.nextMatchAt - Date.now()));
+      setTimeToFriendBattle(Math.max(0, (selectedFriendId ? (friendBattle.lastByFriend?.[selectedFriendId] ?? 0) + FRIEND_BATTLE_COOLDOWN_MS : 0) - Date.now()));
     }, 1000);
     return () => clearInterval(timer);
-  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt, friendBattle.nextMatchAt]);
+  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt, friendBattle.lastByFriend, selectedFriendId]);
 
   const formatTime = (ms: number) => {
     const m = Math.floor(ms / 60000);

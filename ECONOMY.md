@@ -342,3 +342,9 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Boost on a base-10 item at its cap: Common 21, Rare 36, Epic 64, Legendary 134 (on top of the existing rarity multiplier on the base).
 - Total Tickets to max one piece: Common about 1.8k, Rare about 4.9k, Epic about 11.7k, Legendary about 48k and Materials about 130 / 330 / 740 / 2.6k. Costs are the same as before the late-gain tuning; only the boost was lowered (0.15 to 0.10 per level).
 - Sell value still scales linearly with level and is a small fraction of what was spent.
+
+## Wild captures, player battles, Golden Games text (2026-10-03, supersedes the capture note above)
+- A guided wild Elder now joins exactly as fought: same level, stats and rarity, full HP, with `obtainedAt` set. About 8% of the time it arrives wearing one gear piece (best of two rarity rolls, so it tends to be better). The earlier "level 10 newcomer" rule is removed.
+- Because high-level captures are now possible, Scrap counts an Elder's level only up to 25 (`SCRAP_LEVEL_CAP`) so capture-then-scrap cannot be a Ticket faucet. Watch this: raise or lower the cap after real play.
+- Player battles: the 5-minute cooldown is now per opponent (attacking one player never makes you wait to attack another), with a soft cap of 30 attacks per UTC day on top of the existing reward caps (first 6 wins per day pay) and the server's 20 battles per pair per day.
+- Golden Games cards show "Required X . Recommended Y"; locked cards no longer show the player's own power.

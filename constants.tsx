@@ -156,9 +156,9 @@ export function standardElderStats(level: number, rarity: 'Common' | 'Rare' | 'E
     maxHp: Math.round((80 + STAT_BONUS_PER_LEVEL * 2 * L) * m),
   };
 }
-// Guided wild Elders join as newcomers: level capped here, stats reset to the standard curve for that level and
-// rarity. Keeps scaled wild fights from turning captures into instant power-ups or a Scrap Ticket faucet.
-export const WILD_CAPTURE_LEVEL_CAP = 10;
+// Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
+// Ticket payout (wild Elders are now kept at the level and power they were fought at).
+export const SCRAP_LEVEL_CAP = 25;
 // Highest squad power a fully built late-game squad can realistically reach (6 Elders at max level, evolved,
 // Epic/Legendary, some gear). Tier 100 of the Golden Games and the Challenge ladder are pegged to this, so every
 // tier is reachable and difficulty tracks real progression instead of compounding past anything attainable.
@@ -511,7 +511,8 @@ export function arenaAttackCost(attacksToday: number): number {
 // challenger's resources change; the friend being battled is untouched --
 // keeps this safe to build without a second layer of cross-account
 // transaction coordination.
-export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000;
+export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000; // per opponent: attacking one friend never makes you wait to attack another
+export const FRIEND_BATTLE_DAILY_ATTACK_CAP = 30; // soft total so nobody can spam players all day (rewards are separately capped)
 export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
 // Longevity pass (2026-09-20): was 40-80 Tickets + 6 Materials per win on a 5-minute cooldown, i.e. up to
 // ~720 Tickets and ~72 Materials an hour for anyone who could win. Now small rewards, and only the first

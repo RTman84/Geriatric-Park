@@ -128,7 +128,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats, WILD_CAPTURE_LEVEL_CAP,
+  SCRAP_RARITY_MULTIPLIER, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -137,7 +137,7 @@ import {
   ElderAvatarImg,
   resolveProfileDisplay,
   isImagePath,
-  SCRAP_BASE_TICKETS,
+  SCRAP_BASE_TICKETS, SCRAP_LEVEL_CAP,
   getYieldExchangeRate,
   ELDER_XP_FOR_LEVEL_UP,
   getBaseComfortGeneration,
@@ -159,7 +159,7 @@ import {
   buildingUpgradeTickets,
   producerStored,
   MAX_BUILDING_LEVEL,
-  FRIEND_BATTLE_COOLDOWN_MS,
+  FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
   FRIEND_BATTLE_WIN_MATERIALS,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -1588,7 +1588,7 @@ const App: React.FC = () => {
     }
     // Tickets only — PP stays strictly limited to ad-revenue-backed sources (ad-watch share +
     // Dividend claims), so scrapping an Elder never creates PP out of thin air.
-    const scale = elder.level * SCRAP_RARITY_MULTIPLIER[elder.rarity];
+    const scale = Math.min(elder.level, SCRAP_LEVEL_CAP) * SCRAP_RARITY_MULTIPLIER[elder.rarity]; // level counted up to a cap so high-level captures can't be a Ticket faucet
     const ticketPayout = Math.round(SCRAP_BASE_TICKETS * scale);
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
     setState(prev => ({
@@ -1806,7 +1806,13 @@ const App: React.FC = () => {
         xp, level,
         allElders: grantElderXpToTeam(prev.allElders, elderXp),
         parkCommunityScore: prev.parkCommunityScore + (rewarded ? FRIEND_BATTLE_WIN_COMMUNITY_SCORE : 0),
-        friendBattle: { nextMatchAt: Date.now() + FRIEND_BATTLE_COOLDOWN_MS, rewardDay: today, rewardsToday: prevUsed + (rewarded ? 1 : 0) },
+        friendBattle: {
+          nextMatchAt: 0,
+          rewardDay: today, rewardsToday: prevUsed + (rewarded ? 1 : 0),
+          lastByFriend: { ...(prev.friendBattle.lastByFriend ?? {}), [friendUserId]: Date.now() },
+          attackDay: today,
+          attacksToday: (prev.friendBattle.attackDay === today ? (prev.friendBattle.attacksToday ?? 0) : 0) + 1,
+        },
       };
     });
     return { tickets: ticketsToGrant, materials: materialsEarned, rewarded };
@@ -1828,7 +1834,7 @@ const App: React.FC = () => {
     return won
       ? (result.rewarded ? `You beat ${name}'s squad! +${result.tickets} 🎟️ +${result.materials} 🧱` : `You beat ${name}'s squad! Today's battle rewards are used up, so this one is for bragging rights.`)
       : `${name}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`;
-  }, [friendsData, state.allElders, state.friendBattle.nextMatchAt, handleFriendBattleResult]);
+  }, [friendsData, state.allElders, state.friendBattle.lastByFriend, state.friendBattle.attackDay, state.friendBattle.attacksToday, handleFriendBattleResult]);
 
   // Court Champion purse: once per reign (a reign lasts COURT_CHAMPION_DURATION_MS after a win on the map).
   const handleClaimCourtPurse = useCallback(() => {
@@ -2339,16 +2345,37 @@ const App: React.FC = () => {
     if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
 
-  // Guided wild Elders join as newcomers: capped level and the standard stats for that level and rarity.
-  const normalizeCapturedElder = (e: Elder): Elder => {
-    const level = Math.min(Math.max(1, e.level), WILD_CAPTURE_LEVEL_CAP);
-    return { ...e, level, xp: 0, ...standardElderStats(level, e.rarity), hp: standardElderStats(level, e.rarity).maxHp, rarityStatsV1: true };
+  // A guided wild Elder joins exactly as it was fought: same level, stats and rarity (full HP). Rarely it arrives
+  // already wearing a piece of gear, and that gear tends to be better than a typical drop.
+  const CAPTURE_GEAR_CHANCE = 0.08;
+  const finalizeCapturedElder = (e: Elder): Elder => {
+    const captured: Elder = { ...e, hp: e.maxHp, obtainedAt: Date.now(), rarityStatsV1: true, equipment: { ...(e.equipment ?? {}) } };
+    if (Math.random() < CAPTURE_GEAR_CHANCE) {
+      const gearPool = ITEM_POOL.filter(i => i.type === 'Equipment');
+      const pick = gearPool[Math.floor(Math.random() * gearPool.length)];
+      if (pick) {
+        const order = ['Common', 'Rare', 'Epic', 'Legendary'];
+        const a = rollGearRarity(), b = rollGearRarity();
+        const rarity = (order.indexOf(a) >= order.indexOf(b) ? a : b) as Gear['rarity']; // best of two rolls
+        const slot = pick.slot as Gear['slot'];
+        const item: Gear = { id: 'gear_' + Math.random().toString(36).slice(2, 11), name: pick.name, boost: pick.boost, description: pick.description, icon: pick.icon, slot, rarity, level: 1 };
+        const key = gearSlotKey(slot);
+        const boost = getEffectiveGearBoost(item);
+        if (key === 'head') captured.wit += boost;
+        if (key === 'body') captured.tenacity += boost;
+        if (key === 'accessory') captured.strength += boost;
+        if (key === 'charm') captured.agility += boost;
+        captured.equipment[key] = item;
+        captured.hp = captured.maxHp;
+      }
+    }
+    return captured;
   };
 
   const handleGuideSuccess = useCallback((guidedElder: Elder) => {
     setState(prev => {
       if (prev.allElders.find(e => e.id === guidedElder.id)) return prev; // already added, guard against double-fire
-      return { ...prev, allElders: [...prev.allElders, { ...normalizeCapturedElder(guidedElder), status: 'Base', isRoaming: false }] };
+      return { ...prev, allElders: [...prev.allElders, { ...finalizeCapturedElder(guidedElder), status: 'Base', isRoaming: false }] };
     });
     setGuideTarget(null);
   }, []);
@@ -2366,7 +2393,7 @@ const App: React.FC = () => {
     setState(prev => {
       const nextAllElders = prev.allElders.map(e => { const updated = updatedTeam.find(ut => ut.id === e.id); return updated || e; });
       if (opponent && !nextAllElders.find(e => e.id === opponent.id)) {
-        nextAllElders.push({ ...normalizeCapturedElder(opponent), captured: true, status: 'Base', isRoaming: false });
+        nextAllElders.push({ ...finalizeCapturedElder(opponent), captured: true, status: 'Base', isRoaming: false });
       }
       return { ...prev, allElders: nextAllElders };
     });
@@ -3006,7 +3033,7 @@ const App: React.FC = () => {
             onToggleOpenToRandom={handleToggleOpenToRandom}
             onVisit={handleVisitFriend}
             onBattle={handleBattleFriendFromList}
-            battleReadyAt={state.friendBattle.nextMatchAt}
+            friendBattle={state.friendBattle}
             hasSquad={state.allElders.some(e => e.status === 'Team' && e.captured)}
             elders={state.allElders}
             residentExchangeMine={residentExchangeMine}

@@ -198,7 +198,7 @@ export interface GameState {
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
   goldenGames: { highestLeagueCleared: number; nextMatchAt: number; paid?: { day: string; count: number } }; // -1 = none cleared yet
-  friendBattle: { nextMatchAt: number; rewardDay?: string; rewardsToday?: number };
+  friendBattle: { nextMatchAt: number; rewardDay?: string; rewardsToday?: number; lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   settings: GameSettings;
   tournamentScore: number;
   tournamentEndsAt: number;
@@ -225,6 +225,7 @@ export interface Elder {
     accessory?: Gear;
     charm?: Gear;
   };
+  obtainedAt?: number; // when this Elder joined the park (for sorting); older Elders may not have it
   rarityStatsV1?: boolean; // true once the rarity stat bonus has been applied to this Elder (2026-10-02)
   gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;

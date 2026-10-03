@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import type { ResidentExchangeRow } from '../services/residentExchangeService';
@@ -21,7 +21,7 @@ interface FriendsPanelProps {
   onToggleOpenToRandom: (value: boolean) => Promise<void>;
   onVisit: (friendUserId: string) => void;
   onBattle: (friendUserId: string) => string;
-  battleReadyAt: number;
+  friendBattle: { lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   elders: Elder[];
   stationedIds?: string[]; // Elders defending an Arena can't be sent away
   residentExchangeMine: ResidentExchangeRow[];
@@ -42,7 +42,7 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
   return { icon: rank.icon, title: rank.title };
 }
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, battleReadyAt, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -77,11 +77,14 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const battleWaitMs = Math.max(0, battleReadyAt - now);
-  const battleWaitLabel = `${Math.floor(battleWaitMs / 60000)}:${String(Math.floor((battleWaitMs % 60000) / 1000)).padStart(2, '0')}`;
+  // The 5-minute cooldown is per opponent, so attacking one friend never blocks attacking another.
+  const waitFor = (friendId: string) => Math.max(0, (friendBattle.lastByFriend?.[friendId] ?? 0) + FRIEND_BATTLE_COOLDOWN_MS - now);
+  const labelFor = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  const attacksToday = friendBattle.attackDay === new Date(now).toISOString().slice(0, 10) ? (friendBattle.attacksToday ?? 0) : 0;
+  const dailyCapReached = attacksToday >= FRIEND_BATTLE_DAILY_ATTACK_CAP;
 
   const handleBattle = (friendUserId: string) => {
-    if (battleBusyId || battleWaitMs > 0 || !hasSquad) return;
+    if (battleBusyId || waitFor(friendUserId) > 0 || dailyCapReached || !hasSquad) return;
     setBattleBusyId(friendUserId);
     setBattleFeedback(null);
     setTimeout(() => {
@@ -369,10 +372,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => handleBattle(friend.user_id)}
-                          disabled={battleWaitMs > 0 || !hasSquad || battleBusyId !== null}
-                          className={`flex-1 py-2 rounded-xl text-[12px] font-black uppercase ${battleWaitMs <= 0 && hasSquad && battleBusyId === null ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                          disabled={waitFor(friend.user_id) > 0 || dailyCapReached || !hasSquad || battleBusyId !== null}
+                          className={`flex-1 py-2 rounded-xl text-[12px] font-black uppercase ${waitFor(friend.user_id) <= 0 && !dailyCapReached && hasSquad && battleBusyId === null ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                         >
-                          {battleBusyId === friend.user_id ? 'Battling…' : !hasSquad ? 'Need a squad' : battleWaitMs > 0 ? `⚔️ Ready in ${battleWaitLabel}` : '⚔️ Battle'}
+                          {battleBusyId === friend.user_id ? 'Battling…' : !hasSquad ? 'Need a squad' : dailyCapReached ? 'Daily limit reached' : waitFor(friend.user_id) > 0 ? `⏳ Ready in ${labelFor(waitFor(friend.user_id))}` : '⚔️ Battle'}
                         </button>
                       </div>
                       {battleFeedback?.friendId === friend.user_id && (
