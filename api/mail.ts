@@ -107,7 +107,11 @@ export default async function handler(req: Request): Promise<Response> {
         .eq('status', 'accepted')
         .maybeSingle();
       if (linkErr) { console.error('Mail friend check failed', linkErr.message); return serverJson({ error: 'Mail unavailable', detail: linkErr.message }, 500); }
-      if (!link) return serverJson({ error: 'You can only battle friends.' }, 403);
+      if (!link) {
+        // Not a friend: allowed only if the defender opted in to random matching (the near-power opponent list).
+        const { data: opp } = await supabase.from('player_profiles').select('open_to_random_friends').eq('user_id', defenderId).maybeSingle();
+        if (!opp?.open_to_random_friends) return serverJson({ error: 'You can only battle friends or players open to random matching.' }, 403);
+      }
 
       const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
       const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';

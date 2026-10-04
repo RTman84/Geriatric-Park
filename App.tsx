@@ -21,7 +21,7 @@ import {
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
 import { fetchLeaderboard, submitTournamentScore, LeaderboardData } from './services/leaderboardService';
 import { fetchInbox, notifyFriendBattle, mergeInboxIntoMailbox, MAIL_ID_PREFIX } from './services/mailService';
-import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, type FriendsData } from './services/socialService';
+import { fetchFriendsData, sendFriendRequest, sendFriendRequestByUserId, sendRandomMatchRequest, setOpenToRandomFriends, respondToFriendRequest, removeFriend, fetchNearbyPlayers, type FriendsData, type PlayerProfileSnapshot } from './services/socialService';
 import { fetchResidentExchange, placeResident, recallResident, type ResidentExchangeRow } from './services/residentExchangeService';
 import { 
   Cog6ToothIcon, XMarkIcon, EnvelopeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckCircleIcon, UserGroupIcon
@@ -159,7 +159,7 @@ import {
   buildingUpgradeTickets,
   producerStored,
   MAX_BUILDING_LEVEL,
-  FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
+  FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -401,6 +401,10 @@ const INITIAL_STATE: GameState = {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('map');
+  const [nearbyPlayers, setNearbyPlayers] = useState<PlayerProfileSnapshot[]>([]);
+  const [nearbyReadyAt, setNearbyReadyAt] = useState(0); // Refresh is on a short cooldown so the list can't be hammered
+  const [nearbyBusy, setNearbyBusy] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
   const [encounter, setEncounter] = useState<Elder | null>(null); // wild Elder preview shown before a fight
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
   const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
@@ -1835,8 +1839,20 @@ const App: React.FC = () => {
   // Attack from the Friends list: same roll, same cooldown, same rewards and
   // same mail notice as the Court tab's Friend mode (both go through
   // rollFriendBattle + handleFriendBattleResult). Returns the result text.
+  const handleRefreshNearby = useCallback(async () => {
+    if (nearbyBusy || Date.now() < nearbyReadyAt) return;
+    setNearbyBusy(true); setNearbyError(null);
+    try {
+      const { players } = await fetchNearbyPlayers();
+      setNearbyPlayers(players);
+      if (players.length === 0) setNearbyError('No opted-in players are around your level right now. Try again soon.');
+    } catch (e) { setNearbyError(e instanceof Error ? e.message : 'Could not load players.'); }
+    setNearbyReadyAt(Date.now() + NEARBY_REFRESH_COOLDOWN_MS);
+    setNearbyBusy(false);
+  }, [nearbyBusy, nearbyReadyAt]);
+
   const handleBattleFriendFromList = useCallback((friendUserId: string): string => {
-    const friend = friendsData?.friends.find(f => f.user_id === friendUserId);
+    const friend = friendsData?.friends.find(f => f.user_id === friendUserId) ?? nearbyPlayers.find(f => f.user_id === friendUserId);
     if (!friend) return 'Could not find that friend — try refreshing.';
     const squad = state.allElders.filter(e => e.status === 'Team' && e.captured);
     if (squad.length === 0) return 'Put at least one Elder on your squad first.';
@@ -1850,7 +1866,7 @@ const App: React.FC = () => {
     return won
       ? (result.rewarded ? `You beat ${name}'s squad! +${result.tickets} 🎟️ +${result.materials} 🧱` : `You beat ${name}'s squad! Today's battle rewards are used up, so this one is for bragging rights.`)
       : `${name}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`;
-  }, [friendsData, state.allElders, state.friendBattle.lastByFriend, state.friendBattle.attackDay, state.friendBattle.attacksToday, handleFriendBattleResult]);
+  }, [friendsData, nearbyPlayers, state.allElders, state.friendBattle.lastByFriend, state.friendBattle.attackDay, state.friendBattle.attacksToday, handleFriendBattleResult]);
 
   // Court Champion purse: once per reign (a reign lasts COURT_CHAMPION_DURATION_MS after a win on the map).
   const handleClaimCourtPurse = useCallback(() => {
@@ -3049,6 +3065,12 @@ const App: React.FC = () => {
             onToggleOpenToRandom={handleToggleOpenToRandom}
             onVisit={handleVisitFriend}
             onBattle={handleBattleFriendFromList}
+            nearby={nearbyPlayers}
+            nearbyBusy={nearbyBusy}
+            nearbyError={nearbyError}
+            nearbyReadyAt={nearbyReadyAt}
+            onRefreshNearby={handleRefreshNearby}
+            mySquadPower={getSquadPower(state.allElders.filter(e => e.status === 'Team' && e.captured))}
             friendBattle={state.friendBattle}
             hasSquad={state.allElders.some(e => e.status === 'Team' && e.captured)}
             elders={state.allElders}

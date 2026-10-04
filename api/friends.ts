@@ -193,6 +193,25 @@ export default async function handler(req: Request): Promise<Response> {
       // or pending request in either direction. Excludes are applied in JS
       // rather than a hand-built SQL "not in (...)" fragment -- simpler and
       // avoids any risk of malformed filter syntax.
+      if (action === 'nearby') {
+        // Opted-in players near the caller's squad power: mostly the same bracket / within +-25%, with a couple of
+        // wildcards from further away for variety. Excludes the caller and anyone already linked (friends/pending).
+        const { data: me } = await supabase.from('player_profiles').select('squad_power').eq('user_id', userId).maybeSingle();
+        const myPower = Number(me?.squad_power) || 0;
+        const { data: links } = await supabase.from('friend_requests').select('requester_id, addressee_id').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+        const linked = new Set<string>([userId]);
+        (links ?? []).forEach(l => { linked.add(l.requester_id); linked.add(l.addressee_id); });
+        const { data: pool, error: poolErr } = await supabase.from('player_profiles').select(PROFILE_FIELDS).eq('open_to_random_friends', true).limit(300);
+        if (poolErr) { console.error('Nearby lookup failed', poolErr.message); return serverJson({ error: 'Players unavailable', detail: poolErr.message }, 500); }
+        const cands = (pool ?? []).filter((p: any) => !linked.has(p.user_id));
+        const shuffle = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+        const lo = myPower * 0.75, hi = myPower * 1.25;
+        const near = shuffle(cands.filter((p: any) => (Number(p.squad_power) || 0) >= lo && (Number(p.squad_power) || 0) <= hi));
+        const far = shuffle(cands.filter((p: any) => !near.includes(p)));
+        const picked = [...near.slice(0, 5), ...far.slice(0, 2)].slice(0, 6);
+        return serverJson({ myPower, players: shuffle(picked) });
+      }
+
       if (action === 'randomMatch') {
         const { data: existingLinks } = await supabase
           .from('friend_requests')

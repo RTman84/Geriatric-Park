@@ -353,3 +353,9 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - For Quest and Building-output gifts the owner now picks the host's target when leaving the Elder (from the friend's synced active quests or working buildings). The host's Mailbox then offers a one-tap claim on that target; if the target is gone by then (quest done, building missing) the host picks another.
 - Both players see a plain-language line under the Resident Exchange list: what the Elder is out for, what each side receives (amounts for a full stay), and the time left on the Recall/visit row.
 - Friends' active quests are synced to `player_profiles.active_quests` (migration 013). The server rejects a target that is not on the host's profile.
+
+## Near-power opponents and brackets (2026-10-03)
+- Ten power brackets (`POWER_BRACKETS`: Porch Sitters 0, Shuffle Starters 300, Bingo Regulars 700, Court Challengers 1,300, Clubhouse Contenders 2,300, Sunroom Veterans 3,800, Gold Lounge 6,000, Circuit Elite 9,500, Hall of Famers 15,000, Living Legends 21,000). Thresholds follow the same power curve as the Golden Games and Challenge ladder.
+- Friends panel "Find Opponents": up to 6 opted-in players (Open to random matching), about 5 within +-25% of your squad power and up to 2 from further away. Refresh has a 60-second cooldown. Each row shows level, power, bracket and Tougher/Even/Easier, with Battle and + Friend buttons.
+- Battling an opted-in non-friend uses the same rules as a friend battle (per-opponent 5-minute cooldown, 30 attacks/day, rewards capped) and leaves them the usual Mailbox note. The mail route now accepts a defender who is a friend OR opted in.
+- Bracket-based titles/bonuses for the Court Champion and tiers for other modes are NOT built yet (design pending).

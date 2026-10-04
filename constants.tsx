@@ -185,6 +185,22 @@ export const exchangeGiftQuestPoints = (h: number) => Math.max(1, Math.round(h /
 export const exchangeGiftBoostHours = (h: number) => Math.max(1, Math.round(h / 4));
 export const EXCHANGE_OWNER_XP_PER_HOUR = 15;
 
+// Ten competitive brackets by squad power, thresholds spread along the same progression curve the Golden Games and
+// Challenge ladder use (top bracket starts near what a fully built squad reaches). Used to label opponents; the
+// near-power opponent list favors your own bracket with a little randomness.
+export const POWER_BRACKETS = [
+  { n: 1, name: 'Porch Sitters', min: 0 }, { n: 2, name: 'Shuffle Starters', min: 300 }, { n: 3, name: 'Bingo Regulars', min: 700 },
+  { n: 4, name: 'Court Challengers', min: 1300 }, { n: 5, name: 'Clubhouse Contenders', min: 2300 }, { n: 6, name: 'Sunroom Veterans', min: 3800 },
+  { n: 7, name: 'Gold Lounge', min: 6000 }, { n: 8, name: 'Circuit Elite', min: 9500 }, { n: 9, name: 'Hall of Famers', min: 15000 },
+  { n: 10, name: 'Living Legends', min: 21000 },
+] as const;
+export function getBracket(power: number) {
+  let b: (typeof POWER_BRACKETS)[number] = POWER_BRACKETS[0];
+  for (const x of POWER_BRACKETS) if (power >= x.min) b = x;
+  return b;
+}
+export const NEARBY_REFRESH_COOLDOWN_MS = 60 * 1000;
+
 // Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
 // Ticket payout (wild Elders are now kept at the level and power they were fought at).
 export const SCRAP_LEVEL_CAP = 25;

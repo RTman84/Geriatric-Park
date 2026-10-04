@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
+import { sendFriendRequestByUserId } from '../services/socialService';
 import type { ResidentExchangeRow } from '../services/residentExchangeService';
 import type { Elder } from '../types';
 
@@ -20,6 +21,12 @@ interface FriendsPanelProps {
   onRandomMatch: () => Promise<string>;
   onToggleOpenToRandom: (value: boolean) => Promise<void>;
   onVisit: (friendUserId: string) => void;
+  nearby: PlayerProfileSnapshot[];
+  nearbyBusy: boolean;
+  nearbyError: string | null;
+  nearbyReadyAt: number;
+  onRefreshNearby: () => void;
+  mySquadPower: number;
   onBattle: (friendUserId: string) => string;
   friendBattle: { lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   elders: Elder[];
@@ -58,11 +65,14 @@ const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'): stri
   return side === 'mine' ? `Visit: ${owner}. Host receives ${gift}. Rewards scale down if recalled early.` : `Visit: you receive ${gift} when ${r.elder_name} heads home. ${r.owner?.display_name || 'Your friend'} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP.`;
 };
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNowTick(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const nearbyWait = Math.max(0, nearbyReadyAt - nowTick);
   const [randomBusy, setRandomBusy] = useState(false);
   const [randomMessage, setRandomMessage] = useState<string | null>(null);
   const [toggleBusy, setToggleBusy] = useState(false);
@@ -241,6 +251,58 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
             <SparklesIcon className="w-4 h-4" /> Find a Random Friend
           </button>
           {randomMessage && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{randomMessage}</p>}
+        </div>
+
+        {/* Near-power opponents: opted-in players mostly in your bracket (with a little randomness) */}
+        <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <h3 className="text-[15px] font-black uppercase">Find Opponents</h3>
+            <span className="text-[12px] font-black opacity-70">You: Bracket {getBracket(mySquadPower).n} {getBracket(mySquadPower).name} · PWR {mySquadPower}</span>
+          </div>
+          <button
+            onClick={onRefreshNearby}
+            disabled={nearbyBusy || nearbyWait > 0}
+            className="w-full rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[14px] py-3 disabled:opacity-50"
+          >
+            {nearbyBusy ? 'Searching...' : nearbyWait > 0 ? `Refresh in ${Math.ceil(nearbyWait / 1000)}s` : nearby.length ? '🔄 Refresh list' : '🔍 Find players near my power'}
+          </button>
+          {nearbyError && <p className="text-[13px] font-bold mt-2 opacity-80">{nearbyError}</p>}
+          <p className="text-[11px] opacity-60 mt-2">Only players who turned on "Open to random matching" are listed. Most are near your power; a few come from further away for variety.</p>
+          <div className="space-y-2 mt-3">
+            {nearby.map(p => {
+              const br = getBracket(p.squad_power);
+              const wait = waitFor(p.user_id);
+              return (
+                <div key={p.user_id} className={`p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-black text-[14px] uppercase truncate">{p.display_name || 'Park Visitor'}</p>
+                      <p className="text-[12px] font-bold opacity-70">Lv {p.level} · PWR {p.squad_power} · Bracket {br.n} {br.name}</p>
+                    </div>
+                    <span className={`text-[11px] font-black uppercase ${p.squad_power > mySquadPower * 1.15 ? 'text-orange-500' : p.squad_power < mySquadPower * 0.85 ? 'text-emerald-500' : 'text-amber-400'}`}>
+                      {p.squad_power > mySquadPower * 1.15 ? 'Tougher' : p.squad_power < mySquadPower * 0.85 ? 'Easier' : 'Even'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleBattle(p.user_id)}
+                      disabled={wait > 0 || dailyCapReached || !hasSquad || battleBusyId !== null}
+                      className="flex-1 py-2 rounded-lg bg-rose-600 text-white font-black uppercase text-[12px] disabled:opacity-40"
+                    >
+                      {battleBusyId === p.user_id ? 'Battling...' : !hasSquad ? 'Need a squad' : dailyCapReached ? 'Daily limit' : wait > 0 ? `Ready ${labelFor(wait)}` : '⚔️ Battle'}
+                    </button>
+                    <button
+                      onClick={() => { void sendFriendRequestByUserId(p.user_id).then(() => onRefresh()).catch(() => {}); }}
+                      className={`px-3 py-2 rounded-lg font-black uppercase text-[12px] ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-slate-200 text-slate-700'}`}
+                    >
+                      + Friend
+                    </button>
+                  </div>
+                  {battleFeedback?.friendId === p.user_id && <p className="text-[12px] font-bold mt-2 text-[var(--accent-500)]">{battleFeedback.text}</p>}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Incoming requests */}
