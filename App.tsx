@@ -4,6 +4,7 @@ import { ArenaPanel } from './components/ArenaPanel';
 import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, raidHit, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
+import ThronesPanel from './components/ThronesPanel';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import FriendsPanel from './components/FriendsPanel';
@@ -405,6 +406,7 @@ const App: React.FC = () => {
   const [nearbyReadyAt, setNearbyReadyAt] = useState(0); // Refresh is on a short cooldown so the list can't be hammered
   const [nearbyBusy, setNearbyBusy] = useState(false);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [showThrones, setShowThrones] = useState(false);
   const [encounter, setEncounter] = useState<Elder | null>(null); // wild Elder preview shown before a fight
   const [battleOpponent, setBattleOpponent] = useState<{ elder: Elder } | null>(null);
   const [guideTarget, setGuideTarget] = useState<Elder | null>(null);
@@ -2683,6 +2685,9 @@ const App: React.FC = () => {
             pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield}
             parkAssets={state.parkAssets} assetRatePerTick={state.pensionRate}
           />}
+          {activeTab === 'shuffleboard' && isCloudAccountsConfigured() && (
+            <button onClick={() => setShowThrones(true)} className="mx-6 mt-4 w-[calc(100%-3rem)] py-3 rounded-2xl font-black uppercase text-[14px] bg-amber-500 text-white shadow-lg active:scale-95 transition-transform">👑 Champion Thrones (10 brackets)</button>
+          )}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
               isDark={isDark}
@@ -2966,6 +2971,8 @@ const App: React.FC = () => {
             </div>
           );
         })()}
+
+        {showThrones && <ThronesPanel isDark={isDark} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} notify={notify} />}
 
         {encounter && !battleOpponent && (() => {
           const wildPower = getElderPower(encounter);

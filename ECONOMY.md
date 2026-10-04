@@ -359,3 +359,9 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Friends panel "Find Opponents": up to 6 opted-in players (Open to random matching), about 5 within +-25% of your squad power and up to 2 from further away. Refresh has a 60-second cooldown. Each row shows level, power, bracket and Tougher/Even/Easier, with Battle and + Friend buttons.
 - Battling an opted-in non-friend uses the same rules as a friend battle (per-opponent 5-minute cooldown, 30 attacks/day, rewards capped) and leaves them the usual Mailbox note. The mail route now accepts a defender who is a friend OR opted in.
 - Bracket-based titles/bonuses for the Court Champion and tiers for other modes are NOT built yet (design pending).
+
+## Champion Thrones (2026-10-04)
+- One reigning Grand Shuffle Court champion per power bracket (10 thrones, `court_thrones`, migration 014, route `api/court.ts`). You challenge only the throne of your own bracket, using your own squad's server-synced power.
+- Challenge: your power x (0.85-1.15) beats the champion's power x 1.05 (incumbent edge) x (0.9-1.1). A vacant or expired throne is claimed automatically. 3 challenges per UTC day. The new champion is shielded for 10 minutes. A reign lasts 24 hours.
+- Reward: a Ticket purse once per reign, 45 x (1 + 0.25 x (bracket - 1)) = 45 (bracket 1) to about 146 (bracket 10). Worst case about 3 reigns/day (the challenge limit), so at most roughly 135-440 Tickets/day depending on bracket. Never PP, never passive.
+- Not built yet: a champion title shown on profiles, tiers/recognition for other modes, a dethroned notice in the Mailbox. The older map "Grand Shuffle Court" 24h champion (45-Ticket purse) still exists separately.
