@@ -50,7 +50,7 @@ function friendDisplay(profile: PlayerProfileSnapshot) {
 }
 
 // One line telling BOTH sides what an exchange is for and what each will get (amounts shown for a full stay).
-const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'): string => {
+export const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'): string => {
   const hrs = r.duration_hours;
   const owner = `${r.elder_name} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP`;
   if (r.mode === 'loan') {

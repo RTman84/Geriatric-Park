@@ -5,6 +5,7 @@ import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, cla
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
 import ThronesPanel from './components/ThronesPanel';
+import ExchangeOverview from './components/ExchangeOverview';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import FriendsPanel from './components/FriendsPanel';
@@ -460,6 +461,8 @@ const App: React.FC = () => {
   }, []);
   const showNotice = useCallback((message: string) => notify(message, 'bad'), [notify]);
   const [showGroundsPanel, setShowGroundsPanel] = useState(false);
+  const [groundsFocusId, setGroundsFocusId] = useState<string | null>(null);
+  const [showExchangeOverview, setShowExchangeOverview] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
   const [arenaInfo, setArenaInfo] = useState<Record<string, ArenaInfo>>({});
   const [arenaMe, setArenaMe] = useState<ArenaMe | null>(null);
@@ -2659,7 +2662,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={() => setShowGroundsPanel(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
+          {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
@@ -2974,6 +2977,8 @@ const App: React.FC = () => {
           );
         })()}
 
+        {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
+
         {showThrones && <ThronesPanel isDark={isDark} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
 
         {encounter && !battleOpponent && (() => {
@@ -3113,13 +3118,14 @@ const App: React.FC = () => {
               <h2 className={`text-lg font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Hub</h2>
               <button onClick={() => setShowParkHub(false)} className="px-4 py-2 rounded-full bg-[var(--accent-600)] text-white text-[13px] font-black uppercase tracking-widest active:scale-95">✕ Close</button>
             </div>
-            <BasePanel isDark={isDark} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
+            <BasePanel isDark={isDark} onEvolve={handleEvolveElder} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
             </div>
           </div>
         )}
 
         {showGroundsPanel && (
           <GroundsPanel
+            focusId={groundsFocusId}
             isDark={isDark}
             parcelCount={state.ownedParcels.length}
             comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)}
@@ -3132,7 +3138,7 @@ const App: React.FC = () => {
             onBuild={handleBuildAmenity}
             onUpgrade={handleUpgradeAmenity}
             onCollect={handleCollectAmenity}
-            onClose={() => setShowGroundsPanel(false)}
+            onClose={() => { setShowGroundsPanel(false); setGroundsFocusId(null); }}
           />
         )}
       </div>

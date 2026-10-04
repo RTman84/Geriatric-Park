@@ -36,7 +36,8 @@ interface ParkSceneProps {
   rosterCount: number;
   capacity: number;
   materials: number;
-  onOpenGrounds?: () => void;
+  onOpenGrounds?: (amenityId?: string) => void;
+  onOpenExchange?: () => void; // the Away & Visiting window
   onOpenHub?: () => void;
   onCollect?: (amenityId: string) => void;
   readOnly?: boolean; // for visiting a friend's park later: no collect / hub buttons
@@ -57,7 +58,7 @@ const nameBar: React.CSSProperties = {
 
 const ParkScene: React.FC<ParkSceneProps> = ({
   isDark, builtAmenityIds, amenityLevels, amenityCollectedAt, comfortBonus, rosterCount, capacity, materials,
-  onOpenGrounds, onOpenHub, onCollect, readOnly = false, title,
+  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title,
 }) => {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -98,7 +99,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         return (
           <React.Fragment key={id}>
             <button
-              onClick={readOnly ? undefined : onOpenGrounds}
+              onClick={readOnly ? undefined : () => onOpenGrounds?.(id)}
               aria-label={amenity.name}
               style={{
                 position: 'absolute', left: `${((xc - BW / 2) / BG_W) * 100}%`, top: `${(y / BG_H) * 100}%`,
@@ -122,13 +123,13 @@ const ParkScene: React.FC<ParkSceneProps> = ({
               position: 'absolute', top: `${((y + BH - 6) / BG_H) * 100}%`, left: `${(xc / BG_W) * 100}%`,
               transform: 'translateX(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
-              <button onClick={readOnly ? undefined : onOpenGrounds} style={{ ...nameBar, opacity: built ? 1 : 0.85, cursor: readOnly ? 'default' : 'pointer' }}>{amenity.name}</button>
+              <button onClick={readOnly ? undefined : () => onOpenGrounds?.(id)} style={{ ...nameBar, opacity: built ? 1 : 0.85, cursor: readOnly ? 'default' : 'pointer' }}>{amenity.name}</button>
               {built && stored > 0 && !readOnly && onCollect ? (
                 <button onClick={() => onCollect(id)} style={{ ...pillBase, background: '#16a34a', cursor: 'pointer' }}>
                   Collect {icon} {stored}
                 </button>
               ) : !built && !readOnly ? (
-                <button onClick={onOpenGrounds} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
+                <button onClick={() => onOpenGrounds?.(id)} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
                   Build · {amenity.cost} 🧱
                 </button>
               ) : !built && readOnly ? (

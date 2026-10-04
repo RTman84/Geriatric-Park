@@ -1194,7 +1194,17 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
 
 // ─── Base Panel ───────────────────────────────────────────────────────────────
 
-export const BasePanel: React.FC<{ 
+// Evolution eligibility for one Elder (same rules as the Squad tab): shared so the Park Hub can evolve too.
+const evolveInfo = (e: Elder, tokens: number) => {
+  const stage = e.evolutionStage ?? 0;
+  const needed = stage >= 2 ? null : stage === 0 ? ELDER_EVOLUTION_STAGE1_LEVEL : ELDER_EVOLUTION_STAGE2_LEVEL;
+  const elite = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(e.rarity);
+  const cost = stage === 0 ? EVOLUTION_STAGE1_COST : (elite ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST);
+  const meetsLevel = needed !== null && e.level >= needed;
+  return { stage, needed, cost, meetsLevel, canAfford: tokens >= cost, ready: meetsLevel && tokens >= cost };
+};
+
+export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   elders: Elder[], inventory: Gear[], tokens: number, materials: number,
   onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
@@ -1207,7 +1217,7 @@ export const BasePanel: React.FC<{
   parkScore?: number,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
-}> = ({ elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
+}> = ({ onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
   const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
   const [regDesc, setRegDesc] = React.useState(true);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
@@ -1497,6 +1507,10 @@ export const BasePanel: React.FC<{
                   {!e.awayUntil && (e.status === 'Team'
                     ? <button onClick={() => onMoveToStandby(e.id)} className={`w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
                     : <button onClick={() => onMoveToTeam(e.id)} className="w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase bg-[var(--accent-600)] text-white">Squad</button>)}
+                  {!e.awayUntil && onEvolve && (() => { const ev = evolveInfo(e, tokens); return ev.stage < 2 ? (
+                    <button onClick={() => onEvolve(e.id)} disabled={!ev.ready} className={`w-full mt-1.5 py-1.5 rounded-xl text-[12px] font-black uppercase ${ev.ready ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>
+                      Evolve {ev.meetsLevel ? `(${ev.cost})` : `(Lv.${ev.needed})`}
+                    </button>) : <p className="text-center text-[11px] font-black text-amber-500 mt-1.5">Fully evolved</p>; })()}
                 </div>
               );
             })}
@@ -1548,6 +1562,11 @@ export const BasePanel: React.FC<{
                       ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
                       : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-[var(--accent-600)] text-white shadow-lg shadow-[var(--accent-900-a10)]">Assign to Squad</button>
                     }
+                    {onEvolve && (() => { const ev = evolveInfo(e, tokens); return ev.stage < 2 ? (
+                      <button onClick={() => onEvolve(e.id)} disabled={!ev.ready} title={!ev.meetsLevel ? `Needs level ${ev.needed}` : !ev.canAfford ? `Needs ${ev.cost} Tickets` : `Evolve to stage ${ev.stage + 1}`}
+                        className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${ev.ready ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>
+                        Evolve {ev.meetsLevel ? `(${ev.cost})` : `(Lv.${ev.needed})`}
+                      </button>) : null; })()}
                     {onScrapElder && (
                       <button
                         onClick={() => { if (window.confirm(`Scrap ${e.name} for Tickets? This can't be undone.`)) onScrapElder(e.id); }}

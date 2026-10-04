@@ -44,11 +44,12 @@ interface GroundsPanelProps {
   onUpgrade: (amenityId: string) => void;
   onCollect: (amenityId: string) => void;
   onClose: () => void;
+  focusId?: string | null; // show only this building's popup instead of the whole Grounds list
 }
 
 const GroundsPanel: React.FC<GroundsPanelProps> = ({
   isDark, buildingMaterials, tickets, builtAmenityIds, amenityLevels, amenityCollectedAt, totalRosterCount, parcelCount = 0, comfortBonus = 0,
-  onBuild, onUpgrade, onCollect, onClose,
+  onBuild, onUpgrade, onCollect, onClose, focusId,
 }) => {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -172,6 +173,22 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
       </div>
     );
   };
+
+  const focused = focusId ? AMENITIES.find(a => a.id === focusId) : undefined;
+  if (focused) {
+    return (
+      <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md" onClick={onClose}>
+        <div className={`rounded-[2.5rem] p-6 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`} onClick={e => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className={`text-xl font-black uppercase italic tracking-tighter ${strong}`}>{focused.name}</h2>
+            <button onClick={onClose} className={`p-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}><XMarkIcon className="w-6 h-6" /></button>
+          </div>
+          <p className={`text-[13px] font-bold mb-3 ${body}`}>Materials {buildingMaterials} · Tickets {tickets}</p>
+          {renderCard(focused)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
