@@ -1,3 +1,4 @@
+import { POWER_BRACKETS } from '../constants';
 import { getAccessToken } from './authService';
 import { apiUrl } from './api';
 import type { MailMessage } from '../types';
@@ -6,7 +7,7 @@ import type { MailMessage } from '../types';
 export interface InboxRow {
   id: string;
   sender_name: string;
-  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host';
+  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host' | 'court_displaced';
   day: string;
   attacker_wins: number;
   defender_wins: number;
@@ -88,6 +89,14 @@ function rowToMessage(row: InboxRow): MailMessage {
       body: row.note || 'A Raid you joined has ended.',
       reward, materials,
     };
+  }
+  if (row.kind === 'court_displaced') {
+    // note (written by api/court.ts): displaced:<bracket>:<oldRank>:<newRank, 0 = off the ladder>
+    const bits = typeof row.note === 'string' ? row.note.split(':') : [];
+    const bracket = Math.max(1, Math.min(10, Math.floor(Number(bits[1]) || 1)));
+    const from = Math.floor(Number(bits[2]) || 0), to = Math.floor(Number(bits[3]) || 0);
+    const bName = POWER_BRACKETS[bracket - 1].name;
+    return { ...base, sender: row.sender_name, subject: `\u{1F451} ${row.sender_name} took your Court spot`, body: to > 0 ? `${row.sender_name} beat you in the ${bName} ladder. You dropped from rank ${from} to rank ${to}. Challenge them back from the Court tab!` : `${row.sender_name} beat you in the ${bName} ladder and took your last spot. Rejoin from the Court tab.` };
   }
   if (row.kind === 'resident_exchange_host') {
     // note format (untrusted, written by api/resident-exchange.ts): gift:<materials|quest|boost>:<amount>:<elder name>

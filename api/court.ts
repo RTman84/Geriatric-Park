@@ -109,6 +109,11 @@ export default async function handler(req: Request): Promise<Response> {
       await supabase.from('court_ladder').update({ last_active: mine.last_active, power: mine.power, display_name: myName }).eq('bracket', myBracket).eq('rank', mine.rank);
     }
 
+    const recordHonor = async (rank: number) => {
+      if (rank <= 3) await supabase.from('court_honors').upsert({ user_id: userId, key: `court:${myBracket}:${rank}`, earned_at: now.toISOString() }, { onConflict: 'user_id,key' });
+    };
+    if (mine) await recordHonor(mine.rank);
+
     if (action === 'state') return serverJson(view(ladders, (await attemptsLeftFor()).left));
 
     if (action === 'challenge') {
@@ -139,17 +144,27 @@ export default async function handler(req: Request): Promise<Response> {
 
       const { data: tp } = await supabase.from('player_profiles').select('squad_power').eq('user_id', target.user_id).maybeSingle();
       const targetPower = Math.max(1, Math.floor(Number(tp?.squad_power) || target.power));
+      const tSnap = { ...target }; const mSnap = mine ? { ...mine } : null; // snapshots: both rows are rewritten below
       const won = myPower * (0.85 + Math.random() * 0.3) > targetPower * INCUMBENT_EDGE * (0.9 + Math.random() * 0.2);
       if (won) {
-        if (mine) { // swap the two spots
-          await supabase.from('court_ladder').update({ user_id: target.user_id, display_name: target.display_name, power: targetPower, last_active: target.last_active, purse_day: target.purse_day }).eq('bracket', myBracket).eq('rank', mine.rank);
-          await supabase.from('court_ladder').update({ user_id: userId, display_name: myName, power: myPower, last_active: now.toISOString(), purse_day: mine.purse_day }).eq('bracket', myBracket).eq('rank', targetRank);
+        if (mSnap) { // swap the two spots
+          await supabase.from('court_ladder').update({ user_id: tSnap.user_id, display_name: tSnap.display_name, power: targetPower, last_active: tSnap.last_active, purse_day: tSnap.purse_day }).eq('bracket', myBracket).eq('rank', mSnap.rank);
+          await supabase.from('court_ladder').update({ user_id: userId, display_name: myName, power: myPower, last_active: now.toISOString(), purse_day: mSnap.purse_day }).eq('bracket', myBracket).eq('rank', targetRank);
         } else { // takes the bottom spot, the old holder drops off the ladder
           await supabase.from('court_ladder').update({ user_id: userId, display_name: myName, power: myPower, joined_at: now.toISOString(), last_active: now.toISOString(), purse_day: null }).eq('bracket', myBracket).eq('rank', targetRank);
         }
       }
+      if (won) {
+        await recordHonor(targetRank);
+        // Tell the displaced player (Mailbox, no reward). ref keeps several notices on one day apart.
+        const dropTo = mSnap ? mSnap.rank : 0;
+        await supabase.from('mail_inbox').insert({
+          recipient_id: tSnap.user_id, sender_id: userId, sender_name: myName, kind: 'court_displaced', day: today,
+          ref: `${myBracket}:${targetRank}:${now.getTime()}`.slice(0, 60), note: `displaced:${myBracket}:${targetRank}:${dropTo}`, updated_at: now.toISOString(),
+        });
+      }
       const after = await loadLadders();
-      return serverJson({ result: won ? 'won' : 'lost', beaten: target.display_name, bracket: myBracket, challengesLeft: left - 1, view: view(after, left - 1) });
+      return serverJson({ result: won ? 'won' : 'lost', beaten: tSnap.display_name, bracket: myBracket, challengesLeft: left - 1, view: view(after, left - 1) });
     }
 
     if (action === 'claim_purse') {

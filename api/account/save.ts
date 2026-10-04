@@ -90,11 +90,21 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       .filter(Boolean)
       .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name }));
 
+    // A bracket title can only be shown to other players if the server recorded the honor (court_honors).
+    const verifiedCourtKey = async (key: unknown): Promise<string | null> => {
+      if (typeof key !== 'string' || !key.startsWith('court:')) return typeof key === 'string' ? key : null;
+      if (!/^court:(\d{1,2}):[123]$/.test(key)) return null;
+      const { data } = await supabase.from('court_honors').select('key').eq('user_id', userId).eq('key', key).maybeSingle();
+      return data ? key : null;
+    };
+    const safeTitle = await verifiedCourtKey(saveData?.selectedTitle);
+    const safeIcon = await verifiedCourtKey(saveData?.selectedAccountIcon);
+
     const statFields = {
       display_name: displayName,
       level: Number.isInteger(saveData?.level) ? saveData.level : 1,
-      selected_title: saveData?.selectedTitle ?? null,
-      selected_account_icon: saveData?.selectedAccountIcon ?? null,
+      selected_title: safeTitle,
+      selected_account_icon: safeIcon,
       achievements_completed: achievements.filter((a: any) => a?.completed).length,
       achievements_total: achievements.length,
       squad_power: squadPowerFrom(saveData),
