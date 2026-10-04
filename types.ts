@@ -194,6 +194,7 @@ export interface GameState {
   // Otherwise a cosmetic key from getUnlockedCosmetics, e.g. 'achievement:a1'.
   selectedAccountIcon: string;
   selectedTitle: string;
+  courtHonors?: string[]; // permanent Court ladder titles earned (keys like court:5:1)
   mailbox: MailMessage[];
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;

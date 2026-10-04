@@ -1,12 +1,13 @@
 import { getAccessToken } from './authService';
 import { apiUrl } from './api';
 
-export interface Throne {
-  bracket: number; user_id: string; display_name: string | null; power: number;
-  claimed_at: string; expires_at: string; shield_until: string | null; purse_claimed: boolean; mine: boolean; purse: number;
+export interface LadderEntry { rank: number; user_id: string; display_name: string | null; power: number; mine: boolean }
+export interface CourtState {
+  myBracket: number; myPower: number; challengesLeft: number; dailyChallenges: number; challengeReach: number;
+  mine: { bracket: number; rank: number; purseAvailable: boolean; purse: number } | null;
+  top3: { bracket: number; entries: LadderEntry[] }[];
+  myLadder: LadderEntry[];
 }
-export interface CourtState { myBracket: number; myPower: number; challengesLeft: number; dailyChallenges: number; thrones: Throne[] }
-
 async function post<T>(body: unknown): Promise<T> {
   const token = await getAccessToken();
   if (!token) throw new Error('Account sign-in required.');
@@ -16,5 +17,5 @@ async function post<T>(body: unknown): Promise<T> {
   return json as T;
 }
 export const fetchCourtState = () => post<CourtState>({ action: 'state' });
-export const challengeThrone = () => post<{ result: 'claimed' | 'dethroned' | 'lost'; challengesLeft: number; previousChampion: string | null }>({ action: 'challenge' });
-export const claimThronePurse = () => post<{ tickets: number; bracket: number }>({ action: 'claim_purse' });
+export const challengeLadder = (targetRank?: number) => post<{ result: 'joined' | 'won' | 'lost'; rank?: number; beaten?: string | null; challengesLeft: number; view?: CourtState }>({ action: 'challenge', targetRank });
+export const claimLadderPurse = () => post<{ tickets: number; bracket: number; rank: number }>({ action: 'claim_purse' });

@@ -690,14 +690,31 @@ export function getRankForLevel(level: number): { title: string, icon: string } 
 // (e.g. a player can show the Legend rank icon with the Early Bird title).
 export interface UnlockedCosmetic { key: string; icon: string; title: string; }
 
-export function getUnlockedCosmetics(level: number, achievements: Achievement[]): UnlockedCosmetic[] {
+// Court ladder honors: finishing in the top 3 of a power bracket earns a permanent title (key `court:<bracket>:<place>`),
+// like ranks they are never lost. Cosmetic only.
+export const COURT_PLACE_LABELS = ['Champion', 'Runner-Up', 'Third Place'] as const;
+export const COURT_PLACE_ICONS = ['\u{1F947}', '\u{1F948}', '\u{1F949}'] as const;
+export function parseCourtHonor(key: string): { bracket: number; place: number } | null {
+  const m = /^court:(\d{1,2}):([123])$/.exec(key || '');
+  if (!m) return null;
+  const bracket = Number(m[1]);
+  return bracket >= 1 && bracket <= POWER_BRACKETS.length ? { bracket, place: Number(m[2]) } : null;
+}
+export function courtHonorCosmetic(key: string): UnlockedCosmetic | null {
+  const h = parseCourtHonor(key);
+  if (!h) return null;
+  return { key, icon: COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+}
+
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
     .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
   const achievementUnlocks: UnlockedCosmetic[] = achievements
     .filter(a => a.completed)
     .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
-  return [...rankUnlocks, ...achievementUnlocks];
+  const honorUnlocks = courtHonors.map(courtHonorCosmetic).filter((c): c is UnlockedCosmetic => !!c);
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks];
 }
 
 // Resolves what to actually show in the header: the player's chosen icon/title
@@ -707,9 +724,14 @@ export function resolveProfileDisplay(
   level: number,
   achievements: Achievement[],
   selectedAccountIcon: string,
-  selectedTitle: string
+  selectedTitle: string,
+  courtHonors?: string[] // own profile: honors must be earned. Omitted for other players' profiles (display only)
 ): { icon: string; title: string } {
-  const unlocked = getUnlockedCosmetics(level, achievements);
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? []);
+  if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
+    const other = courtHonorCosmetic(selectedTitle);
+    if (other) unlocked.push(other);
+  }
   const rank = getRankForLevel(level);
   const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
   const titleMatch = unlocked.find(c => c.key === selectedTitle);

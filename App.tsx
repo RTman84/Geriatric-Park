@@ -129,7 +129,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
+  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -903,6 +903,8 @@ const App: React.FC = () => {
         next[key] = fallback;
       }
     }
+    // Untrusted save: keep only well-formed Court honor keys (court:<1-10>:<1-3>).
+    next.courtHonors = Array.isArray(next.courtHonors) ? (next.courtHonors as unknown[]).filter((k): k is string => typeof k === 'string' && parseCourtHonor(k) !== null).slice(0, 60) : [];
     return next as unknown as GameState;
   };
 
@@ -2598,7 +2600,7 @@ const App: React.FC = () => {
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
             {(() => {
-              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle);
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? []);
               return (
                 <>
                   <button
@@ -2686,7 +2688,7 @@ const App: React.FC = () => {
             parkAssets={state.parkAssets} assetRatePerTick={state.pensionRate}
           />}
           {activeTab === 'shuffleboard' && isCloudAccountsConfigured() && (
-            <button onClick={() => setShowThrones(true)} className="mx-6 mt-4 w-[calc(100%-3rem)] py-3 rounded-2xl font-black uppercase text-[14px] bg-amber-500 text-white shadow-lg active:scale-95 transition-transform">👑 Champion Thrones (10 brackets)</button>
+            <button onClick={() => setShowThrones(true)} className="mx-6 mt-4 w-[calc(100%-3rem)] py-3 rounded-2xl font-black uppercase text-[14px] bg-amber-500 text-white shadow-lg active:scale-95 transition-transform">👑 Court Ladders (10 brackets)</button>
           )}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
@@ -2854,11 +2856,11 @@ const App: React.FC = () => {
         )}
 
         {showProfilePicker && (() => {
-          const unlocked = getUnlockedCosmetics(state.level, state.achievements);
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? []);
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
-          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle);
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? []);
           const completedAchievements = state.achievements.filter(a => a.completed);
           const roster = state.allElders.filter(e => e.captured);
           const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
@@ -2972,7 +2974,7 @@ const App: React.FC = () => {
           );
         })()}
 
-        {showThrones && <ThronesPanel isDark={isDark} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} notify={notify} />}
+        {showThrones && <ThronesPanel isDark={isDark} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
 
         {encounter && !battleOpponent && (() => {
           const wildPower = getElderPower(encounter);

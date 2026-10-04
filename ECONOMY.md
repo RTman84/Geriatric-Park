@@ -360,8 +360,10 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Battling an opted-in non-friend uses the same rules as a friend battle (per-opponent 5-minute cooldown, 30 attacks/day, rewards capped) and leaves them the usual Mailbox note. The mail route now accepts a defender who is a friend OR opted in.
 - Bracket-based titles/bonuses for the Court Champion and tiers for other modes are NOT built yet (design pending).
 
-## Champion Thrones (2026-10-04)
-- One reigning Grand Shuffle Court champion per power bracket (10 thrones, `court_thrones`, migration 014, route `api/court.ts`). You challenge only the throne of your own bracket, using your own squad's server-synced power.
-- Challenge: your power x (0.85-1.15) beats the champion's power x 1.05 (incumbent edge) x (0.9-1.1). A vacant or expired throne is claimed automatically. 3 challenges per UTC day. The new champion is shielded for 10 minutes. A reign lasts 24 hours.
-- Reward: a Ticket purse once per reign, 45 x (1 + 0.25 x (bracket - 1)) = 45 (bracket 1) to about 146 (bracket 10). Worst case about 3 reigns/day (the challenge limit), so at most roughly 135-440 Tickets/day depending on bracket. Never PP, never passive.
-- Not built yet: a champion title shown on profiles, tiers/recognition for other modes, a dethroned notice in the Mailbox. The older map "Grand Shuffle Court" 24h champion (45-Ticket purse) still exists separately.
+## Court Ladders (2026-10-04, replaces the single-throne draft)
+- Each of the 10 power brackets has a top-10 Grand Shuffle Court ladder (`court_ladder`, migration 015, route `api/court.ts`). Everyone in a bracket sees their bracket's top 10; the champions (top 3) of every bracket are shown to all.
+- Joining: an unranked player takes the next open spot (costs no challenge); a full ladder means fighting the bottom spot. Ranked players challenge up to 3 ranks above them: win swaps places, loss changes nothing. 3 challenges per UTC day. Fights use server-synced squad power: your power x (0.85-1.15) vs theirs x 1.05 x (0.9-1.1).
+- Spots are lost after 7 days without opening the Court; ranks compact automatically. Moving to a new bracket (power change) removes you from the old ladder.
+- Rewards: a daily Ticket purse for ranks 1-3 only, once per UTC day: 45 x (1 + 0.25 x (bracket - 1)) x (1.0 / 0.6 / 0.4 for rank 1 / 2 / 3). At most 79 / 47 / 32 Tickets in bracket 4, about 146 / 88 / 58 in bracket 10, per day. Never PP, never passive.
+- Titles: reaching the top 3 grants a permanent cosmetic title and medal (key `court:<bracket>:<place>`), e.g. "Clubhouse Contenders Champion", "Gold Lounge Runner-Up", "Living Legends Third Place". Picked in the profile picker like other titles; other players see a well-formed court title as chosen (display only).
+- Not built yet: tiers/recognition for the other modes, a Mailbox notice when displaced, more badges.
