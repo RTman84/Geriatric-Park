@@ -1840,8 +1840,10 @@ const App: React.FC = () => {
     if (!friend) return 'Could not find that friend — try refreshing.';
     const squad = state.allElders.filter(e => e.status === 'Team' && e.captured);
     if (squad.length === 0) return 'Put at least one Elder on your squad first.';
-    const waitMs = state.friendBattle.nextMatchAt - Date.now();
-    if (waitMs > 0) return `Your squad is still resting — ready in ${Math.ceil(waitMs / 60000)} min.`;
+    const waitMs = (state.friendBattle.lastByFriend?.[friendUserId] ?? 0) + FRIEND_BATTLE_COOLDOWN_MS - Date.now();
+    if (waitMs > 0) return `You just battled ${friend.display_name || 'that player'} - ready again in ${Math.ceil(waitMs / 60000)} min. Other players are fair game right now.`;
+    const attacksToday = state.friendBattle.attackDay === new Date().toISOString().slice(0, 10) ? (state.friendBattle.attacksToday ?? 0) : 0;
+    if (attacksToday >= FRIEND_BATTLE_DAILY_ATTACK_CAP) return `You've reached today's limit of ${FRIEND_BATTLE_DAILY_ATTACK_CAP} player battles. It resets at midnight UTC.`;
     const { won, ticketsEarned } = rollFriendBattle(getSquadPower(squad), friend.squad_power);
     const result = handleFriendBattleResult(won, ticketsEarned, friend.user_id);
     const name = friend.display_name || 'Park Visitor';

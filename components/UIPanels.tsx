@@ -503,7 +503,8 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   };
 
   const handleFriendBattle = () => {
-    if (team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId) return;
+    const attacksToday = friendBattle.attackDay === new Date().toISOString().slice(0, 10) ? (friendBattle.attacksToday ?? 0) : 0;
+    if (team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId || attacksToday >= FRIEND_BATTLE_DAILY_ATTACK_CAP) return;
     const friend = friends.find(f => f.user_id === selectedFriendId);
     if (!friend) return;
     setIsPlaying(true);
