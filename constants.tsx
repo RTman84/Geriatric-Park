@@ -706,7 +706,38 @@ export function courtHonorCosmetic(key: string): UnlockedCosmetic | null {
   return { key, icon: COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
 }
 
-export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = []): UnlockedCosmetic[] {
+// Mode badges: lifetime activity counts per mode unlock Bronze -> Legend tiers (a medal and a title each).
+// Counts only ever go up, so earned badges are permanent. Cosmetic only; never a currency reward.
+export const MODE_BADGES: { mode: string; name: string; kinds: string[] }[] = [
+  { mode: 'battle', name: 'Park Brawler', kinds: ['battle'] },
+  { mode: 'court', name: 'Court Regular', kinds: ['shuffleboard', 'tournament', 'challenge'] },
+  { mode: 'friend', name: 'Friendly Rival', kinds: ['friend_battle'] },
+  { mode: 'arena', name: 'Arena Defender', kinds: ['arena'] },
+  { mode: 'exchange', name: 'Good Neighbor', kinds: ['exchange_send', 'exchange_host'] },
+  { mode: 'bingo', name: 'Bingo Buff', kinds: ['bingo'] },
+  { mode: 'collect', name: 'Park Collector', kinds: ['collect'] },
+  { mode: 'evolve', name: 'Evolution Expert', kinds: ['evolve'] },
+];
+export const MODE_BADGE_TIERS = [
+  { tier: 1, name: 'Bronze', min: 10, icon: '\u{1F949}' }, { tier: 2, name: 'Silver', min: 50, icon: '\u{1F948}' },
+  { tier: 3, name: 'Gold', min: 150, icon: '\u{1F947}' }, { tier: 4, name: 'Platinum', min: 400, icon: '\u{1F48E}' },
+  { tier: 5, name: 'Legend', min: 1000, icon: '\u{1F451}' },
+] as const;
+export const modeCount = (stats: Record<string, number> | undefined, mode: string): number => {
+  const def = MODE_BADGES.find(m => m.mode === mode);
+  return def ? def.kinds.reduce((sum, k) => sum + Math.max(0, Number(stats?.[k]) || 0), 0) : 0;
+};
+export const modeTierReached = (count: number): number => MODE_BADGE_TIERS.reduce((t, x) => (count >= x.min ? x.tier : t), 0);
+export const modeKindKnown = (kind: string): boolean => MODE_BADGES.some(m => m.kinds.includes(kind));
+export function modeBadgeCosmetic(key: string, stats: Record<string, number> | undefined): UnlockedCosmetic | null {
+  const m = /^mode:([a-z]+):([1-5])$/.exec(key || '');
+  const def = m && MODE_BADGES.find(x => x.mode === m[1]);
+  if (!m || !def) return null;
+  const tier = MODE_BADGE_TIERS[Number(m[2]) - 1];
+  return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: tier.icon, title: `${def.name} ${tier.name}` } : null;
+}
+
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
     .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
@@ -714,7 +745,12 @@ export function getUnlockedCosmetics(level: number, achievements: Achievement[],
     .filter(a => a.completed)
     .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
   const honorUnlocks = courtHonors.map(courtHonorCosmetic).filter((c): c is UnlockedCosmetic => !!c);
-  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks];
+  const badgeUnlocks: UnlockedCosmetic[] = [];
+  for (const def of MODE_BADGES) {
+    const reached = modeTierReached(modeCount(modeStats, def.mode));
+    for (let t = 1; t <= reached; t++) { const c = modeBadgeCosmetic(`mode:${def.mode}:${t}`, modeStats); if (c) badgeUnlocks.push(c); }
+  }
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks];
 }
 
 // Resolves what to actually show in the header: the player's chosen icon/title
@@ -725,9 +761,10 @@ export function resolveProfileDisplay(
   achievements: Achievement[],
   selectedAccountIcon: string,
   selectedTitle: string,
-  courtHonors?: string[] // own profile: honors must be earned. Omitted for other players' profiles (display only)
+  courtHonors?: string[], // own profile: honors must be earned. Omitted for other players' profiles (display only)
+  modeStats?: Record<string, number>
 ): { icon: string; title: string } {
-  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? []);
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats);
   if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
     const other = courtHonorCosmetic(selectedTitle);
     if (other) unlocked.push(other);

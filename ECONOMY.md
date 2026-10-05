@@ -367,3 +367,8 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Rewards: a daily Ticket purse for ranks 1-3 only, once per UTC day: 45 x (1 + 0.25 x (bracket - 1)) x (1.0 / 0.6 / 0.4 for rank 1 / 2 / 3). At most 79 / 47 / 32 Tickets in bracket 4, about 146 / 88 / 58 in bracket 10, per day. Never PP, never passive.
 - Titles: reaching the top 3 grants a permanent cosmetic title and medal (key `court:<bracket>:<place>`), e.g. "Clubhouse Contenders Champion", "Gold Lounge Runner-Up", "Living Legends Third Place". Picked in the profile picker like other titles; other players see a well-formed court title as chosen (display only).
 - Not built yet: tiers/recognition for the other modes, a Mailbox notice when displaced, more badges.
+
+## Mode badges (2026-10-04)
+- Lifetime counts per mode (from the same events that drive quests): Park Brawler (battles), Court Regular (Court games, tournament, challenge), Friendly Rival (player battles), Arena Defender (arena fights), Good Neighbor (Resident Exchange sends and claims), Bingo Buff, Park Collector (map items), Evolution Expert.
+- Tiers at 10 / 50 / 150 / 400 / 1,000: Bronze, Silver, Gold, Platinum, Legend. Each tier unlocks a medal icon and a title like "Park Brawler Gold". Counts only go up, so badges are permanent. Cosmetic only, no currency.
+- You can only pick badges you have earned. Other players do not see mode badges (the server cannot verify the counts), only rank and verified Court titles.

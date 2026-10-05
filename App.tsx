@@ -130,7 +130,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
+  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, modeKindKnown, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -192,6 +192,7 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
   return rate * ticks;
 }
 
+const bumpStat = (m: Record<string, number> | undefined, kind: string, n = 1): Record<string, number> => ({ ...(m ?? {}), [kind]: Math.min(1e9, (Number(m?.[kind]) || 0) + n) });
 const SAVE_KEY = 'geriatric_park_v17_save';
 const MALE_NAMES = ["Arthur", "Barnaby", "Harold", "Otis", "Clarence", "Mortimer", "Cecil"];
 const FEMALE_NAMES = ["Ethel", "Mildred", "Gertrude", "Mabel", "Edith", "Gladys"];
@@ -547,7 +548,7 @@ const App: React.FC = () => {
           ? { ...e, awayPrevStatus: e.status, awayUntil: Date.now() + durationHours * 3600000, awayLoan: asLoan, status: 'Base' as const }
           : e),
       }));
-      setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'exchange_send') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
+      setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'exchange_send'), quests: prev.quests.map(q => (!q.completed && q.kind === 'exchange_send') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
       notify(asLoan ? `${elder.name} is on loan for ${durationHours}h!` : `${elder.name} is off visiting for ${durationHours}h!`, 'good');
       void refreshResidentExchange();
     } catch (e) {
@@ -908,6 +909,9 @@ const App: React.FC = () => {
     }
     // Untrusted save: keep only well-formed Court honor keys (court:<1-10>:<1-3>).
     next.courtHonors = Array.isArray(next.courtHonors) ? (next.courtHonors as unknown[]).filter((k): k is string => typeof k === 'string' && parseCourtHonor(k) !== null).slice(0, 60) : [];
+    // Untrusted save: lifetime counts must be finite non-negative numbers for known quest kinds only.
+    const rawStats = (next.modeStats && typeof next.modeStats === 'object') ? next.modeStats as Record<string, unknown> : {};
+    next.modeStats = Object.fromEntries(Object.entries(rawStats).filter(([k, v]) => modeKindKnown(k) && typeof v === 'number' && Number.isFinite(v) && v >= 0).map(([k, v]) => [k, Math.min(1e9, Math.floor(v as number))]));
     return next as unknown as GameState;
   };
 
@@ -1183,7 +1187,7 @@ const App: React.FC = () => {
     if (cost > 0) bits.push(`(-${cost} 🎟️ attack fee)`);
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
-    setState(prev => ({ ...prev, quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
+    setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.settings.sfxEnabled, notify]);
 
   const handleArenaClaimDues = useCallback(() => runArenaAction('Collecting Dues', async () => {
@@ -1389,6 +1393,7 @@ const App: React.FC = () => {
   const handleQuestProgress = useCallback((kind: string, amount: number = 1) => {
     setState(prev => ({
       ...prev,
+      modeStats: modeKindKnown(kind) ? bumpStat(prev.modeStats, kind, amount) : prev.modeStats,
       quests: prev.quests.map(q => (!q.completed && q.kind === kind) ? { ...q, progress: Math.min(q.target, q.progress + amount) } : q),
     }));
   }, []);
@@ -2109,6 +2114,7 @@ const App: React.FC = () => {
       }
       if (prev.settings.sfxEnabled) audioManager.playSFX('collect');
       return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
+        modeStats: msg.exchangeHost ? bumpStat(prev.modeStats, 'exchange_host') : prev.modeStats,
         quests: msg.exchangeHost ? prev.quests.map(q => (!q.completed && q.kind === 'exchange_host') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) : prev.quests };
     });
   }, []);
@@ -2135,6 +2141,7 @@ const App: React.FC = () => {
         next = { ...prev, amenityCollectedAt: { ...(prev.amenityCollectedAt ?? {}), [targetId]: Math.min(current, shifted) } };
       }
       return { ...next, mailbox: next.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
+        modeStats: bumpStat(next.modeStats, 'exchange_host'),
         quests: next.quests.map(q => (!q.completed && q.kind === 'exchange_host') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) };
     });
     notify('Gift applied — thanks for hosting!', 'good');
@@ -2603,7 +2610,7 @@ const App: React.FC = () => {
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
             {(() => {
-              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? []);
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats);
               return (
                 <>
                   <button
@@ -2859,11 +2866,11 @@ const App: React.FC = () => {
         )}
 
         {showProfilePicker && (() => {
-          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? []);
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats);
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
-          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? []);
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats);
           const completedAchievements = state.achievements.filter(a => a.completed);
           const roster = state.allElders.filter(e => e.captured);
           const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
@@ -2947,6 +2954,24 @@ const App: React.FC = () => {
                       {activeTitleKey === c.key && <CheckCircleIcon className="w-4 h-4" />}
                     </button>
                   ))}
+                </div>
+
+                <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Mode Badges</h3>
+                <div className="space-y-2 mb-8">
+                  {MODE_BADGES.map(m => {
+                    const count = modeCount(state.modeStats, m.mode);
+                    const reached = modeTierReached(count);
+                    const next = MODE_BADGE_TIERS[reached];
+                    return (
+                      <div key={m.mode} className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[14px] font-black uppercase">{m.name}</span>
+                          <span className="text-[13px] font-black">{reached > 0 ? `${MODE_BADGE_TIERS[reached - 1].icon} ${MODE_BADGE_TIERS[reached - 1].name}` : 'Not yet'}</span>
+                        </div>
+                        <p className="text-[12px] opacity-70">{count} total{next ? ` · next: ${next.name} at ${next.min}` : ' · max tier reached'}</p>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <h3 className="text-[15px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">Featured Folks ({favoriteElders.length}/3)</h3>
