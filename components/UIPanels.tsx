@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  GEAR_RARITY_COLOR, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
+  GEAR_RARITY_COLOR, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1090,9 +1090,10 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
 
 export const QuestPanel: React.FC<{ 
   quests: Quest[], achievements: Achievement[], parkScore: number, 
-  onClaim: (id: string) => void, isDark: boolean 
-}> = ({ quests, achievements, parkScore, onClaim, isDark }) => {
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements'>('daily');
+  onClaim: (id: string) => void, isDark: boolean,
+  modeStats?: Record<string, number>, claimedMilestones?: string[], onClaimMilestone?: (mode: string, tier: number) => void
+}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone }) => {
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements' | 'milestones'>('daily');
   const daily = quests.filter(q => q.type === 'Daily');
   const weekly = quests.filter(q => q.type === 'Weekly');
 
@@ -1113,7 +1114,7 @@ export const QuestPanel: React.FC<{
 
       {/* Tab selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-        {(['daily', 'weekly', 'achievements'] as const).map(tab => (
+        {(['daily', 'weekly', 'milestones', 'achievements'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1123,6 +1124,44 @@ export const QuestPanel: React.FC<{
           </button>
         ))}
       </div>
+
+      {/* Milestones: one-time progression goals per mode (the mode badge tiers) */}
+      {activeTab === 'milestones' && (
+        <div className="space-y-4">
+          <p className={`text-[13px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lifetime goals for every part of the Park. Each tier is a one-time reward and unlocks a badge and title. They never repeat.</p>
+          {MODE_BADGES.map(m => {
+            const count = modeCount(modeStats, m.mode);
+            const reached = modeTierReached(count);
+            return (
+              <div key={m.mode} className={`p-4 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[15px] font-black uppercase">{m.name}</h3>
+                  <span className="text-[13px] font-black opacity-70">{count} total</span>
+                </div>
+                <div className="space-y-1.5">
+                  {MODE_BADGE_TIERS.map(t => {
+                    const key = `${m.mode}:${t.tier}`;
+                    const done = reached >= t.tier, claimed = claimedMilestones.includes(key);
+                    const r = MODE_MILESTONE_REWARDS[t.tier - 1];
+                    return (
+                      <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'} ${!done ? 'opacity-60' : ''}`}>
+                        <span className="text-xl">{t.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-black uppercase">{t.name} · {t.min}</p>
+                          <p className="text-[12px] opacity-70">{r.tickets} Tickets{r.materials ? ` + ${r.materials} Materials` : ''}</p>
+                        </div>
+                        {claimed ? <span className="text-[12px] font-black text-emerald-500">Collected</span>
+                          : done ? <button onClick={() => onClaimMilestone?.(m.mode, t.tier)} className="px-3 py-1.5 rounded-lg bg-[var(--accent-600)] text-white font-black uppercase text-[12px]">Claim</button>
+                          : <span className="text-[12px] font-bold opacity-60">{Math.max(0, t.min - count)} to go</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Daily quests */}
       {activeTab === 'daily' && (

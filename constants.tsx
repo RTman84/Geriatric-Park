@@ -723,6 +723,12 @@ export const MODE_BADGE_TIERS = [
   { tier: 3, name: 'Gold', min: 150, icon: '\u{1F947}' }, { tier: 4, name: 'Platinum', min: 400, icon: '\u{1F48E}' },
   { tier: 5, name: 'Legend', min: 1000, icon: '\u{1F451}' },
 ] as const;
+// One-time rewards for reaching each mode-badge tier (milestones are bragging rights first; these are small and
+// never repeat). Lifetime total per mode: 840 Tickets + 35 Materials. Never PP.
+export const MODE_MILESTONE_REWARDS = [
+  { tickets: 20, materials: 0 }, { tickets: 50, materials: 0 }, { tickets: 120, materials: 5 }, { tickets: 250, materials: 10 }, { tickets: 400, materials: 20 },
+] as const;
+
 export const modeCount = (stats: Record<string, number> | undefined, mode: string): number => {
   const def = MODE_BADGES.find(m => m.mode === mode);
   return def ? def.kinds.reduce((sum, k) => sum + Math.max(0, Number(stats?.[k]) || 0), 0) : 0;

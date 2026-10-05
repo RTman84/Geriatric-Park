@@ -194,6 +194,7 @@ export interface GameState {
   // Otherwise a cosmetic key from getUnlockedCosmetics, e.g. 'achievement:a1'.
   selectedAccountIcon: string;
   selectedTitle: string;
+  claimedMilestones?: string[]; // one-time milestone rewards already collected, keys like battle:3
   modeStats?: Record<string, number>; // lifetime activity counts by quest kind (drives mode badges)
   courtHonors?: string[]; // permanent Court ladder titles earned (keys like court:5:1)
   mailbox: MailMessage[];

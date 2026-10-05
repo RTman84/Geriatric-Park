@@ -372,3 +372,6 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Lifetime counts per mode (from the same events that drive quests): Park Brawler (battles), Court Regular (Court games, tournament, challenge), Friendly Rival (player battles), Arena Defender (arena fights), Good Neighbor (Resident Exchange sends and claims), Bingo Buff, Park Collector (map items), Evolution Expert.
 - Tiers at 10 / 50 / 150 / 400 / 1,000: Bronze, Silver, Gold, Platinum, Legend. Each tier unlocks a medal icon and a title like "Park Brawler Gold". Counts only go up, so badges are permanent. Cosmetic only, no currency.
 - You can only pick badges you have earned. Other players do not see mode badges (the server cannot verify the counts), only rank and verified Court titles.
+
+## Milestones (2026-10-05)
+- New "Goals" tab in Tasks: one-time progression goals per mode (the mode badge tiers). Each tier pays a one-time reward: 20 / 50 / 120 / 250 / 400 Tickets, plus 0 / 0 / 5 / 10 / 20 Building Materials. Lifetime total per mode: 840 Tickets + 35 Materials (8 modes). Never repeats, never PP. Claim is validated against lifetime counts and a saved list of claimed keys.

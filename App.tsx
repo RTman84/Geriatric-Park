@@ -130,7 +130,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, modeKindKnown, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
+  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, modeKindKnown, MODE_MILESTONE_REWARDS, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -192,6 +192,7 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
   return rate * ticks;
 }
 
+const modeKindKnownMode = (m: string): boolean => MODE_BADGES.some(x => x.mode === m);
 const bumpStat = (m: Record<string, number> | undefined, kind: string, n = 1): Record<string, number> => ({ ...(m ?? {}), [kind]: Math.min(1e9, (Number(m?.[kind]) || 0) + n) });
 const SAVE_KEY = 'geriatric_park_v17_save';
 const MALE_NAMES = ["Arthur", "Barnaby", "Harold", "Otis", "Clarence", "Mortimer", "Cecil"];
@@ -912,6 +913,7 @@ const App: React.FC = () => {
     // Untrusted save: lifetime counts must be finite non-negative numbers for known quest kinds only.
     const rawStats = (next.modeStats && typeof next.modeStats === 'object') ? next.modeStats as Record<string, unknown> : {};
     next.modeStats = Object.fromEntries(Object.entries(rawStats).filter(([k, v]) => modeKindKnown(k) && typeof v === 'number' && Number.isFinite(v) && v >= 0).map(([k, v]) => [k, Math.min(1e9, Math.floor(v as number))]));
+    next.claimedMilestones = Array.isArray(next.claimedMilestones) ? (next.claimedMilestones as unknown[]).filter((k): k is string => typeof k === 'string' && /^[a-z]+:[1-5]$/.test(k) && modeKindKnownMode(k.split(':')[0])).slice(0, 60) : [];
     return next as unknown as GameState;
   };
 
@@ -1450,6 +1452,19 @@ const App: React.FC = () => {
       season: { ...prev.season, claimedLevels: [...prev.season.claimedLevels, level] },
     }));
   }, [state.season, state.settings.sfxEnabled]);
+
+  // Milestones: one-time reward per mode-badge tier, claimed from the Tasks screen. Validated against lifetime counts.
+  const handleClaimMilestone = useCallback((mode: string, tier: number) => {
+    setState(prev => {
+      const key = `${mode}:${tier}`;
+      const reward = MODE_MILESTONE_REWARDS[tier - 1];
+      if (!reward || !MODE_BADGES.some(m => m.mode === mode)) return prev;
+      if ((prev.claimedMilestones ?? []).includes(key)) return prev;
+      if (modeTierReached(modeCount(prev.modeStats, mode)) < tier) return prev;
+      return { ...prev, legacyTokens: prev.legacyTokens + reward.tickets, buildingMaterials: (prev.buildingMaterials ?? 0) + reward.materials, claimedMilestones: [...(prev.claimedMilestones ?? []), key] };
+    });
+    notify('Milestone reward collected!', 'good');
+  }, [notify]);
 
   const handleClaimQuest = useCallback((id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
@@ -2686,7 +2701,7 @@ const App: React.FC = () => {
               notify(`${item.name} activated!`);
             }
           }} />}
-          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} />}
+          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
