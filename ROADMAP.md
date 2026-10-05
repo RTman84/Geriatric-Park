@@ -22,6 +22,12 @@ Accounts + cloud save, Friends, Mailbox, Arenas + Raids, Park scene + buildings,
 - Rules: never PP, never passive income, per-source daily/weekly caps so it cannot be farmed; spend only on cosmetics and prestige (titles, icons, frames, park themes, building skins, Elder skins), plus a few convenience items. No power that decides PvP outcomes (keeps ladders and thrones fair).
 - Needs: a currency field in saves (untrusted-save rules), a server-recorded balance if it gates anything other players see, a shop screen, and art for every item.
 
+## Currency naming and use cases (draft, 2026-10-05)
+- PvP currency: themed on things that help old people stay active. Leading option: **Liniment** (a jar of muscle rub; distinct from USD and from Tickets/Materials/PP). Others: Heat Packs, Support Bandages, Compression Socks. Avoid brand names (trademarks).
+- Premium currency: needs its own name and real scarcity. Leading option: **Heirlooms** (fits the planned limited-time "antiques"). Others: Golden Years, Silver Spoons.
+- Premium uses (must beat just waiting): limited-time Antiques (rotating cosmetics/building skins, fixed windows), Elder Pass premium track, extra roster/inventory slots, ad-free, and possibly priced Park Assets (see below). Nothing that raises PvP power.
+- Atlas-Earth-style conversion idea: Heirlooms could buy Park Assets (the passive-yield micro-assets) at a price deliberately worse than reinvesting free Pending Yield, so buying is an accelerator not a requirement, and a set share of each purchase goes to the PP reserve. This is the only place purchases would raise passive income, so the price must exceed the asset's lifetime PP payout by a safe margin; needs a legal/policy review (investment-like mechanics) before building.
+
 ## Cash shop (design proposal, needs your decisions)
 - Tickets are plentiful, so they are not the sold currency. PP is the future USD-backed currency and must never be sold directly (payments/regulatory risk, and it would break the ad-revenue-only rule).
 - So the cash shop needs its own premium currency (name TBD), bought with real money through Google Play Billing (Steam later needs its own model), spent on: cosmetics, Elder Pass premium track, extra roster/inventory space, ad-free option, limited-time "antiques".
