@@ -65,6 +65,31 @@ const STEPS: TutorialStep[] = [
     icon: <TrophyIcon className="w-12 h-12 text-rose-500" />
   },
   {
+    title: "Wild Residents & Rarity",
+    description: "Tap a wild resident to see its level, rarity and power before you fight. A rarer Elder is stronger in every way: Common, Rare, Epic, then Legendary. A resident you guide home joins exactly as strong as you fought it.",
+    icon: <SparklesIcon className="w-12 h-12 text-purple-500" />
+  },
+  {
+    title: "Court Ladders",
+    description: "Every power bracket has its own top-10 Grand Shuffle Court ladder. Challenge up to 3 ranks above you, 3 times a day. The top 3 earn a daily Ticket purse and a permanent bracket title: Champion, Runner-Up or Third Place.",
+    icon: <TrophyIcon className="w-12 h-12 text-amber-500" />
+  },
+  {
+    title: "Find Opponents",
+    description: "In Friends, Find Opponents lists players who opted in to random matching, mostly near your power. Refresh has a short cooldown. Each opponent has their own battle cooldown, so attacking one never stops you from attacking another.",
+    icon: <UserGroupIcon className="w-12 h-12 text-rose-500" />
+  },
+  {
+    title: "Visits & Squad Loans",
+    description: "Leave a benched Elder with a friend for 8, 12 or 24 hours. Your Elder earns XP, and your friend gets the gift you pick: Materials, progress on one of their quests, or extra output from one of their buildings. A Squad Loan lets a friend use your Elder in Battles and Court games instead. Away & Visiting in the Park shows it all.",
+    icon: <HomeIcon className="w-12 h-12 text-sky-500" />
+  },
+  {
+    title: "Goals, Badges & Titles",
+    description: "The Goals tab in Tasks tracks lifetime progress in every mode. Each tier pays a one-time reward and unlocks a badge and title you can pick in your profile. You can only wear what you have earned.",
+    icon: <TrophyIcon className="w-12 h-12 text-emerald-500" />
+  },
+  {
     title: "Shop & Passes",
     description: "The Shop sells gear, boosters, and Court items for Tickets. The Elder Pass has seasonal rewards you claim as you progress.",
     icon: <ShoppingBagIcon className="w-12 h-12 text-teal-500" />
