@@ -9,7 +9,7 @@ import {
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
   EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
   GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
-  GOLDEN_GAMES_MAX_TIERS, AUTO_PLAY_BENCHMARK_POWER,
+  GOLDEN_GAMES_MAX_TIERS, autoPlayBenchmark,
   CHALLENGE_TIERS, CHALLENGE_MAX_TIERS, CHALLENGE_DAILY_PAID_WINS, CHALLENGE_FIRST_CLEAR_MULT, CHALLENGE_VARIANCE,
   normalizeChallengeLadder, rollChallenge, utcDayKey, ownedAssetCount,
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
@@ -478,7 +478,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       // outcome is driven by squad power against a fixed benchmark, with only
       // a small +-10% wobble so repeated collections aren't identical.
       const wobble = 0.9 + Math.random() * 0.2;
-      const progressPct = Math.min(150, (teamStrength / AUTO_PLAY_BENCHMARK_POWER) * 100 * wobble);
+      const progressPct = Math.min(150, (teamStrength / autoPlayBenchmark(teamStrength)) * 100 * wobble);
       const won = progressPct >= 100;
       const tokensEarned = Math.floor(AUTO_PLAY_MIN_TICKETS + (progressPct / 100) * AUTO_PLAY_TICKET_SPAN);
       const res = onPassiveResult(won, tokensEarned);
@@ -644,7 +644,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase mb-2">
               <span className="opacity-60">Squad Readiness</span>
-              <span className="text-[var(--accent-500)]">{Math.min(150, Math.round((teamStrength / AUTO_PLAY_BENCHMARK_POWER) * 100))}%</span>
+              <span className="text-[var(--accent-500)]">{Math.min(150, Math.round((teamStrength / autoPlayBenchmark(teamStrength)) * 100))}%</span>
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Reward Range</span>

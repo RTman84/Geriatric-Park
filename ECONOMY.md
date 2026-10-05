@@ -375,3 +375,8 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 
 ## Milestones (2026-10-05)
 - New "Goals" tab in Tasks: one-time progression goals per mode (the mode badge tiers). Each tier pays a one-time reward: 20 / 50 / 120 / 250 / 400 Tickets, plus 0 / 0 / 5 / 10 / 20 Building Materials. Lifetime total per mode: 840 Tickets + 35 Materials (8 modes). Never repeats, never PP. Claim is validated against lifetime counts and a saved list of claimed keys.
+
+## Re-audit against the 24k power curve (2026-10-05)
+- Auto-Play: FOUND a gap. The benchmark was a fixed 100 power, so every squad above 150 power sat at the same 150% result forever. It now follows the player's bracket (`autoPlayBenchmark`: midway to the next bracket's floor), so readiness stays meaningful from a new squad (about 110%) to a late-game one (about 90-110%). Ticket payouts are unchanged and flat across brackets.
+- Still to check with real play data: Raid boss HP and damage caps (they were tuned against squad power in the low thousands), Arena power fights (use synced squad power, so they scale with the curve), and Daily Tournament scoring (score scales with squad power, board is already ranked by it, so it scales by design).
+- Ticket source/sink table (section 6) is still not written.

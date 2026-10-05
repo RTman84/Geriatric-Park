@@ -585,7 +585,16 @@ export function rollFriendBattle(myPower: number, friendPower: number): { won: b
 // Auto-Play (Court) benchmark: a squad at exactly this power clears a match
 // at 100% progress. Used to make Auto-Play's outcome mostly power-driven and
 // gradual rather than a coin-flip, distinguishing it from Challenge/Tower.
-export const AUTO_PLAY_BENCHMARK_POWER = 100;
+export const AUTO_PLAY_BENCHMARK_POWER = 100; // floor for the very first bracket
+// The benchmark follows the player's power bracket (midway between its floor and the next bracket's floor, 1.25x the
+// floor for the top bracket) so readiness stays meaningful from a 100-power squad to a 20,000-power one. A fixed 100
+// capped every squad above 150 power at the same 150% result. Ticket payouts stay flat across brackets (economy).
+export function autoPlayBenchmark(squadPower: number): number {
+  const b = getBracket(squadPower);
+  const next = (POWER_BRACKETS as readonly { n: number; min: number }[])[b.n]; // undefined for the top bracket
+  const mid = next ? (b.min + next.min) / 2 : b.min * 1.25;
+  return Math.max(AUTO_PLAY_BENCHMARK_POWER, Math.round(mid));
+}
 
 // ─── UI Color Themes ──────────────────────────────────────────────────────────
 // The app's single brand/accent color (previously hardcoded as Tailwind's
