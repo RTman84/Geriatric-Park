@@ -1485,6 +1485,14 @@ const App: React.FC = () => {
   const handleCollectItem = (item: MapItem) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
     handleQuestProgress('collect');
+    // Say what the pickup actually did -- items used to just vanish with no feedback.
+    const collectMsg = item.type === 'LegacyToken' ? `${item.name}: +${item.boost || 25} 🎟️ Tickets`
+      : item.type === 'Equipment' ? `${item.name} added to your Park Hub inventory (${item.slot || 'Accessory'} slot)`
+      : item.type === 'StatBoost' ? `${item.name}: +1 Strength and Wit for a squad Elder`
+      : item.name === 'Old Map' ? `${item.name}: +${(item.boost || 50) + 25} XP`
+      : item.name === 'Hard Candy' ? `${item.name}: healed a squad Elder (+${item.boost || 15} HP)`
+      : `${item.name} collected (+25 XP)`;
+    notify(collectMsg, 'good');
     setState(prev => {
       let xpGain = 25;
       let nextTokens = prev.legacyTokens;
@@ -1498,14 +1506,14 @@ const App: React.FC = () => {
         const team = nextElders.filter(e => e.status === 'Team');
         if (team.length > 0) {
           const targetIdx = nextElders.indexOf(team[Math.floor(Math.random() * team.length)]);
-          if (targetIdx !== -1) { nextElders[targetIdx].strength += 1; nextElders[targetIdx].wit += 1; }
+          if (targetIdx !== -1) nextElders[targetIdx] = { ...nextElders[targetIdx], strength: nextElders[targetIdx].strength + 1, wit: nextElders[targetIdx].wit + 1 };
         }
       } else if (item.type === 'Snack') {
         if (item.name === 'Old Map') { xpGain += (item.boost || 50); }
         else if (item.name === 'Hard Candy') {
           const team = nextElders.filter(e => e.status === 'Team');
           const target = team.find(e => e.hp < e.maxHp) || team[0];
-          if (target) target.hp = Math.min(target.maxHp, target.hp + (item.boost || 15));
+          if (target) { const ti = nextElders.indexOf(target); nextElders[ti] = { ...target, hp: Math.min(target.maxHp, target.hp + (item.boost || 15)) }; }
         }
       }
       const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, xpGain);
