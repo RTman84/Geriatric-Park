@@ -357,7 +357,7 @@ const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
 ];
 export const GOLDEN_GAMES_MAX_TIERS = 100;
 // Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
-// (Tickets 1.04x, Elder XP 1.05x, Stars 1.03x) so higher tiers are more of a
+// (Tickets 1.02x, Elder XP 1.05x, Stars 1.03x) so higher tiers are more of a
 // challenge than a faucet and progression stays slow.
 // Power curve for generated tiers: roughly linear early (tracks a squad gaining ~13 power per Elder level) and
 // bending upward later (evolution, rarity and gear compound), landing exactly on PROGRESSION_MAX_POWER at the last tier.
@@ -366,7 +366,7 @@ const goldenGamesPowerAt = (step: number): number => {
   const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1].minSquadPower;
   return base + 65 * step + (PROGRESSION_MAX_POWER - base - 65 * GG_STEPS) * Math.pow(step / GG_STEPS, 3);
 };
-const GOLDEN_GAMES_TICKET_GROWTH = 1.04;
+const GOLDEN_GAMES_TICKET_GROWTH = 1.02; // was 1.04 -- late-game Ticket inflation fix (ECONOMY.md 6m)
 const GOLDEN_GAMES_XP_GROWTH = 1.05;
 const GOLDEN_GAMES_SCORE_GROWTH = 1.03;
 // (Roman-numeral naming removed 2026-09-22 -- see bug note in generateGoldenGamesTiers below.)

@@ -417,3 +417,6 @@ Boss HP: base 3,000 / 6,000 / 10,000 (tiers 1-3) x boss multiplier (0.75-1.6) x 
 - Tier 3: the 8% cap means about 12.5 hits solo, more than the 10-attempt limit, so at least 2 players are needed. Squads above about 800-1,000 are already capped.
 - Result: past roughly 1,000-3,000 squad power, power no longer matters in Raids. What matters is the number of players who show up. With few nearby players, tier 2 and 3 Raids may often go unbeaten (participation rewards still pay, so the economy is safe). Rewards are flat (10 Tickets + 2 Materials, +8 Materials on defeat, 3 rewarded Raids/day).
 - Suggested change if wanted: make the per-hit cap scale with the squad's bracket instead of a fixed share of boss HP, or scale boss HP by recent participants. Needs real Raid data before tuning.
+
+### 6m update (2026-10-06, owner decision)
+Golden Games Ticket growth lowered 1.04 -> 1.02 per tier. Win purses are now tier 26: 77-116, tier 51: 127-190, tier 76: 208-312, tier 100: 335-502 (about 2,100/day at the top with 5 paid matches, down from about 13,500). The remaining surplus is meant to be absorbed by the Mementos shop and the PvP shop (currency name leaning "TV Dinners"). Raids: players must still be able to take part and earn the flat participation rewards without being able to kill the boss; per-hit scaling stays undecided until real Raid data exists.
