@@ -13,6 +13,7 @@ import GroundsPanel from './components/GroundsPanel';
 import ParkScene from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
+import PvpShop from './components/PvpShop';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
 import {
@@ -163,6 +164,7 @@ import {
   MAX_BUILDING_LEVEL,
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
+  DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
   rollFriendBattle,
@@ -366,6 +368,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [],
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -466,6 +469,7 @@ const App: React.FC = () => {
   const [groundsFocusId, setGroundsFocusId] = useState<string | null>(null);
   const [showExchangeOverview, setShowExchangeOverview] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
+  const [showPvpShop, setShowPvpShop] = useState(false);
   const [arenaInfo, setArenaInfo] = useState<Record<string, ArenaInfo>>({});
   const [arenaMe, setArenaMe] = useState<ArenaMe | null>(null);
   const [activeArenaId, setActiveArenaId] = useState<string | null>(null);
@@ -913,6 +917,10 @@ const App: React.FC = () => {
     // Untrusted save: lifetime counts must be finite non-negative numbers for known quest kinds only.
     const rawStats = (next.modeStats && typeof next.modeStats === 'object') ? next.modeStats as Record<string, unknown> : {};
     next.modeStats = Object.fromEntries(Object.entries(rawStats).filter(([k, v]) => modeKindKnown(k) && typeof v === 'number' && Number.isFinite(v) && v >= 0).map(([k, v]) => [k, Math.min(1e9, Math.floor(v as number))]));
+    next.tvDinners = typeof next.tvDinners === 'number' && Number.isFinite(next.tvDinners) && next.tvDinners > 0 ? Math.min(1e7, Math.floor(next.tvDinners)) : 0;
+    next.dinersToday = typeof next.dinersToday === 'number' && Number.isFinite(next.dinersToday) && next.dinersToday > 0 ? Math.min(1000, Math.floor(next.dinersToday)) : 0;
+    next.dinersDay = typeof next.dinersDay === 'string' ? next.dinersDay.slice(0, 40) : '';
+    next.antiquesOwned = Array.isArray(next.antiquesOwned) ? Array.from(new Set((next.antiquesOwned as unknown[]).filter((k): k is string => typeof k === 'string' && !!antiqueById(k)))) : [];
     next.claimedMilestones = Array.isArray(next.claimedMilestones) ? (next.claimedMilestones as unknown[]).filter((k): k is string => typeof k === 'string' && /^[a-z]+:[1-5]$/.test(k) && modeKindKnownMode(k.split(':')[0])).slice(0, 60) : [];
     return next as unknown as GameState;
   };
@@ -1174,6 +1182,41 @@ const App: React.FC = () => {
     notify('Your Elder is back home.', 'good');
   }), [runArenaAction, activeArenaId, notify]);
 
+  // TV Dinners: earned only from competitive/social play, with one shared daily cap so nothing can be farmed.
+  const dinersGrant = (prev: GameState, amount: number): { tvDinners: number; dinersDay: string; dinersToday: number; gained: number } => {
+    const today = new Date().toDateString();
+    const used = prev.dinersDay === today ? (prev.dinersToday ?? 0) : 0;
+    const gained = Math.max(0, Math.min(amount, DINERS_DAILY_CAP - used));
+    return { tvDinners: (prev.tvDinners ?? 0) + gained, dinersDay: today, dinersToday: used + gained, gained };
+  };
+  const earnDiners = useCallback((amount: number, label: string) => {
+    setState(prev => { const { gained: _g, ...rest } = dinersGrant(prev, amount); return { ...prev, ...rest }; });
+    // setState updaters can run later; announce from the same cap math on the current render's state.
+    const today = new Date().toDateString();
+    const used = state.dinersDay === today ? (state.dinersToday ?? 0) : 0;
+    const will = Math.max(0, Math.min(amount, DINERS_DAILY_CAP - used));
+    if (will > 0) notify(`🍽️ +${will} TV Dinners (${label})`, 'good');
+  }, [state.dinersDay, state.dinersToday, notify]);
+  const handleBuyAntique = useCallback((id: string) => {
+    const a = antiqueById(id);
+    if (!a) return;
+    if (!antiquesForDay(antiqueDayIndex()).some(x => x.id === id)) { notify('That antique is not on sale today.', 'bad'); return; }
+    if ((state.antiquesOwned ?? []).includes(id)) { notify('You already own that antique.', 'bad'); return; }
+    if ((state.tvDinners ?? 0) < a.price) { notify(`You need ${a.price} 🍽️ TV Dinners.`, 'bad'); return; }
+    setState(prev => (prev.antiquesOwned ?? []).includes(id) || (prev.tvDinners ?? 0) < a.price ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - a.price, antiquesOwned: [...(prev.antiquesOwned ?? []), id] });
+    notify(`${a.icon} ${a.name} is yours! New icon and title unlocked in your profile.`, 'good');
+  }, [state.antiquesOwned, state.tvDinners, notify]);
+  const handleBuyPvpGear = useCallback((id: string) => {
+    const g = PVP_GEAR.find(x => x.id === id);
+    if (!g) return;
+    if ((state.tvDinners ?? 0) < g.price) { notify(`You need ${g.price} 🍽️ TV Dinners.`, 'bad'); return; }
+    setState(prev => (prev.tvDinners ?? 0) < g.price ? prev : {
+      ...prev, tvDinners: (prev.tvDinners ?? 0) - g.price,
+      inventory: [...prev.inventory, { id: 'pvp_' + Math.random().toString(36).slice(2, 11), name: g.name, icon: g.icon, boost: g.boost, description: g.description, slot: g.slot, rarity: g.rarity, level: 1 }],
+    });
+    notify(`${g.name} added to your Park Hub inventory.`, 'good');
+  }, [state.tvDinners, notify]);
+
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
     if (!activeArenaId) return;
     const upfront = arenaAttackCost(arenaMe?.attacksToday ?? 0);
@@ -1198,6 +1241,7 @@ const App: React.FC = () => {
     if (cost > 0) bits.push(`(-${cost} 🎟️ attack fee)`);
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
+    if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.settings.sfxEnabled, notify]);
 
@@ -1219,6 +1263,7 @@ const App: React.FC = () => {
     const bits = [`+${result.damage.toLocaleString()} damage`];
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
+    earnDiners(DINERS_RAID_HIT, 'Raid hit');
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.settings.sfxEnabled, notify, refreshMail]);
 
@@ -1853,6 +1898,7 @@ const App: React.FC = () => {
       : `⚔️ ${opponentName}'s squad held their ground.\nYour Elders still earned XP.`,
       won ? 'good' : 'bad');
     handleQuestProgress('friend_battle');
+    if (rewarded) earnDiners(DINERS_FRIEND_WIN, 'Friend Battle win');
     void notifyFriendBattle(friendUserId, won).catch(e => {
       console.error('Friend battle notification failed', e);
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
@@ -2649,7 +2695,7 @@ const App: React.FC = () => {
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
             {(() => {
-              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats);
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
               return (
                 <>
                   <button
@@ -2709,7 +2755,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
-          {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} onBuy={item => {
+          {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} diners={state.tvDinners ?? 0} onOpenPvpShop={() => setShowPvpShop(true)} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
               const team = state.allElders.filter(e => e.status === 'Team');
@@ -2905,11 +2951,11 @@ const App: React.FC = () => {
         )}
 
         {showProfilePicker && (() => {
-          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats);
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
-          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats);
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
           const completedAchievements = state.achievements.filter(a => a.completed);
           const roster = state.allElders.filter(e => e.captured);
           const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
@@ -3043,7 +3089,7 @@ const App: React.FC = () => {
 
         {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
 
-        {showThrones && <ThronesPanel isDark={isDark} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
+        {showThrones && <ThronesPanel isDark={isDark} onWin={() => earnDiners(DINERS_COURT_WIN, 'Court Ladder win')} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
 
         {encounter && !battleOpponent && (() => {
           const wildPower = getElderPower(encounter);
@@ -3175,6 +3221,7 @@ const App: React.FC = () => {
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
+        {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
             <div className={`max-w-lg mx-auto min-h-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>

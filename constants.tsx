@@ -752,7 +752,7 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
   return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: tier.icon, title: `${def.name} ${tier.name}` } : null;
 }
 
-export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>): UnlockedCosmetic[] {
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
     .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
@@ -765,7 +765,8 @@ export function getUnlockedCosmetics(level: number, achievements: Achievement[],
     const reached = modeTierReached(modeCount(modeStats, def.mode));
     for (let t = 1; t <= reached; t++) { const c = modeBadgeCosmetic(`mode:${def.mode}:${t}`, modeStats); if (c) badgeUnlocks.push(c); }
   }
-  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks];
+  const antiqueUnlocks = antiquesOwned.map(id => antiqueCosmetic(`antique:${id}`)).filter((c): c is UnlockedCosmetic => !!c);
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks];
 }
 
 // Resolves what to actually show in the header: the player's chosen icon/title
@@ -777,12 +778,14 @@ export function resolveProfileDisplay(
   selectedAccountIcon: string,
   selectedTitle: string,
   courtHonors?: string[], // own profile: honors must be earned. Omitted for other players' profiles (display only)
-  modeStats?: Record<string, number>
+  modeStats?: Record<string, number>,
+  antiquesOwned?: string[]
 ): { icon: string; title: string } {
-  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats);
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? []);
   if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
     const other = courtHonorCosmetic(selectedTitle);
     if (other) unlocked.push(other);
+    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
   }
   const rank = getRankForLevel(level);
   const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
@@ -1415,4 +1418,76 @@ export const SEASONAL_REWARDS = [
   { level: 8, icon: '💎', name: 'Artifact', free: '40 Tickets', tickets: 40 },
   { level: 9, icon: '🍀', name: 'Crafting', free: '35 Tickets', tickets: 35 },
   { level: 10, icon: '🏆', name: 'Grand Prize', free: '1000 Tickets', tickets: 1000 }
+];
+
+// --- TV Dinners: the PvP / Arena / Raid currency and its shop (2026-10-06) ---------------------------------
+// Earned ONLY from social/competitive play (daily-capped), spent ONLY in the PvP shop. Never PP, never passive income.
+export const DINERS_DAILY_CAP = 40;
+export const DINERS_FRIEND_WIN = 3;
+export const DINERS_ARENA_WIN = 3;
+export const DINERS_RAID_HIT = 2;
+export const DINERS_COURT_WIN = 4;
+
+export type AntiqueRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+export interface Antique { id: string; name: string; icon: string; rarity: AntiqueRarity; price: number; title: string }
+export const ANTIQUE_PRICE: Record<AntiqueRarity, number> = { Common: 20, Rare: 45, Epic: 90, Legendary: 180 };
+// [name, icon, rarity] -- 60 items: 30 Common, 18 Rare, 9 Epic, 3 Legendary.
+const ANTIQUE_SOURCE: [string, string, AntiqueRarity][] = [
+  ['Brass Bugle', '📯', 'Common'], ['Doily Set', '🧶', 'Common'], ['Hard Candy Dish', '🍬', 'Common'], ['Rotary Phone', '☎️', 'Common'],
+  ['Cuckoo Clock', '🕰️', 'Common'], ['Plaid Thermos', '🫖', 'Common'], ['Seed Packet Tin', '🌱', 'Common'], ['Crossword Book', '📰', 'Common'],
+  ['Wool Cardigan', '🧥', 'Common'], ['Mason Jar', '🫙', 'Common'], ['Checkers Board', '♟️', 'Common'], ['Porch Lantern', '🏮', 'Common'],
+  ['Recipe Box', '📦', 'Common'], ['Sewing Tin', '🧵', 'Common'], ['Garden Gnome', '🧙', 'Common'], ['Polka Record', '💿', 'Common'],
+  ['Pocket Comb', '🪮', 'Common'], ['Butter Dish', '🧈', 'Common'], ['Church Fan', '🪭', 'Common'], ['Reading Lamp', '💡', 'Common'],
+  ['Pinochle Deck', '🃏', 'Common'], ['Lemon Drops Tin', '🍋', 'Common'], ['Rain Bonnet', '☔', 'Common'], ['Garden Trowel', '🪴', 'Common'],
+  ['Pill Organizer', '💊', 'Common'], ['Quilting Hoop', '🪡', 'Common'], ['Almanac', '📅', 'Common'], ['Tea Cozy', '☕', 'Common'],
+  ['Hand Bell', '🔔', 'Common'], ['Clothespin Bag', '🧺', 'Common'],
+  ['Silver Teapot', '🫖', 'Rare'], ['Phonograph', '🎶', 'Rare'], ['Brass Telescope', '🔭', 'Rare'], ['Cast-Iron Skillet', '🍳', 'Rare'],
+  ['Typewriter', '⌨️', 'Rare'], ['Grandfather Clock', '⏰', 'Rare'], ['Quilted Heirloom', '🛏️', 'Rare'], ['Pocket Compass', '🧭', 'Rare'],
+  ['Wooden Cane', '🦯', 'Rare'], ['Victory Garden Sign', '🪧', 'Rare'], ['Banjo', '🪕', 'Rare'], ['Gramophone Horn', '📻', 'Rare'],
+  ['Porcelain Teacups', '🍵', 'Rare'], ['Spinning Wheel', '🎡', 'Rare'], ['Dance Hall Poster', '🎟️', 'Rare'], ['War Bond Frame', '🖼️', 'Rare'],
+  ['Hand-Cranked Radio', '📡', 'Rare'], ['Fishing Creel', '🎣', 'Rare'],
+  ['Golden Bingo Cage', '🎰', 'Epic'], ['Crystal Chandelier', '🪔', 'Epic'], ['Velvet Armchair', '🛋️', 'Epic'], ['Jeweled Hearing Horn', '👂', 'Epic'],
+  ['Mahogany Radio Cabinet', '📺', 'Epic'], ['Opera Glasses', '🎭', 'Epic'], ['Ballroom Trophy', '🏆', 'Epic'], ['Stained-Glass Lamp', '🏺', 'Epic'],
+  ['Ivory Chess Set', '♞', 'Epic'],
+  ['The First Casserole Dish', '🥘', 'Legendary'], ['Founder\'s Shuffleboard Cue', '🥏', 'Legendary'], ['Gilded TV Dinner Tray', '🍽️', 'Legendary'],
+];
+export const ANTIQUES: Antique[] = ANTIQUE_SOURCE.map(([name, icon, rarity], i) => ({
+  id: `a${String(i + 1).padStart(2, '0')}`, name, icon, rarity, price: ANTIQUE_PRICE[rarity], title: `${name} Collector`,
+}));
+export const ANTIQUES_PER_DAY = 4;
+export const ANTIQUE_CYCLE_DAYS = ANTIQUES.length / ANTIQUES_PER_DAY; // 15: every antique shows up once per cycle
+export const antiqueDayIndex = (now = Date.now()): number => Math.floor(now / 86400000);
+const antiqueSeedRand = (seed: number) => { let s = (seed * 2654435761) >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+// Deterministic for everyone, no server needed: each cycle uses its own shuffle, so the order differs every 15 days
+// but no antique can repeat inside a cycle -- miss one and it returns later (between 1 and ~29 days away).
+export function antiquesForDay(dayIndex: number): Antique[] {
+  const cycle = Math.floor(dayIndex / ANTIQUE_CYCLE_DAYS);
+  const pos = ((dayIndex % ANTIQUE_CYCLE_DAYS) + ANTIQUE_CYCLE_DAYS) % ANTIQUE_CYCLE_DAYS;
+  const order = ANTIQUES.map((_, i) => i);
+  const rnd = antiqueSeedRand(cycle + 7919);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order.slice(pos * ANTIQUES_PER_DAY, pos * ANTIQUES_PER_DAY + ANTIQUES_PER_DAY).map(i => ANTIQUES[i]);
+}
+// Days from `fromDay` until this antique is next on sale (0 = today).
+export function daysUntilAntique(id: string, fromDay: number): number {
+  for (let d = 0; d <= ANTIQUE_CYCLE_DAYS * 2 + 1; d++) if (antiquesForDay(fromDay + d).some(a => a.id === id)) return d;
+  return -1;
+}
+export const antiqueById = (id: string) => ANTIQUES.find(a => a.id === id);
+export const antiqueCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
+  if (typeof key !== 'string' || !key.startsWith('antique:')) return null;
+  const a = antiqueById(key.slice(8));
+  return a ? { key, icon: a.icon, title: a.title } : null;
+};
+
+// Gear sold only for TV Dinners (stronger than most drops; the sink for the PvP currency). Slot decides the stat.
+export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; boost: number; rarity: 'Epic' | 'Legendary'; price: number; description: string }[] = [
+  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Wit.' },
+  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Tenacity.' },
+  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Strength.' },
+  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Agility.' },
+  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Wit.' },
+  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.' },
+  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Strength.' },
+  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Agility.' },
 ];

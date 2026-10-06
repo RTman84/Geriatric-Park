@@ -4,9 +4,9 @@ import { fetchCourtState, challengeLadder, claimLadderPurse, type CourtState } f
 
 // Bracket ladders: each power bracket has a top-10 ladder; ranks 1-3 earn titles and a daily Ticket purse.
 const ThronesPanel: React.FC<{
-  isDark: boolean; onClose: () => void; onPurse: (tickets: number) => void; onHonor: (key: string) => void;
+  isDark: boolean; onClose: () => void; onPurse: (tickets: number) => void; onHonor: (key: string) => void; onWin?: () => void;
   notify: (m: string, kind?: 'good' | 'bad') => void;
-}> = ({ isDark, onClose, onPurse, onHonor, notify }) => {
+}> = ({ isDark, onClose, onPurse, onHonor, onWin, notify }) => {
   const [state, setState] = useState<CourtState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,6 +28,7 @@ const ThronesPanel: React.FC<{
   const challenge = (targetRank?: number) => run(async () => {
     const r = await challengeLadder(targetRank);
     notify(r.result === 'joined' ? `You joined the ladder at rank ${r.rank}!` : r.result === 'won' ? `You beat ${r.beaten || 'your rival'} and moved up!` : `${r.beaten || 'Your rival'} held the spot. Try again!`, r.result === 'lost' ? 'bad' : 'good');
+    if (r.result === 'won') onWin?.();
     if (r.view) apply(r.view); else await load();
   });
 

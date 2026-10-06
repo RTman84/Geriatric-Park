@@ -420,3 +420,9 @@ Boss HP: base 3,000 / 6,000 / 10,000 (tiers 1-3) x boss multiplier (0.75-1.6) x 
 
 ### 6m update (2026-10-06, owner decision)
 Golden Games Ticket growth lowered 1.04 -> 1.02 per tier. Win purses are now tier 26: 77-116, tier 51: 127-190, tier 76: 208-312, tier 100: 335-502 (about 2,100/day at the top with 5 paid matches, down from about 13,500). The remaining surplus is meant to be absorbed by the Mementos shop and the PvP shop (currency name leaning "TV Dinners"). Raids: players must still be able to take part and earn the flat participation rewards without being able to kill the boss; per-hit scaling stays undecided until real Raid data exists.
+
+## 6n. TV Dinners and the PvP Shop (2026-10-06, first version)
+- Currency: TV Dinners (state `tvDinners`), earned only from competitive play with ONE shared cap of `DINERS_DAILY_CAP` = 40/day: Friend Battle rewarded win 3, Arena win (rewarded) 3, Raid hit 2, Court Ladder win 4. Never PP, never passive income, never sold for money.
+- Shop (`components/PvpShop.tsx`, opened from the Commissary tab): 60 antiques (30 Common 20, 18 Rare 45, 9 Epic 90, 3 Legendary 180), 4 on sale per day, deterministic from the UTC day, every antique shows once per 15-day cycle and the order reshuffles each cycle, so a missed antique returns in 1 to about 29 days. Each owned antique unlocks an icon and a title (`antique:<id>`). Collection tab shows when each missing one is next on sale. Gear sold only here (8 pieces, Epic 120 / Legendary 320).
+- Sink math: at the 40/day cap a player can afford about one Epic antique every 2-3 days or a Legendary gear piece in 8 days, so completing the collection takes months of play.
+- Not built yet: timed PvP/Arena/Raid boosts (extra attempts), Mementos (premium) shop, art for antiques (emoji placeholders).

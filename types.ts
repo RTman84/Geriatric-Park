@@ -168,6 +168,9 @@ export interface GameState {
   // constants.tsx) -- decorations with no passive bonus, plus Housing which
   // raises total roster capacity.
   buildingMaterials: number;
+  tvDinners?: number; // PvP/Arena/Raid currency (spent only in the PvP shop)
+  dinersDay?: string; dinersToday?: number; // daily earn cap tracking
+  antiquesOwned?: string[]; // ids from ANTIQUES; each is a one-time collectible that unlocks an icon + title
   builtAmenityIds: string[];
   amenityLevels: Record<string, number>;      // building id -> level (missing = level 1)
   amenityCollectedAt: Record<string, number>; // working building id -> when its output was last collected
