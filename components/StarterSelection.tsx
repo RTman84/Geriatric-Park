@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Elder, ElderType, PowerType } from '../types';
-import { ELDER_AVATARS, ElderAvatarImg, GAME_VERSION, getBaseComfortGeneration } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GAME_VERSION, getBaseComfortGeneration, standardElderStats } from '../constants';
 import { AdOverlay } from './AdOverlay';
 
 interface StarterSelectionProps {
@@ -19,6 +19,8 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
   ];
 
   const handleSelection = (template: Partial<Elder>) => {
+    const starterRarity = template.powerType === PowerType.LEGENDARY ? 'Legendary' as const : 'Rare' as const;
+    const std = standardElderStats(5, starterRarity); // same curve every other level-5 Elder of this rarity gets
     const elder: Elder = {
       id: 'starter_' + Math.random().toString(36).substr(2, 9),
       name: template.name!,
@@ -33,7 +35,8 @@ const StarterSelection: React.FC<StarterSelectionProps> = ({ onSelect }) => {
       evolutionStage: 0,
       lat: 40.7128, lng: -74.0060,
       happiness: 100,
-      hp: 100, maxHp: 100, strength: 15, wit: 15, agility: 10, tenacity: 10,
+      hp: std.maxHp, maxHp: std.maxHp, strength: std.strength, wit: std.wit, agility: std.agility, tenacity: std.tenacity,
+      rarityStatsV1: true, starterStatsV2: true,
       equipment: {},
       status: 'Team',
       isRoaming: true

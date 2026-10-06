@@ -948,6 +948,15 @@ const App: React.FC = () => {
         }
         withDefaults.rarityStatsV1 = true;
       }
+      // Starters used to be created with flat 15/15/10/10 + 100 HP regardless of rarity -- well under even a Common
+      // level-5 Elder (30/30/20/20 + 120 HP). Add the missing base once (growth per level was already correct).
+      if (!withDefaults.starterStatsV2) {
+        if (String(withDefaults.id).startsWith('starter_')) {
+          withDefaults.strength += 15; withDefaults.wit += 15; withDefaults.agility += 10; withDefaults.tenacity += 10;
+          withDefaults.maxHp += 20; withDefaults.hp = Math.min(withDefaults.maxHp, withDefaults.hp + 20);
+        }
+        withDefaults.starterStatsV2 = true;
+      }
       if (!withDefaults.gearSlotsV2) {
         const acc = withDefaults.equipment.accessory;
         if (acc && Number.isFinite(acc.boost)) {

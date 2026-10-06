@@ -229,6 +229,7 @@ export interface Elder {
     charm?: Gear;
   };
   obtainedAt?: number; // when this Elder joined the park (for sorting); older Elders may not have it
+  starterStatsV2?: boolean; // true once a starter Elder's too-low base stats have been corrected (2026-10-06)
   rarityStatsV1?: boolean; // true once the rarity stat bonus has been applied to this Elder (2026-10-02)
   gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;
