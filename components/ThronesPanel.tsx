@@ -9,6 +9,7 @@ const ThronesPanel: React.FC<{
 }> = ({ isDark, onClose, onPurse, onHonor, onWin, notify }) => {
   const [state, setState] = useState<CourtState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (error) notify?.(error, 'bad'); }, [error]);
   const [busy, setBusy] = useState(false);
 
   const apply = useCallback((s: CourtState) => {
@@ -42,7 +43,7 @@ const ThronesPanel: React.FC<{
           <button onClick={onClose} className="px-3 py-1 rounded-lg font-black bg-slate-200 text-slate-700">Close</button>
         </div>
         <p className="text-[12px] opacity-70 mb-3">Every power bracket has its own top-10 ladder. Challenge up to 3 ranks above you using your own squad's power. Ranks 1-3 earn a permanent bracket title and a daily Ticket purse. Spots are lost after 7 days away.</p>
-        {error && <p className="text-[13px] font-bold text-red-500 mb-3">{error}</p>}
+        {error && !notify && <p className="text-[13px] font-bold text-red-500 mb-3">{error}</p>}
         {!state && !error && <p className="opacity-60 italic">Loading...</p>}
         {state && (
           <>

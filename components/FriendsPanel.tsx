@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
+import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import { sendFriendRequestByUserId } from '../services/socialService';
@@ -8,6 +8,7 @@ import type { ResidentExchangeRow } from '../services/residentExchangeService';
 import type { Elder } from '../types';
 
 interface FriendsPanelProps {
+  notify?: (text: string, tone?: 'good' | 'bad') => void;
   isDark: boolean;
   data: FriendsData | null;
   loading: boolean;
@@ -65,7 +66,7 @@ export const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'
   return side === 'mine' ? `Visit: ${owner}. Host receives ${gift}. Rewards scale down if recalled early.` : `Visit: you receive ${gift} when ${r.elder_name} heads home. ${r.owner?.display_name || 'Your friend'} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP.`;
 };
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident, notify }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -78,6 +79,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [toggleBusy, setToggleBusy] = useState(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [visitFeedback, setVisitFeedback] = useState<string | null>(null);
+  // Every status line shows as the app-wide top-of-screen message instead of a line buried inside the panel.
+  useEffect(() => { if (message) notify?.(message); }, [message]);
+  useEffect(() => { if (randomMessage) notify?.(randomMessage); }, [randomMessage]);
+  useEffect(() => { if (visitFeedback) notify?.(visitFeedback); }, [visitFeedback]);
   const [viewingParkFriendId, setViewingParkFriendId] = useState<string | null>(null);
   const [placingForFriendId, setPlacingForFriendId] = useState<string | null>(null);
   const [pickedElderId, setPickedElderId] = useState<string | null>(null);
@@ -227,7 +232,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
               <UserPlusIcon className="w-5 h-5" />
             </button>
           </div>
-          {message && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{message}</p>}
+          {message && !notify && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{message}</p>}
         </div>
 
         {/* Random matching -- opt-in only */}
@@ -250,7 +255,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
           >
             <SparklesIcon className="w-4 h-4" /> Find a Random Friend
           </button>
-          {randomMessage && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{randomMessage}</p>}
+          {randomMessage && !notify && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{randomMessage}</p>}
         </div>
 
         {/* Near-power opponents: opted-in players mostly in your bracket (with a little randomness) */}
@@ -363,8 +368,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                     {friend.favorite_elders.length > 0 && (
                       <div className="flex -space-x-2 flex-shrink-0">
                         {friend.favorite_elders.map((e, i) => (
-                          <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800">
+                          <div key={i} title={`${e.name}${e.rarity ? ' · ' + e.rarity : ''}${e.level ? ' · Lv.' + e.level : ''}`} className="w-10 h-10 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800 relative" style={e.rarity ? { borderColor: GEAR_RARITY_COLOR[e.rarity] } : undefined}>
                             <ElderAvatarImg type={e.type as any} stage={e.evolutionStage} fill />
+                            {(e.level || e.rarity) && <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] font-black leading-tight text-center">{e.level ? `Lv${e.level}` : ''}{e.rarity ? ` ${e.rarity[0]}` : ''}</div>}
                           </div>
                         ))}
                       </div>
@@ -493,7 +499,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                         </button>
                         <button onClick={() => onRemove(friend.user_id)} className="px-3 rounded-xl text-slate-300 hover:text-rose-400"><UserMinusIcon className="w-4 h-4" /></button>
                       </div>
-                      {isExpanded && visitFeedback && (
+                      {isExpanded && visitFeedback && !notify && (
                         <p className="text-[13px] font-black text-[var(--accent-500)] text-center mt-2">{visitFeedback}</p>
                       )}
                     </div>

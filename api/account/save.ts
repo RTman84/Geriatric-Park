@@ -88,7 +88,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
     const favoriteElders = favoriteIds
       .map(id => elders.find((e: any) => e?.id === id))
       .filter(Boolean)
-      .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name }));
+      .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name, level: Number.isFinite(e.level) ? e.level : 1, rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common' }));
 
     // A bracket title can only be shown to other players if the server recorded the honor (court_honors).
     const verifiedCourtKey = async (key: unknown): Promise<string | null> => {

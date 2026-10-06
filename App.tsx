@@ -166,7 +166,7 @@ import {
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
   PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
-  PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
+  GEAR_RARITY_COLOR, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -477,6 +477,7 @@ const App: React.FC = () => {
   }, []);
   const showNotice = useCallback((message: string) => notify(message, 'bad'), [notify]);
   const [showGroundsPanel, setShowGroundsPanel] = useState(false);
+  useEffect(() => { if (accountMessage) notify(accountMessage); }, [accountMessage, notify]);
   const [groundsFocusId, setGroundsFocusId] = useState<string | null>(null);
   const [showExchangeOverview, setShowExchangeOverview] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
@@ -2840,6 +2841,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'shuffleboard' && (
             <ShuffleboardPanel
+              notify={notify}
               isDark={isDark}
               elders={[...state.allElders, ...borrowedElders]}
               tokens={state.legacyTokens}
@@ -3057,8 +3059,9 @@ const App: React.FC = () => {
                       <p className="text-[12px] font-black uppercase opacity-60 mb-2">Featured Folks</p>
                       <div className="flex gap-2">
                         {favoriteElders.map(e => (
-                          <div key={e.id} className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
+                          <div key={e.id} title={`${e.name} · ${e.rarity} · Lv.${e.level}`} className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 relative border-2" style={{ borderColor: GEAR_RARITY_COLOR[e.rarity as keyof typeof GEAR_RARITY_COLOR] ?? 'transparent' }}>
                             <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                            <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[10px] font-black leading-tight text-center py-[1px]">Lv.{e.level} · {e.rarity}</div>
                           </div>
                         ))}
                       </div>
@@ -3122,11 +3125,12 @@ const App: React.FC = () => {
                       <button
                         key={e.id}
                         onClick={() => toggleFavorite(e.id)}
-                        title={e.name}
+                        title={`${e.name} · ${e.rarity} · Lv.${e.level}`}
                         disabled={!isFav && state.favoriteElderIds.length >= 3}
                         className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all relative ${isFav ? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]' : isDark ? 'border-slate-800' : 'border-slate-100'} disabled:opacity-30`}
                       >
                         <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                        <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] font-black leading-tight text-center py-[1px]">Lv.{e.level} · {e.rarity}</div>
                         {isFav && <div className="absolute top-1 right-1 bg-[var(--accent-500)] rounded-full w-4 h-4 flex items-center justify-center"><CheckCircleIcon className="w-3 h-3 text-white" /></div>}
                       </button>
                     );
@@ -3227,6 +3231,7 @@ const App: React.FC = () => {
 
         {showFriendsPanel && (
           <FriendsPanel
+            notify={notify}
             isDark={isDark}
             stationedIds={Object.keys(state.stationedAt ?? {})}
             data={friendsData}

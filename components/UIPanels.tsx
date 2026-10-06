@@ -393,6 +393,7 @@ export const BankPanel: React.FC<{
 // ─── Shuffleboard Panel ───────────────────────────────────────────────────────
 
 interface ShuffleboardProps {
+  notify?: (text: string, tone?: 'good' | 'bad') => void;
   isDark: boolean;
   elders: Elder[];
   tokens: number;
@@ -422,7 +423,7 @@ interface ShuffleboardProps {
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
-  isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
+  notify, isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
   onPassiveResult, onTournamentPlay, onChallenge, challengeLadder,
   tournamentScore, tournamentEndsAt, passiveMatchAt, tournamentThrows = 0, autoPlayPaid,
   goldenGames, onGoldenGamesResult,
@@ -440,6 +441,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [lastResultWon, setLastResultWon] = useState(false);
+  useEffect(() => { if (lastResult) notify?.(lastResult, lastResultWon ? 'good' : 'bad'); }, [lastResult]);
   const [timeToMatch, setTimeToMatch] = useState(0);
   const [timeToTournament, setTimeToTournament] = useState(0);
   const [timeToLeagueMatch, setTimeToLeagueMatch] = useState(0);
@@ -621,7 +623,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         ))}
       </div>
 
-      {lastResult && (
+      {lastResult && !notify && (
         <div className={`p-4 rounded-2xl mb-4 text-center text-base font-black border ${lastResultWon ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
           {lastResult}
         </div>
