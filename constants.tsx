@@ -1507,7 +1507,7 @@ const MEMENTO_SOURCE: [string, string, number][] = [
 export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, title: `Keeper of the ${name}` }));
 export const MEMENTO_ITEMS_PER_WEEK = 2;
 export const MEMENTO_CYCLE_WEEKS = MEMENTO_ITEMS.length / MEMENTO_ITEMS_PER_WEEK; // 6
-export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 4) / 7); // weeks roll over on Mondays UTC
+export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 3) / 7); // weeks roll over on Mondays UTC (epoch day 0 was a Thursday)
 export function mementoItemsForWeek(week: number): MementoItem[] {
   const cycle = Math.floor(week / MEMENTO_CYCLE_WEEKS);
   const pos = ((week % MEMENTO_CYCLE_WEEKS) + MEMENTO_CYCLE_WEEKS) % MEMENTO_CYCLE_WEEKS;
