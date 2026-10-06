@@ -329,6 +329,14 @@ function migrateEconomy(raw: any): any {
     if (typeof out.pensionRate === 'number' && Number.isFinite(out.pensionRate)) out.pensionRate = Math.max(0, out.pensionRate - bonusSum);
     out.ownedParcels = parcels.map((p: any) => (p && typeof p === 'object') ? { ...p, pensionBonus: 0 } : p);
   }
+  if (from < 4) {
+    // Park Asset yields were cut ~65x and ownership is capped at 5 per asset: rebuild the passive rate from what the
+    // player owns at the new, sustainable yields (the old rate came from the old, unsustainable ones).
+    const owned = out.parkAssets && typeof out.parkAssets === 'object' ? out.parkAssets : {};
+    let rate = 0;
+    for (const item of INVESTMENT_TIERS.flatMap(t => t.items)) rate += Math.min(PARK_ASSET_MAX_OWNED, ownedAssetCount(owned, item.id)) * item.rateBoost;
+    out.pensionRate = rate;
+  }
   return out;
 }
 

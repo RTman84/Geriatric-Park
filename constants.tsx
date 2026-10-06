@@ -106,7 +106,7 @@ export const BASE_POPULATION_LIMIT = 100;
 // reports exist, change this ONE constant and every PP rate below follows it.
 // (Costs/rates below were derived at this value; see ECONOMY.md before retuning.)
 export const ASSUMED_AD_REVENUE_PER_VIEW_USD = 0.008;
-export const ECONOMY_VERSION = 3;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
+export const ECONOMY_VERSION = 4;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
 export const PP_SCALE_V2 = 0.08;        // = 0.008 / 0.10, the old simulated payout
 export const AD_REVENUE_PAYOUT = ASSUMED_AD_REVENUE_PER_VIEW_USD;
 export const MAX_ADS_PER_DAY = 15; // typical casual-game rewarded cap; resets at local midnight
@@ -927,22 +927,22 @@ export const INVESTMENT_TIERS = [
   {
     category: 'Community Micro-Assets',
     items: [
-      { id: 'i1', name: 'Garden Plot', cost: 0.04, rateBoost: 0.0000004, icon: '🌱' },
-      { id: 'i2', name: 'Park Bench Sponsor', cost: 0.08, rateBoost: 0.00000096, icon: '🪑' }
+      { id: 'i1', name: 'Garden Plot', cost: 0.006, rateBoost: 0.000000006, icon: '🌱' },
+      { id: 'i2', name: 'Park Bench Sponsor', cost: 0.012, rateBoost: 0.0000000144, icon: '🪑' }
     ]
   },
   {
     category: 'Neighborhood Portfolio',
     items: [
-      { id: 'i3', name: 'Bingo Hall Equity', cost: 0.20, rateBoost: 0.0000028, icon: '🎰' },
-      { id: 'i4', name: 'Shuttle Van Fleet', cost: 0.40, rateBoost: 0.0000064, icon: '🚐' }
+      { id: 'i3', name: 'Bingo Hall Equity', cost: 0.03, rateBoost: 0.000000042, icon: '🎰' },
+      { id: 'i4', name: 'Shuttle Van Fleet', cost: 0.06, rateBoost: 0.000000096, icon: '🚐' }
     ]
   },
   {
     category: 'Legacy Investments',
     items: [
-      { id: 'i5', name: 'The Golden Wing', cost: 1.20, rateBoost: 0.00002, icon: '🏛️' },
-      { id: 'i6', name: 'Park Directorship', cost: 4.00, rateBoost: 0.00008, icon: '🏆' }
+      { id: 'i5', name: 'The Golden Wing', cost: 0.18, rateBoost: 0.0000003, icon: '🏛️' },
+      { id: 'i6', name: 'Park Directorship', cost: 0.60, rateBoost: 0.0000012, icon: '🏆' }
     ]
   }
 ];

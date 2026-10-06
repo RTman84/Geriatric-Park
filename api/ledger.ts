@@ -123,6 +123,16 @@ export default async function handler(req: Request): Promise<Response> {
     return serverJson({ nonce: data.nonce, userId });
   }
 
+  if (req.method === 'GET' && url.searchParams.get('pool') === '1') {
+    // Public pool numbers (any signed-in player): totals only, never another player's balance.
+    const { data, error } = await supabase.from('ledger_entries').select('account,amount,created_at').eq('account', 'community_reserve');
+    if (error) return serverJson({ error: 'Ledger unavailable', detail: error.message }, 500);
+    const rows = (data ?? []) as { amount: number | string; created_at: string }[];
+    const sum = (rs: typeof rows) => rs.reduce((t, r) => t + Number(r.amount), 0);
+    const startOfToday = new Date(today + 'T00:00:00Z').getTime();
+    const todays = rows.filter(r => new Date(r.created_at).getTime() >= startOfToday);
+    return serverJson({ verifiedReserveTotal: +sum(rows).toFixed(8), verifiedViewsToday: todays.length, verifiedReserveToday: +sum(todays).toFixed(8), note: 'Shadow mode: counts only server-verified ad views.' });
+  }
   if (req.method === 'GET') {
     // Verified totals for this player (shadow mode: compare with the local PP before switching the client over).
     const { data, error } = await supabase.from('ledger_entries').select('account,amount').eq('user_id', userId).eq('source', 'ad_view');
