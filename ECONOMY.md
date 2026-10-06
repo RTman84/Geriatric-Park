@@ -130,8 +130,7 @@ Shuffleboard Auto-Play results, Tournament play (+10), Challenge wins (+stake), 
 Sinks: buying a Parcel (100), squad restore (25), minigame entry fees (10–30), Evolution, Shop items,
 Challenge stakes.
 
-**Open:** turn this into an hourly/daily expected-value table per source and sink, then tune
-against it. Rule: any new Ticket source needs a matching sink or a daily cap.
+**Table written 2026-10-06: see section 6m.** Rule: any new Ticket source needs a matching sink or a daily cap.
 
 ## 6b. Map-building prices (2026-09-20) — `STRUCTURE_PRICING` in `constants.tsx`
 Ticket price is flat for `freeUses` visits per UTC day, then multiplies by `growth` per extra visit; `dailyCap` is a hard stop. Resets at midnight UTC (client-side count in `structureUses`; move server-side with the Bundle F ledger).
@@ -380,3 +379,41 @@ survival mail, and rejecting a hit on an upcoming-not-yet-active window). All pa
 - Auto-Play: FOUND a gap. The benchmark was a fixed 100 power, so every squad above 150 power sat at the same 150% result forever. It now follows the player's bracket (`autoPlayBenchmark`: midway to the next bracket's floor), so readiness stays meaningful from a new squad (about 110%) to a late-game one (about 90-110%). Ticket payouts are unchanged and flat across brackets.
 - Still to check with real play data: Raid boss HP and damage caps (they were tuned against squad power in the low thousands), Arena power fights (use synced squad power, so they scale with the curve), and Daily Tournament scoring (score scales with squad power, board is already ranked by it, so it scales by design).
 - Ticket source/sink table (section 6) is still not written.
+
+
+## 6m. Ticket source/sink table and Raid check (2026-10-06)
+Computed from the constants in `constants.tsx` / `api/arena.ts` (not from live play). "Max/day" = the most a player can earn from that source if every daily cap is used.
+
+### Sources (Tickets per player per day, upper bounds)
+| Source | Cap | Max/day |
+|---|---|---|
+| Account level-ups | 10 per level | slow (level curve 1000 x 1.06^(l-1) XP) |
+| Auto-Play | 8 paid/day, 2 + up to 12 x readiness each | about 16-160 |
+| Challenge ladder | 5 paid wins/day, 6 x 1.04^tier each (tier 1: 6, 26: 16, 51: 43, 76: 114, 100: 291) | 30 -> about 1,450 |
+| **Golden Games** | 5 paid matches/day (+3x first clear per tier, once), win range grows 1.04x/tier | tier 1: about 40, tier 26: about 740, tier 51: about 2,000, tier 76: about 5,300, **tier 100: about 13,500** |
+| Friend Battle | 6 rewarded wins x 12-24; defender bounty 25 x 5 | about 108 + 125 |
+| Arena attacks | first 10 wins/day x 8-15 | about 150 |
+| Arena dues | 1/hour, 12h max, up to 3 Arenas | about 36 |
+| Raids | 10 per rewarded Raid, 3/day | 30 |
+| Court Ladder purses | top 3 per bracket | about 18-146 (bracket 1-10) |
+| Court Champion purse | once per 24h reign | 45 |
+| Dividend | 5-25 per claim, reserve-gated | small |
+| Scrap Elder | 4 x level (capped at 25) x rarity (1/2/4/8) | Legendary lvl 25 = 800 per scrap; limited by captures |
+| Map pickups (Lost Dentures) | spawn trickle | 25 each |
+| Goals/milestones | one-time | one-time |
+
+### Sinks
+Parcel 100; squad restore 25 (x1.25 per use); map-building visits (base 10-30, growth 1.25-1.50, daily caps); Arena attack fee 10 x 1.4^n (cap 20/day); Raid extra attempt 15; Evolution stage 2 = 1,000; gear upgrades (Tickets + Materials, scale with rarity); Challenge stakes; Shop items.
+
+### Findings
+1. **Late-game Ticket inflation.** Golden Games rewards grow 1.04x per tier while the biggest recurring sinks do not: by tier 50 the daily faucet is about 2,000 and at tier 100 about 13,500 Tickets/day, against sinks measured in tens to hundreds (Evolution is a one-time 1,000). Challenge pays about one tenth of Golden Games at the same tier. Options for the owner to pick: (a) lower the Golden Games growth (1.04 -> about 1.02) or its tier-100 base; (b) add real late-game Ticket sinks (gear upgrade costs, Elder re-rolls, cosmetic crafting); (c) make the Mementos shop and PvP shop the main sinks. Not changed yet: it needs a design decision.
+2. **Scrap faucet** is bounded by the level cap of 25 and by capture odds, but a Legendary at level 25 is worth 800 Tickets, about 8 Parcels. Fine while Legendaries are 3% of spawns; recheck if drop rates rise.
+3. Auto-Play, Friend Battle, Arena and Raids are small and capped; no change needed.
+
+### Raid check against the 24k curve
+Boss HP: base 3,000 / 6,000 / 10,000 (tiers 1-3) x boss multiplier (0.75-1.6) x flux (0.85-1.30). A hit = squad power x 0.8-1.2, capped at 50% / 20% / 8% of max HP per hit (tiers 1-3), max 10 attempts per player.
+- Tier 1 (HP about 2,500-9,400): any squad above roughly 2,000-4,000 power does the 50% cap, so 2 hits kill it. A late squad (24k) gains nothing extra.
+- Tier 2: the 20% cap means 5 hits solo; squads above about 1,200-2,500 are capped.
+- Tier 3: the 8% cap means about 12.5 hits solo, more than the 10-attempt limit, so at least 2 players are needed. Squads above about 800-1,000 are already capped.
+- Result: past roughly 1,000-3,000 squad power, power no longer matters in Raids. What matters is the number of players who show up. With few nearby players, tier 2 and 3 Raids may often go unbeaten (participation rewards still pay, so the economy is safe). Rewards are flat (10 Tickets + 2 Materials, +8 Materials on defeat, 3 rewarded Raids/day).
+- Suggested change if wanted: make the per-hit cap scale with the squad's bracket instead of a fixed share of boss HP, or scale boss HP by recent participants. Needs real Raid data before tuning.
