@@ -460,6 +460,13 @@ export function rollChallenge(myPower: number, tier: ChallengeTier): { won: bool
   return { won: myPower > rivalPower, rivalPower };
 }
 
+// Park Asset limits (2026-10-06): every extra copy costs 1.5x more and each asset caps at 5, so a player's passive rate
+// is BOUNDED (before this, unlimited copies at a flat price made passive accrue without limit against a reserve that
+// only grows with ads and purchases). Saves that already own more than the cap keep them but cannot buy more.
+export const PARK_ASSET_MAX_OWNED = 5;
+export const PARK_ASSET_PRICE_GROWTH = 1.5;
+export const parkAssetCost = (baseCost: number, owned: number): number => baseCost * Math.pow(PARK_ASSET_PRICE_GROWTH, Math.max(0, Math.floor(owned)));
+
 // Park Assets the player owns: parkAssets is { itemId: count } (untrusted, so tolerate bad values).
 export function ownedAssetCount(parkAssets: any, id: string): number {
   const n = parkAssets && typeof parkAssets === 'object' ? parkAssets[id] : 0;

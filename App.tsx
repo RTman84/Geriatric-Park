@@ -166,7 +166,7 @@ import {
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
   PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
-  PASS_PRICE, PASS_HOLD_MAX,
+  PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -1678,18 +1678,21 @@ const App: React.FC = () => {
   // Pending Yield (reinvesting earnings) -- not PP. That keeps PP purely "loose and ready
   // to redeem" and means investing never touches the Community Reserve or any cash liability.
   const handleInvest = useCallback((investment: any) => {
-    if (state.pendingYield < investment.cost) { notify("Not enough Pending Yield yet — it builds up on its own, and watching a sponsor ad doubles the rate for an hour."); return; }
+    const ownedNow = ownedAssetCount(state.parkAssets, investment.id);
+    if (ownedNow >= PARK_ASSET_MAX_OWNED) { notify(`You already own the maximum (${PARK_ASSET_MAX_OWNED}) of this asset.`, 'bad'); return; }
+    const price = parkAssetCost(investment.cost, ownedNow);
+    if (state.pendingYield < price) { notify("Not enough Pending Yield yet — it builds up on its own, and watching a sponsor ad doubles the rate for an hour."); return; }
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => ({
       ...prev,
-      pendingYield: prev.pendingYield - investment.cost,
+      pendingYield: prev.pendingYield - price,
       pensionRate: prev.pensionRate + investment.rateBoost,
       parkAssets: { ...(prev.parkAssets && typeof prev.parkAssets === 'object' ? prev.parkAssets : {}), [investment.id]: ownedAssetCount(prev.parkAssets, investment.id) + 1 },
       // Stars scale with the size of the investment (old formula was cost x 10 before the PP rescale)
       parkCommunityScore: prev.parkCommunityScore + Math.round((investment.cost / PP_SCALE_V2) * 10)
     }));
     notify(`Investment confirmed! Your passive rate rose by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
-  }, [state.pendingYield, state.settings.sfxEnabled]);
+  }, [state.pendingYield, state.parkAssets, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
     if (state.adUsage.count >= MAX_ADS_PER_DAY) { notify("All of today's sponsorship slots are used — they reset at midnight."); return; }

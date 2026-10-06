@@ -3,7 +3,7 @@ import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from 
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
-  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
+  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
@@ -344,9 +344,11 @@ export const BankPanel: React.FC<{
               <h4 className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-[0.2em] mb-4 px-4`}>{tier.category}</h4>
               <div className="grid grid-cols-1 gap-4 px-2">
                 {tier.items.map(item => {
-                  const canAfford = pendingYield >= item.cost;
-                  const progress = Math.min(100, (pendingYield / item.cost) * 100);
                   const ownedCount = ownedAssetCount(parkAssets, item.id);
+                  const maxed = ownedCount >= PARK_ASSET_MAX_OWNED;
+                  const price = parkAssetCost(item.cost, ownedCount);
+                  const canAfford = !maxed && pendingYield >= price;
+                  const progress = Math.min(100, (pendingYield / price) * 100);
                   return (
                   <button
                     key={item.id}
@@ -363,8 +365,8 @@ export const BankPanel: React.FC<{
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
-                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}{ownedCount > 0 && <span className="text-[var(--accent-500)]"> ×{ownedCount}</span>}</h5>
-                        <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{item.cost.toFixed(2)} Yield</span>
+                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}{ownedCount > 0 && <span className="text-[var(--accent-500)]"> ×{ownedCount}/{PARK_ASSET_MAX_OWNED}</span>}</h5>
+                        <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{maxed ? 'MAX' : `${price.toFixed(2)} Yield`}</span>
                       </div>
                       <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
                       {!canAfford && (
@@ -372,7 +374,7 @@ export const BankPanel: React.FC<{
                           <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}>
                             <div className="h-full bg-[var(--accent-500)] rounded-full" style={{ width: `${progress}%` }} />
                           </div>
-                          <p className={`text-[13px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Need {(item.cost - pendingYield).toFixed(4)} more yield</p>
+                          <p className={`text-[13px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{maxed ? 'Maximum owned' : `Need ${(price - pendingYield).toFixed(4)} more yield`}</p>
                         </div>
                       )}
                     </div>
