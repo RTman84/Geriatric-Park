@@ -170,6 +170,7 @@ export interface GameState {
   buildingMaterials: number;
   tvDinners?: number; // PvP/Arena/Raid currency (spent only in the PvP shop)
   dinersDay?: string; dinersToday?: number; // daily earn cap tracking
+  pvpPasses?: { arena: number; raid: number }; // consumables bought with TV Dinners: each waives one Ticket attempt fee
   mementos?: number; mementoItemsOwned?: string[]; premiumRooms?: number; // premium currency, owned premium cosmetics, bought roster rooms
   antiquesOwned?: string[]; // ids from ANTIQUES; each is a one-time collectible that unlocks an icon + title
   builtAmenityIds: string[];

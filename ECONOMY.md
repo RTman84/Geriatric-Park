@@ -431,3 +431,6 @@ Golden Games Ticket growth lowered 1.04 -> 1.02 per tier. Win purses are now tie
 - State: `mementos`, `mementoItemsOwned`, `premiumRooms`. There is deliberately NO free source and NO purchase path yet: Mementos will be sold through Google Play Billing in the store build (needs the native project, a server-side receipt check before crediting, and a Play policy review). Until then the shop is browsable but the balance stays 0.
 - Spends (convenience and cosmetics only; no PP, no passive income, no PvP/Arena/Raid power): Extra Roster Room (+1 Elder room, max 10, price 15 + 5 per room already bought, 375 total) and 12 keepsakes (60-150) that unlock an icon + title, 2 on sale per week on a 6-week cycle.
 - Not built: Elder Pass premium track, ad-free, priced Park Assets, bundle/first-purchase offers, real prices per Memento pack.
+
+## 6p. PvP boosts (2026-10-06)
+Boosts tab in the PvP Shop: Attack Pass (6 TV Dinners) waives the Ticket fee on one paid Arena attack; Rally Pass (6) waives the fee on one extra Raid attempt. Hold max 10 of each (`pvpPasses`). They never raise the server's daily caps (Arena 20 attacks/day, Raid 6 attempts) and never change power or rewards; they act as a Ticket-fee relief and a TV Dinner sink. Not built: a Friend Battle pass (reward cap is client-side and easier to abuse), Court Ladder extra challenges (server-enforced 3/day).

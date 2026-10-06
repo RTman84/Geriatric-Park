@@ -1525,3 +1525,8 @@ export const mementoCosmetic = (key: string): { key: string; icon: string; title
   const m = MEMENTO_ITEMS.find(x => x.id === key.slice(8));
   return m ? { key, icon: m.icon, title: m.title } : null;
 };
+
+// PvP boosts (TV Dinners): one-use passes that waive the Ticket fee on a paid Arena attack / extra Raid attempt.
+// They never raise the server's daily attempt caps and never change power or rewards -- they only pay a fee for you.
+export const PASS_PRICE = { arena: 6, raid: 6 } as const;
+export const PASS_HOLD_MAX = 10;

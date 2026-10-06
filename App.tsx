@@ -166,6 +166,7 @@ import {
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
   PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
+  PASS_PRICE, PASS_HOLD_MAX,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -370,7 +371,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -924,6 +925,7 @@ const App: React.FC = () => {
     next.dinersToday = typeof next.dinersToday === 'number' && Number.isFinite(next.dinersToday) && next.dinersToday > 0 ? Math.min(1000, Math.floor(next.dinersToday)) : 0;
     next.dinersDay = typeof next.dinersDay === 'string' ? next.dinersDay.slice(0, 40) : '';
     next.antiquesOwned = Array.isArray(next.antiquesOwned) ? Array.from(new Set((next.antiquesOwned as unknown[]).filter((k): k is string => typeof k === 'string' && !!antiqueById(k)))) : [];
+    { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
@@ -1229,6 +1231,14 @@ const App: React.FC = () => {
     setState(prev => (prev.mementoItemsOwned ?? []).includes(id) || (prev.mementos ?? 0) < m.price ? prev : { ...prev, mementos: (prev.mementos ?? 0) - m.price, mementoItemsOwned: [...(prev.mementoItemsOwned ?? []), id] });
     notify(`${m.icon} ${m.name} is yours! New icon and title unlocked.`, 'good');
   }, [state.mementoItemsOwned, state.mementos, notify]);
+  const handleBuyPass = useCallback((kind: 'arena' | 'raid') => {
+    const price = PASS_PRICE[kind];
+    const held = state.pvpPasses?.[kind] ?? 0;
+    if (held >= PASS_HOLD_MAX) { notify(`You can hold at most ${PASS_HOLD_MAX} passes.`, 'bad'); return; }
+    if ((state.tvDinners ?? 0) < price) { notify(`You need ${price} 🍽️ TV Dinners.`, 'bad'); return; }
+    setState(prev => ((prev.pvpPasses?.[kind] ?? 0) >= PASS_HOLD_MAX || (prev.tvDinners ?? 0) < price) ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - price, pvpPasses: { arena: (prev.pvpPasses?.arena ?? 0) + (kind === 'arena' ? 1 : 0), raid: (prev.pvpPasses?.raid ?? 0) + (kind === 'raid' ? 1 : 0) } });
+    notify(kind === 'arena' ? '🎫 Attack Pass added.' : '🎫 Rally Pass added.', 'good');
+  }, [state.pvpPasses, state.tvDinners, notify]);
   const handleBuyPvpGear = useCallback((id: string) => {
     const g = PVP_GEAR.find(x => x.id === id);
     if (!g) return;
@@ -1242,10 +1252,13 @@ const App: React.FC = () => {
 
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
     if (!activeArenaId) return;
-    const upfront = arenaAttackCost(arenaMe?.attacksToday ?? 0);
+    const hasArenaPass = (state.pvpPasses?.arena ?? 0) > 0;
+    const upfront = hasArenaPass ? 0 : arenaAttackCost(arenaMe?.attacksToday ?? 0);
     if (state.legacyTokens < upfront) { notify(`You need ${upfront} 🎟️ for another attack today.`, 'bad'); return; }
     const { result } = await attackArena(activeArenaId);
-    const cost = arenaAttackCost(result.attackNumber - 1); // price of THIS attack, from the server's count
+    const fullCost = arenaAttackCost(result.attackNumber - 1); // price of THIS attack, from the server's count
+    const usedPass = fullCost > 0 && hasArenaPass;
+    const cost = usedPass ? 0 : fullCost;
     const lost = result.log.length > 0 && !result.log[result.log.length - 1].won;
     const elderXp = 25 * result.rewardedWins + (lost ? 6 : 0);
     if (state.settings.sfxEnabled) audioManager.playSFX(result.beaten > 0 ? 'victory' : 'hit');
@@ -1254,6 +1267,7 @@ const App: React.FC = () => {
       return {
         ...prev,
         legacyTokens: Math.max(0, prev.legacyTokens + result.tickets - cost),
+        pvpPasses: usedPass ? { arena: Math.max(0, (prev.pvpPasses?.arena ?? 0) - 1), raid: prev.pvpPasses?.raid ?? 0 } : prev.pvpPasses,
         buildingMaterials: prev.buildingMaterials + result.materials,
         xp, level,
         allElders: elderXp > 0 ? grantElderXpToTeam(prev.allElders, elderXp) : prev.allElders,
@@ -1262,11 +1276,12 @@ const App: React.FC = () => {
     const bits = [`${result.beaten}/${result.total} defenders beaten`];
     if (result.tickets > 0 || result.materials > 0) bits.push(`+${result.tickets} 🎟️ +${result.materials} 🧱`);
     if (cost > 0) bits.push(`(-${cost} 🎟️ attack fee)`);
+    if (usedPass) bits.push('(Attack Pass used: fee waived)');
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
     if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
-  }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.settings.sfxEnabled, notify]);
+  }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify]);
 
   const handleArenaClaimDues = useCallback(() => runArenaAction('Collecting Dues', async () => {
     const r = await claimArenaDues();
@@ -1278,17 +1293,21 @@ const App: React.FC = () => {
     // Extra attempts (beyond RAID_FREE_ATTEMPTS) cost Tickets client-side, same pattern as the Arena
     // attack fee: the server enforces the attempt COUNT, the client owns the Tickets ledger.
     const priorAttempts = (activeArenaId ? arenaInfo[activeArenaId]?.raid?.myAttempts : undefined) ?? 0;
-    const cost = priorAttempts >= RAID_FREE_ATTEMPTS ? RAID_EXTRA_ATTEMPT_COST : 0;
+    const hasRaidPass = (state.pvpPasses?.raid ?? 0) > 0;
+    const needsFee = priorAttempts >= RAID_FREE_ATTEMPTS;
+    const usedPass = needsFee && hasRaidPass;
+    const cost = needsFee && !usedPass ? RAID_EXTRA_ATTEMPT_COST : 0;
     if (state.legacyTokens < cost) { notify(`You need ${cost} 🎟️ to join this fight again today.`, 'bad'); return; }
     const { result } = await raidHit(activeArenaId!);
     if (state.settings.sfxEnabled) audioManager.playSFX(result.settled && result.defeated ? 'victory' : 'hit');
-    setState(prev => ({ ...prev, legacyTokens: Math.max(0, prev.legacyTokens - cost) }));
+    setState(prev => ({ ...prev, legacyTokens: Math.max(0, prev.legacyTokens - cost), pvpPasses: usedPass ? { arena: prev.pvpPasses?.arena ?? 0, raid: Math.max(0, (prev.pvpPasses?.raid ?? 0) - 1) } : prev.pvpPasses }));
     const bits = [`+${result.damage.toLocaleString()} damage`];
+    if (usedPass) bits.push('Rally Pass used: fee waived');
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT, 'Raid hit');
     if (result.settled) void refreshMail();
-  }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.settings.sfxEnabled, notify, refreshMail]);
+  }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail]);
 
   const handleArenaMarkerClick = useCallback((id: string) => {
     if (!authSession) { notify('Sign in to your account to join Arenas.', 'bad'); return; }
@@ -3245,7 +3264,7 @@ const App: React.FC = () => {
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
         {showMementoShop && <MementoShop isDark={isDark} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
-        {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} onClose={() => setShowPvpShop(false)} />}
+        {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
             <div className={`max-w-lg mx-auto min-h-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>

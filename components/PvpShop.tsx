@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey } from '../constants';
+import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey } from '../constants';
 
 // PvP Shop: TV Dinners (earned only from Friend Battles, Arena, Raids and Court Ladder wins) buy antiques that
 // rotate daily and gear that is only sold here. Never PP, never passive income.
 const PvpShop: React.FC<{
   isDark: boolean; diners: number; earnedToday: number; owned: string[];
   onBuyAntique: (id: string) => void; onBuyGear: (id: string) => void; onClose: () => void;
-}> = ({ isDark, diners, earnedToday, owned, onBuyAntique, onBuyGear, onClose }) => {
-  const [tab, setTab] = useState<'antiques' | 'gear' | 'collection'>('antiques');
+  passes: { arena: number; raid: number }; onBuyPass: (kind: 'arena' | 'raid') => void;
+}> = ({ isDark, diners, earnedToday, owned, onBuyAntique, onBuyGear, onClose, passes, onBuyPass }) => {
+  const [tab, setTab] = useState<'antiques' | 'gear' | 'boosts' | 'collection'>('antiques');
   const day = antiqueDayIndex();
   const today = useMemo(() => antiquesForDay(day), [day]);
   const ownedSet = new Set(owned);
@@ -30,7 +31,7 @@ const PvpShop: React.FC<{
           </div>
           <div className="text-right text-[12px] font-bold opacity-70">Earned today: {Math.min(earnedToday, DINERS_DAILY_CAP)}/{DINERS_DAILY_CAP}<br />From Friend Battles, Arenas, Raids and Court Ladders</div>
         </div>
-        <div className="flex gap-2 mb-3">{tabBtn('antiques', 'Antiques')}{tabBtn('gear', 'Gear')}{tabBtn('collection', 'Collection')}</div>
+        <div className="flex gap-2 mb-3">{tabBtn('antiques', 'Antiques')}{tabBtn('gear', 'Gear')}{tabBtn('boosts', 'Boosts')}{tabBtn('collection', 'Collection')}</div>
 
         {tab === 'antiques' && (
           <div className="space-y-3">
@@ -64,6 +65,25 @@ const PvpShop: React.FC<{
                   <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[g.rarity] }}>{g.rarity} · {g.slot} slot · +{g.boost} {GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]}</div>
                 </div>
                 <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} 🍽️</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'boosts' && (
+          <div className="space-y-3">
+            <p className="text-[13px] opacity-70">One-use passes that pay a Ticket fee for you. They never raise the daily attempt limits and never change power or rewards. You can hold up to {PASS_HOLD_MAX} of each.</p>
+            {([
+              { kind: 'arena' as const, icon: '🎫', name: 'Attack Pass', desc: 'Waives the Ticket fee on one paid Arena attack (after your 5 free ones).' },
+              { kind: 'raid' as const, icon: '🎟️', name: 'Rally Pass', desc: 'Waives the Ticket fee on one extra Raid attempt (after your 2 free ones).' },
+            ]).map(b => (
+              <div key={b.kind} className={`${card} flex items-center gap-3`}>
+                <div className="text-3xl">{b.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-black uppercase text-[15px]">{b.name} <span className="opacity-60">· held {passes[b.kind]}/{PASS_HOLD_MAX}</span></div>
+                  <div className="text-[12px] opacity-70">{b.desc}</div>
+                </div>
+                <button disabled={diners < PASS_PRICE[b.kind] || passes[b.kind] >= PASS_HOLD_MAX} onClick={() => onBuyPass(b.kind)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= PASS_PRICE[b.kind] && passes[b.kind] < PASS_HOLD_MAX ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{PASS_PRICE[b.kind]} 🍽️</button>
               </div>
             ))}
           </div>
