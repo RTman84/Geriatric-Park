@@ -14,6 +14,7 @@ import ParkScene from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
+import MementoShop from './components/MementoShop';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
 import {
@@ -164,6 +165,7 @@ import {
   MAX_BUILDING_LEVEL,
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
+  PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -368,7 +370,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [],
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -470,6 +472,7 @@ const App: React.FC = () => {
   const [showExchangeOverview, setShowExchangeOverview] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
   const [showPvpShop, setShowPvpShop] = useState(false);
+  const [showMementoShop, setShowMementoShop] = useState(false);
   const [arenaInfo, setArenaInfo] = useState<Record<string, ArenaInfo>>({});
   const [arenaMe, setArenaMe] = useState<ArenaMe | null>(null);
   const [activeArenaId, setActiveArenaId] = useState<string | null>(null);
@@ -921,6 +924,9 @@ const App: React.FC = () => {
     next.dinersToday = typeof next.dinersToday === 'number' && Number.isFinite(next.dinersToday) && next.dinersToday > 0 ? Math.min(1000, Math.floor(next.dinersToday)) : 0;
     next.dinersDay = typeof next.dinersDay === 'string' ? next.dinersDay.slice(0, 40) : '';
     next.antiquesOwned = Array.isArray(next.antiquesOwned) ? Array.from(new Set((next.antiquesOwned as unknown[]).filter((k): k is string => typeof k === 'string' && !!antiqueById(k)))) : [];
+    next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
+    next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
+    next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
     next.claimedMilestones = Array.isArray(next.claimedMilestones) ? (next.claimedMilestones as unknown[]).filter((k): k is string => typeof k === 'string' && /^[a-z]+:[1-5]$/.test(k) && modeKindKnownMode(k.split(':')[0])).slice(0, 60) : [];
     return next as unknown as GameState;
   };
@@ -1206,6 +1212,23 @@ const App: React.FC = () => {
     setState(prev => (prev.antiquesOwned ?? []).includes(id) || (prev.tvDinners ?? 0) < a.price ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - a.price, antiquesOwned: [...(prev.antiquesOwned ?? []), id] });
     notify(`${a.icon} ${a.name} is yours! New icon and title unlocked in your profile.`, 'good');
   }, [state.antiquesOwned, state.tvDinners, notify]);
+  const handleBuyPremiumRoom = useCallback(() => {
+    const have = state.premiumRooms ?? 0;
+    if (have >= PREMIUM_ROOM_MAX) { notify('You already own every extra room.', 'bad'); return; }
+    const price = premiumRoomPrice(have);
+    if ((state.mementos ?? 0) < price) { notify(`You need ${price} Mementos.`, 'bad'); return; }
+    setState(prev => (prev.premiumRooms ?? 0) !== have || (prev.mementos ?? 0) < price ? prev : { ...prev, mementos: (prev.mementos ?? 0) - price, premiumRooms: have + 1 });
+    notify('🏠 +1 roster room added.', 'good');
+  }, [state.premiumRooms, state.mementos, notify]);
+  const handleBuyMementoItem = useCallback((id: string) => {
+    const m = MEMENTO_ITEMS.find(x => x.id === id);
+    if (!m) return;
+    if (!mementoItemsForWeek(mementoWeekIndex()).some(x => x.id === id)) { notify('That keepsake is not on sale this week.', 'bad'); return; }
+    if ((state.mementoItemsOwned ?? []).includes(id)) { notify('You already own that keepsake.', 'bad'); return; }
+    if ((state.mementos ?? 0) < m.price) { notify(`You need ${m.price} Mementos.`, 'bad'); return; }
+    setState(prev => (prev.mementoItemsOwned ?? []).includes(id) || (prev.mementos ?? 0) < m.price ? prev : { ...prev, mementos: (prev.mementos ?? 0) - m.price, mementoItemsOwned: [...(prev.mementoItemsOwned ?? []), id] });
+    notify(`${m.icon} ${m.name} is yours! New icon and title unlocked.`, 'good');
+  }, [state.mementoItemsOwned, state.mementos, notify]);
   const handleBuyPvpGear = useCallback((id: string) => {
     const g = PVP_GEAR.find(x => x.id === id);
     if (!g) return;
@@ -2695,7 +2718,7 @@ const App: React.FC = () => {
         <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
             {(() => {
-              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
               return (
                 <>
                   <button
@@ -2754,8 +2777,8 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
-          {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} diners={state.tvDinners ?? 0} onOpenPvpShop={() => setShowPvpShop(true)} onBuy={item => {
+          {activeTab === 'base' && <ParkScene isDark={isDark} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
+          {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} diners={state.tvDinners ?? 0} onOpenPvpShop={() => setShowPvpShop(true)} mementos={state.mementos ?? 0} onOpenMementoShop={() => setShowMementoShop(true)} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
               const team = state.allElders.filter(e => e.status === 'Team');
@@ -2951,11 +2974,11 @@ const App: React.FC = () => {
         )}
 
         {showProfilePicker && (() => {
-          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
-          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? []);
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
           const completedAchievements = state.achievements.filter(a => a.completed);
           const roster = state.allElders.filter(e => e.captured);
           const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
@@ -3115,7 +3138,7 @@ const App: React.FC = () => {
 
         {battleOpponent && activeTeam.length > 0 && (
           <div className="fixed inset-0 z-[2000] bg-slate-900 overflow-y-auto">
-            <BattleScreen playerTeam={battleTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} guideBlockedReason={state.allElders.filter(e => e.captured).length >= getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length) ? 'Park full' : undefined} sfxEnabled={state.settings.sfxEnabled} />
+            <BattleScreen playerTeam={battleTeam} opponentElder={battleOpponent.elder} onWin={handleBattleWin} onLose={handleBattleLose} onFlee={handleBattleFlee} onGuideSuccess={handleMidBattleGuideSuccess} guideBlockedReason={state.allElders.filter(e => e.captured).length >= getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0) ? 'Park full' : undefined} sfxEnabled={state.settings.sfxEnabled} />
           </div>
         )}
 
@@ -3221,6 +3244,7 @@ const App: React.FC = () => {
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
+        {showMementoShop && <MementoShop isDark={isDark} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
         {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
@@ -3239,6 +3263,7 @@ const App: React.FC = () => {
             focusId={groundsFocusId}
             isDark={isDark}
             parcelCount={state.ownedParcels.length}
+            premiumRooms={state.premiumRooms ?? 0}
             comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)}
             buildingMaterials={state.buildingMaterials}
             builtAmenityIds={state.builtAmenityIds}

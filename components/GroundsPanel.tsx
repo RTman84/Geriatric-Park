@@ -33,6 +33,7 @@ function nextEffectPreview(a: Amenity, nextLevel: number): string {
 interface GroundsPanelProps {
   isDark: boolean;
   parcelCount?: number;
+  premiumRooms?: number;
   comfortBonus?: number; // +fraction of building output from Elder Comfort (0.12 = +12%)
   buildingMaterials: number;
   tickets: number;
@@ -48,7 +49,7 @@ interface GroundsPanelProps {
 }
 
 const GroundsPanel: React.FC<GroundsPanelProps> = ({
-  isDark, buildingMaterials, tickets, builtAmenityIds, amenityLevels, amenityCollectedAt, totalRosterCount, parcelCount = 0, comfortBonus = 0,
+  isDark, buildingMaterials, tickets, builtAmenityIds, amenityLevels, amenityCollectedAt, totalRosterCount, parcelCount = 0, premiumRooms = 0, comfortBonus = 0,
   onBuild, onUpgrade, onCollect, onClose, focusId,
 }) => {
   const [now, setNow] = useState(Date.now());
@@ -60,7 +61,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
   const housing = AMENITIES.filter(a => a.category === 'housing');
   const working = AMENITIES.filter(a => a.category === 'production');
   const decorations = AMENITIES.filter(a => a.category === 'decoration');
-  const capacity = getHousingCapacity(builtAmenityIds, amenityLevels, parcelCount);
+  const capacity = getHousingCapacity(builtAmenityIds, amenityLevels, parcelCount, premiumRooms);
 
   const body = isDark ? 'text-slate-200' : 'text-slate-700';
   const strong = isDark ? 'text-white' : 'text-slate-900';

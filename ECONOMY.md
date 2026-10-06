@@ -426,3 +426,8 @@ Golden Games Ticket growth lowered 1.04 -> 1.02 per tier. Win purses are now tie
 - Shop (`components/PvpShop.tsx`, opened from the Commissary tab): 60 antiques (30 Common 20, 18 Rare 45, 9 Epic 90, 3 Legendary 180), 4 on sale per day, deterministic from the UTC day, every antique shows once per 15-day cycle and the order reshuffles each cycle, so a missed antique returns in 1 to about 29 days. Each owned antique unlocks an icon and a title (`antique:<id>`). Collection tab shows when each missing one is next on sale. Gear sold only here (8 pieces, Epic 120 / Legendary 320).
 - Sink math: at the 40/day cap a player can afford about one Epic antique every 2-3 days or a Legendary gear piece in 8 days, so completing the collection takes months of play.
 - Not built yet: timed PvP/Arena/Raid boosts (extra attempts), Mementos (premium) shop, art for antiques (emoji placeholders).
+
+## 6o. Mementos (premium currency) shop, first version (2026-10-06)
+- State: `mementos`, `mementoItemsOwned`, `premiumRooms`. There is deliberately NO free source and NO purchase path yet: Mementos will be sold through Google Play Billing in the store build (needs the native project, a server-side receipt check before crediting, and a Play policy review). Until then the shop is browsable but the balance stays 0.
+- Spends (convenience and cosmetics only; no PP, no passive income, no PvP/Arena/Raid power): Extra Roster Room (+1 Elder room, max 10, price 15 + 5 per room already bought, 375 total) and 12 keepsakes (60-150) that unlock an icon + title, 2 on sale per week on a 6-week cycle.
+- Not built: Elder Pass premium track, ad-free, priced Park Assets, bundle/first-purchase offers, real prices per Memento pack.

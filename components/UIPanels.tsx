@@ -982,7 +982,7 @@ const EXTENDED_SHOP_ITEMS = [
   { id: 's10', name: 'Court Reservations', icon: '📋', price: 350, description: 'Hold the shuffleboard court for 30 mins automatically.', category: 'Shuffleboard' },
 ];
 
-export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, isDark: boolean, diners?: number, onOpenPvpShop?: () => void }> = ({ tokens, onBuy, isDark, diners = 0, onOpenPvpShop }) => {
+export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, isDark: boolean, diners?: number, onOpenPvpShop?: () => void, mementos?: number, onOpenMementoShop?: () => void }> = ({ tokens, onBuy, isDark, diners = 0, onOpenPvpShop, mementos = 0, onOpenMementoShop }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Gear', 'Consumable', 'Booster', 'Shuffleboard'];
   const filtered = activeCategory === 'All' ? EXTENDED_SHOP_ITEMS : EXTENDED_SHOP_ITEMS.filter(i => i.category === activeCategory);
@@ -998,6 +998,11 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
         {onOpenPvpShop && (
           <button onClick={onOpenPvpShop} className="w-full mt-3 py-3 rounded-2xl bg-[var(--accent-600)] text-white font-black uppercase text-[14px] active:scale-95 transition-transform">
             🍽️ PvP Shop · {diners} TV Dinners
+          </button>
+        )}
+        {onOpenMementoShop && (
+          <button onClick={onOpenMementoShop} className={`w-full mt-2 py-3 rounded-2xl font-black uppercase text-[14px] active:scale-95 transition-transform border-2 ${isDark ? 'border-amber-500 text-amber-300' : 'border-amber-500 text-amber-700'}`}>
+            💛 Mementos Shop · {mementos} Mementos
           </button>
         )}
       </div>

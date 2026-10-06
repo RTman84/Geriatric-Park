@@ -752,7 +752,7 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
   return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: tier.icon, title: `${def.name} ${tier.name}` } : null;
 }
 
-export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = []): UnlockedCosmetic[] {
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
     .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
@@ -766,7 +766,7 @@ export function getUnlockedCosmetics(level: number, achievements: Achievement[],
     for (let t = 1; t <= reached; t++) { const c = modeBadgeCosmetic(`mode:${def.mode}:${t}`, modeStats); if (c) badgeUnlocks.push(c); }
   }
   const antiqueUnlocks = antiquesOwned.map(id => antiqueCosmetic(`antique:${id}`)).filter((c): c is UnlockedCosmetic => !!c);
-  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks];
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks, ...mementosOwned.map(id => mementoCosmetic(`memento:${id}`)).filter((c): c is UnlockedCosmetic => !!c)];
 }
 
 // Resolves what to actually show in the header: the player's chosen icon/title
@@ -779,13 +779,14 @@ export function resolveProfileDisplay(
   selectedTitle: string,
   courtHonors?: string[], // own profile: honors must be earned. Omitted for other players' profiles (display only)
   modeStats?: Record<string, number>,
-  antiquesOwned?: string[]
+  antiquesOwned?: string[],
+  mementosOwned?: string[]
 ): { icon: string; title: string } {
-  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? []);
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? [], mementosOwned ?? []);
   if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
     const other = courtHonorCosmetic(selectedTitle);
     if (other) unlocked.push(other);
-    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
+    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k) || mementoCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
   }
   const rank = getRankForLevel(level);
   const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
@@ -849,8 +850,8 @@ export function getBuildingLevel(levels: Record<string, number> | undefined, id:
   const v = levels?.[id];
   return typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(v))) : 1;
 }
-export function getHousingCapacity(builtAmenityIds: string[], levels?: Record<string, number>, parcelCount = 0): number {
-  const parcelRooms = Math.min(PARCEL_HOUSING_CAP, Math.max(0, Math.floor(parcelCount))) * PARCEL_HOUSING_PER;
+export function getHousingCapacity(builtAmenityIds: string[], levels?: Record<string, number>, parcelCount = 0, premiumRooms = 0): number {
+  const parcelRooms = Math.min(PARCEL_HOUSING_CAP, Math.max(0, Math.floor(parcelCount))) * PARCEL_HOUSING_PER + Math.min(PREMIUM_ROOM_MAX, Math.max(0, Math.floor(premiumRooms)));
   const cottage = AMENITIES.find(a => a.id === 'cottage');
   if (!cottage || !builtAmenityIds.includes('cottage')) return BASE_HOUSING_CAPACITY + parcelRooms;
   const lvl = getBuildingLevel(levels, 'cottage');
@@ -1491,3 +1492,36 @@ export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 
   { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Strength.' },
   { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Agility.' },
 ];
+
+// --- Mementos: premium currency (2026-10-06) -----------------------------------------------------------------
+// Bought with real money through the store build (not wired yet; no free source on purpose). Spent ONLY on convenience
+// and cosmetics. Never PP, never passive income, never PvP/Arena/Raid power.
+export const PREMIUM_ROOM_MAX = 10;
+export const premiumRoomPrice = (owned: number): number => 15 + 5 * Math.max(0, Math.floor(owned)); // 15, 20, ... 60 (375 for all 10)
+export interface MementoItem { id: string; name: string; icon: string; price: number; title: string }
+const MEMENTO_SOURCE: [string, string, number][] = [
+  ['Anniversary Locket', '💛', 60], ['Silver Wedding Bells', '🔔', 80], ['Pressed Prom Corsage', '🌸', 60], ['Grandkid Crayon Portrait', '🖍️', 70],
+  ['Postcard from the Coast', '🏖️', 60], ['Wartime Love Letters', '💌', 90], ['Family Reunion Photo', '📸', 80], ['First Car Hood Ornament', '🚘', 100],
+  ['Golden Retirement Watch', '⌚', 150], ['Hand-Knit Baby Booties', '🧦', 70], ['County Fair Blue Ribbon', '🎗️', 90], ['Porch Swing Plaque', '🪑', 120],
+];
+export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, title: `Keeper of the ${name}` }));
+export const MEMENTO_ITEMS_PER_WEEK = 2;
+export const MEMENTO_CYCLE_WEEKS = MEMENTO_ITEMS.length / MEMENTO_ITEMS_PER_WEEK; // 6
+export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 4) / 7); // weeks roll over on Mondays UTC
+export function mementoItemsForWeek(week: number): MementoItem[] {
+  const cycle = Math.floor(week / MEMENTO_CYCLE_WEEKS);
+  const pos = ((week % MEMENTO_CYCLE_WEEKS) + MEMENTO_CYCLE_WEEKS) % MEMENTO_CYCLE_WEEKS;
+  const order = MEMENTO_ITEMS.map((_, i) => i);
+  const rnd = antiqueSeedRand(cycle + 104729);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order.slice(pos * MEMENTO_ITEMS_PER_WEEK, pos * MEMENTO_ITEMS_PER_WEEK + MEMENTO_ITEMS_PER_WEEK).map(i => MEMENTO_ITEMS[i]);
+}
+export function weeksUntilMemento(id: string, fromWeek: number): number {
+  for (let w = 0; w <= MEMENTO_CYCLE_WEEKS * 2 + 1; w++) if (mementoItemsForWeek(fromWeek + w).some(m => m.id === id)) return w;
+  return -1;
+}
+export const mementoCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
+  if (typeof key !== 'string' || !key.startsWith('memento:')) return null;
+  const m = MEMENTO_ITEMS.find(x => x.id === key.slice(8));
+  return m ? { key, icon: m.icon, title: m.title } : null;
+};
