@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AMENITIES, producerStored } from '../constants';
+import { AMENITIES, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
 import trail from '../game-assets/park/cut/trail.png';
@@ -27,6 +27,13 @@ function slotFor(i: number) {
   return { xc: col === 0 ? 190 : 835, y: (col === 0 ? 300 : 520) + row * 460 };
 }
 
+export interface Wanderer {
+  key: string; type: string; stage: number; name: string;
+  label: string; // e.g. "Yours", "Visiting from Ann", "Resident"
+  level?: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+}
+const hash = (str: string) => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+
 interface ParkSceneProps {
   isDark: boolean;
   builtAmenityIds: string[];
@@ -40,6 +47,7 @@ interface ParkSceneProps {
   onOpenExchange?: () => void; // the Away & Visiting window
   onOpenHub?: () => void;
   onCollect?: (amenityId: string) => void;
+  wanderers?: Wanderer[]; // Elders strolling the grounds: your own, visitors, and (in a friend's park) residents + your own visitor
   readOnly?: boolean; // for visiting a friend's park later: no collect / hub buttons
   title?: string;
 }
@@ -58,7 +66,7 @@ const nameBar: React.CSSProperties = {
 
 const ParkScene: React.FC<ParkSceneProps> = ({
   isDark, builtAmenityIds, amenityLevels, amenityCollectedAt, comfortBonus, rosterCount, capacity, materials,
-  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title,
+  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title, wanderers = [],
 }) => {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -86,6 +94,31 @@ const ParkScene: React.FC<ParkSceneProps> = ({
       </div>
 
       <img src={backdrop} alt="" draggable={false} style={{ width: '100%', display: 'block', filter: isDark ? 'brightness(0.72) saturate(0.9)' : undefined }} />
+
+      <style>{`@keyframes gpStroll { 0% { transform: translateX(-9vw); } 50% { transform: translateX(9vw); } 100% { transform: translateX(-9vw); } }`}</style>
+      {wanderers.slice(0, 12).map((w, i) => {
+        const h = hash(w.key);
+        // Elders keep to the central path (between the two building columns) and stroll side to side at their own pace.
+        const left = 40 + (h % 20);                                   // 40-60% across
+        const top = ((380 + ((h >> 5) % 2300)) / BG_H) * 100;          // spread down the whole scene
+        const dur = 14 + (h % 16);
+        const color = w.rarity ? GEAR_RARITY_COLOR[w.rarity] : '#fff';
+        return (
+          <div key={w.key} title={`${w.name} · ${w.label}${w.rarity ? ' · ' + w.rarity : ''}${w.level ? ' · Lv.' + w.level : ''}`} style={{
+            position: 'absolute', left: `${left}%`, top: `${top}%`, width: '11%', zIndex: 3, pointerEvents: 'none',
+            animation: `gpStroll ${dur}s ease-in-out ${-(h % dur)}s infinite`,
+          }}>
+            <div style={{ transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{ width: '100%', aspectRatio: '1 / 1', minWidth: 38, borderRadius: '50%', overflow: 'hidden', border: `3px solid ${color}`, boxShadow: '0 3px 6px rgba(0,0,0,0.45)', background: '#fff' }}>
+                <ElderAvatarImg type={w.type as any} stage={w.stage as any} fill />
+              </div>
+              <div style={{ ...nameBar, fontSize: 9, padding: '1px 6px', maxWidth: 110, cursor: 'default' }}>
+                {w.name}{w.level ? ` · Lv${w.level}` : ''}<br /><span style={{ opacity: 0.85 }}>{w.label}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
 
       {SLOT_ORDER.map((id, i) => {
         const amenity = AMENITIES.find(a => a.id === id);
