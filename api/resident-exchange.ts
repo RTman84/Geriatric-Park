@@ -80,16 +80,28 @@ export default async function handler(req: Request): Promise<Response> {
     const { supabase, userId } = context;
 
     if (req.method === 'GET') {
+      // No embedded join: the foreign keys point at auth.users (not player_profiles), so a PostgREST embed
+      // errors out and the whole list used to fail, leaving Elders stuck "away" with nothing to recall.
       const [{ data: mine, error: mineErr }, { data: hosting, error: hostErr }] = await Promise.all([
-        supabase.from('resident_exchange').select(`${ROW_FIELDS}, host:player_profiles!resident_exchange_host_id_fkey(display_name)`).eq('owner_id', userId),
-        supabase.from('resident_exchange').select(`${ROW_FIELDS}, owner:player_profiles!resident_exchange_owner_id_fkey(display_name)`).eq('host_id', userId),
+        supabase.from('resident_exchange').select(ROW_FIELDS).eq('owner_id', userId),
+        supabase.from('resident_exchange').select(ROW_FIELDS).eq('host_id', userId),
       ]);
       if (mineErr || hostErr) {
         const msg = (mineErr || hostErr)?.message;
         console.error('Resident Exchange read failed', msg);
         return serverJson({ error: 'Resident Exchange unavailable', detail: msg }, 500);
       }
-      return serverJson({ mine: mine ?? [], hosting: hosting ?? [] });
+      const ids = Array.from(new Set([...(mine ?? []).map((r: any) => r.host_id), ...(hosting ?? []).map((r: any) => r.owner_id)]));
+      const names = new Map<string, string | null>();
+      if (ids.length) {
+        const { data: profs, error: profErr } = await supabase.from('player_profiles').select('user_id, display_name').in('user_id', ids);
+        if (profErr) console.error('Resident Exchange name lookup failed (list still returned)', profErr.message);
+        for (const pr of profs ?? []) names.set((pr as any).user_id, (pr as any).display_name ?? null);
+      }
+      return serverJson({
+        mine: (mine ?? []).map((r: any) => ({ ...r, host: { display_name: names.get(r.host_id) ?? null } })),
+        hosting: (hosting ?? []).map((r: any) => ({ ...r, owner: { display_name: names.get(r.owner_id) ?? null } })),
+      });
     }
 
     if (req.method === 'POST') {

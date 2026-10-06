@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  GEAR_RARITY_COLOR, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey,
+  GEAR_RARITY_COLOR, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -80,9 +80,7 @@ const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark 
         <s.icon className={`w-3 h-3 ${s.color}`} />
         <span className="text-[15px] font-black uppercase opacity-60 flex-1">{s.label}</span>
         <span className="text-[15px] font-black">{b.base}</span>
-        {b.rarity > 0 && <span className="text-[13px] font-black text-green-500" title="Rarity bonus">+{b.rarity}</span>}
-        {b.gear > 0 && <span className="text-[13px] font-black text-green-500" title="Gear bonus">+{b.gear}</span>}
-        {b.evolution > 0 && <span className="text-[13px] font-black text-green-500" title="Evolution bonus">+{b.evolution}</span>}
+        {(b.rarity + b.gear + b.evolution) > 0 && <span className="text-[13px] font-black text-green-500" title={`Bonus: rarity +${b.rarity}, gear +${b.gear}, evolution +${b.evolution}`}>+{b.rarity + b.gear + b.evolution}</span>}
       </div>
       );
     })}
@@ -1253,10 +1251,11 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   shuffleboardKing?: any,
   passiveBreakdown?: { base: number, assets: number },
   onScrapElder?: (id: string) => void,
+  onRenameElder?: (id: string, name: string) => void,
   parkScore?: number,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
-}> = ({ onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0, parkAssets, healPrice }) => {
+}> = ({ onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
   const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
   const [regDesc, setRegDesc] = React.useState(true);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
@@ -1436,7 +1435,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                 <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
                 <div className="flex items-center gap-2 mt-0.5">
                   <RarityBadge rarity={item.rarity ?? 'Common'} />
-                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{getGearMaxLevel(item)} · +{getEffectiveGearBoost(item)}</span>
+                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{getGearMaxLevel(item)} · +{getEffectiveGearBoost(item)} {GEAR_SLOT_STAT_SHORT[gearSlotKey(item.slot)]} · {item.slot} slot</span>
                 </div>
               </div>
             </div>
@@ -1531,7 +1530,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                   <div className="flex items-center gap-2">
                     <div className={`w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill /></div>
                     <div className="min-w-0">
-                      <p className="font-black text-[14px] uppercase truncate">{e.name}</p>
+                      <p className="font-black text-[14px] uppercase truncate">{e.name} {onRenameElder && <button onClick={() => { const n = window.prompt('New name for this Elder (max 20 characters):', e.name); if (n && n.trim()) onRenameElder(e.id, n); }} title="Rename" className="text-[14px] opacity-60 active:scale-90">✏️</button>}</p>
                       <p className="text-[12px] font-black opacity-70">Lv {e.level} · <span className="text-[var(--accent-500)]">PWR {getElderPower(e)}</span></p>
                       <RarityBadge rarity={e.rarity} />
                     </div>
@@ -1565,6 +1564,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
+                    {onRenameElder && <button onClick={() => { const n = window.prompt('New name for this Elder (max 20 characters):', e.name); if (n && n.trim()) onRenameElder(e.id, n); }} title="Rename" className="text-[14px] opacity-60 active:scale-90">✏️</button>}
                     <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
                     <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
                   </div>
@@ -1579,13 +1579,13 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                             <button
                               disabled={!item}
                               onClick={() => item && onUnequipElder(e.id, slotKey)}
-                              title={item ? `${item.name} (tap to unequip)` : `Empty ${slotKey} slot`}
+                              title={item ? `${item.name} (tap to unequip)` : `Empty ${slotKey} slot (boosts ${GEAR_SLOT_STAT_SHORT[slotKey]})`}
                               className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${item ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}
                               style={{ borderColor: item ? GEAR_RARITY_COLOR[item.rarity ?? 'Common'] : undefined }}
                             >
                               {item ? <ItemIcon name={item.name} icon={item.icon} size={32} /> : <span className="text-[18px] opacity-60">+</span>}
                             </button>
-                            <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey}</span>
+                            <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
                           </div>
                         );
                       })}

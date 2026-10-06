@@ -18,7 +18,7 @@ const ExchangeOverview: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={onClose}>
-      <div className={`rounded-[2.5rem] p-5 w-full max-w-md max-h-[88vh] overflow-y-auto shadow-2xl border-4 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`} onClick={e => e.stopPropagation()}>
+      <div className={`rounded-[2.5rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] overflow-y-auto shadow-2xl border-4 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-black uppercase italic tracking-tighter">🏡 Away & Visiting</h2>
           <button onClick={onClose} className="px-3 py-1 rounded-lg font-black bg-slate-200 text-slate-700">Close</button>

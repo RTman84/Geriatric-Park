@@ -192,7 +192,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-      <div className={`rounded-[3rem] p-8 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+      <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-6">
           <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${strong}`}>My Grounds</h2>
           <button onClick={onClose} className={`p-2 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}><XMarkIcon className="w-6 h-6" /></button>

@@ -2216,6 +2216,13 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
   }, [state.settings.sfxEnabled]);
 
+  const handleRenameElder = useCallback((elderId: string, rawName: string) => {
+    const name = rawName.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 20);
+    if (!name) { notify('Please enter a name.', 'bad'); return; }
+    setState(prev => ({ ...prev, allElders: prev.allElders.map(e => e.id === elderId ? { ...e, name } : e) }));
+    notify(`Renamed to ${name}.`, 'good');
+  }, [notify]);
+
   const handleUnequipElder = useCallback((elderId: string, slotKey: 'head' | 'body' | 'accessory' | 'charm') => {
     setState(prev => {
       let freedItem: Gear | null = null;
@@ -2757,8 +2764,8 @@ const App: React.FC = () => {
         </nav>
 
         {showSettings && (
-          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-            <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-2 bg-black/60 backdrop-blur-md">
+            <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-black uppercase italic tracking-tighter">Settings</h2>
                 <button onClick={() => setShowSettings(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
@@ -2896,8 +2903,8 @@ const App: React.FC = () => {
             return { ...p, favoriteElderIds: [...p.favoriteElderIds, elderId] };
           });
           return (
-            <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-              <div className={`rounded-[3rem] p-10 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+            <div className="fixed inset-0 z-[3000] flex items-center justify-center p-2 bg-black/60 backdrop-blur-md">
+              <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-black uppercase italic tracking-tighter">Social Profile</h2>
                   <div className="flex items-center gap-2">
@@ -3158,7 +3165,7 @@ const App: React.FC = () => {
               <h2 className={`text-lg font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Hub</h2>
               <button onClick={() => setShowParkHub(false)} className="px-4 py-2 rounded-full bg-[var(--accent-600)] text-white text-[13px] font-black uppercase tracking-widest active:scale-95">✕ Close</button>
             </div>
-            <BasePanel isDark={isDark} onEvolve={handleEvolveElder} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
+            <BasePanel isDark={isDark} onEvolve={handleEvolveElder} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onRenameElder={handleRenameElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
+import { ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import { sendFriendRequestByUserId } from '../services/socialService';
@@ -167,8 +167,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   };
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-      <div className={`rounded-[3rem] p-8 w-full max-w-sm flex flex-col shadow-2xl border-4 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-2 bg-black/60 backdrop-blur-md">
+      <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black uppercase italic tracking-tighter">Friends</h2>
           <button onClick={onClose} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
@@ -398,7 +398,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                                 className={`w-full mb-2 p-2 rounded-lg text-[13px] font-bold ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
                               >
                                 <option value="">Choose an Elder…</option>
-                                {availableToSend.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                {availableToSend.map(e => <option key={e.id} value={e.id}>{e.name} · {e.type} · Lv.{e.level} {e.rarity} · PWR {getElderPower(e)}</option>)}
                               </select>
                               <div className="flex gap-2 mb-2">
                                 {[8, 12, 24].map(h => (

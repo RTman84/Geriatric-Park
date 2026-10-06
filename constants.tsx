@@ -1300,7 +1300,7 @@ export const ITEM_POOL = [
   { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases Strength via nostalgic vibes.' },
   { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
-  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
+  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility by 3.' },
   { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Charm', description: 'A classic piece that boosts Agility.' }
 ];
 
@@ -1322,6 +1322,8 @@ export type GearRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 // Maps an item's display slot to its key on Elder.equipment. Kept in one place since every stat-
 // mutation site (equip/unequip/battle) needs to agree on it -- adding a 5th slot only means
 // touching this function and the stat-effect switch in App.tsx's equip/unequip handlers.
+// Which stat each slot always boosts (the single source of truth the equip handlers follow).
+export const GEAR_SLOT_STAT_SHORT: Record<'head' | 'body' | 'accessory' | 'charm', string> = { head: 'WIT', body: 'TEN', accessory: 'STR', charm: 'AGI' };
 export function gearSlotKey(slot: 'Head' | 'Body' | 'Accessory' | 'Charm'): 'head' | 'body' | 'accessory' | 'charm' {
   if (slot === 'Head') return 'head';
   if (slot === 'Body') return 'body';
