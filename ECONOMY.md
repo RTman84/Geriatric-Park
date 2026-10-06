@@ -434,3 +434,11 @@ Golden Games Ticket growth lowered 1.04 -> 1.02 per tier. Win purses are now tie
 
 ## 6p. PvP boosts (2026-10-06)
 Boosts tab in the PvP Shop: Attack Pass (6 TV Dinners) waives the Ticket fee on one paid Arena attack; Rally Pass (6) waives the fee on one extra Raid attempt. Hold max 10 of each (`pvpPasses`). They never raise the server's daily caps (Arena 20 attacks/day, Raid 6 attempts) and never change power or rewards; they act as a Ticket-fee relief and a TV Dinner sink. Not built: a Friend Battle pass (reward cap is client-side and easier to abuse), Court Ladder extra challenges (server-enforced 3/day).
+
+## 6q. Server ledger, step 1: shadow mode (2026-10-06)
+- Migration `017_ledger.sql`: `ad_views` (one row per ad started; unique `transaction_id` = replay protection) and an append-only `ledger_entries` (player_pp / community_reserve / development, unique per (source, ref, account); a trigger blocks any update or delete). No browser access.
+- `api/ledger.ts`: POST = start an ad view (server nonce, daily cap 15); Google's AdMob server-side-verification callback (GET with `signature` + `key_id`) is checked with ECDSA-P256 against Google's published keys, then books 3 entries from `ASSUMED_AD_REVENUE_PER_VIEW_USD` (0.008 x 70/20/10); GET = this player's verified totals.
+- Client: `services/ledgerService.ts`; `AdOverlay` requests a nonce and passes it to AdMob as `ssv.customData` (+ `userId`). Local PP is still granted by the client as before: this step only RECORDS what the server could verify.
+- Tested against an in-memory Supabase with real generated ECDSA signatures: valid/tampered/unknown key, wrong player, replay, double booking, daily cap, per-player totals (16 checks).
+- Owner steps: run 017 in Supabase; in the AdMob console set the rewarded ad unit's SSV callback URL to `https://<production domain>/api/ledger`; the callback only fires for real (non-test) ad units on a published app.
+- Next steps (later): switch the client so PP from ads is credited from the server total (cap local PP by the verified total); book reserve entries into the real Community Reserve; ledger entries for Dividend/Cash Out; reconcile assumed vs. actual AdMob revenue; Play Billing receipts for Mementos use the same table pattern.

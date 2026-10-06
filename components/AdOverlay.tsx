@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AD_REVENUE_PAYOUT, REVENUE_SPLIT } from '../constants';
 import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
+import { beginAdView, fetchVerifiedTotals } from '../services/ledgerService';
 
 interface AdOverlayProps {
   onRewardEarned: (playerShare: number, communityShare: number) => void;
@@ -78,7 +79,9 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
       return;
     }
     setPhase('loading');
-    const result = await showRewardedAd();
+    const view = await beginAdView(); // server-side nonce so Google's verification callback can be matched (null if signed out)
+    const result = await showRewardedAd(view ? { userId: view.userId, customData: view.nonce } : undefined);
+    if (result.completed && view) setTimeout(() => { void fetchVerifiedTotals(view.nonce).then(r => console.info('[Ledger] ad view status:', r?.status ?? 'unknown')); }, 15000);
     if (result.completed) grantReward();
     else { setErrorMessage(result.error ?? 'No ads available right now. Check back soon!'); setPhase('error'); }
   };

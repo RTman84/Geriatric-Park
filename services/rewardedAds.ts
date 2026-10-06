@@ -49,12 +49,12 @@ async function ensureAdMobReady(): Promise<void> {
   return adMobReady;
 }
 
-export async function showRewardedAd(): Promise<RewardedAdResult> {
+export async function showRewardedAd(ssv?: { userId: string; customData: string }): Promise<RewardedAdResult> {
   if (getAdsMode() !== 'admob') return { completed: false, error: 'Sponsor rewards are only available in the Android app.' };
   try {
     await ensureAdMobReady();
     const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob');
-    await AdMob.prepareRewardVideoAd({ adId: rewardedAdUnit, isTesting: useTestAds });
+    await AdMob.prepareRewardVideoAd({ adId: rewardedAdUnit, isTesting: useTestAds, ...(ssv ? { ssv: { userId: ssv.userId, customData: ssv.customData } } : {}) });
 
     return await new Promise<RewardedAdResult>(async (resolve) => {
       let rewarded = false;
