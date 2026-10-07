@@ -14,6 +14,8 @@ import ParkScene, { isDecorSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
+import BoardsPanel from './components/BoardsPanel';
+import { submitBoardScore, BoardMode } from './services/boardsService';
 import MementoShop from './components/MementoShop';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
@@ -384,7 +386,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], parkDecor: [], pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], parkDecor: [], boardStats: { week: '', arena: 0, raid: 0, friend: 0 }, pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -488,6 +490,8 @@ const App: React.FC = () => {
   const [showExchangeOverview, setShowExchangeOverview] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
   const [showPvpShop, setShowPvpShop] = useState(false);
+  const [showBoards, setShowBoards] = useState(false);
+  const lastBoardSent = useRef<Record<string, number>>({});
   const [showMementoShop, setShowMementoShop] = useState(false);
   const [arenaInfo, setArenaInfo] = useState<Record<string, ArenaInfo>>({});
   const [arenaMe, setArenaMe] = useState<ArenaMe | null>(null);
@@ -952,6 +956,8 @@ const App: React.FC = () => {
       }
       next.parkDecor = kept;
     }
+    { const bs = (next.boardStats ?? {}) as { week?: unknown; arena?: unknown; raid?: unknown; friend?: unknown }; const n = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(1e9, Math.floor(v)) : 0;
+      next.boardStats = { week: typeof bs.week === 'string' ? bs.week : '', arena: n(bs.arena), raid: n(bs.raid), friend: n(bs.friend) }; }
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
@@ -1295,6 +1301,30 @@ const App: React.FC = () => {
     notify(`${g.name} added to your Park Hub inventory.`, 'good');
   }, [state.tvDinners, notify]);
 
+  // Weekly counters for the per-mode leaderboards (they restart each Monday UTC, like the server's weekly boards).
+  const bumpBoard = useCallback((kind: 'arena' | 'raid' | 'friend', amount: number) => {
+    if (!(amount > 0)) return;
+    setState(prev => {
+      const week = utcWeekKey();
+      const cur = prev.boardStats && prev.boardStats.week === week ? prev.boardStats : { week, arena: 0, raid: 0, friend: 0 };
+      return { ...prev, boardStats: { ...cur, [kind]: cur[kind] + Math.floor(amount) } };
+    });
+  }, []);
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    const week = utcWeekKey();
+    const bs = state.boardStats && state.boardStats.week === week ? state.boardStats : null;
+    const wanted: [BoardMode, number][] = [['golden', (state.goldenGames?.highestLeagueCleared ?? -1) + 1]];
+    if (bs) wanted.push(['arena', bs.arena], ['raid', bs.raid], ['friend', bs.friend]);
+    const t = setTimeout(() => {
+      for (const [mode, score] of wanted) {
+        const key = mode + ':' + (mode === 'golden' ? 'all' : week);
+        if (score > 0 && score > (lastBoardSent.current[key] ?? 0)) { lastBoardSent.current[key] = score; submitBoardScore(mode, score).catch(() => { lastBoardSent.current[key] = 0; }); }
+      }
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [isLoaded, cloudSyncSettled, state.boardStats, state.goldenGames?.highestLeagueCleared]);
+
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
     if (!activeArenaId) return;
     const hasArenaPass = (state.pvpPasses?.arena ?? 0) > 0;
@@ -1325,6 +1355,7 @@ const App: React.FC = () => {
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
     if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
+    bumpBoard('arena', result.beaten);
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify]);
 
@@ -1351,6 +1382,7 @@ const App: React.FC = () => {
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT, 'Raid hit');
+    bumpBoard('raid', result.damage);
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail]);
 
@@ -2028,6 +2060,7 @@ const App: React.FC = () => {
       won ? 'good' : 'bad');
     handleQuestProgress('friend_battle');
     if (rewarded) earnDiners(DINERS_FRIEND_WIN, 'Friend Battle win');
+    if (won) bumpBoard('friend', 1);
     void notifyFriendBattle(friendUserId, won).catch(e => {
       console.error('Friend battle notification failed', e);
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
@@ -3137,6 +3170,7 @@ const App: React.FC = () => {
                   <h2 className="text-2xl font-black uppercase italic tracking-tighter">Social Profile</h2>
                   <div className="flex items-center gap-2">
                     <button onClick={() => setShowGroundsPanel(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">🏡 Grounds</button>
+                    <button onClick={() => setShowBoards(true)} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">🏅 Boards</button>
                     <button onClick={handleOpenFriends} className="text-[13px] font-black uppercase text-[var(--accent-500)] tracking-widest">👥 Friends</button>
                     <button onClick={() => setShowProfilePicker(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
                   </div>
@@ -3390,6 +3424,7 @@ const App: React.FC = () => {
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
         {showMementoShop && <MementoShop isDark={isDark} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
+        {showBoards && <BoardsPanel isDark={isDark} onClose={() => setShowBoards(false)} />}
         {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
