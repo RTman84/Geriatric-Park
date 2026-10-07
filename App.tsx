@@ -166,7 +166,7 @@ import {
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
   PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
-  GEAR_RARITY_COLOR, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
+  GEAR_RARITY_COLOR, UNIFORM_GEAR_BASE, UNIFORM_GEAR_NAMES, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
@@ -935,6 +935,8 @@ const App: React.FC = () => {
     next.dinersDay = typeof next.dinersDay === 'string' ? next.dinersDay.slice(0, 40) : '';
     next.antiquesOwned = Array.isArray(next.antiquesOwned) ? Array.from(new Set((next.antiquesOwned as unknown[]).filter((k): k is string => typeof k === 'string' && !!antiqueById(k)))) : [];
     { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
+    // One-time-safe: unequipped drops that used odd base boosts follow the uniform base (equipped gear is baked into Elder stats, so it is left alone).
+    if (Array.isArray(next.inventory)) next.inventory = (next.inventory as any[]).map(it => it && UNIFORM_GEAR_NAMES.includes(it.name) && typeof it.boost === 'number' ? { ...it, boost: UNIFORM_GEAR_BASE, description: String(it.description ?? '').replace(/ by \d+\./, '.') } : it);
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];

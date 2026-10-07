@@ -1304,21 +1304,21 @@ export const STRUCTURE_TEMPLATES = [
 ];
 
 export const ITEM_POOL = [
-  { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 2, slot: 'Head', description: 'Increases Wit by 2.' },
-  { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength by 2.' },
+  { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
   { name: 'Hard Candy', icon: '🍭', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
-  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases Strength via nostalgic vibes.' },
+  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
   { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
-  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility by 3.' },
-  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Charm', description: 'A classic piece that boosts Agility.' }
+  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' }
 ];
 
 export const SHOP_ITEMS = [
   { id: 's1', name: 'High-Fiber Muffin', icon: '🧁', price: 50, description: 'Instantly restores 50 HP.' },
-  { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity by 6.', slot: 'Body', boost: 6 },
-  { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit by 4.', slot: 'Head', boost: 4 },
+  { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity.', slot: 'Body', boost: 6 },
+  { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit.', slot: 'Head', boost: 4 },
   { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts Agility with a touch of luck.', slot: 'Charm', boost: 5 }
 ];
 
@@ -1490,14 +1490,14 @@ export const antiqueCosmetic = (key: string): { key: string; icon: string; title
 
 // Gear sold only for TV Dinners (stronger than most drops; the sink for the PvP currency). Slot decides the stat.
 export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; boost: number; rarity: 'Epic' | 'Legendary'; price: number; description: string }[] = [
-  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Wit.' },
-  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Tenacity.' },
-  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Strength.' },
-  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 6, rarity: 'Epic', price: 120, description: 'Increases Agility.' },
-  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Wit.' },
-  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.' },
-  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Strength.' },
-  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 9, rarity: 'Legendary', price: 320, description: 'Increases Agility.' },
+  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Wit.' },
+  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Tenacity.' },
+  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Strength.' },
+  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Agility.' },
+  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Wit.' },
+  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.' },
+  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Strength.' },
+  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Agility.' },
 ];
 
 // --- Mementos: premium currency (2026-10-06) -----------------------------------------------------------------
@@ -1537,3 +1537,8 @@ export const mementoCosmetic = (key: string): { key: string; icon: string; title
 // They never raise the server's daily attempt caps and never change power or rewards -- they only pay a fee for you.
 export const PASS_PRICE = { arena: 6, raid: 6 } as const;
 export const PASS_HOLD_MAX = 10;
+
+// Drops and the Commissary now follow one rule: every piece has the same base boost (3) and the rarity + level curve
+// does the rest, so the same rarity and level always gives the same bonus. Names of the pieces that used other bases:
+export const UNIFORM_GEAR_BASE = 3;
+export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid Plus', 'Vintage Radio', 'Garden Charm', 'Antique Pocket Watch'];

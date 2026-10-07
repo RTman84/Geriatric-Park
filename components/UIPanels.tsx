@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  GEAR_RARITY_COLOR, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1449,11 +1449,29 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                 <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
                 <div className="flex items-center gap-2 mt-0.5">
                   <RarityBadge rarity={item.rarity ?? 'Common'} />
-                  <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Lv.{item.level ?? 1}/{getGearMaxLevel(item)} · +{getEffectiveGearBoost(item)} {GEAR_SLOT_STAT_SHORT[gearSlotKey(item.slot)]} · {item.slot} slot</span>
+                  <span className={`text-[14px] font-black uppercase tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.slot} slot</span>
                 </div>
               </div>
             </div>
-            <p className={`text-[12px] mb-3 flex-shrink-0 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{item.description}</p>
+            <p className={`text-[14px] font-semibold mb-2 flex-shrink-0 line-clamp-3 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.description}</p>
+            {(() => {
+              const slotStat = GEAR_SLOT_STAT_SHORT[gearSlotKey(item.slot)];
+              const lvl = item.level ?? 1, maxLvl = getGearMaxLevel(item);
+              const now = getEffectiveGearBoost(item);
+              const next = lvl < maxLvl ? getEffectiveGearBoost({ ...item, level: lvl + 1 }) : null;
+              return (
+                <div className={`mb-3 p-3 rounded-2xl flex-shrink-0 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-[22px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>+{now} {slotStat}</span>
+                    <span className={`text-[15px] font-black ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Level {lvl} / {maxLvl}</span>
+                  </div>
+                  <div className={`text-[13px] font-bold mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {next !== null ? <>Next level: <span className="text-green-500">+{next} {slotStat}</span> (+{next - now})</> : <>Maximum level reached</>}
+                    {' · '}Base +{item.boost} × {item.rarity ?? 'Common'} {GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common']}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="flex gap-2 mb-3 flex-shrink-0">
               {(item.level ?? 1) < getGearMaxLevel(item) && (() => {
                 const cost = getGearUpgradeCost(item);
@@ -1667,6 +1685,7 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
           <span className="text-[13px] font-black uppercase opacity-60">Order squad:</span>
           <button onClick={() => onReorderTeam([...team].sort((a, b) => getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Strongest first</button>
           <button onClick={() => onReorderTeam([...team].sort((a, b) => b.level - a.level || getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Highest level first</button>
+          <button onClick={() => { const rank: Record<string, number> = { Legendary: 4, Epic: 3, Rare: 2, Common: 1 }; onReorderTeam([...team].sort((a, b) => (rank[b.rarity] ?? 0) - (rank[a.rarity] ?? 0) || b.level - a.level || getElderPower(b) - getElderPower(a)).map(x => x.id)); }} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Rarest first</button>
           <p className="w-full text-[12px] opacity-60">The first Elder leads in battles. Use the arrows on each card to place anyone manually.</p>
         </div>
       )}
