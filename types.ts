@@ -168,6 +168,7 @@ export interface GameState {
   // constants.tsx) -- decorations with no passive bonus, plus Housing which
   // raises total roster capacity.
   buildingMaterials: number;
+  parkDecor?: { id: string; x: number; y: number }[]; // Park Assets placed on the grass (% of the scene)
   tvDinners?: number; // PvP/Arena/Raid currency (spent only in the PvP shop)
   dinersDay?: string; dinersToday?: number; // daily earn cap tracking
   pvpPasses?: { arena: number; raid: number }; // consumables bought with TV Dinners: each waives one Ticket attempt fee

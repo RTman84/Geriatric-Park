@@ -110,6 +110,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       squad_power: squadPowerFrom(saveData),
       favorite_elders: favoriteElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
+      park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })),
       // Active (unfinished) quests, so friends can pick one when leaving an Elder to help. Untrusted-save rules apply.
       active_quests: (Array.isArray(saveData?.quests) ? saveData.quests : [])
         .filter((q: any) => q && typeof q.id === 'string' && typeof q.title === 'string' && !q.completed && Number.isFinite(q.target) && Number.isFinite(q.progress))

@@ -59,7 +59,7 @@ function generateFriendCode(): string {
   return code;
 }
 
-const PROFILE_FIELDS = 'user_id, friend_code, display_name, level, selected_title, selected_account_icon, achievements_completed, achievements_total, squad_power, favorite_elders, open_to_random_friends, built_amenities, amenity_levels, active_quests, updated_at';
+const PROFILE_FIELDS = 'user_id, friend_code, display_name, level, selected_title, selected_account_icon, achievements_completed, achievements_total, squad_power, favorite_elders, open_to_random_friends, built_amenities, park_decor, amenity_levels, active_quests, updated_at';
 
 async function ensureProfile(supabase: SupabaseClient, userId: string) {
   const { data: existing } = await supabase.from('player_profiles').select(PROFILE_FIELDS).eq('user_id', userId).maybeSingle();

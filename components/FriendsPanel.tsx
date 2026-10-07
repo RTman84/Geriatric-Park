@@ -530,6 +530,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                 capacity={0}
                 materials={0}
                 readOnly
+                decor={Array.isArray(friend.park_decor) ? friend.park_decor : []}
                 wanderers={[
                   ...friend.favorite_elders.map((e, i) => ({ key: `res_${friend.user_id}_${i}`, type: e.type, stage: e.evolutionStage, name: e.name, label: `${friend.display_name || 'Their'} resident`, level: e.level, rarity: e.rarity })),
                   ...(residentExchangeMine ?? []).filter(r => r.host_id === friend.user_id && (r.mode ?? 'visit') === 'visit').map(r => ({ key: 'mine_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: 'Yours (visiting)', level: r.snapshot?.level, rarity: r.snapshot?.rarity })),

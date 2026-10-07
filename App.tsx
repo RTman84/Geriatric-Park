@@ -10,7 +10,7 @@ import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import FriendsPanel from './components/FriendsPanel';
 import GroundsPanel from './components/GroundsPanel';
-import ParkScene from './components/ParkScene';
+import ParkScene, { isDecorSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
@@ -379,7 +379,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], parkDecor: [], pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -937,6 +937,15 @@ const App: React.FC = () => {
     { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
     // One-time-safe: unequipped drops that used odd base boosts follow the uniform base (equipped gear is baked into Elder stats, so it is left alone).
     if (Array.isArray(next.inventory)) next.inventory = (next.inventory as any[]).map(it => it && UNIFORM_GEAR_NAMES.includes(it.name) && typeof it.boost === 'number' ? { ...it, boost: UNIFORM_GEAR_BASE, description: String(it.description ?? '').replace(/ by \d+\./, '.') } : it);
+    { // Placed decoration: only what the player owns, only valid grass spots, at most 40 pieces.
+      const left: Record<string, number> = {}; const kept: { id: string; x: number; y: number }[] = [];
+      for (const d of (Array.isArray(next.parkDecor) ? next.parkDecor : []) as any[]) {
+        if (!d || typeof d.id !== 'string' || !Number.isFinite(d.x) || !Number.isFinite(d.y) || kept.length >= 40) continue;
+        if (!(d.id in left)) left[d.id] = ownedAssetCount(next.parkAssets, d.id);
+        if (left[d.id] > 0 && isDecorSpotValid(d.x, d.y)) { left[d.id]--; kept.push({ id: d.id, x: d.x, y: d.y }); }
+      }
+      next.parkDecor = kept;
+    }
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
@@ -1250,6 +1259,16 @@ const App: React.FC = () => {
     setState(prev => ((prev.pvpPasses?.[kind] ?? 0) >= PASS_HOLD_MAX || (prev.tvDinners ?? 0) < price) ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - price, pvpPasses: { arena: (prev.pvpPasses?.arena ?? 0) + (kind === 'arena' ? 1 : 0), raid: (prev.pvpPasses?.raid ?? 0) + (kind === 'raid' ? 1 : 0) } });
     notify(kind === 'arena' ? '🎫 Attack Pass added.' : '🎫 Rally Pass added.', 'good');
   }, [state.pvpPasses, state.tvDinners, notify]);
+  const handlePlaceDecor = useCallback((id: string, x: number, y: number) => {
+    setState(prev => {
+      const placed = (prev.parkDecor ?? []).filter(d => d.id === id).length;
+      if (placed >= ownedAssetCount(prev.parkAssets, id) || (prev.parkDecor ?? []).length >= 40 || !isDecorSpotValid(x, y)) return prev;
+      return { ...prev, parkDecor: [...(prev.parkDecor ?? []), { id, x, y }] };
+    });
+  }, []);
+  const handleRemoveDecor = useCallback((index: number) => {
+    setState(prev => ({ ...prev, parkDecor: (prev.parkDecor ?? []).filter((_, i) => i !== index) }));
+  }, []);
   const handleBuyPvpGear = useCallback((id: string) => {
     const g = PVP_GEAR.find(x => x.id === id);
     if (!g) return;
@@ -2810,7 +2829,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <ParkScene isDark={isDark} wanderers={[
+          {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
             ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 8).map(e => ({ key: 'own_' + e.id, type: e.type, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 4).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),
           ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}

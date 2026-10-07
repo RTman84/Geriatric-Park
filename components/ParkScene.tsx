@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AMENITIES, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR } from '../constants';
+import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
 import trail from '../game-assets/park/cut/trail.png';
@@ -32,6 +32,22 @@ export interface Wanderer {
   label: string; // e.g. "Yours", "Visiting from Ann", "Resident"
   level?: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary';
 }
+// ---- Decoration (Park Assets placed by the player) ----
+export interface DecorPiece { id: string; x: number; y: number } // x, y in % of the scene
+export interface DecorOption { id: string; icon: string; name: string; owned: number; placed: number }
+// Only grass counts: not the central path (31-69% across, with a margin), not any building footprint (built or not,
+// with a margin), not the pond at the top or the gate at the bottom.
+export function isDecorSpotValid(xPct: number, yPct: number): boolean {
+  if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
+  const x = (xPct / 100) * BG_W, y = (yPct / 100) * BG_H;
+  if (x < 24 || x > BG_W - 24 || y < 300 || y > BG_H - 330) return false;
+  if (x > 310 && x < 714) return false; // path
+  for (let i = 0; i < SLOT_ORDER.length; i++) {
+    const { xc, y: top } = slotFor(i);
+    if (x > xc - BW / 2 - 14 && x < xc + BW / 2 + 14 && y > top - 14 && y < top + BH + 14) return false;
+  }
+  return true;
+}
 const hash = (str: string) => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 interface ParkSceneProps {
@@ -48,6 +64,11 @@ interface ParkSceneProps {
   onOpenHub?: () => void;
   onCollect?: (amenityId: string) => void;
   wanderers?: Wanderer[]; // Elders strolling the grounds: your own, visitors, and (in a friend's park) residents + your own visitor
+  decor?: DecorPiece[]; // placed Park Assets
+  decorOptions?: DecorOption[]; // what the player owns (own park only)
+  onPlaceDecor?: (id: string, x: number, y: number) => void;
+  onRemoveDecor?: (index: number) => void;
+  onDecorInvalid?: () => void;
   readOnly?: boolean; // for visiting a friend's park later: no collect / hub buttons
   title?: string;
 }
@@ -66,8 +87,12 @@ const nameBar: React.CSSProperties = {
 
 const ParkScene: React.FC<ParkSceneProps> = ({
   isDark, builtAmenityIds, amenityLevels, amenityCollectedAt, comfortBonus, rosterCount, capacity, materials,
-  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title, wanderers = [],
+  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title, wanderers = [], decor = [], decorOptions, onPlaceDecor, onRemoveDecor, onDecorInvalid,
 }) => {
+  const [decorMode, setDecorMode] = useState(false);
+  const [decorPick, setDecorPick] = useState<string | null>(null);
+  const sceneRef = React.useRef<HTMLDivElement>(null);
+  const decorIcons = Object.fromEntries((decorOptions ?? []).map(o => [o.id, o.icon]));
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000);
@@ -81,7 +106,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={sceneRef} style={{ position: 'relative', width: '100%' }}>
       {/* Sticky top bar: zero-height wrapper so it floats over the scene while scrolling */}
       <div style={{ position: 'sticky', top: 8, zIndex: 20, height: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', pointerEvents: 'none' }}>
@@ -91,9 +116,47 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           <div style={{ ...barBtn, pointerEvents: 'none' }}>👥 {rosterCount}/{capacity}</div>
           {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}>🏡 Grounds</button> : <div style={{ width: 1 }} />}
         </div>
+        {!readOnly && decorOptions && decorOptions.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6, padding: '0 10px', pointerEvents: 'none' }}>
+            <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); }} style={barBtn}>{decorMode ? '✔ Done decorating' : '🎨 Decorate'}</button>
+          </div>
+        )}
+        {decorMode && decorOptions && (
+          <div style={{ margin: '6px 10px 0', padding: 8, borderRadius: 14, background: 'rgba(0,0,0,0.78)', display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', pointerEvents: 'auto' }}>
+            <div style={{ width: '100%', textAlign: 'center', color: '#fff', fontSize: 12, fontWeight: 800 }}>
+              {decorPick ? 'Now tap the grass to place it' : 'Pick an asset, then tap the grass. Tap a placed one to remove it.'}
+            </div>
+            {decorOptions.map(o => {
+              const left = o.owned - o.placed;
+              return (
+                <button key={o.id} disabled={left <= 0} onClick={() => setDecorPick(decorPick === o.id ? null : o.id)}
+                  style={{ padding: '6px 10px', borderRadius: 12, border: decorPick === o.id ? '3px solid #fbbf24' : '2px solid rgba(255,255,255,0.4)', background: left > 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)', color: '#fff', opacity: left > 0 ? 1 : 0.45, fontSize: 13, fontWeight: 900 }}>
+                  {o.icon} {o.name} ×{Math.max(0, left)}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <img src={backdrop} alt="" draggable={false} style={{ width: '100%', display: 'block', filter: isDark ? 'brightness(0.72) saturate(0.9)' : undefined }} />
+
+      {/* Placed Park Assets (the player's own decoration; friends see them read-only) */}
+      {decor.map((d, i) => (
+        <div key={i} onClick={decorMode && onRemoveDecor ? (e) => { e.stopPropagation(); onRemoveDecor(i); } : undefined}
+          style={{ position: 'absolute', left: `${d.x}%`, top: `${d.y}%`, transform: 'translate(-50%, -50%)', fontSize: 'clamp(26px, 7vw, 44px)', lineHeight: 1, zIndex: 4, filter: 'drop-shadow(0 3px 3px rgba(0,0,0,0.45))', cursor: decorMode ? 'pointer' : 'default', outline: decorMode ? '2px dashed rgba(255,255,255,0.8)' : undefined, borderRadius: 8, pointerEvents: decorMode ? 'auto' : 'none' }}>
+          {decorIcons[d.id] ?? INVESTMENT_TIERS.flatMap(t => t.items).find(x => x.id === d.id)?.icon ?? '🌳'}
+        </div>
+      ))}
+      {decorMode && (
+        <div onClick={e => {
+          if (!decorPick || !onPlaceDecor || !sceneRef.current) return;
+          const r = sceneRef.current.getBoundingClientRect();
+          const x = ((e.clientX - r.left) / r.width) * 100, y = ((e.clientY - r.top) / r.height) * 100;
+          if (!isDecorSpotValid(x, y)) { onDecorInvalid?.(); return; }
+          onPlaceDecor(decorPick, +x.toFixed(2), +y.toFixed(2));
+        }} style={{ position: 'absolute', inset: 0, zIndex: 3, cursor: decorPick ? 'crosshair' : 'default' }} />
+      )}
 
       <style>{`@keyframes gpStroll { 0% { transform: translateX(-9vw); } 50% { transform: translateX(9vw); } 100% { transform: translateX(-9vw); } }`}</style>
       {wanderers.slice(0, 12).map((w, i) => {
