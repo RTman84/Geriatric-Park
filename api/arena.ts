@@ -364,6 +364,30 @@ async function raidInfoFor(supabase: SupabaseClient, arenaId: string, userId: st
   };
 }
 
+// ---- Per-mode leaderboards: counted HERE, on the server, from results the server itself resolved. ----
+// (Duplicated inline in each route on purpose: shared files were not being included in the deployed bundle.)
+const BOARD_MAX: Record<string, number> = { arena: 400, raid: 50_000_000, friend: 250 };
+const BRACKET_MINS = [0, 300, 700, 1300, 2300, 3800, 6000, 9500, 15000, 21000]; // keep in sync with POWER_BRACKETS
+function boardWeekKey(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)).padStart(2, '0')}`;
+}
+async function bumpBoard(supabase: SupabaseClient, userId: string, mode: 'arena' | 'raid' | 'friend', add: number): Promise<void> {
+  try {
+    if (!(add > 0)) return;
+    const period = boardWeekKey();
+    const { data: prof } = await supabase.from('player_profiles').select('squad_power, display_name').eq('user_id', userId).maybeSingle();
+    let bracket = 1; const sp = Number((prof as any)?.squad_power) || 0; BRACKET_MINS.forEach((m, i) => { if (sp >= m) bracket = i + 1; });
+    const name = String((prof as any)?.display_name ?? '').replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20) || `Park Visitor ${userId.slice(0, 4)}`;
+    const { data: ex } = await supabase.from('board_scores').select('score').eq('user_id', userId).eq('mode', mode).eq('period', period).maybeSingle();
+    const next = Math.min(BOARD_MAX[mode], Number((ex as any)?.score ?? 0) + Math.floor(add));
+    const { error } = await supabase.from('board_scores').upsert({ user_id: userId, mode, period, bracket, display_name: name, score: next, updated_at: new Date().toISOString() }, { onConflict: 'user_id,mode,period' });
+    if (error) console.error('board bump failed', error.message);
+  } catch (e) { console.error('board bump crashed', e); } // never let a leaderboard problem break a battle
+}
+
 export default async function handler(req: Request): Promise<Response> {
   try {
     const context = await requireAccount(req);
@@ -494,6 +518,7 @@ export default async function handler(req: Request): Promise<Response> {
         damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,
       }, { onConflict: 'raid_id,user_id' });
       if (hitUpErr) return dbFail('raid hit write', hitUpErr);
+      await bumpBoard(supabase, userId, 'raid', damage);
       const newTotal = num(row.damage_total, 0) + damage;
       const { error: totalErr } = await supabase.from('arena_raids').update({ damage_total: newTotal }).eq('raid_id', slot.raidId);
       if (totalErr) return dbFail('raid total write', totalErr);
@@ -631,6 +656,7 @@ export default async function handler(req: Request): Promise<Response> {
       for (let i = 0; i < rewardedWins; i++) tickets += WIN_TICKETS_MIN + Math.floor(Math.random() * (WIN_TICKETS_MAX - WIN_TICKETS_MIN + 1));
       const materials = rewardedWins * WIN_MATERIALS;
 
+      await bumpBoard(supabase, userId, 'arena', knockedOut);
       const { error: dErr } = await upsertDaily(supabase, userId, { attacks: me.attacksToday + 1, wins: me.winsToday + knockedOut }, daily);
       if (dErr) console.error('Arena daily write failed', dErr.message);
       const { error: cErr } = await supabase.from('arena_player_arena').upsert({ user_id: userId, arena_id: arenaId, last_attack_at: new Date().toISOString() }, { onConflict: 'user_id,arena_id' });

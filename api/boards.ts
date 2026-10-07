@@ -67,6 +67,9 @@ export default async function handler(req: Request): Promise<Response> {
     let body: any; try { body = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
     const mode = String(body?.mode || ''); const score = Number(body?.score);
     if (!MODES[mode]) return json({ error: 'Unknown mode' }, 400);
+    // Arena, Raid and Friend Battle scores are counted by the server routes that resolve those results; only Golden Games
+    // (resolved on the device) is reported by the game.
+    if (mode !== 'golden') return json({ error: 'That board is counted by the server' }, 403);
     if (!Number.isFinite(score) || score < 0 || score > MODES[mode].max) return json({ error: 'Invalid score' }, 400);
     const period = periodFor(mode);
     const { data: authUser } = await supabase.auth.admin.getUserById(userId);

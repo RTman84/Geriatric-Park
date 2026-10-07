@@ -1301,21 +1301,11 @@ const App: React.FC = () => {
     notify(`${g.name} added to your Park Hub inventory.`, 'good');
   }, [state.tvDinners, notify]);
 
-  // Weekly counters for the per-mode leaderboards (they restart each Monday UTC, like the server's weekly boards).
-  const bumpBoard = useCallback((kind: 'arena' | 'raid' | 'friend', amount: number) => {
-    if (!(amount > 0)) return;
-    setState(prev => {
-      const week = utcWeekKey();
-      const cur = prev.boardStats && prev.boardStats.week === week ? prev.boardStats : { week, arena: 0, raid: 0, friend: 0 };
-      return { ...prev, boardStats: { ...cur, [kind]: cur[kind] + Math.floor(amount) } };
-    });
-  }, []);
   useEffect(() => {
     if (!isLoaded || !cloudSyncSettled) return;
+    // Only Golden Games is reported by the game; Arena, Raid and Friend Battle boards are counted by the server.
     const week = utcWeekKey();
-    const bs = state.boardStats && state.boardStats.week === week ? state.boardStats : null;
     const wanted: [BoardMode, number][] = [['golden', (state.goldenGames?.highestLeagueCleared ?? -1) + 1]];
-    if (bs) wanted.push(['arena', bs.arena], ['raid', bs.raid], ['friend', bs.friend]);
     const t = setTimeout(() => {
       for (const [mode, score] of wanted) {
         const key = mode + ':' + (mode === 'golden' ? 'all' : week);
@@ -1323,7 +1313,7 @@ const App: React.FC = () => {
       }
     }, 4000);
     return () => clearTimeout(t);
-  }, [isLoaded, cloudSyncSettled, state.boardStats, state.goldenGames?.highestLeagueCleared]);
+  }, [isLoaded, cloudSyncSettled, state.goldenGames?.highestLeagueCleared]);
 
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
     if (!activeArenaId) return;
@@ -1355,7 +1345,6 @@ const App: React.FC = () => {
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
     if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
-    bumpBoard('arena', result.beaten);
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify]);
 
@@ -1382,7 +1371,6 @@ const App: React.FC = () => {
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT, 'Raid hit');
-    bumpBoard('raid', result.damage);
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail]);
 
@@ -2060,7 +2048,6 @@ const App: React.FC = () => {
       won ? 'good' : 'bad');
     handleQuestProgress('friend_battle');
     if (rewarded) earnDiners(DINERS_FRIEND_WIN, 'Friend Battle win');
-    if (won) bumpBoard('friend', 1);
     void notifyFriendBattle(friendUserId, won).catch(e => {
       console.error('Friend battle notification failed', e);
       showNotice(`📭 Battle counted, but your friend's Mailbox notice failed: ${e instanceof Error ? e.message : 'unknown error'}`);
@@ -2777,24 +2764,30 @@ const App: React.FC = () => {
   }, [state.allElders]);
   const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);
-  const isDark = state.settings.darkTheme;
+  const isDark = true; // the Light theme was removed (too bright); saves that had it simply use the dark base
+  const altThemeId: 'teal' | 'purple' | '' = state.settings.altTheme === true || state.settings.altTheme === 'teal' ? 'teal' : state.settings.altTheme === 'purple' ? 'purple' : '';
   useEffect(() => {
-    // Teal Night: remap the dark slate surfaces to dark greenish-blue (all components already use slate-* for dark mode).
-    const on = state.settings.darkTheme && !!state.settings.altTheme;
-    document.documentElement.dataset.altTheme = on ? 'teal' : '';
+    // Colour variants: remap the dark slate surfaces (all components already use slate-* for dark mode).
+    const palettes = {
+      teal:   { b950: '#031a1d', b900: '#06292d', b800: '#0a3a40', b700: '#0f4e56', c800: '#0f4e56', c700: '#17636d', c600: '#1d7681' },
+      purple: { b950: '#140a22', b900: '#1d1033', b800: '#2b1a4a', b700: '#3d2766', c800: '#3d2766', c700: '#553a8a', c600: '#6b4aa8' },
+    } as const;
+    document.documentElement.dataset.altTheme = altThemeId;
     let el = document.getElementById('gp-alt-theme') as HTMLStyleElement | null;
     if (!el) { el = document.createElement('style'); el.id = 'gp-alt-theme'; document.head.appendChild(el); }
-    el.textContent = on ? `
-      html[data-alt-theme="teal"], html[data-alt-theme="teal"] body { background-color: #031a1d !important; }
-      html[data-alt-theme="teal"] [class*="bg-slate-950"] { background-color: #031a1d !important; }
-      html[data-alt-theme="teal"] [class*="bg-slate-900"] { background-color: #06292d !important; }
-      html[data-alt-theme="teal"] [class*="bg-slate-800"] { background-color: #0a3a40 !important; }
-      html[data-alt-theme="teal"] [class*="bg-slate-700"] { background-color: #0f4e56 !important; }
-      html[data-alt-theme="teal"] [class*="border-slate-800"] { border-color: #0f4e56 !important; }
-      html[data-alt-theme="teal"] [class*="border-slate-700"] { border-color: #17636d !important; }
-      html[data-alt-theme="teal"] [class*="border-slate-600"] { border-color: #1d7681 !important; }
+    const c = altThemeId ? palettes[altThemeId] : null;
+    const r = `html[data-alt-theme="${altThemeId}"]`;
+    el.textContent = c ? `
+      ${r}, ${r} body { background-color: ${c.b950} !important; }
+      ${r} [class*="bg-slate-950"] { background-color: ${c.b950} !important; }
+      ${r} [class*="bg-slate-900"] { background-color: ${c.b900} !important; }
+      ${r} [class*="bg-slate-800"] { background-color: ${c.b800} !important; }
+      ${r} [class*="bg-slate-700"] { background-color: ${c.b700} !important; }
+      ${r} [class*="border-slate-800"] { border-color: ${c.c800} !important; }
+      ${r} [class*="border-slate-700"] { border-color: ${c.c700} !important; }
+      ${r} [class*="border-slate-600"] { border-color: ${c.c600} !important; }
     ` : '';
-  }, [state.settings.darkTheme, state.settings.altTheme]);
+  }, [altThemeId]);
   const unreadMailCount = useMemo(() => state.mailbox.filter(m => !m.claimed).length, [state.mailbox]);
 
   // UI color theme: recolors the app's single brand/accent color (buttons,
@@ -3020,14 +3013,14 @@ const App: React.FC = () => {
                 <span className="text-sm font-black uppercase tracking-widest opacity-60">Theme</span>
                 <div className="flex gap-2 mt-2">
                   {([
-                    { id: 'dark', label: 'Dark', dark: true, alt: false },
-                    { id: 'teal', label: 'Teal Night', dark: true, alt: true },
-                    { id: 'light', label: 'Light', dark: false, alt: false },
+                    { id: '', label: 'Dark' },
+                    { id: 'teal', label: 'Teal Night' },
+                    { id: 'purple', label: 'Purple Night' },
                   ] as const).map(t => {
-                    const active = state.settings.darkTheme === t.dark && !!state.settings.altTheme === t.alt;
+                    const active = altThemeId === t.id;
                     return (
-                      <button key={t.id} onClick={() => setState(p => ({ ...p, settings: { ...p.settings, darkTheme: t.dark, altTheme: t.alt } }))}
-                        className={`flex-1 py-2.5 rounded-xl text-[13px] font-black uppercase border-2 ${active ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'border-slate-600 text-slate-200' : 'border-slate-300 text-slate-600'}`}>{t.label}</button>
+                      <button key={t.id} onClick={() => setState(p => ({ ...p, settings: { ...p.settings, darkTheme: true, altTheme: t.id } }))}
+                        className={`flex-1 py-2.5 rounded-xl text-[13px] font-black uppercase border-2 ${active ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : 'border-slate-600 text-slate-200'}`}>{t.label}</button>
                     );
                   })}
                 </div>

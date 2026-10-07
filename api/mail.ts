@@ -60,6 +60,30 @@ const MAIL_FIELDS_LEGACY = 'id, sender_name, kind, day, attacker_wins, defender_
 const MAIL_FIELDS = `${MAIL_FIELDS_LEGACY}, note`;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// ---- Per-mode leaderboards: counted HERE, on the server, from results the server itself resolved. ----
+// (Duplicated inline in each route on purpose: shared files were not being included in the deployed bundle.)
+const BOARD_MAX: Record<string, number> = { arena: 400, raid: 50_000_000, friend: 250 };
+const BRACKET_MINS = [0, 300, 700, 1300, 2300, 3800, 6000, 9500, 15000, 21000]; // keep in sync with POWER_BRACKETS
+function boardWeekKey(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)).padStart(2, '0')}`;
+}
+async function bumpBoard(supabase: SupabaseClient, userId: string, mode: 'arena' | 'raid' | 'friend', add: number): Promise<void> {
+  try {
+    if (!(add > 0)) return;
+    const period = boardWeekKey();
+    const { data: prof } = await supabase.from('player_profiles').select('squad_power, display_name').eq('user_id', userId).maybeSingle();
+    let bracket = 1; const sp = Number((prof as any)?.squad_power) || 0; BRACKET_MINS.forEach((m, i) => { if (sp >= m) bracket = i + 1; });
+    const name = String((prof as any)?.display_name ?? '').replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20) || `Park Visitor ${userId.slice(0, 4)}`;
+    const { data: ex } = await supabase.from('board_scores').select('score').eq('user_id', userId).eq('mode', mode).eq('period', period).maybeSingle();
+    const next = Math.min(BOARD_MAX[mode], Number((ex as any)?.score ?? 0) + Math.floor(add));
+    const { error } = await supabase.from('board_scores').upsert({ user_id: userId, mode, period, bracket, display_name: name, score: next, updated_at: new Date().toISOString() }, { onConflict: 'user_id,mode,period' });
+    if (error) console.error('board bump failed', error.message);
+  } catch (e) { console.error('board bump crashed', e); } // never let a leaderboard problem break a battle
+}
+
 export default async function handler(req: Request): Promise<Response> {
   try {
     const context = await requireAccount(req);
@@ -161,6 +185,7 @@ export default async function handler(req: Request): Promise<Response> {
             updated_at: now,
           }).eq('id', existing.id);
           if (updateErr) { console.error('Mail update failed', updateErr.message); return serverJson({ error: 'Mail unavailable', detail: updateErr.message }, 500); }
+          if (attackerWon) await bumpBoard(supabase, userId, 'friend', 1); // counted only after the per-pair daily cap passed
           return serverJson({ result: 'updated' });
         }
 
@@ -176,7 +201,7 @@ export default async function handler(req: Request): Promise<Response> {
           reward_materials: rewardMaterials,
           updated_at: now,
         });
-        if (!insertErr) return serverJson({ result: 'created' });
+        if (!insertErr) { if (attackerWon) await bumpBoard(supabase, userId, 'friend', 1); return serverJson({ result: 'created' }); }
         if (!(String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique'))) {
           console.error('Mail insert failed', insertErr.message);
           return serverJson({ error: 'Mail unavailable', detail: insertErr.message }, 500);

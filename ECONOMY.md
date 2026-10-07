@@ -480,3 +480,7 @@ Boosts tab in the PvP Shop: Attack Pass (6 TV Dinners) waives the Ticket fee on 
 - UI: Social Profile -> 🏅 Boards.
 - Not built yet: weekly TV Dinner / title rewards for the top 3 per bracket (needs a settlement step and a mail kind), a Daily Tournament split by bracket, and showing a mini-rank on the Court tab.
 - Feats: battle and PvP feats now pay TV Dinners (Rival Slayer 15, Tower Climber 20, Arena Defender 10, Neighborhood Legend 15, Debate Champion 8); the rest pay Tickets or Stars; no feat raises passive income any more.
+
+## 6w. Leaderboards counted on the server; themes (2026-10-07)
+- Arena (defenders beaten), Raid (damage) and Friend Battle (wins) boards are now counted by the server routes that resolve them (`api/arena.ts` attack and raid_hit, `api/mail.ts` after the per-pair daily cap), into `board_scores` at the player's server-held bracket. `PUT /api/boards` accepts only the Golden Games board (resolved on the device). The counting is wrapped so a board problem can never break a battle. Friend Battle wins still depend on the client reporting `attackerWon` (the fight itself is resolved on the device), capped at 20 battles per pair per day and 250 wins per week.
+- Themes: the Light theme was removed. Choices are Dark (default), Teal Night and Purple Night.
