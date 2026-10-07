@@ -1,12 +1,12 @@
 import React from 'react';
-import { MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
+import { MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
 const MementoShop: React.FC<{
-  isDark: boolean; mementos: number; rooms: number; owned: string[];
+  isDark: boolean; pp: number; onConvertPp: (amount: number) => void; mementos: number; rooms: number; owned: string[];
   onBuyRoom: () => void; onBuyItem: (id: string) => void; onClose: () => void;
-}> = ({ isDark, mementos, rooms, owned, onBuyRoom, onBuyItem, onClose }) => {
+}> = ({ isDark, pp, onConvertPp, mementos, rooms, owned, onBuyRoom, onBuyItem, onClose }) => {
   const week = mementoWeekIndex();
   const thisWeek = mementoItemsForWeek(week);
   const ownedSet = new Set(owned);
@@ -25,9 +25,20 @@ const MementoShop: React.FC<{
             <div className="text-[12px] font-black uppercase opacity-60">Your Mementos</div>
             <div className="text-xl font-black text-amber-500">{mementos} 💛</div>
           </div>
-          <button disabled className={btn(false)}>Get Mementos</button>
+          <button disabled className={btn(false)}>Buy (soon)</button>
         </div>
-        <p className="text-[12px] opacity-70 mb-4">Mementos will be sold in the Google Play version of the game. Nothing here raises your earnings or your battle power: it is convenience and keepsakes only.</p>
+        <p className="text-[12px] opacity-70 mb-4">Mementos can be bought in the Google Play version of the game (coming) or converted from your PP below. Nothing here raises your earnings or your battle power: it is convenience and keepsakes only.</p>
+
+        <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Convert PP</h3>
+        <div className={`${card} mb-5`}>
+          <div className="text-[13px] opacity-80 mb-2">Spend earned PP on Mementos: 1 PP = {MEMENTOS_PER_PP} 💛. One way only, Mementos can never be turned back into PP. You have <b>{pp.toFixed(2)} PP</b>.</div>
+          <div className="flex gap-2 flex-wrap">
+            {[0.05, 0.1, 0.25, 0.5].map(a => (
+              <button key={a} disabled={pp + 1e-9 < a} onClick={() => onConvertPp(a)} className={btn(pp + 1e-9 >= a)}>{a.toFixed(2)} PP → {Math.floor(a * MEMENTOS_PER_PP)} 💛</button>
+            ))}
+            <button disabled={pp < PP_TO_MEMENTOS_MIN} onClick={() => onConvertPp(Math.floor(pp * 100) / 100)} className={btn(pp >= PP_TO_MEMENTOS_MIN)}>All</button>
+          </div>
+        </div>
 
         <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Convenience</h3>
         <div className={`${card} flex items-center gap-3 mb-5`}>

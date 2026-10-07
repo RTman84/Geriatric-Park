@@ -165,7 +165,7 @@ import {
   MAX_BUILDING_LEVEL,
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
-  PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
+  MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
   GEAR_RARITY_COLOR, UNIFORM_GEAR_BASE, UNIFORM_GEAR_NAMES, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
@@ -184,6 +184,11 @@ import {
   gearSlotKey,
   getGearMaxLevel,
 } from './constants';
+
+// A reward that paid itself: shows a top alert AND leaves a claimed note in the Mailbox saying what it was from.
+function rewardMail(sender: string, subject: string, body: string): MailMessage {
+  return { id: 'auto_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), sender, subject, body, claimed: true, timestamp: Date.now() };
+}
 
 function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
   const cappedMs = Math.min(elapsedMs, OFFLINE_CAP_MS);
@@ -1235,6 +1240,14 @@ const App: React.FC = () => {
     setState(prev => (prev.antiquesOwned ?? []).includes(id) || (prev.tvDinners ?? 0) < a.price ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - a.price, antiquesOwned: [...(prev.antiquesOwned ?? []), id] });
     notify(`${a.icon} ${a.name} is yours! New icon and title unlocked in your profile.`, 'good');
   }, [state.antiquesOwned, state.tvDinners, notify]);
+  const handleConvertPp = useCallback((amountPp: number) => {
+    const amount = Math.round(amountPp * 100) / 100;
+    if (!(amount >= PP_TO_MEMENTOS_MIN) || amount > state.pensionBalance + 1e-9) { notify('Not enough PP for that.', 'bad'); return; }
+    const gained = Math.floor(amount * MEMENTOS_PER_PP);
+    if (gained < 1) { notify('That is too small to convert.', 'bad'); return; }
+    setState(prev => prev.pensionBalance + 1e-9 < amount ? prev : { ...prev, pensionBalance: Math.max(0, prev.pensionBalance - amount), mementos: (prev.mementos ?? 0) + gained });
+    notify(`💛 Converted ${amount.toFixed(2)} PP into ${gained} Mementos.`, 'good');
+  }, [state.pensionBalance, notify]);
   const handleBuyPremiumRoom = useCallback(() => {
     const have = state.premiumRooms ?? 0;
     if (have >= PREMIUM_ROOM_MAX) { notify('You already own every extra room.', 'bad'); return; }
@@ -1564,7 +1577,11 @@ const App: React.FC = () => {
       });
       if (!changed) return prev;
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-      return { ...prev, achievements, legacyTokens: tokens, parkCommunityScore: score, pensionRate: rate };
+      const newly = achievements.filter((a, i) => a.completed && !prev.achievements[i].completed);
+      const note = (a: Achievement) => `${a.rewardType === 'Tokens' ? `+${a.rewardValue} 🎟️ Tickets` : a.rewardType === 'CommunityScore' ? `+${a.rewardValue} ⭐ Stars` : 'passive-rate bonus'}`;
+      const mail = newly.map(a => rewardMail('Feats', `Feat unlocked: ${a.title}`, `${a.description} Reward paid automatically: ${note(a)}.`));
+      queueMicrotask(() => newly.forEach(a => notify(`🏆 Feat unlocked: ${a.title} (${note(a)})`, 'good')));
+      return { ...prev, achievements, legacyTokens: tokens, parkCommunityScore: score, pensionRate: rate, mailbox: [...mail, ...prev.mailbox] };
     });
   }, [state.allElders.length, state.parkCommunityScore, state.battleWins, state.pensionBalance, state.parkAssets, state.challengeLadder?.highestCleared, state.goldenGames?.highestLeagueCleared, state.stationedAt, state.faction]);
 
@@ -1573,12 +1590,16 @@ const App: React.FC = () => {
     const reward = SEASONAL_REWARDS.find(r => r.level === level);
     if (!reward || level > currentLevel || state.season.claimedLevels.includes(level)) return;
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    notify(`🎖️ Elder Pass level ${level} reached (+${reward.tickets} 🎟️)`, 'good');
     setState(prev => ({
       ...prev,
       legacyTokens: prev.legacyTokens + reward.tickets,
       season: { ...prev.season, claimedLevels: [...prev.season.claimedLevels, level] },
+      mailbox: [rewardMail('Elder Pass', `Pass level ${level} reward`, `You reached Elder Pass level ${level}. Reward paid automatically: +${reward.tickets} 🎟️ Tickets.`), ...prev.mailbox],
     }));
-  }, [state.season, state.settings.sfxEnabled]);
+  }, [state.season, state.settings.sfxEnabled, notify]);
+
+
 
   // Milestones: one-time reward per mode-badge tier, claimed from the Tasks screen. Validated against lifetime counts.
   const handleClaimMilestone = useCallback((mode: string, tier: number) => {
@@ -1588,12 +1609,20 @@ const App: React.FC = () => {
       if (!reward || !MODE_BADGES.some(m => m.mode === mode)) return prev;
       if ((prev.claimedMilestones ?? []).includes(key)) return prev;
       if (modeTierReached(modeCount(prev.modeStats, mode)) < tier) return prev;
-      return { ...prev, legacyTokens: prev.legacyTokens + reward.tickets, buildingMaterials: (prev.buildingMaterials ?? 0) + reward.materials, claimedMilestones: [...(prev.claimedMilestones ?? []), key] };
+      const badge = MODE_BADGES.find(m => m.mode === mode);
+      const tierName = MODE_BADGE_TIERS[tier - 1]?.name ?? `Tier ${tier}`;
+      return { ...prev, legacyTokens: prev.legacyTokens + reward.tickets, buildingMaterials: (prev.buildingMaterials ?? 0) + reward.materials, claimedMilestones: [...(prev.claimedMilestones ?? []), key],
+        mailbox: [rewardMail('Milestones', `${badge?.name ?? mode}: ${tierName} milestone`, `Milestone reached. Reward paid automatically: +${reward.tickets} 🎟️ Tickets and +${reward.materials} 🧱 Materials.`), ...prev.mailbox] };
     });
-    notify('Milestone reward collected!', 'good');
+    const b = MODE_BADGES.find(m => m.mode === mode);
+    notify(`🏅 Milestone: ${b?.name ?? mode} ${MODE_BADGE_TIERS[tier - 1]?.name ?? ''} (+${MODE_MILESTONE_REWARDS[tier - 1]?.tickets ?? 0} 🎟️, +${MODE_MILESTONE_REWARDS[tier - 1]?.materials ?? 0} 🧱)`, 'good');
   }, [notify]);
 
   const handleClaimQuest = useCallback((id: string) => {
+    const info = state.quests.find(x => x.id === id);
+    if (!info || info.progress < info.target || info.completed) return;
+    const rewardText = `+${info.rewardTokens} 🎟️ Tickets, +${info.rewardXP} XP${info.rewardStars ? `, +${info.rewardStars} ⭐` : ''}`;
+    notify(`✅ ${info.type} task complete: ${info.title} (${rewardText})`, 'good');
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     setState(prev => {
       const q = prev.quests.find(x => x.id === id);
@@ -1604,10 +1633,32 @@ const App: React.FC = () => {
         legacyTokens: prev.legacyTokens + q.rewardTokens,
         parkCommunityScore: prev.parkCommunityScore + q.rewardStars,
         season: { ...prev.season, xp: prev.season.xp + q.rewardXP },
-        quests: prev.quests.map(x => x.id === id ? { ...x, completed: true } : x)
+        quests: prev.quests.map(x => x.id === id ? { ...x, completed: true } : x),
+        mailbox: [rewardMail('Tasks', `${q.type} task complete: ${q.title}`, `You finished "${q.title}". Reward paid automatically: ${rewardText}.`), ...prev.mailbox],
       };
     });
-  }, [state.settings.sfxEnabled]);
+  }, [state.quests, state.settings.sfxEnabled, notify]);
+
+  // Everything that used to need a manual Claim now pays itself: finished Tasks, Milestones and Elder Pass levels.
+  // (Each handler re-validates, so a repeat call can never double-pay.)
+  const autoClaimedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    for (const q of state.quests) {
+      if (q.progress >= q.target && !q.completed && !autoClaimedRef.current.has('q:' + q.id)) { autoClaimedRef.current.add('q:' + q.id); handleClaimQuest(q.id); }
+    }
+    for (const m of MODE_BADGES) {
+      const reached = modeTierReached(modeCount(state.modeStats, m.mode));
+      for (let t = 1; t <= reached; t++) {
+        const key = `${m.mode}:${t}`;
+        if (!(state.claimedMilestones ?? []).includes(key) && !autoClaimedRef.current.has('m:' + key)) { autoClaimedRef.current.add('m:' + key); handleClaimMilestone(m.mode, t); }
+      }
+    }
+    const curLevel = Math.min(Math.floor(state.season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
+    for (const r of SEASONAL_REWARDS) {
+      if (r.level <= curLevel && !state.season.claimedLevels.includes(r.level) && !autoClaimedRef.current.has('s:' + state.season.id + ':' + r.level)) { autoClaimedRef.current.add('s:' + state.season.id + ':' + r.level); handleClaimSeasonReward(r.level); }
+    }
+  }, [isLoaded, cloudSyncSettled, state.quests, state.modeStats, state.claimedMilestones, state.season, handleClaimQuest, handleClaimMilestone, handleClaimSeasonReward]);
 
   const handleCollectItem = (item: MapItem) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
@@ -3336,7 +3387,7 @@ const App: React.FC = () => {
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
-        {showMementoShop && <MementoShop isDark={isDark} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
+        {showMementoShop && <MementoShop isDark={isDark} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
         {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">

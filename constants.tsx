@@ -1544,3 +1544,7 @@ export const PASS_HOLD_MAX = 10;
 // does the rest, so the same rarity and level always gives the same bonus. Names of the pieces that used other bases:
 export const UNIFORM_GEAR_BASE = 3;
 export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid Plus', 'Vintage Radio', 'Garden Charm', 'Antique Pocket Watch'];
+
+// PP -> Mementos (one direction only, never back): spending earned PP on premium goods. Owner-tunable rate.
+export const MEMENTOS_PER_PP = 100;
+export const PP_TO_MEMENTOS_MIN = 0.01;
