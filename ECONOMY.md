@@ -484,3 +484,10 @@ Boosts tab in the PvP Shop: Attack Pass (6 TV Dinners) waives the Ticket fee on 
 ## 6w. Leaderboards counted on the server; themes (2026-10-07)
 - Arena (defenders beaten), Raid (damage) and Friend Battle (wins) boards are now counted by the server routes that resolve them (`api/arena.ts` attack and raid_hit, `api/mail.ts` after the per-pair daily cap), into `board_scores` at the player's server-held bracket. `PUT /api/boards` accepts only the Golden Games board (resolved on the device). The counting is wrapped so a board problem can never break a battle. Friend Battle wins still depend on the client reporting `attackerWon` (the fight itself is resolved on the device), capped at 20 battles per pair per day and 250 wins per week.
 - Themes: the Light theme was removed. Choices are Dark (default), Teal Night and Purple Night.
+
+## 6w. Weekly board rewards (2026-10-07)
+- Migration `020_board_rewards.sql`: `mail_inbox.reward_diners`, mail kind `board_reward`, and `board_settlements` (one row per mode and week, written FIRST so a week can never be paid twice).
+- When anyone touches `/api/boards` (the game also pings it once on every load), last week's weekly boards (Arenas, Raids, Friend Battles) are settled: the top 3 of every bracket get a Mailbox reward of TV Dinners 25 / 15 / 10 and Building Materials 10 / 6 / 4, multiplied by 1 + 0.1 x (bracket - 1) (so bracket 10 pays 1.9x). Players with a score of 0 get nothing. The Golden Games board is all-time and never settles.
+- The reward mail is flagged `auto`: the game pays it the instant it arrives (top alert + a claimed Mailbox note naming the board, place and bracket).
+- Budget check: at most 3 boards x 10 brackets x 3 places = 90 players a week, at most about 47 TV Dinners each (and only 1 board each is realistic), so it adds well under one day of the 40/day cap per player per week.
+- Not built: weekly titles for the top 3 (would need server-verified cosmetics like Court honors), Golden Games settlement, a mini-rank on the Court tab.

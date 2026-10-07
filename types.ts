@@ -22,6 +22,8 @@ export interface MailMessage {
   body: string;
   reward?: { type: 'Tokens' | 'Gear'; value: number | Gear };
   materials?: number; // Building Materials, claimed together with `reward`
+  diners?: number; // TV Dinners, claimed together with `reward`
+  auto?: boolean; // paid automatically as soon as it arrives (weekly board rewards)
   exchangeHost?: boolean; // Resident Exchange host mail (claiming it counts toward the hosting quests)
   gift?: { type: 'quest' | 'boost'; amount: number; from: string; targetId?: string; targetLabel?: string }; // Resident Exchange host gift: the host picks a target when claiming
   claimed: boolean;

@@ -57,7 +57,7 @@ const INBOX_WINDOW_DAYS = 14;
 
 const MAIL_FIELDS_LEGACY = 'id, sender_name, kind, day, attacker_wins, defender_wins, reward_tickets, reward_materials, updated_at';
 // Migration 008 added `note` (Arena notices). If it has not been run yet, fall back to the old column list.
-const MAIL_FIELDS = `${MAIL_FIELDS_LEGACY}, note`;
+const MAIL_FIELDS = `${MAIL_FIELDS_LEGACY}, note, reward_diners`;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ---- Per-mode leaderboards: counted HERE, on the server, from results the server itself resolved. ----
@@ -102,7 +102,7 @@ export default async function handler(req: Request): Promise<Response> {
         .order('updated_at', { ascending: true })
         .limit(100);
       let { data, error } = await readInbox(MAIL_FIELDS);
-      if (error && String(error.message).includes('note')) ({ data, error } = await readInbox(MAIL_FIELDS_LEGACY));
+      if (error && (String(error.message).includes('note') || String(error.message).includes('reward_diners'))) ({ data, error } = await readInbox(MAIL_FIELDS_LEGACY));
       if (error) {
         console.error('Mail read failed', error.message);
         return serverJson({ error: 'Mail unavailable', detail: error.message }, 500);

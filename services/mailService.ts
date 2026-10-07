@@ -7,12 +7,13 @@ import type { MailMessage } from '../types';
 export interface InboxRow {
   id: string;
   sender_name: string;
-  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host' | 'court_displaced';
+  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host' | 'court_displaced' | 'board_reward';
   day: string;
   attacker_wins: number;
   defender_wins: number;
   reward_tickets: number;
   reward_materials: number;
+  reward_diners?: number;
   note?: string | null;
   updated_at: string;
 }
@@ -62,6 +63,15 @@ function rowToMessage(row: InboxRow): MailMessage {
   };
   const reward = row.reward_tickets > 0 ? { type: 'Tokens' as const, value: row.reward_tickets } : undefined;
   const materials = row.reward_materials > 0 ? row.reward_materials : undefined;
+  if (row.kind === 'board_reward') {
+    // note (written by api/boards.ts): board:<mode>:<bracket>:<place>:<week>
+    const bits = typeof row.note === 'string' ? row.note.split(':') : [];
+    const label = ({ arena: 'Arenas', raid: 'Raids', friend: 'Friend Battles' } as Record<string, string>)[bits[1]] ?? 'Leaderboard';
+    const bracket = Math.max(1, Math.min(10, Math.floor(Number(bits[2]) || 1)));
+    const place = Math.max(1, Math.min(3, Math.floor(Number(bits[3]) || 1)));
+    const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
+    return { ...base, sender: 'Weekly Boards', subject: `${medal} Weekly ${label} board: #${place} in ${POWER_BRACKETS[bracket - 1].name}`, body: `You finished #${place} in the ${POWER_BRACKETS[bracket - 1].name} bracket on the weekly ${label} board (${bits[4] ?? 'last week'}). Your reward was paid automatically.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true };
+  }
   if (row.kind === 'arena_knockout') {
     const n = row.attacker_wins;
     return {

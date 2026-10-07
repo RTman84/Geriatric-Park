@@ -15,7 +15,7 @@ import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
 import BoardsPanel from './components/BoardsPanel';
-import { submitBoardScore, BoardMode } from './services/boardsService';
+import { submitBoardScore, fetchBoard, BoardMode } from './services/boardsService';
 import MementoShop from './components/MementoShop';
 import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel, MailboxPanel, ShuffleboardPanel } from './components/UIPanels';
 import { audioManager } from './services/audioManager';
@@ -2335,18 +2335,33 @@ const App: React.FC = () => {
       let nextTokens = prev.legacyTokens;
       let nextInventory = [...prev.inventory];
       const nextMaterials = prev.buildingMaterials + (msg.materials ?? 0);
+      const nextDiners = (prev.tvDinners ?? 0) + (msg.diners ?? 0);
       if (msg.reward) {
         if (msg.reward.type === 'Tokens') nextTokens += msg.reward.value as number;
         else if (msg.reward.type === 'Gear') nextInventory.push(msg.reward.value as Gear);
       }
       if (prev.settings.sfxEnabled) audioManager.playSFX('collect');
-      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
+      return { ...prev, legacyTokens: nextTokens, inventory: nextInventory, buildingMaterials: nextMaterials, tvDinners: nextDiners, mailbox: prev.mailbox.map(m => m.id === id ? { ...m, claimed: true } : m),
         modeStats: msg.exchangeHost ? bumpStat(prev.modeStats, 'exchange_host') : prev.modeStats,
         quests: msg.exchangeHost ? prev.quests.map(q => (!q.completed && q.kind === 'exchange_host') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) : prev.quests };
     });
   }, []);
 
   // Resident Exchange host gift: the player picks the target (a Quest or a working building) when claiming.
+  // Weekly board rewards pay themselves the moment they arrive (alert + the claimed message stays in the Mailbox).
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    for (const m of state.mailbox) {
+      if (m?.auto && !m.claimed && !autoClaimedRef.current.has('mail:' + m.id)) {
+        autoClaimedRef.current.add('mail:' + m.id);
+        handleClaimMail(m.id);
+        notify(`🏅 ${m.subject}${m.diners ? ` (+${m.diners} 🍽️` : ' ('}${m.materials ? `${m.diners ? ', ' : '+'}${m.materials} 🧱` : ''})`, 'good');
+      }
+    }
+  }, [isLoaded, cloudSyncSettled, state.mailbox, handleClaimMail, notify]);
+  // Opening the game after a week ends nudges the server to settle last week's boards (idempotent).
+  useEffect(() => { if (isLoaded && cloudSyncSettled) { fetchBoard('arena').then(() => refreshMail?.()).catch(() => {}); } }, [isLoaded, cloudSyncSettled]);
+
   const handleClaimGift = useCallback((id: string, targetId: string) => {
     setState(prev => {
       const msg = prev.mailbox.find(m => m.id === id);

@@ -33,6 +33,33 @@ function weekKey(d = new Date()): string { // ISO week, UTC
 }
 const periodFor = (mode: string) => (MODES[mode].weekly ? weekKey() : 'all');
 const TOP_N = 10;
+
+// ---- Weekly settlement ---------------------------------------------------------------------------------------------
+// Whoever touches the boards first after a week ends settles that week: the top 3 of every bracket get a Mailbox reward
+// (TV Dinners + Building Materials, bigger in higher brackets). A row in board_settlements is written FIRST, so two
+// requests racing can never both pay. Players only receive rewards for weeks they were on the board.
+const PLACE_DINERS = [25, 15, 10], PLACE_MATERIALS = [10, 6, 4];
+const bracketMult = (b: number) => 1 + 0.1 * (b - 1);
+function previousWeekKey(): string { const d = new Date(); d.setUTCDate(d.getUTCDate() - 7); return weekKey(d); }
+async function settleLastWeek(supabase: SupabaseClient): Promise<void> {
+  try {
+    const period = previousWeekKey();
+    for (const mode of Object.keys(MODES).filter(m => MODES[m].weekly)) {
+      const { error: lockErr } = await supabase.from('board_settlements').insert({ mode, period });
+      if (lockErr) continue; // already settled (or being settled) by someone else
+      const today = new Date().toISOString().slice(0, 10);
+      for (let bracket = 1; bracket <= 10; bracket++) {
+        const { data: top } = await supabase.from('board_scores').select('user_id, score').eq('mode', mode).eq('period', period).eq('bracket', bracket).order('score', { ascending: false }).limit(3);
+        const rows = (top ?? []).filter((r: any) => Number(r.score) > 0).map((r: any, i: number) => ({
+          recipient_id: r.user_id, sender_id: r.user_id, sender_name: 'Weekly Boards', kind: 'board_reward', day: today, ref: `${mode}:${period}:${bracket}`,
+          reward_diners: Math.round(PLACE_DINERS[i] * bracketMult(bracket)), reward_materials: Math.round(PLACE_MATERIALS[i] * bracketMult(bracket)),
+          note: `board:${mode}:${bracket}:${i + 1}:${period}`,
+        }));
+        if (rows.length) { const { error } = await supabase.from('mail_inbox').insert(rows); if (error) console.error('board reward mail failed', error.message); }
+      }
+    }
+  } catch (e) { console.error('board settlement crashed', e); } // never let settlement break a leaderboard request
+}
 const cleanName = (n: unknown, uid: string) => { const c = String(n ?? '').replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20); return c || `Park Visitor ${uid.slice(0, 4)}`; };
 
 export default async function handler(req: Request): Promise<Response> {
@@ -40,6 +67,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (ctx instanceof Response) return ctx;
   const { userId, supabase } = ctx;
   const url = new URL(req.url);
+  await settleLastWeek(supabase);
 
   async function myBracket(): Promise<number> {
     const { data } = await supabase.from('player_profiles').select('squad_power').eq('user_id', userId).maybeSingle();
