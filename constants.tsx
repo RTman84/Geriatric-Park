@@ -1159,18 +1159,18 @@ export const ACHIEVEMENT_CONDITIONS: Record<string, (s: any) => boolean> = {
 };
 export const NEW_ACHIEVEMENTS: Achievement[] = [
   { id: 'a5', title: 'Investor', description: 'Buy your first Park Asset.', completed: false, rewardType: 'Tokens', rewardValue: 40, icon: '📦' },
-  { id: 'a6', title: 'Rival Slayer', description: 'Clear rank 10 on the Elder Challenge ladder.', completed: false, rewardType: 'Tokens', rewardValue: 60, icon: '⚔️' },
-  { id: 'a7', title: 'Tower Climber', description: 'Clear the 5th Golden Games league.', completed: false, rewardType: 'Tokens', rewardValue: 80, icon: '🏆' },
-  { id: 'a8', title: 'Arena Defender', description: 'Station an Elder at an Arena.', completed: false, rewardType: 'CommunityScore', rewardValue: 15, icon: '🏟️' },
+  { id: 'a6', title: 'Rival Slayer', description: 'Clear rank 10 on the Elder Challenge ladder.', completed: false, rewardType: 'Diners', rewardValue: 15, icon: '⚔️' },
+  { id: 'a7', title: 'Tower Climber', description: 'Clear the 5th Golden Games league.', completed: false, rewardType: 'Diners', rewardValue: 20, icon: '🏆' },
+  { id: 'a8', title: 'Arena Defender', description: 'Station an Elder at an Arena.', completed: false, rewardType: 'Diners', rewardValue: 10, icon: '🏟️' },
   { id: 'a9', title: 'Faction Founder', description: 'Join a faction.', completed: false, rewardType: 'CommunityScore', rewardValue: 10, icon: '🚩' },
-  { id: 'a10', title: 'Neighborhood Legend', description: 'Win 25 wild-resident battles.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00002, icon: '🎖️' },
+  { id: 'a10', title: 'Neighborhood Legend', description: 'Win 25 wild-resident battles.', completed: false, rewardType: 'Diners', rewardValue: 15, icon: '🎖️' },
 ];
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
-  { id: 'a1', title: 'Early Bird', description: 'Recruit your first Elder.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00001, icon: '🌅' },
+  { id: 'a1', title: 'Early Bird', description: 'Recruit your first Elder.', completed: false, rewardType: 'Tokens', rewardValue: 25, icon: '🌅' },
   { id: 'a2', title: 'Community Pillar', description: 'Reach Park Community Score 100.', completed: false, rewardType: 'Tokens', rewardValue: 50, icon: '🏛️' },
-  { id: 'a3', title: 'Debate Champion', description: 'Win 5 Wild Battles.', completed: false, rewardType: 'CommunityScore', rewardValue: 20, icon: '🗣️' },
-  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of 1.00 PP.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00005, icon: '💎' },
+  { id: 'a3', title: 'Debate Champion', description: 'Win 5 Wild Battles.', completed: false, rewardType: 'Diners', rewardValue: 8, icon: '🗣️' },
+  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of 1.00 PP.', completed: false, rewardType: 'Tokens', rewardValue: 50, icon: '💎' },
 ];
 
 export const DAILY_REWARDS = [

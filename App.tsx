@@ -1026,7 +1026,8 @@ const App: React.FC = () => {
       ? s.quests
       : [...generateQuests(DAILY_QUEST_POOL, 'Daily', s.questsGeneratedDay || utcDayKey(), 5), ...generateQuests(WEEKLY_QUEST_POOL, 'Weekly', s.questsGeneratedWeek || utcWeekKey(), 3)];
     const savedById = new Map((s.achievements || []).map(a => [a.id, a]));
-    const achievements = [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS].map(def => savedById.get(def.id) ?? def);
+    // Unfinished feats always use the current reward definition (rewards were rebalanced); finished ones are left alone.
+    const achievements = [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS].map(def => { const saved = savedById.get(def.id); return saved ? (saved.completed ? saved : { ...saved, rewardType: def.rewardType, rewardValue: def.rewardValue, description: def.description }) : def; });
     return { ...s, quests, achievements };
   };
 
@@ -1564,7 +1565,7 @@ const App: React.FC = () => {
   useEffect(() => {
     setState(prev => {
       let changed = false;
-      let tokens = prev.legacyTokens, score = prev.parkCommunityScore, rate = prev.pensionRate;
+      let tokens = prev.legacyTokens, score = prev.parkCommunityScore, rate = prev.pensionRate, diners = prev.tvDinners ?? 0;
       const achievements = prev.achievements.map(a => {
         if (a.completed) return a;
         const check = ACHIEVEMENT_CONDITIONS[a.id];
@@ -1572,16 +1573,17 @@ const App: React.FC = () => {
         changed = true;
         if (a.rewardType === 'Tokens') tokens += a.rewardValue;
         else if (a.rewardType === 'CommunityScore') score += a.rewardValue;
-        else if (a.rewardType === 'YieldBonus') rate += a.rewardValue;
+        else if (a.rewardType === 'Diners') diners += a.rewardValue;
+        // (old 'YieldBonus' feats no longer raise the passive rate: gameplay never does)
         return { ...a, completed: true };
       });
       if (!changed) return prev;
       if (state.settings.sfxEnabled) audioManager.playSFX('victory');
       const newly = achievements.filter((a, i) => a.completed && !prev.achievements[i].completed);
-      const note = (a: Achievement) => `${a.rewardType === 'Tokens' ? `+${a.rewardValue} 🎟️ Tickets` : a.rewardType === 'CommunityScore' ? `+${a.rewardValue} ⭐ Stars` : 'passive-rate bonus'}`;
+      const note = (a: Achievement) => `${a.rewardType === 'Tokens' ? `+${a.rewardValue} 🎟️ Tickets` : a.rewardType === 'CommunityScore' ? `+${a.rewardValue} ⭐ Stars` : a.rewardType === 'Diners' ? `+${a.rewardValue} 🍽️ TV Dinners` : ''}`;
       const mail = newly.map(a => rewardMail('Feats', `Feat unlocked: ${a.title}`, `${a.description} Reward paid automatically: ${note(a)}.`));
       queueMicrotask(() => newly.forEach(a => notify(`🏆 Feat unlocked: ${a.title} (${note(a)})`, 'good')));
-      return { ...prev, achievements, legacyTokens: tokens, parkCommunityScore: score, pensionRate: rate, mailbox: [...mail, ...prev.mailbox] };
+      return { ...prev, achievements, legacyTokens: tokens, parkCommunityScore: score, pensionRate: rate, tvDinners: diners, mailbox: [...mail, ...prev.mailbox] };
     });
   }, [state.allElders.length, state.parkCommunityScore, state.battleWins, state.pensionBalance, state.parkAssets, state.challengeLadder?.highestCleared, state.goldenGames?.highestLeagueCleared, state.stationedAt, state.faction]);
 

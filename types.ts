@@ -33,7 +33,7 @@ export interface Achievement {
   title: string;
   description: string;
   completed: boolean;
-  rewardType: 'Tokens' | 'YieldBonus' | 'CommunityScore';
+  rewardType: 'Tokens' | 'YieldBonus' | 'CommunityScore' | 'Diners'; // Diners = TV Dinners (battle / PvP feats)
   rewardValue: number;
   icon: string;
 }
