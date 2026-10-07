@@ -92,6 +92,7 @@ export interface ShuffleboardState {
 
 export interface GameSettings {
   darkTheme: boolean;
+  altTheme?: boolean; // 'Teal Night': a dark greenish-blue variant of the dark theme (only used while darkTheme is on)
   musicEnabled: boolean;
   sfxEnabled: boolean;
   uiTheme: string; // one of UI_THEMES' ids -- the app's accent color scheme

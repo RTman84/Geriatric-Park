@@ -64,6 +64,27 @@ const HealthBar: React.FC<{ hp: number; maxHp: number; isDark: boolean }> = ({ h
   );
 };
 
+// The four gear slots of an Elder at a glance (used on the Team screen): item art, rarity border, level and the stat it adds.
+const GearRow: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => (
+  <div className="grid grid-cols-4 gap-2 mt-3">
+    {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => {
+      const item: any = (elder.equipment as any)?.[slotKey];
+      return (
+        <div key={slotKey} title={item ? `${item.name} · ${item.rarity ?? 'Common'} · Lv.${item.level ?? 1} · +${getEffectiveGearBoost(item)} ${GEAR_SLOT_STAT_SHORT[slotKey]}` : `Empty ${slotKey} slot (boosts ${GEAR_SLOT_STAT_SHORT[slotKey]})`}
+          className={`rounded-xl p-1.5 flex flex-col items-center border-2 ${isDark ? 'bg-slate-900/60' : 'bg-white'}`}
+          style={{ borderColor: item ? GEAR_RARITY_COLOR[(item.rarity ?? 'Common') as keyof typeof GEAR_RARITY_COLOR] : (isDark ? '#334155' : '#e2e8f0') }}>
+          <span className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
+          {item ? <>
+            <ItemIcon name={item.name} icon={item.icon} size={34} />
+            <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{getEffectiveGearBoost(item)}</span>
+            <span className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Lv.{item.level ?? 1}</span>
+          </> : <span className={`text-[20px] leading-[48px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>＋</span>}
+        </div>
+      );
+    })}
+  </div>
+);
+
 const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => {
   const br = getStatBreakdown(elder);
   return (
@@ -1736,6 +1757,7 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
             </div>
             <HealthBar hp={e.hp} maxHp={e.maxHp} isDark={isDark} />
             <StatsGrid elder={e} isDark={isDark} />
+            <GearRow elder={e} isDark={isDark} />
           </div>
         );})}
         {team.length === 0 && <div className={`text-center py-20 italic text-sm uppercase font-black tracking-widest leading-relaxed ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>Squad is empty. Assign elders in the Park Hub.</div>}

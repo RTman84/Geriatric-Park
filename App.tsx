@@ -407,7 +407,8 @@ const INITIAL_STATE: GameState = {
   goldenGames: { highestLeagueCleared: -1, nextMatchAt: 0 },
   friendBattle: { nextMatchAt: 0 },
   settings: {
-    darkTheme: false,
+    darkTheme: true,
+    altTheme: false,
     musicEnabled: true,
     sfxEnabled: true,
     uiTheme: DEFAULT_UI_THEME_ID,
@@ -2691,6 +2692,23 @@ const App: React.FC = () => {
   const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);
   const isDark = state.settings.darkTheme;
+  useEffect(() => {
+    // Teal Night: remap the dark slate surfaces to dark greenish-blue (all components already use slate-* for dark mode).
+    const on = state.settings.darkTheme && !!state.settings.altTheme;
+    document.documentElement.dataset.altTheme = on ? 'teal' : '';
+    let el = document.getElementById('gp-alt-theme') as HTMLStyleElement | null;
+    if (!el) { el = document.createElement('style'); el.id = 'gp-alt-theme'; document.head.appendChild(el); }
+    el.textContent = on ? `
+      html[data-alt-theme="teal"], html[data-alt-theme="teal"] body { background-color: #031a1d !important; }
+      html[data-alt-theme="teal"] [class*="bg-slate-950"] { background-color: #031a1d !important; }
+      html[data-alt-theme="teal"] [class*="bg-slate-900"] { background-color: #06292d !important; }
+      html[data-alt-theme="teal"] [class*="bg-slate-800"] { background-color: #0a3a40 !important; }
+      html[data-alt-theme="teal"] [class*="bg-slate-700"] { background-color: #0f4e56 !important; }
+      html[data-alt-theme="teal"] [class*="border-slate-800"] { border-color: #0f4e56 !important; }
+      html[data-alt-theme="teal"] [class*="border-slate-700"] { border-color: #17636d !important; }
+      html[data-alt-theme="teal"] [class*="border-slate-600"] { border-color: #1d7681 !important; }
+    ` : '';
+  }, [state.settings.darkTheme, state.settings.altTheme]);
   const unreadMailCount = useMemo(() => state.mailbox.filter(m => !m.claimed).length, [state.mailbox]);
 
   // UI color theme: recolors the app's single brand/accent color (buttons,
@@ -2912,9 +2930,24 @@ const App: React.FC = () => {
                 <h2 className="text-2xl font-black uppercase italic tracking-tighter">Settings</h2>
                 <button onClick={() => setShowSettings(false)} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
               </div>
+              <div className="mb-6">
+                <span className="text-sm font-black uppercase tracking-widest opacity-60">Theme</span>
+                <div className="flex gap-2 mt-2">
+                  {([
+                    { id: 'dark', label: 'Dark', dark: true, alt: false },
+                    { id: 'teal', label: 'Teal Night', dark: true, alt: true },
+                    { id: 'light', label: 'Light', dark: false, alt: false },
+                  ] as const).map(t => {
+                    const active = state.settings.darkTheme === t.dark && !!state.settings.altTheme === t.alt;
+                    return (
+                      <button key={t.id} onClick={() => setState(p => ({ ...p, settings: { ...p.settings, darkTheme: t.dark, altTheme: t.alt } }))}
+                        className={`flex-1 py-2.5 rounded-xl text-[13px] font-black uppercase border-2 ${active ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'border-slate-600 text-slate-200' : 'border-slate-300 text-slate-600'}`}>{t.label}</button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="space-y-6">
                 {[
-                  { label: 'Dark Theme', key: 'darkTheme' },
                   { label: 'Music', key: 'musicEnabled' },
                   { label: 'SFX', key: 'sfxEnabled' },
                 ].map(({ label, key }) => (
