@@ -168,12 +168,14 @@ export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' |
   const out = {} as Record<StatKey, { total: number; base: number; rarity: number; gear: number; evolution: number }>;
   (['strength', 'wit', 'agility', 'tenacity'] as StatKey[]).forEach(k => {
     const total = e[k];
-    const pre = total / cum;
     let gear = 0;
     for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && gearKey[slot] === k) gear += getEffectiveGearBoost(item as any);
-    gear = Math.min(gear, Math.max(0, Math.round(pre)));
-    const rarity = Math.max(0, Math.min(std[k] - com[k], Math.round(pre) - gear));
-    const base = Math.max(0, Math.round(pre) - gear - rarity);
+    gear = Math.min(gear, Math.max(0, total));
+    // Base = what a Common Elder of this level has; rarity = the extra a higher rarity adds at this level; gear = equipped
+    // gear; evolution = whatever is left. (The old version divided the whole stat by the evolution multiplier, which is
+    // wrong for levels gained after evolving and made the "base" look far too small, e.g. 92 for a level-66 Legendary.)
+    const base = Math.max(0, Math.min(total - gear, com[k]));
+    const rarity = Math.max(0, Math.min(std[k] - com[k], total - gear - base));
     out[k] = { total, base, rarity, gear, evolution: Math.max(0, total - base - rarity - gear) };
   });
   return out;
