@@ -58,7 +58,7 @@ const CLEAR_PRIORITY_MS = 5 * 60 * 1000;
 const DUES_MAX_HOURS = 12;
 const DUES_TICKETS_PER_HOUR = 1;
 const DUES_HOURS_PER_MATERIAL = 6;
-const MAX_IDS = 12;
+const MAX_IDS = 30;
 
 // ---- Raids: DUPLICATE of services/worldMap.ts's Raid section. Keep identical. ------------------------
 const RAID_WINDOW_HOURS_UTC = [15, 19, 0];

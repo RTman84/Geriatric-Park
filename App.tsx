@@ -386,7 +386,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], parkDecor: [], boardStats: { week: '', arena: 0, raid: 0, friend: 0 }, pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], discoveredArenas: [], parkDecor: [], boardStats: { week: '', arena: 0, raid: 0, friend: 0 }, pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -958,6 +958,7 @@ const App: React.FC = () => {
     }
     { const bs = (next.boardStats ?? {}) as { week?: unknown; arena?: unknown; raid?: unknown; friend?: unknown }; const n = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(1e9, Math.floor(v)) : 0;
       next.boardStats = { week: typeof bs.week === 'string' ? bs.week : '', arena: n(bs.arena), raid: n(bs.raid), friend: n(bs.friend) }; }
+    next.discoveredArenas = (Array.isArray(next.discoveredArenas) ? next.discoveredArenas : []).filter((a: any) => a && typeof a.id === 'string' && /^a_-?\d+_-?\d+$/.test(a.id) && Number.isFinite(a.lat) && Number.isFinite(a.lng)).slice(0, 400).map((a: any) => ({ id: a.id, name: String(a.name ?? 'Arena').slice(0, 40), lat: a.lat, lng: a.lng }));
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
@@ -1156,10 +1157,33 @@ const App: React.FC = () => {
   // ---- Arenas (shared-world gyms; see ARENA_DESIGN.md and api/arena.ts) ----------------------------------
   const arenaCellKey = worldCellKey(state.currentLocation.lat, state.currentLocation.lng);
   const arenaSites = useMemo(() => getWorldArenas(state.currentLocation.lat, state.currentLocation.lng), [arenaCellKey]);
+  // Every Arena you have been near is remembered and stays on the map (held ones especially); only nearby ones can be fought.
+  useEffect(() => {
+    if (!isLoaded || arenaSites.length === 0) return;
+    setState(prev => {
+      const known = new Set((prev.discoveredArenas ?? []).map(a => a.id));
+      const fresh = arenaSites.filter(a => !known.has(a.id));
+      if (fresh.length === 0) return prev;
+      return { ...prev, discoveredArenas: [...(prev.discoveredArenas ?? []), ...fresh.map(a => ({ id: a.id, name: a.name, lat: a.lat, lng: a.lng }))].slice(-400) };
+    });
+  }, [isLoaded, arenaSites]);
+  const mapArenas = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; lat: number; lng: number }>();
+    for (const a of state.discoveredArenas ?? []) byId.set(a.id, a);
+    for (const a of arenaSites) byId.set(a.id, a);
+    return Array.from(byId.values());
+  }, [state.discoveredArenas, arenaSites]);
+  const isArenaNearby = useCallback((id: string | null) => !!id && arenaSites.some(a => a.id === id), [arenaSites]);
   const refreshArenas = useCallback(async () => {
     if (!authSession || arenaSites.length === 0) return;
     try {
-      const { arenas, me } = await fetchArenas(arenaSites.map(a => a.id));
+      // Nearby Arenas, the ones you hold, and the closest other discovered ones (so their faction colours and Raid badges stay current).
+      const nearbyIds = arenaSites.map(a => a.id);
+      const heldIds = Object.values(state.stationedAt ?? {});
+      const cLat = state.currentLocation.lat, cLng = state.currentLocation.lng;
+      const others = (state.discoveredArenas ?? []).filter(a => !nearbyIds.includes(a.id) && !heldIds.includes(a.id))
+        .sort((a, b) => ((a.lat - cLat) ** 2 + (a.lng - cLng) ** 2) - ((b.lat - cLat) ** 2 + (b.lng - cLng) ** 2)).slice(0, 12).map(a => a.id);
+      const { arenas, me } = await fetchArenas(Array.from(new Set([...nearbyIds, ...heldIds, ...others])));
       setArenaInfo(arenas);
       setArenaMe(me);
       // The server is the truth for which Elders are stationed (knocked-out Elders come home by themselves).
@@ -1173,7 +1197,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error('Arena refresh failed', e);
     }
-  }, [authSession, arenaSites]);
+  }, [authSession, arenaSites, state.discoveredArenas, state.stationedAt]);
 
   useEffect(() => {
     if (!isLoaded || !cloudSyncSettled || !state.hasStarted || !authSession) return;
@@ -1200,6 +1224,7 @@ const App: React.FC = () => {
 
   const handleArenaStation = useCallback((elder: Elder) => runArenaAction('Stationing', async () => {
     if (!activeArenaId) return;
+    if (!isArenaNearby(activeArenaId)) { notify('Get closer to this Arena first. You can recall and collect Dues from anywhere.', 'bad'); return; }
     const res = await stationElder(activeArenaId, {
       id: elder.id, name: elder.name, type: elder.type, rarity: elder.rarity, level: elder.level, evolutionStage: elder.evolutionStage ?? 0,
     }, getElderPower(elder));
@@ -1210,7 +1235,7 @@ const App: React.FC = () => {
       allElders: prev.allElders.map(e => e.id === elder.id && e.status === 'Team' ? { ...e, status: 'Base' } : e),
     }));
     notify(res.claimed ? `🚩 ${elder.name} claimed the Arena!` : `🛡️ ${elder.name} is now defending the Arena.`, 'good');
-  }), [runArenaAction, activeArenaId, notify]);
+  }), [runArenaAction, activeArenaId, notify, isArenaNearby]);
 
   const handleArenaRecall = useCallback((arenaId?: string) => runArenaAction('Recalling', async () => {
     const target = arenaId ?? activeArenaId;
@@ -1317,6 +1342,7 @@ const App: React.FC = () => {
   }, [isLoaded, cloudSyncSettled, state.goldenGames?.highestLeagueCleared]);
 
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
+    if (!isArenaNearby(activeArenaId)) { notify('Get closer to this Arena first. You can recall and collect Dues from anywhere.', 'bad'); return; }
     if (!activeArenaId) return;
     const hasArenaPass = (state.pvpPasses?.arena ?? 0) > 0;
     const upfront = hasArenaPass ? 0 : arenaAttackCost(arenaMe?.attacksToday ?? 0);
@@ -1347,7 +1373,7 @@ const App: React.FC = () => {
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
     if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
-  }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify]);
+  }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, isArenaNearby]);
 
   const handleArenaClaimDues = useCallback(() => runArenaAction('Collecting Dues', async () => {
     const r = await claimArenaDues();
@@ -1356,6 +1382,7 @@ const App: React.FC = () => {
   }), [runArenaAction, notify, refreshMail]);
 
   const handleArenaRaidHit = useCallback(() => runArenaAction('Joining the fight', async () => {
+    if (!isArenaNearby(activeArenaId)) { notify('Get closer to this Arena first. You can recall and collect Dues from anywhere.', 'bad'); return; }
     // Extra attempts (beyond RAID_FREE_ATTEMPTS) cost Tickets client-side, same pattern as the Arena
     // attack fee: the server enforces the attempt COUNT, the client owns the Tickets ledger.
     const priorAttempts = (activeArenaId ? arenaInfo[activeArenaId]?.raid?.myAttempts : undefined) ?? 0;
@@ -1373,7 +1400,7 @@ const App: React.FC = () => {
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT, 'Raid hit');
     if (result.settled) void refreshMail();
-  }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail]);
+  }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail, isArenaNearby]);
 
   const handleArenaMarkerClick = useCallback((id: string) => {
     if (!authSession) { notify('Sign in to your account to join Arenas.', 'bad'); return; }
@@ -2938,7 +2965,7 @@ const App: React.FC = () => {
               roamingElders={roamingElders} unreadMailCount={unreadMailCount}
               ownedParcels={state.ownedParcels} onBuyParcel={handleBuyParcel}
               onElderClick={(e) => { if (activeTeam.length === 0) return notify("Assign a squad first!"); setEncounter(scaleWildElder(e)); }}
-              onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={arenaSites} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} arenaRaids={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.raid]))} onArenaClick={handleArenaMarkerClick}
+              onItemClick={handleCollectItem} onEventClick={setActiveEvent} arenas={mapArenas} arenaFactions={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.faction]))} arenaRaids={Object.fromEntries((Object.entries(arenaInfo) as [string, ArenaInfo][]).map(([k, v]) => [k, v.raid]))} onArenaClick={handleArenaMarkerClick}
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
@@ -3335,14 +3362,14 @@ const App: React.FC = () => {
         )}
 
         {activeArenaId && (() => {
-          const site = arenaSites.find(a => a.id === activeArenaId);
+          const site = mapArenas.find(a => a.id === activeArenaId);
           if (!site) return null;
           return (
             <ArenaPanel
               isDark={isDark} site={site} info={arenaInfo[activeArenaId]} me={arenaMe}
               elders={state.allElders} stationedAt={state.stationedAt || {}} tokens={state.legacyTokens} busy={arenaBusy}
               onClose={() => setActiveArenaId(null)}
-              onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall} arenaNames={Object.fromEntries(arenaSites.map((a: any) => [a.id, a.name]))}
+              onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall} arenaNames={Object.fromEntries(mapArenas.map((a: any) => [a.id, a.name]))}
               onAttack={handleArenaAttack} onClaimDues={handleArenaClaimDues} onRaidHit={handleArenaRaidHit}
             />
           );
