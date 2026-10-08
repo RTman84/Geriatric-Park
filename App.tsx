@@ -1411,10 +1411,10 @@ const App: React.FC = () => {
   // Signed-out players simply see no leaderboard data (fetchLeaderboard throws on missing
   // auth token; caught and ignored here, since there's no stable cross-device identity to
   // rank an anonymous local player against others).
-  const refreshLeaderboard = useCallback(async () => {
+  const refreshLeaderboard = useCallback(async (bracket?: number) => {
     if (!isCloudAccountsConfigured()) return;
     try {
-      const data = await fetchLeaderboard();
+      const data = await fetchLeaderboard(typeof bracket === 'number' ? bracket : undefined);
       setLeaderboard(data);
       setLeaderboardError(false);
     } catch (e) {
@@ -3031,7 +3031,8 @@ const App: React.FC = () => {
               leaderboard={leaderboard}
               leaderboardAvailable={isCloudAccountsConfigured()}
               leaderboardError={leaderboardError}
-              onRetryLeaderboard={refreshLeaderboard}
+              onRetryLeaderboard={() => void refreshLeaderboard()}
+              onLeaderboardBracket={(b: number) => void refreshLeaderboard(b)}
               onAddFriendFromLeaderboard={handleAddFriendFromLeaderboard}
             />
           )}

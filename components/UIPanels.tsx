@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -433,7 +433,8 @@ interface ShuffleboardProps {
   onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => { tickets: number; materials: number; paid: boolean; firstClear: boolean };
   tournamentThrows?: number;
   autoPlayPaid?: { day: string; count: number };
-  leaderboard: { top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
+  onLeaderboardBracket?: (b: number) => void;
+  leaderboard: { bracket?: number; myBracket?: number; top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
   leaderboardAvailable: boolean;
   leaderboardError: boolean;
   onRetryLeaderboard: () => void;
@@ -449,7 +450,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   tournamentScore, tournamentEndsAt, passiveMatchAt, tournamentThrows = 0, autoPlayPaid,
   goldenGames, onGoldenGamesResult,
   friends, friendBattle, onFriendBattleResult,
-  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onAddFriendFromLeaderboard
+  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onLeaderboardBracket, onAddFriendFromLeaderboard
 }) => {
   const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league' | 'friendBattle'>('passive');
   const [challengeTier, setChallengeTier] = useState(() => Math.min(CHALLENGE_MAX_TIERS - 1, normalizeChallengeLadder(challengeLadder).highestCleared + 1));
@@ -731,6 +732,16 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           {/* Real daily leaderboard, server-backed — grouped by player and by score */}
           <div className="mb-6 space-y-2">
             <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest mb-3`}>Today's Leaderboard</p>
+            {leaderboardAvailable && leaderboard && onLeaderboardBracket && (
+              <div className={`flex items-center justify-between p-2 rounded-2xl mb-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                <button disabled={(leaderboard.bracket ?? 1) <= 1} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) - 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>◀</button>
+                <div className="text-center">
+                  <div className="text-[12px] font-black uppercase opacity-60">Bracket {leaderboard.bracket ?? 1}{leaderboard.myBracket === leaderboard.bracket ? ' (yours)' : ''}</div>
+                  <div className="text-[15px] font-black">{POWER_BRACKETS[(leaderboard.bracket ?? 1) - 1]?.name}</div>
+                </div>
+                <button disabled={(leaderboard.bracket ?? 1) >= 10} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) + 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>▶</button>
+              </div>
+            )}
             {!leaderboardAvailable ? (
               <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold text-center py-4`}>Sign in to see how you rank against other players.</p>
             ) : leaderboardError ? (

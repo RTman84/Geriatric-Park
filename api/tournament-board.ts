@@ -52,6 +52,9 @@ function isAccountContext(value: AccountContext | Response): value is AccountCon
 }
 
 const MAX_SCORE = 1_000_000;
+// Must match POWER_BRACKETS in constants.tsx (and api/boards.ts)
+const BRACKET_MINS = [0, 300, 700, 1300, 2300, 3800, 6000, 9500, 15000, 21000];
+const bracketFor = (power: number) => { let b = 1; BRACKET_MINS.forEach((m, i) => { if (power >= m) b = i + 1; }); return b; };
 const TOP_N = 10;
 
 function todayUTC(): string {
@@ -78,12 +81,17 @@ export default async function handler(req: Request): Promise<Response> {
     if (!isAccountContext(context)) return context;
 
     const day = todayUTC();
+    const { data: prof } = await context.supabase.from('player_profiles').select('squad_power').eq('user_id', context.userId).maybeSingle();
+    const myBracket = bracketFor(Number((prof as any)?.squad_power) || 0);
 
     if (req.method === 'GET') {
+      const wanted = Number(new URL(req.url).searchParams.get('bracket'));
+      const bracket = Number.isInteger(wanted) && wanted >= 1 && wanted <= 10 ? wanted : myBracket;
       const { data: top, error: topError } = await context.supabase
         .from('leaderboard_scores')
         .select('user_id, display_name, score')
         .eq('tournament_day', day)
+        .eq('bracket', bracket)
         .order('score', { ascending: false })
         .limit(TOP_N);
 
@@ -96,6 +104,7 @@ export default async function handler(req: Request): Promise<Response> {
         .from('leaderboard_scores')
         .select('user_id, display_name, score')
         .eq('tournament_day', day)
+        .eq('bracket', bracket)
         .eq('user_id', context.userId)
         .maybeSingle();
 
@@ -104,7 +113,7 @@ export default async function handler(req: Request): Promise<Response> {
         return serverJson({ error: 'Leaderboard unavailable', detail: mineError.message }, 500);
       }
 
-      return serverJson({ top: top ?? [], mine: mine ?? null, day });
+      return serverJson({ top: top ?? [], mine: mine ?? null, day, bracket, myBracket });
     }
 
     if (req.method !== 'PUT') return serverJson({ error: 'Method not allowed' }, 405);
@@ -146,6 +155,7 @@ export default async function handler(req: Request): Promise<Response> {
         tournament_day: day,
         display_name: displayName,
         score: nextScore,
+        bracket: myBracket,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,tournament_day' })
       .select('display_name, score')

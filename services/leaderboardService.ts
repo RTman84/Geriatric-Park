@@ -11,6 +11,8 @@ export interface LeaderboardData {
   top: LeaderboardEntry[];
   mine: LeaderboardEntry | null;
   day: string;
+  bracket?: number; // the bracket this list is for
+  myBracket?: number; // the viewer's own bracket
 }
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -25,9 +27,9 @@ async function parse<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-export async function fetchLeaderboard(): Promise<LeaderboardData> {
+export async function fetchLeaderboard(bracket?: number): Promise<LeaderboardData> {
   const headers = await authHeaders();
-  const response = await fetch(apiUrl('/api/tournament-board'), { headers, cache: 'no-store' });
+  const response = await fetch(apiUrl('/api/tournament-board' + (bracket ? `?bracket=${bracket}` : '')), { headers, cache: 'no-store' });
   return parse<LeaderboardData>(response);
 }
 
