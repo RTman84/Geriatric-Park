@@ -92,8 +92,8 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
 
     // A bracket title can only be shown to other players if the server recorded the honor (court_honors).
     const verifiedCourtKey = async (key: unknown): Promise<string | null> => {
-      if (typeof key !== 'string' || !key.startsWith('court:')) return typeof key === 'string' ? key : null;
-      if (!/^court:(\d{1,2}):[123]$/.test(key)) return null;
+      if (typeof key !== 'string' || !(key.startsWith('court:') || key.startsWith('board:'))) return typeof key === 'string' ? key : null;
+      if (!/^(court:\d{1,2}:[123]|board:(arena|raid|friend):\d{1,2}:[123])$/.test(key)) return null;
       const { data } = await supabase.from('court_honors').select('key').eq('user_id', userId).eq('key', key).maybeSingle();
       return data ? key : null;
     };

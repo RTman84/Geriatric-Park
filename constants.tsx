@@ -724,6 +724,24 @@ export function courtHonorCosmetic(key: string): UnlockedCosmetic | null {
   return { key, icon: COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
 }
 
+// Weekly leaderboard honors: finishing top 3 of a bracket on a weekly board (Arena / Raid / Friend Battle) earns a permanent
+// title (key `board:<mode>:<bracket>:<place>`), recorded by the server when the week is settled. Cosmetic only.
+export const BOARD_HONOR_MODES: Record<string, { name: string; icon: string }> = {
+  arena: { name: 'Arena', icon: '\u{1F3DF}\uFE0F' }, raid: { name: 'Raid', icon: '\u{1F432}' }, friend: { name: 'Duel', icon: '\u{1F19A}' },
+};
+export function parseBoardHonor(key: string): { mode: string; bracket: number; place: number } | null {
+  const m = /^board:(arena|raid|friend):(\d{1,2}):([123])$/.exec(key || '');
+  if (!m) return null;
+  const bracket = Number(m[2]);
+  return bracket >= 1 && bracket <= POWER_BRACKETS.length ? { mode: m[1], bracket, place: Number(m[3]) } : null;
+}
+export function boardHonorCosmetic(key: string): UnlockedCosmetic | null {
+  const h = parseBoardHonor(key);
+  if (!h) return null;
+  return { key, icon: BOARD_HONOR_MODES[h.mode].icon, title: `${POWER_BRACKETS[h.bracket - 1].name} ${BOARD_HONOR_MODES[h.mode].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+}
+export const honorCosmetic = (key: string): UnlockedCosmetic | null => courtHonorCosmetic(key) ?? boardHonorCosmetic(key);
+
 // Mode badges: lifetime activity counts per mode unlock Bronze -> Legend tiers (a medal and a title each).
 // Counts only ever go up, so earned badges are permanent. Cosmetic only; never a currency reward.
 export const MODE_BADGES: { mode: string; name: string; kinds: string[] }[] = [
@@ -768,7 +786,7 @@ export function getUnlockedCosmetics(level: number, achievements: Achievement[],
   const achievementUnlocks: UnlockedCosmetic[] = achievements
     .filter(a => a.completed)
     .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
-  const honorUnlocks = courtHonors.map(courtHonorCosmetic).filter((c): c is UnlockedCosmetic => !!c);
+  const honorUnlocks = courtHonors.map(honorCosmetic).filter((c): c is UnlockedCosmetic => !!c);
   const badgeUnlocks: UnlockedCosmetic[] = [];
   for (const def of MODE_BADGES) {
     const reached = modeTierReached(modeCount(modeStats, def.mode));
@@ -793,7 +811,7 @@ export function resolveProfileDisplay(
 ): { icon: string; title: string } {
   const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? [], mementosOwned ?? []);
   if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
-    const other = courtHonorCosmetic(selectedTitle);
+    const other = honorCosmetic(selectedTitle);
     if (other) unlocked.push(other);
     for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k) || mementoCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
   }

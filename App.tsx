@@ -134,7 +134,7 @@ import {
   MAX_NEARBY_ITEMS,
   INITIAL_ITEM_SEED,
   ITEM_SPAWN_INTERVAL_MS,
-  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, modeKindKnown, MODE_MILESTONE_REWARDS, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
+  SCRAP_RARITY_MULTIPLIER, parseCourtHonor, parseBoardHonor, modeKindKnown, MODE_MILESTONE_REWARDS, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
@@ -936,7 +936,7 @@ const App: React.FC = () => {
       }
     }
     // Untrusted save: keep only well-formed Court honor keys (court:<1-10>:<1-3>).
-    next.courtHonors = Array.isArray(next.courtHonors) ? (next.courtHonors as unknown[]).filter((k): k is string => typeof k === 'string' && parseCourtHonor(k) !== null).slice(0, 60) : [];
+    next.courtHonors = Array.isArray(next.courtHonors) ? (next.courtHonors as unknown[]).filter((k): k is string => typeof k === 'string' && (parseCourtHonor(k) !== null || parseBoardHonor(k) !== null)).slice(0, 80) : [];
     // Untrusted save: lifetime counts must be finite non-negative numbers for known quest kinds only.
     const rawStats = (next.modeStats && typeof next.modeStats === 'object') ? next.modeStats as Record<string, unknown> : {};
     next.modeStats = Object.fromEntries(Object.entries(rawStats).filter(([k, v]) => modeKindKnown(k) && typeof v === 'number' && Number.isFinite(v) && v >= 0).map(([k, v]) => [k, Math.min(1e9, Math.floor(v as number))]));
@@ -2383,6 +2383,7 @@ const App: React.FC = () => {
       if (m?.auto && !m.claimed && !autoClaimedRef.current.has('mail:' + m.id)) {
         autoClaimedRef.current.add('mail:' + m.id);
         handleClaimMail(m.id);
+        if (m.honor && parseBoardHonor(m.honor)) setState(prev => (prev.courtHonors ?? []).includes(m.honor!) ? prev : { ...prev, courtHonors: [...(prev.courtHonors ?? []), m.honor!].slice(-80) });
         notify(`🏅 ${m.subject}${m.diners ? ` (+${m.diners} 🍽️` : ' ('}${m.materials ? `${m.diners ? ', ' : '+'}${m.materials} 🧱` : ''})`, 'good');
       }
     }

@@ -55,6 +55,12 @@ async function settleLastWeek(supabase: SupabaseClient): Promise<void> {
           reward_diners: Math.round(PLACE_DINERS[i] * bracketMult(bracket)), reward_materials: Math.round(PLACE_MATERIALS[i] * bracketMult(bracket)),
           note: `board:${mode}:${bracket}:${i + 1}:${period}`,
         }));
+        if (rows.length) {
+          // Permanent title, recorded by the server so other players can see it (api/account/save.ts verifies against this table).
+          const honors = (top ?? []).filter((r: any) => Number(r.score) > 0).map((r: any, i: number) => ({ user_id: r.user_id, key: `board:${mode}:${bracket}:${i + 1}`, earned_at: new Date().toISOString() }));
+          const { error: hErr } = await supabase.from('court_honors').upsert(honors, { onConflict: 'user_id,key' });
+          if (hErr) console.error('board honor write failed', hErr.message);
+        }
         if (rows.length) { const { error } = await supabase.from('mail_inbox').insert(rows); if (error) console.error('board reward mail failed', error.message); }
       }
     }

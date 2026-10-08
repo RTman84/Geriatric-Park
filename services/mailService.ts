@@ -70,7 +70,7 @@ function rowToMessage(row: InboxRow): MailMessage {
     const bracket = Math.max(1, Math.min(10, Math.floor(Number(bits[2]) || 1)));
     const place = Math.max(1, Math.min(3, Math.floor(Number(bits[3]) || 1)));
     const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
-    return { ...base, sender: 'Weekly Boards', subject: `${medal} Weekly ${label} board: #${place} in ${POWER_BRACKETS[bracket - 1].name}`, body: `You finished #${place} in the ${POWER_BRACKETS[bracket - 1].name} bracket on the weekly ${label} board (${bits[4] ?? 'last week'}). Your reward was paid automatically.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true };
+    return { ...base, sender: 'Weekly Boards', subject: `${medal} Weekly ${label} board: #${place} in ${POWER_BRACKETS[bracket - 1].name}`, body: `You finished #${place} in the ${POWER_BRACKETS[bracket - 1].name} bracket on the weekly ${label} board (${bits[4] ?? 'last week'}). Your reward was paid automatically and the title is yours to equip in the profile picker.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true, honor: `board:${bits[1]}:${bracket}:${place}` };
   }
   if (row.kind === 'arena_knockout') {
     const n = row.attacker_wins;
