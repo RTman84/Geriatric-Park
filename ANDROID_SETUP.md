@@ -37,6 +37,26 @@ Google AdMob rewarded video as the ONLY thing that pays PP. `compileSdk` / `targ
 7. **Backend URL**: after `main` includes the phase2 backend, point `VITE_API_BASE_URL` at the
    production URL.
 
+## Selling Mementos (Google Play Billing) -- steps for you
+Built: the app buys through the `@capgo/native-purchases` plugin and sends Google's purchase token to `api/purchase.ts`, which
+verifies it with Google, credits Mementos once (migration `022_purchases.sql`) and books the money into the ledger.
+1. **Play Console -> your app -> Monetize -> Products -> In-app products**: create three **consumable** products with EXACTLY these
+   ids and prices: `mementos_100` ($0.99), `mementos_550` ($4.99), `mementos_1150` ($9.99). Activate them. (The app must have an
+   uploaded build in a testing track before products can be bought.)
+2. **Service account for the server check**: Google Cloud Console -> create a project (or use the AdMob/Play one) -> enable the
+   **Google Play Android Developer API** -> IAM & Admin -> Service accounts -> create one -> Keys -> Add key -> JSON. In **Play
+   Console -> Users and permissions -> Invite new users**, add that service account's email and give it permission to
+   **view financial data and manage orders** for the app.
+3. **Vercel -> Settings -> Environment Variables** (Production + Preview, then Redeploy without cache):
+   - `GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL` = the `client_email` from the JSON
+   - `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY` = the `private_key` from the JSON (keep it secret; never commit it)
+   - `PLAY_PACKAGE_NAME` = `com.geriatricpark.game`
+4. Run `supabase/migrations/022_purchases.sql` in Supabase.
+5. **Test with a license tester**: Play Console -> Settings -> License testing -> add your Google account. Test purchases are
+   refused by default (see the marked line in `api/purchase.ts`); remove that line temporarily to test, then put it back.
+6. Mementos balance still lives in the player's save (like the rest of the economy); the purchase itself cannot be faked.
+   Moving the balance fully server-side belongs with the PP ledger project.
+
 ## Known gaps (not done yet)
 - **Google sign-in inside the app**: Google blocks OAuth in embedded WebViews. Email/password and
   magic link work; Google OAuth needs a native flow (browser + deep link). Not built.

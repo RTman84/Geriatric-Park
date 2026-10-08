@@ -14,6 +14,7 @@ import ParkScene, { isDecorSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
+import { buyPack, retryPendingPurchases, loadPackPrices, billingAvailable, type VerifiedPurchase } from './services/billing';
 import BoardsPanel from './components/BoardsPanel';
 import { submitBoardScore, fetchBoard, BoardMode } from './services/boardsService';
 import MementoShop from './components/MementoShop';
@@ -167,7 +168,7 @@ import {
   MAX_BUILDING_LEVEL,
   FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, NEARBY_REFRESH_COOLDOWN_MS,
   FRIEND_BATTLE_WIN_MATERIALS,
-  MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
+  MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
   GEAR_RARITY_COLOR, UNIFORM_GEAR_BASE, UNIFORM_GEAR_NAMES, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
   DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
@@ -386,7 +387,7 @@ const INITIAL_STATE: GameState = {
   achievements: [...INITIAL_ACHIEVEMENTS, ...NEW_ACHIEVEMENTS],
   favoriteElderIds: [],
   buildingMaterials: 0,
-  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], discoveredArenas: [], parkDecor: [], boardStats: { week: '', arena: 0, raid: 0, friend: 0 }, pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
+  tvDinners: 0, dinersDay: '', dinersToday: 0, antiquesOwned: [], mementoPurchaseIds: [], discoveredArenas: [], parkDecor: [], boardStats: { week: '', arena: 0, raid: 0, friend: 0 }, pvpPasses: { arena: 0, raid: 0 }, mementos: 0, mementoItemsOwned: [], premiumRooms: 0,
   builtAmenityIds: [],
   amenityLevels: {},
   amenityCollectedAt: {},
@@ -959,6 +960,7 @@ const App: React.FC = () => {
     { const bs = (next.boardStats ?? {}) as { week?: unknown; arena?: unknown; raid?: unknown; friend?: unknown }; const n = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(1e9, Math.floor(v)) : 0;
       next.boardStats = { week: typeof bs.week === 'string' ? bs.week : '', arena: n(bs.arena), raid: n(bs.raid), friend: n(bs.friend) }; }
     next.discoveredArenas = (Array.isArray(next.discoveredArenas) ? next.discoveredArenas : []).filter((a: any) => a && typeof a.id === 'string' && /^a_-?\d+_-?\d+$/.test(a.id) && Number.isFinite(a.lat) && Number.isFinite(a.lng)).slice(0, 400).map((a: any) => ({ id: a.id, name: String(a.name ?? 'Arena').slice(0, 40), lat: a.lat, lng: a.lng }));
+    next.mementoPurchaseIds = Array.isArray(next.mementoPurchaseIds) ? Array.from(new Set((next.mementoPurchaseIds as unknown[]).filter((k): k is string => typeof k === 'string').map(k => k.slice(0, 40)))).slice(-300) : [];
     next.mementos = typeof next.mementos === 'number' && Number.isFinite(next.mementos) && next.mementos > 0 ? Math.min(1e6, Math.floor(next.mementos)) : 0;
     next.premiumRooms = typeof next.premiumRooms === 'number' && Number.isFinite(next.premiumRooms) && next.premiumRooms > 0 ? Math.min(PREMIUM_ROOM_MAX, Math.floor(next.premiumRooms)) : 0;
     next.mementoItemsOwned = Array.isArray(next.mementoItemsOwned) ? Array.from(new Set((next.mementoItemsOwned as unknown[]).filter((k): k is string => typeof k === 'string' && MEMENTO_ITEMS.some(m => m.id === k)))) : [];
@@ -1273,6 +1275,27 @@ const App: React.FC = () => {
     setState(prev => (prev.antiquesOwned ?? []).includes(id) || (prev.tvDinners ?? 0) < a.price ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - a.price, antiquesOwned: [...(prev.antiquesOwned ?? []), id] });
     notify(`${a.icon} ${a.name} is yours! New icon and title unlocked in your profile.`, 'good');
   }, [state.antiquesOwned, state.tvDinners, notify]);
+  // Credits a server-verified purchase exactly once (the purchase id is remembered in the save).
+  const creditPurchase = useCallback((v: VerifiedPurchase) => {
+    setState(prev => (prev.mementoPurchaseIds ?? []).includes(v.purchaseId) ? prev : { ...prev, mementos: (prev.mementos ?? 0) + v.mementos, mementoPurchaseIds: [...(prev.mementoPurchaseIds ?? []), v.purchaseId].slice(-300) });
+  }, []);
+  const [packPrices, setPackPrices] = useState<Record<string, string>>({});
+  const [buyingPack, setBuyingPack] = useState(false);
+  useEffect(() => { if (billingAvailable()) void loadPackPrices(MEMENTO_PACKS.map(p => p.id)).then(setPackPrices); }, []);
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled || !billingAvailable()) return;
+    void retryPendingPurchases().then(list => { list.forEach(creditPurchase); if (list.length) notify(`💛 Your earlier purchase was confirmed: +${list.reduce((t, v) => t + v.mementos, 0)} Mementos.`, 'good'); });
+  }, [isLoaded, cloudSyncSettled, creditPurchase, notify]);
+  const handleBuyPack = useCallback(async (productId: string) => {
+    if (buyingPack) return;
+    setBuyingPack(true);
+    try {
+      const v = await buyPack(productId, authSession?.user?.id);
+      creditPurchase(v);
+      notify(`💛 Thank you! +${v.mementos} Mementos added.`, 'good');
+    } catch (e) { notify((e as Error).message || 'The purchase did not go through.', 'bad'); }
+    finally { setBuyingPack(false); }
+  }, [buyingPack, authSession, creditPurchase, notify]);
   const handleConvertPp = useCallback((amountPp: number) => {
     const amount = Math.round(amountPp * 100) / 100;
     if (!(amount >= PP_TO_MEMENTOS_MIN) || amount > state.pensionBalance + 1e-9) { notify('Not enough PP for that.', 'bad'); return; }
@@ -3462,7 +3485,7 @@ const App: React.FC = () => {
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
-        {showMementoShop && <MementoShop isDark={isDark} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
+        {showMementoShop && <MementoShop isDark={isDark} packPrices={packPrices} canBuy={billingAvailable() && !!authSession} buying={buyingPack} onBuyPack={handleBuyPack} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
         {showBoards && <BoardsPanel isDark={isDark} onClose={() => setShowBoards(false)} />}
         {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (

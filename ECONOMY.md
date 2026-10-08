@@ -498,3 +498,9 @@ Boosts tab in the PvP Shop: Attack Pass (6 TV Dinners) waives the Ticket fee on 
 
 ## 6y. Weekly board titles (2026-10-08)
 When a weekly board is settled, each top-3 finisher also gets a permanent title recorded by the server in `court_honors` (key `board:<mode>:<bracket>:<place>`, e.g. "Gold Lounge Raid Champion"; Arena / Raid / Duel (Friend Battle)). The reward mail carries the key; the game adds it to the player's honors the moment the mail pays out, and the profile picker lists it like any other earned title. Other players only see it if the server's honor table has it (save sync verifies, same as Court titles). No new migration (reuses `court_honors`).
+
+## 6z. Mementos packs and Play Billing (2026-10-08)
+- Packs: 100 / 550 / 1150 Mementos for $0.99 / $4.99 / $9.99 (about 100 per USD, slightly better on bigger packs; matches 1 PP = 100 Mementos). Sold only in the Android app, signed in. `api/purchase.ts` is the only thing that decides what a purchase is worth.
+- Flow: plugin purchase (consumable) -> purchase token -> `POST /api/purchase` -> server asks Google (service account) -> `purchases` row (unique token = replay protection, token tied to the buying account) -> ledger: 30% of net revenue (price x 0.85 after the store fee) to `community_reserve`, 70% to `development` -> app credits Mementos once (purchase id remembered in the save). Unconfirmed purchases are retried on every launch.
+- Tested with a fake database, real generated RSA key and mocked Google: fake token refused, cancelled/test purchases refused, grant once, replay returns the same amount without granting again, another account cannot reuse a token, ledger split correct (16 checks).
+- Needs from the owner: Play Console products, a service account with order access, three Vercel variables, migration 022 (see ANDROID_SETUP.md). Not built: refund/chargeback handling (a refunded purchase currently keeps its Mementos), server-side Mementos balance, iOS.

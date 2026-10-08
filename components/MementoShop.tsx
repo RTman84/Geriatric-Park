@@ -1,12 +1,13 @@
 import React from 'react';
-import { MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
 const MementoShop: React.FC<{
+  packPrices?: Record<string, string>; canBuy?: boolean; buying?: boolean; onBuyPack?: (id: string) => void;
   isDark: boolean; pp: number; onConvertPp: (amount: number) => void; mementos: number; rooms: number; owned: string[];
   onBuyRoom: () => void; onBuyItem: (id: string) => void; onClose: () => void;
-}> = ({ isDark, pp, onConvertPp, mementos, rooms, owned, onBuyRoom, onBuyItem, onClose }) => {
+}> = ({ packPrices = {}, canBuy = false, buying = false, onBuyPack, isDark, pp, onConvertPp, mementos, rooms, owned, onBuyRoom, onBuyItem, onClose }) => {
   const week = mementoWeekIndex();
   const thisWeek = mementoItemsForWeek(week);
   const ownedSet = new Set(owned);
@@ -25,9 +26,24 @@ const MementoShop: React.FC<{
             <div className="text-[12px] font-black uppercase opacity-60">Your Mementos</div>
             <div className="text-xl font-black text-amber-500">{mementos} 💛</div>
           </div>
-          <button disabled className={btn(false)}>Buy (soon)</button>
+          
         </div>
         <p className="text-[12px] opacity-70 mb-4">Mementos can be bought in the Google Play version of the game (coming) or converted from your PP below. Nothing here raises your earnings or your battle power: it is convenience and keepsakes only.</p>
+
+        <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Buy Mementos</h3>
+        <div className="space-y-2 mb-5">
+          {MEMENTO_PACKS.map(p => (
+            <div key={p.id} className={`${card} flex items-center gap-3`}>
+              <div className="text-3xl">💛</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-black uppercase text-[15px] truncate">{p.label}</div>
+                <div className="text-[12px] opacity-70">{p.mementos} Mementos</div>
+              </div>
+              <button disabled={!canBuy || buying} onClick={() => onBuyPack?.(p.id)} className={btn(canBuy && !buying)}>{packPrices[p.id] ?? `$${p.usd.toFixed(2)}`}</button>
+            </div>
+          ))}
+          {!canBuy && <p className="text-[12px] opacity-70">Packs can be bought in the Android app while signed in to your account. Nothing here is sold on the web.</p>}
+        </div>
 
         <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Convert PP</h3>
         <div className={`${card} mb-5`}>

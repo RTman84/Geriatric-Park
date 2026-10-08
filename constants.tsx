@@ -1566,3 +1566,11 @@ export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid
 // PP -> Mementos (one direction only, never back): spending earned PP on premium goods. Owner-tunable rate.
 export const MEMENTOS_PER_PP = 100;
 export const PP_TO_MEMENTOS_MIN = 0.01;
+
+// Mementos packs sold through Google Play (ids must match the in-app products in Play Console AND api/purchase.ts, which
+// is the one that decides what each is worth). About 100 Mementos per USD, a little more on the bigger packs.
+export const MEMENTO_PACKS = [
+  { id: 'mementos_100', mementos: 100, usd: 0.99, label: 'Pocket Change' },
+  { id: 'mementos_550', mementos: 550, usd: 4.99, label: 'Shoebox of Keepsakes' },
+  { id: 'mementos_1150', mementos: 1150, usd: 9.99, label: 'Attic Trunk' },
+] as const;
