@@ -21,7 +21,8 @@ interface ArenaPanelProps {
   onClose: () => void;
   onPickFaction: (f: FactionId) => void;
   onStation: (elder: Elder) => void;
-  onRecall: () => void;
+  onRecall: (arenaId?: string) => void;
+  arenaNames?: Record<string, string>;
   onAttack: () => void;
   onClaimDues: () => void;
   onRaidHit: () => void;
@@ -38,7 +39,7 @@ const DefenderAvatar: React.FC<{ d: ArenaDefender }> = ({ d }) => {
 };
 
 export const ArenaPanel: React.FC<ArenaPanelProps> = ({
-  isDark, site, info, me, elders, stationedAt, tokens, busy, onClose, onPickFaction, onStation, onRecall, onAttack, onClaimDues, onRaidHit,
+  isDark, site, info, me, elders, stationedAt, tokens, busy, onClose, onPickFaction, onStation, onRecall, arenaNames = {}, onAttack, onClaimDues, onRaidHit,
 }) => {
   const [nowTick, setNowTick] = useState(Date.now());
   React.useEffect(() => { const t = setInterval(() => setNowTick(Date.now()), 15000); return () => clearInterval(t); }, []);
@@ -229,12 +230,24 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                 </button>
               )}
               {myDefender && (
-                <button disabled={busy} onClick={onRecall} className={`w-full py-3 rounded-2xl font-black uppercase text-[14px] ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <button disabled={busy} onClick={() => onRecall()} className={`w-full py-3 rounded-2xl font-black uppercase text-[14px] ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
                   Recall {myDefender.elder?.name ?? 'my Elder'}
                 </button>
               )}
               {(me.defenders.length >= ARENA_MAX_PER_PLAYER && !myDefender && (!holder || holder === myFaction)) && (
-                <p className={`text-[13px] font-bold ${muted}`}>You already defend {ARENA_MAX_PER_PLAYER} Arenas — recall one first.</p>
+                <div className="space-y-2">
+                  <p className={`text-[13px] font-bold ${muted}`}>You already defend {ARENA_MAX_PER_PLAYER} Arenas. Recall one to claim this Arena:</p>
+                  {me.defenders.map(d => {
+                    const elder = elders.find(e => e.id === d.elderId);
+                    const place = arenaNames[d.arenaId] ?? `Arena ${d.arenaId.replace(/^a_/, '').replace('_', ', ')}`;
+                    return (
+                      <div key={d.arenaId} className={`flex items-center justify-between gap-2 p-3 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                        <div className="min-w-0 text-[13px] font-black uppercase truncate">{elder?.name ?? 'An Elder'} · {place}</div>
+                        <button disabled={busy} onClick={() => onRecall(d.arenaId)} className="shrink-0 px-3 py-2 rounded-xl bg-[var(--accent-600)] text-white text-[12px] font-black uppercase">Recall</button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 

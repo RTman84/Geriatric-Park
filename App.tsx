@@ -1212,9 +1212,10 @@ const App: React.FC = () => {
     notify(res.claimed ? `🚩 ${elder.name} claimed the Arena!` : `🛡️ ${elder.name} is now defending the Arena.`, 'good');
   }), [runArenaAction, activeArenaId, notify]);
 
-  const handleArenaRecall = useCallback(() => runArenaAction('Recalling', async () => {
-    if (!activeArenaId) return;
-    const res = await recallElder(activeArenaId);
+  const handleArenaRecall = useCallback((arenaId?: string) => runArenaAction('Recalling', async () => {
+    const target = arenaId ?? activeArenaId;
+    if (!target) return;
+    const res = await recallElder(target);
     setState(prev => {
       const st = { ...(prev.stationedAt || {}) };
       delete st[res.elderId];
@@ -2879,8 +2880,8 @@ const App: React.FC = () => {
   return (
     <div className={`flex flex-col h-[100dvh] w-full overflow-hidden font-sans select-none items-center ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`} onClick={() => audioManager.setMusicEnabled(state.settings.musicEnabled)}>
       <div className={`w-full max-w-lg h-full flex flex-col shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
-        <header className={`pt-6 pb-4 px-6 border-b z-[60] flex justify-between items-end ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-          <div className="flex items-center gap-3">
+        <header className={`pt-5 pb-3 px-3 sm:px-6 border-b z-[60] flex flex-wrap justify-between items-end gap-y-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {(() => {
               const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
               return (
@@ -2896,7 +2897,7 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black uppercase">LVL {state.level}</span>
                       {authSession?.user.displayName && (
-                        <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[140px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
+                        <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[84px] sm:max-w-[140px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
                       )}
                       <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
                     </div>
@@ -2908,7 +2909,7 @@ const App: React.FC = () => {
               );
             })()}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 shrink-0">
             <button onClick={handleOpenFriends} className={`relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100`}>
               <UserGroupIcon className="w-6 h-6" />
               {(friendsData?.incoming.length ?? 0) > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{friendsData!.incoming.length}</div>}
@@ -2917,12 +2918,13 @@ const App: React.FC = () => {
               <EnvelopeIcon className="w-6 h-6" />
               {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{unreadMailCount}</div>}
             </button>
-            <div className="text-right">
-              <div className="flex items-center gap-2 justify-end">
-                <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} PP</span>
-                <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} 🎟️</span>
-              </div>
-              <div className="text-[13px] font-black uppercase opacity-40 tracking-widest mt-1">v{GAME_VERSION}</div>
+          </div>
+          <div className="w-full flex items-center justify-between gap-2">
+            <div className="text-[13px] font-black uppercase opacity-40 tracking-widest">v{GAME_VERSION}</div>
+            <div className="flex items-center gap-3 justify-end flex-wrap">
+              <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} PP</span>
+              <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} 🎟️</span>
+              <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} 🍽️</span>
             </div>
           </div>
         </header>
@@ -3340,7 +3342,7 @@ const App: React.FC = () => {
               isDark={isDark} site={site} info={arenaInfo[activeArenaId]} me={arenaMe}
               elders={state.allElders} stationedAt={state.stationedAt || {}} tokens={state.legacyTokens} busy={arenaBusy}
               onClose={() => setActiveArenaId(null)}
-              onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall}
+              onPickFaction={handleArenaPickFaction} onStation={handleArenaStation} onRecall={handleArenaRecall} arenaNames={Object.fromEntries(arenaSites.map((a: any) => [a.id, a.name]))}
               onAttack={handleArenaAttack} onClaimDues={handleArenaClaimDues} onRaidHit={handleArenaRaidHit}
             />
           );
