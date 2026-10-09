@@ -2997,10 +2997,12 @@ const App: React.FC = () => {
           </div>
           <div className="w-full flex items-center justify-between gap-2">
             <div className="text-[13px] font-black uppercase opacity-40 tracking-widest">v{GAME_VERSION}</div>
-            <div className="flex items-center gap-3 justify-end flex-wrap">
+            <div className="flex items-center gap-x-3 gap-y-1 justify-end flex-wrap">
               <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={20} /><span className="sr-only">PP</span></span>
               <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} <Gfx e="🎟️" size={20} /></span>
               <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} <Gfx e="🍽️" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-orange-500 leading-none">{Math.floor(state.buildingMaterials)} <Gfx e="🧱" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-pink-400 leading-none">{state.mementos ?? 0} <Gfx e="💛" size={20} /></span>
             </div>
           </div>
         </header>
