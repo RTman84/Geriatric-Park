@@ -48,6 +48,8 @@ import amenityComplaints from './game-assets/amenities/complaints.png';
 import amenityNappod from './game-assets/amenities/nappod.png';
 import amenityPrunebar from './game-assets/amenities/prunebar.png';
 import amenityShuffleboard from './game-assets/amenities/shuffleboard_deco.png';
+import amenityWorkshop from './game-assets/amenities/workshop.png';
+import amenityLodge from './game-assets/amenities/lodge.png';
 
 import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
 import branMuffinImg from './game-assets/items/bran_muffin.png';
@@ -863,6 +865,8 @@ export const AMENITIES: Amenity[] = [
   { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping. A well-rested park is a productive park.', producerBoost: { basePct: 4, perLevelPct: 2 } },
   { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'production', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.', producer: { output: 'tickets', basePerHour: 2, perLevelPerHour: 1 } },
   { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- but a nicer court means a richer champion\'s purse.', courtPurseBonus: { perLevel: 5 } },
+  { id: 'workshop', name: "Tinker's Workshop", icon: amenityWorkshop, category: 'production', cost: 45, flavor: 'Nothing is ever really broken, just "in progress." Spare screws and salvaged parts pile up as Building Materials.', producer: { output: 'materials', basePerHour: 1.25, perLevelPerHour: 0.6 } },
+  { id: 'lodge', name: "Visitors' Lodge", icon: amenityLodge, category: 'production', cost: 40, flavor: 'Guests sign the book, leave a tip for the rocking chairs, and swear they will be back. Tips come in as Tickets.', producer: { output: 'tickets', basePerHour: 2.5, perLevelPerHour: 1.25 } },
 ];
 // Max residents. The Retirement Cottage is the housing building: it raises capacity, and every level
 // raises it more. Existing rosters above capacity are grandfathered (nothing is removed) -- the cap

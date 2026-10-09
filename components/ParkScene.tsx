@@ -11,9 +11,11 @@ import complaints from '../game-assets/park/cut/complaints.png';
 import nappod from '../game-assets/park/cut/nappod.png';
 import prunebar from '../game-assets/park/cut/prunebar.png';
 import shuffleboard_deco from '../game-assets/park/cut/shuffleboard_deco.png';
+import workshop from '../game-assets/park/cut/workshop.png';
+import lodge from '../game-assets/park/cut/lodge.png';
 
 // Cut-out (transparent background) versions of the amenity art, keyed by amenity id.
-const ART: Record<string, string> = { cottage, trail, grocery, aerobics, birdwatch, earlybird, complaints, nappod, prunebar, shuffleboard_deco };
+const ART: Record<string, string> = { cottage, trail, grocery, aerobics, birdwatch, earlybird, complaints, nappod, prunebar, shuffleboard_deco, workshop, lodge };
 
 // The backdrop is four stitched sections (pond top, two plain middles, gate bottom), 1024 x 2992.
 // Everything is positioned as a % of it, so the scene scales with the screen width. Buildings sit in
@@ -21,8 +23,10 @@ const ART: Record<string, string> = { cottage, trail, grocery, aerobics, birdwat
 // Only amenities with an entry here get a spot -- adding more buildings later means adding art
 // height (another middle section) and extending SLOT_ORDER; they stay reachable through Grounds meanwhile.
 const BG_W = 1024, BG_H = 2992, BW = 250, BH = 333;
-const SLOT_ORDER = ['cottage', 'trail', 'grocery', 'aerobics', 'birdwatch', 'earlybird', 'complaints', 'nappod', 'prunebar', 'shuffleboard_deco'];
+const SLOT_ORDER = ['cottage', 'trail', 'grocery', 'aerobics', 'birdwatch', 'earlybird', 'complaints', 'nappod', 'prunebar', 'shuffleboard_deco', 'workshop', 'lodge'];
 function slotFor(i: number) {
+  if (i === 10) return { xc: 190, y: 2600 };  // Tinker's Workshop (the last free stretch of the scene)
+  if (i === 11) return { xc: 835, y: 2655 };  // Visitors' Lodge
   const row = Math.floor(i / 2), col = i % 2;
   return { xc: col === 0 ? 190 : 835, y: (col === 0 ? 300 : 520) + row * 460 };
 }
@@ -49,7 +53,7 @@ function pathCenterAt(y: number): number {
 }
 // Footprints reserved for the two planned buildings (no art yet): left column below the last building, right column
 // squeezed in the last free stretch of the scene.
-const RESERVED_SLOTS = [{ xc: 190, y: 2600 }, { xc: 835, y: 2655 }];
+const RESERVED_SLOTS: { xc: number; y: number }[] = [];
 function allSlotRects() {
   return [...SLOT_ORDER.map((_, i) => slotFor(i)), ...RESERVED_SLOTS];
 }

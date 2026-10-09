@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
+import arenaImg from '../game-assets/map/arena.png';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
@@ -268,7 +269,7 @@ const GameMap: React.FC<GameMapProps> = ({
             <Marker
               key={a.id}
               position={[a.lat, a.lng]}
-              icon={createCustomIcon('🏟️', 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square', raidBadge)}
+              icon={createCustomIcon(arenaImg, 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square', raidBadge)}
               eventHandlers={{ click: () => onArenaClick && onArenaClick(a.id) }}
             >
               <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">

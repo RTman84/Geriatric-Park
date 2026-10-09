@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
 import { ArenaPanel } from './components/ArenaPanel';
+import { Gfx, EmojiText } from './components/Gfx';
 import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, raidHit, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
@@ -2983,8 +2984,8 @@ const App: React.FC = () => {
             <div className="text-[13px] font-black uppercase opacity-40 tracking-widest">v{GAME_VERSION}</div>
             <div className="flex items-center gap-3 justify-end flex-wrap">
               <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} PP</span>
-              <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} 🎟️</span>
-              <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} 🍽️</span>
+              <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} <Gfx e="🎟️" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} <Gfx e="🍽️" size={20} /></span>
             </div>
           </div>
         </header>
@@ -3486,7 +3487,7 @@ const App: React.FC = () => {
                 onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
                 className={`pointer-events-auto w-full max-w-sm p-4 rounded-2xl text-center text-base font-black border shadow-lg whitespace-pre-line ${t.tone === 'good' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}
               >
-                {t.text}
+                <EmojiText text={t.text} size={22} />
               </div>
             ))}
           </div>
