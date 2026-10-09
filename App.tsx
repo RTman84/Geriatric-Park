@@ -2553,6 +2553,18 @@ const App: React.FC = () => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
   }, [state.settings.sfxEnabled, notify]);
 
+  const handleSellGearMany = useCallback((ids: string[]) => {
+    setState(prev => {
+      const items = prev.inventory.filter(i => ids.includes(i.id));
+      if (!items.length) return prev;
+      const pct = workshopSalvageBonusPct(prev.builtAmenityIds, prev.amenityLevels);
+      const total = items.reduce((t, i) => { const v = applySalvageBonus(getGearSellValue(i), pct); return { tickets: t.tickets + v.tickets, materials: t.materials + v.materials }; }, { tickets: 0, materials: 0 });
+      notify(`Salvaged ${items.length} items for ${total.tickets} 🎟️ + ${total.materials} 🧱`, 'good');
+      return { ...prev, inventory: prev.inventory.filter(i => !ids.includes(i.id)), legacyTokens: prev.legacyTokens + total.tickets, buildingMaterials: prev.buildingMaterials + total.materials };
+    });
+    if (state.settings.sfxEnabled) audioManager.playSFX('collect');
+  }, [state.settings.sfxEnabled, notify]);
+
   const handleUpgradeGear = useCallback((itemId: string) => {
     setState(prev => {
       const item = prev.inventory.find(i => i.id === itemId);
@@ -2986,7 +2998,7 @@ const App: React.FC = () => {
           <div className="w-full flex items-center justify-between gap-2">
             <div className="text-[13px] font-black uppercase opacity-40 tracking-widest">v{GAME_VERSION}</div>
             <div className="flex items-center gap-3 justify-end flex-wrap">
-              <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} PP</span>
+              <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={20} /><span className="sr-only">PP</span></span>
               <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} <Gfx e="🎟️" size={20} /></span>
               <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} <Gfx e="🍽️" size={20} /></span>
             </div>
@@ -3366,7 +3378,7 @@ const App: React.FC = () => {
         {showWorkshop && <WorkshopPanel isDark={isDark} inventory={state.inventory} elders={state.allElders} tokens={state.legacyTokens} materials={state.buildingMaterials}
           built={state.builtAmenityIds.includes('workshop')} level={state.builtAmenityIds.includes('workshop') ? getBuildingLevel(state.amenityLevels, 'workshop') : 0}
           upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)}
-          onUpgrade={handleUpgradeGear} onSell={handleSellGear} onEquip={handleEquipElder} onClose={() => setShowWorkshop(false)} />}
+          onUpgrade={handleUpgradeGear} onSell={handleSellGear} onSellMany={handleSellGearMany} onEquip={handleEquipElder} onClose={() => setShowWorkshop(false)} />}
         {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
 
         {showThrones && <ThronesPanel isDark={isDark} onWin={() => earnDiners(DINERS_COURT_WIN, 'Court Ladder win')} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
@@ -3430,13 +3442,13 @@ const App: React.FC = () => {
               )}
               <div className="space-y-4">
                 {eventResult && <div className="p-4 bg-[var(--accent-500-a10)] rounded-xl text-center text-base font-black mb-4 uppercase tracking-tighter">{eventResult}</div>}
-                {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Drawing...' : `Play Bingo (${eventPrice.cost} 🎟️)`}</button>}
-                {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? `Defend Court (${eventPrice.cost} 🎟️)` : `Clash for Court (${eventPrice.cost} 🎟️)`}</button>}
-                {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} disabled={eventPrice.soldOut} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad ({eventPrice.cost} 🎟️)</button>}
-                {activeEvent.type === 'Garden' && <button onClick={handleGardenScavenge} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Searching...' : `Scavenge Garden (${eventPrice.cost} 🎟️)`}</button>}
-                {activeEvent.type === 'Walk' && <button onClick={handleMallWalk} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Walking...' : `Train at Mall (${eventPrice.cost} 🎟️)`}</button>}
-                {activeEvent.type === 'Pavilion' && <button onClick={handlePavilionPotluck} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Eating...' : `Host Potluck (${eventPrice.cost} 🎟️)`}</button>}
-                {activeEvent.type === 'Market' && <button onClick={handleMarketVisit} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{isEventPlaying ? 'Shopping...' : `Visit Market (${eventPrice.cost} 🎟️)`}</button>}
+                {activeEvent.type === 'Blitz' && <button onClick={handlePlayBingo} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-purple-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Drawing...' : `Play Bingo (${eventPrice.cost} 🎟️)`} />}</button>}
+                {activeEvent.type === 'Shuffleboard' && <button onClick={handlePlayShuffleboard} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Clashing...' : state.heldStructureIds.includes(activeEvent.id) ? `Defend Court (${eventPrice.cost} 🎟️)` : `Clash for Court (${eventPrice.cost} 🎟️)`} />}</button>}
+                {activeEvent.type === 'Heal' && <button onClick={handleHealSquad} disabled={eventPrice.soldOut} className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">Heal Squad ({eventPrice.cost} <Gfx e="🎟" />)</button>}
+                {activeEvent.type === 'Garden' && <button onClick={handleGardenScavenge} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Searching...' : `Scavenge Garden (${eventPrice.cost} 🎟️)`} />}</button>}
+                {activeEvent.type === 'Walk' && <button onClick={handleMallWalk} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-rose-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Walking...' : `Train at Mall (${eventPrice.cost} 🎟️)`} />}</button>}
+                {activeEvent.type === 'Pavilion' && <button onClick={handlePavilionPotluck} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-amber-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Eating...' : `Host Potluck (${eventPrice.cost} 🎟️)`} />}</button>}
+                {activeEvent.type === 'Market' && <button onClick={handleMarketVisit} disabled={isEventPlaying || eventPrice.soldOut} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl uppercase shadow-xl active:scale-95 transition-transform">{<EmojiText text={isEventPlaying ? 'Shopping...' : `Visit Market (${eventPrice.cost} 🎟️)`} />}</button>}
                 <button onClick={() => { setActiveEvent(null); setEventResult(null); }} className="w-full bg-slate-100 text-slate-600 font-black py-4 rounded-2xl uppercase active:scale-95 transition-transform">Close</button>
               </div>
             </div>

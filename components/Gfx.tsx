@@ -29,7 +29,7 @@ export const Gfx: React.FC<{ e: string; className?: string; size?: number }> = (
 };
 
 /** Text that may contain mapped emoji (e.g. "+12 🎟️"); swaps only the mapped ones. */
-export const EmojiText: React.FC<{ text: string; size?: number }> = ({ text, size = 18 }) => {
+export const EmojiText: React.FC<{ text: any; size?: number }> = ({ text, size = 18 }) => {
   if (!KEYS.length || typeof text !== 'string') return <>{text}</>;
   const re = new RegExp(`(${KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\ufe0f?`, 'g');
   const out: React.ReactNode[] = [];

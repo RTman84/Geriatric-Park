@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { POWER_BRACKETS, COURT_PLACE_LABELS, COURT_PLACE_ICONS } from '../constants';
 import { fetchCourtState, challengeLadder, claimLadderPurse, type CourtState } from '../services/courtService';
 
@@ -52,7 +53,7 @@ const ThronesPanel: React.FC<{
               <p className="text-[12px] opacity-70">{state.mine ? `You are rank ${state.mine.rank}.` : 'You are not on the ladder yet.'} Challenges left today: {state.challengesLeft}/{state.dailyChallenges}</p>
               {!state.mine && <button disabled={busy || state.challengesLeft <= 0} onClick={() => challenge()} className="w-full mt-2 py-2 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[13px] disabled:opacity-40">Join the ladder</button>}
               {state.mine?.purseAvailable && (
-                <button disabled={busy} onClick={() => run(async () => { const r = await claimLadderPurse(); onPurse(r.tickets); notify(`Daily purse: +${r.tickets} 🎟️`, 'good'); await load(); })} className="w-full mt-2 py-2 rounded-xl bg-amber-500 text-white font-black uppercase text-[13px] disabled:opacity-40">Collect daily purse +{state.mine.purse} 🎟️</button>
+                <button disabled={busy} onClick={() => run(async () => { const r = await claimLadderPurse(); onPurse(r.tickets); notify(`Daily purse: +${r.tickets} 🎟️`, 'good'); await load(); })} className="w-full mt-2 py-2 rounded-xl bg-amber-500 text-white font-black uppercase text-[13px] disabled:opacity-40">Collect daily purse +{state.mine.purse} <Gfx e="🎟" /></button>
               )}
             </div>
             <h3 className="text-[13px] font-black uppercase mb-2">Top 10 in your bracket</h3>

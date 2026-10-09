@@ -1,4 +1,5 @@
 import React from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
@@ -24,7 +25,7 @@ const MementoShop: React.FC<{
         <div className={`p-3 rounded-2xl mb-2 flex items-center justify-between ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
           <div>
             <div className="text-[12px] font-black uppercase opacity-60">Your Mementos</div>
-            <div className="text-xl font-black text-amber-500">{mementos} 💛</div>
+            <div className="text-xl font-black text-amber-500">{mementos} <Gfx e="💛" /></div>
           </div>
           
         </div>
@@ -34,7 +35,7 @@ const MementoShop: React.FC<{
         <div className="space-y-2 mb-5">
           {MEMENTO_PACKS.map(p => (
             <div key={p.id} className={`${card} flex items-center gap-3`}>
-              <div className="text-3xl">💛</div>
+              <div className="text-3xl"><Gfx e="💛" /></div>
               <div className="flex-1 min-w-0">
                 <div className="font-black uppercase text-[15px] truncate">{p.label}</div>
                 <div className="text-[12px] opacity-70">{p.mementos} Mementos</div>
@@ -47,10 +48,10 @@ const MementoShop: React.FC<{
 
         <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Convert PP</h3>
         <div className={`${card} mb-5`}>
-          <div className="text-[13px] opacity-80 mb-2">Spend earned PP on Mementos: 1 PP = {MEMENTOS_PER_PP} 💛. One way only, Mementos can never be turned back into PP. You have <b>{pp.toFixed(2)} PP</b>.</div>
+          <div className="text-[13px] opacity-80 mb-2">Spend earned PP on Mementos: 1 PP = {MEMENTOS_PER_PP} <Gfx e="💛" />. One way only, Mementos can never be turned back into PP. You have <b>{pp.toFixed(2)} PP</b>.</div>
           <div className="flex gap-2 flex-wrap">
             {[0.05, 0.1, 0.25, 0.5].map(a => (
-              <button key={a} disabled={pp + 1e-9 < a} onClick={() => onConvertPp(a)} className={btn(pp + 1e-9 >= a)}>{a.toFixed(2)} PP → {Math.floor(a * MEMENTOS_PER_PP)} 💛</button>
+              <button key={a} disabled={pp + 1e-9 < a} onClick={() => onConvertPp(a)} className={btn(pp + 1e-9 >= a)}>{a.toFixed(2)} PP → {Math.floor(a * MEMENTOS_PER_PP)} <Gfx e="💛" /></button>
             ))}
             <button disabled={pp < PP_TO_MEMENTOS_MIN} onClick={() => onConvertPp(Math.floor(pp * 100) / 100)} className={btn(pp >= PP_TO_MEMENTOS_MIN)}>All</button>
           </div>
@@ -63,7 +64,7 @@ const MementoShop: React.FC<{
             <div className="font-black uppercase text-[15px]">Extra Roster Room</div>
             <div className="text-[12px] opacity-70">+1 Elder room · {rooms}/{PREMIUM_ROOM_MAX} bought · price rises with each room</div>
           </div>
-          <button disabled={rooms >= PREMIUM_ROOM_MAX || mementos < roomPrice} onClick={onBuyRoom} className={btn(rooms < PREMIUM_ROOM_MAX && mementos >= roomPrice)}>{rooms >= PREMIUM_ROOM_MAX ? 'Maxed' : `${roomPrice} 💛`}</button>
+          <button disabled={rooms >= PREMIUM_ROOM_MAX || mementos < roomPrice} onClick={onBuyRoom} className={btn(rooms < PREMIUM_ROOM_MAX && mementos >= roomPrice)}>{<EmojiText text={rooms >= PREMIUM_ROOM_MAX ? 'Maxed' : `${roomPrice} 💛`} />}</button>
         </div>
 
         <h3 className="font-black uppercase text-[13px] opacity-60 mb-1">Keepsakes of the week</h3>
@@ -78,7 +79,7 @@ const MementoShop: React.FC<{
                   <div className="font-black uppercase text-[15px] truncate">{m.name}</div>
                   <div className="text-[12px] opacity-70">Title: {m.title}</div>
                 </div>
-                <button disabled={has || mementos < m.price} onClick={() => onBuyItem(m.id)} className={has ? 'px-3 py-2 rounded-xl font-black uppercase text-[13px] bg-emerald-600 text-white' : btn(mementos >= m.price)}>{has ? 'Owned' : `${m.price} 💛`}</button>
+                <button disabled={has || mementos < m.price} onClick={() => onBuyItem(m.id)} className={has ? 'px-3 py-2 rounded-xl font-black uppercase text-[13px] bg-emerald-600 text-white' : btn(mementos >= m.price)}>{<EmojiText text={has ? 'Owned' : `${m.price} 💛`} />}</button>
               </div>
             );
           })}

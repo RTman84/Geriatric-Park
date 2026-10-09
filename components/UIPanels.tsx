@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
@@ -161,10 +162,10 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
           )}
           {(msg.reward || msg.materials) && !msg.claimed && (
             <button onClick={() => onClaim(msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
-              <GiftIcon className="w-4 h-4" /> Claim {[
+              <GiftIcon className="w-4 h-4" /> Claim {<EmojiText text={[
                 msg.reward ? (msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name) : null,
                 msg.materials ? `${msg.materials} 🧱` : null,
-              ].filter(Boolean).join(' + ')}
+              ].filter(Boolean).join(' + ')} />}
             </button>
           )}
           {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && (
@@ -621,7 +622,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               disabled={!purseAvailable}
               className={`w-full py-3 rounded-xl text-[14px] font-black uppercase ${purseAvailable ? 'bg-amber-400 text-amber-950 active:scale-95' : 'bg-white/10 text-white/60 cursor-not-allowed'}`}
             >
-              {purseAvailable ? `Collect Champion's Purse (+${COURT_PURSE_TICKETS} 🎟️)` : "Purse collected — defend again after your title ends"}
+              {<EmojiText text={purseAvailable ? `Collect Champion's Purse (+${COURT_PURSE_TICKETS} 🎟️)` : "Purse collected — defend again after your title ends"} />}
             </button>
           </div>
         )}
@@ -672,7 +673,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Reward Range</span>
-              <span className="text-[var(--accent-500)]">{AUTO_PLAY_MIN_TICKETS}–{Math.floor(AUTO_PLAY_MIN_TICKETS + 1.5 * AUTO_PLAY_TICKET_SPAN)} 🎟️</span>
+              <span className="text-[var(--accent-500)]">{AUTO_PLAY_MIN_TICKETS}–{Math.floor(AUTO_PLAY_MIN_TICKETS + 1.5 * AUTO_PLAY_TICKET_SPAN)} <Gfx e="🎟" /></span>
             </div>
             <div className="flex justify-between text-[15px] font-black uppercase mt-2">
               <span className="opacity-60">Paid Collections Left</span>
@@ -838,12 +839,12 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
               </div>
               <div className="ml-auto text-center shrink-0">
                 <span className={`block text-[13px] uppercase ${muted}`}>{firstClear ? 'First win' : 'Win'}</span>
-                <span className="font-black text-[var(--accent-500)]">+{firstClear ? tier.winTickets * CHALLENGE_FIRST_CLEAR_MULT : tier.winTickets} 🎟️</span>
+                <span className="font-black text-[var(--accent-500)]">+{firstClear ? tier.winTickets * CHALLENGE_FIRST_CLEAR_MULT : tier.winTickets} <Gfx e="🎟" /></span>
               </div>
             </div>
             <p className={`text-[13px] font-bold mt-3 ${oddsColor}`}>Your Squad Power: {teamStrength} — {oddsText}</p>
             <p className={`text-[13px] font-bold mt-1 ${muted}`}>
-              {paidLeft > 0 ? `Lose: −${tier.lossTickets} 🎟️` : 'Friendly duel: nothing to lose, reduced XP'}
+              {<EmojiText text={paidLeft > 0 ? `Lose: −${tier.lossTickets} 🎟️` : 'Friendly duel: nothing to lose, reduced XP'} />}
             </p>
           </div>
 
@@ -912,7 +913,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                   </div>
                 </div>
                 <p className={`text-[14px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
-                  {isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${ownStrength} — need ${league.minSquadPower - teamStrength} more`}
+                  {<EmojiText text={isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${ownStrength} — need ${league.minSquadPower - teamStrength} more`} />}
                 </p>
               </div>
             );
@@ -1029,16 +1030,16 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
         <div className={`text-2xl font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Commissary</div>
         <div className={`p-4 rounded-2xl flex items-center justify-between mt-4 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
           <span className="text-[15px] font-black uppercase opacity-60">Balance</span>
-          <span className="text-xl font-black text-[var(--accent-500)]">{tokens} 🎟️</span>
+          <span className="text-xl font-black text-[var(--accent-500)]">{tokens} <Gfx e="🎟" /></span>
         </div>
         {onOpenPvpShop && (
           <button onClick={onOpenPvpShop} className="w-full mt-3 py-3 rounded-2xl bg-[var(--accent-600)] text-white font-black uppercase text-[14px] active:scale-95 transition-transform">
-            🍽️ PvP Shop · {diners} TV Dinners
+            <Gfx e="🍽" /> PvP Shop · {diners} TV Dinners
           </button>
         )}
         {onOpenMementoShop && (
           <button onClick={onOpenMementoShop} className={`w-full mt-2 py-3 rounded-2xl font-black uppercase text-[14px] active:scale-95 transition-transform border-2 ${isDark ? 'border-amber-500 text-amber-300' : 'border-amber-500 text-amber-700'}`}>
-            💛 Mementos Shop · {mementos} Mementos
+            <Gfx e="💛" /> Mementos Shop · {mementos} Mementos
           </button>
         )}
       </div>
@@ -1076,7 +1077,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
                 }`}>{item.category}</span>
               </div>
               <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} leading-tight mb-2`}>{item.description}</p>
-              <div className="text-[var(--accent-500)] font-black text-sm">{item.price} 🎟️</div>
+              <div className="text-[var(--accent-500)] font-black text-sm">{item.price} <Gfx e="🎟" /></div>
             </div>
           </button>
         ))}
@@ -1152,7 +1153,7 @@ export const QuestPanel: React.FC<{
           <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{Math.round(parkScore)} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
         <div className={`mt-4 pt-4 border-t text-[14px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
-          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
+          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} <Gfx e="🎟" /></span> every time you claim.
         </div>
       </div>
 
@@ -1256,7 +1257,7 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
   <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${q.completed ? 'opacity-40 grayscale' : ''}`}>
     <div className="flex justify-between items-start mb-2">
       <div className="px-2 py-0.5 rounded bg-[var(--accent-500-a10)] text-[var(--accent-500)] text-[13px] font-black uppercase mb-1">{q.type}</div>
-      <div className="text-[14px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} 🎟️<br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
+      <div className="text-[14px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} <Gfx e="🎟" /><br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
     </div>
     <h4 className={`font-black text-base uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{q.title}</h4>
     <p className="text-[15px] text-slate-600 mb-4">{q.description}</p>
@@ -1349,7 +1350,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         <div className="grid grid-cols-2 gap-3 relative z-10 mb-6">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
             <span className="text-[13px] font-black uppercase opacity-60 mb-1">Currency</span>
-            <span className="text-lg font-black tabular-nums">{tokens} 🎟️</span>
+            <span className="text-lg font-black tabular-nums">{tokens} <Gfx e="🎟" /></span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
             <span className="text-[13px] font-black uppercase opacity-60 mb-1">Residents</span>
@@ -1379,7 +1380,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         )}
 
         <button onClick={onHealAll} disabled={healPrice?.soldOut} className="relative z-10 w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-all shadow-xl">
-          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab ({healPrice ? healPrice.cost : 25} 🎟️)
+          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab ({healPrice ? healPrice.cost : 25} <Gfx e="🎟" />)
         </button>
       </div>
 
@@ -1514,7 +1515,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                     disabled={!canAfford}
                     className={`flex-1 py-2.5 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
                   >
-                    Upgrade — {cost.tickets} 🎟️ + {cost.materials} 🧱
+                    Upgrade — {cost.tickets} <Gfx e="🎟" /> + {cost.materials} <Gfx e="🧱" />
                   </button>
                 );
               })()}
@@ -1525,7 +1526,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                     onClick={() => { onSellGear(item.id); setSelectedItem(null); }}
                     className="py-2.5 px-3 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
                   >
-                    Sell — {sellValue.tickets} 🎟️ + {sellValue.materials} 🧱
+                    Sell — {sellValue.tickets} <Gfx e="🎟" /> + {sellValue.materials} <Gfx e="🧱" />
                   </button>
                 );
               })()}
@@ -1759,7 +1760,7 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
                       title={!meetsLevel ? `Needs level ${nextLevelNeeded}` : !canAffordEvolve ? `Needs ${evolveCost} Tickets` : `Evolve to stage ${stage + 1}`}
                       className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg ${meetsLevel && canAffordEvolve ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-300 cursor-not-allowed'}`}
                     >
-                      Evolve {meetsLevel ? `(${evolveCost} 🎟️)` : `(Lv.${nextLevelNeeded})`}
+                      Evolve {<EmojiText text={meetsLevel ? `(${evolveCost} 🎟️)` : `(Lv.${nextLevelNeeded})`} />}
                     </button>
                   )}
                   {stage >= 2 && <span className="px-4 py-2 rounded-xl text-[14px] font-black uppercase bg-amber-100 text-amber-600">Fully Evolved</span>}

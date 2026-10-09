@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
 import {
   AMENITIES, getHousingCapacity, isImagePath, getBuildingLevel, buildingUpgradeMaterials, buildingUpgradeTickets,
@@ -96,7 +97,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
         disabled={!can}
         className={`mt-2 w-full px-3 py-2 rounded-xl text-[12px] font-black uppercase ${can ? 'bg-[var(--accent-600)] text-white' : disabledBtn}`}
       >
-        Upgrade to Lv {level + 1}: {mats} 🧱 + {tix} 🎟️ {preview}
+        Upgrade to Lv {level + 1}: {mats} <Gfx e="🧱" /> + {tix} <Gfx e="🎟" /> {preview}
       </button>
     );
   };
@@ -109,7 +110,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
         disabled={!canAfford}
         className={`px-4 py-2 rounded-xl text-[12px] font-black uppercase flex-shrink-0 ${canAfford ? 'bg-[var(--accent-600)] text-white' : disabledBtn}`}
       >
-        {amenity.cost} 🧱
+        {amenity.cost} <Gfx e="🧱" />
       </button>
     );
   };
@@ -206,7 +207,7 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
         <div className={`rounded-2xl p-4 mb-6 flex items-center justify-between ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
           <div>
             <p className={`text-[12px] font-black uppercase tracking-widest ${body}`}>Building Materials</p>
-            <p className={`font-black text-xl ${strong}`}>{buildingMaterials} 🧱</p>
+            <p className={`font-black text-xl ${strong}`}>{buildingMaterials} <Gfx e="🧱" /></p>
           </div>
           <div className="text-right">
             <p className={`text-[12px] font-black uppercase tracking-widest ${body}`}>Residents</p>

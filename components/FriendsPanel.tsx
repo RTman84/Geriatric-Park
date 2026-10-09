@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import ParkScene from './ParkScene';
@@ -495,7 +496,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                           disabled={onCooldown}
                           className={`flex-1 py-2 rounded-xl text-[12px] font-black uppercase ${!onCooldown ? 'bg-[var(--accent-600)] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                         >
-                          {onCooldown ? 'Visited today' : `Visit (+${VISIT_MATERIALS_REWARD} 🧱)`}
+                          {<EmojiText text={onCooldown ? 'Visited today' : `Visit (+${VISIT_MATERIALS_REWARD} 🧱)`} />}
                         </button>
                         <button onClick={() => onRemove(friend.user_id)} className="px-3 rounded-xl text-slate-300 hover:text-rose-400"><UserMinusIcon className="w-4 h-4" /></button>
                       </div>

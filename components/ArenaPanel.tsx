@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { Elder, ElderType } from '../types';
 import {
   ELDER_AVATARS, ElderAvatarImg, FACTIONS, factionById, FactionId, getElderPower,
@@ -178,7 +179,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                     <>
                       <button disabled={!canHit} onClick={onRaidHit}
                         className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[14px] ${canHit ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>
-                        {atCap ? "You've hit this boss enough — let others in" : `⚔️ Join the fight${nextCost > 0 ? ` (${nextCost} 🎟️)` : ' (free)'}`}
+                        {<EmojiText text={atCap ? "You've hit this boss enough — let others in" : `⚔️ Join the fight${nextCost > 0 ? ` (${nextCost} 🎟️)` : ' (free)'}`} />}
                       </button>
                       {!atCap && raid.myAttempts >= RAID_FREE_ATTEMPTS && (
                         <p className={`text-[12px] font-bold mt-1 ${muted}`}>Free attempts used — extra hits cost Tickets.</p>
@@ -214,7 +215,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                 <>
                   <button disabled={busy || !canAttack} onClick={onAttack}
                     className={`w-full py-4 rounded-2xl font-black uppercase text-[15px] active:scale-95 transition-all ${canAttack && !busy ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>
-                    {busy ? 'Fighting…' : `⚔️ Attack (${attackCost === 0 ? 'free' : `${attackCost} 🎟️`})`}
+                    {<EmojiText text={busy ? 'Fighting…' : `⚔️ Attack (${attackCost === 0 ? 'free' : `${attackCost} 🎟️`})`} />}
                   </button>
                   <p className={`text-[13px] font-bold ${muted}`}>
                     Your Squad Power: {me.squadPower}. Each defender you beat weakens you a little for the next fight. {ARENA_ATTACK_COOLDOWN_MIN}-minute cooldown per Arena.
@@ -260,7 +261,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                   </p>
                 )}
                 <p className={`text-[14px] font-bold ${muted}`}>
-                  {me.duesClaimedToday ? 'Already collected today (from any Arena) — new Dues keep building for tomorrow.' : `Ready: ${me.dues.tickets} 🎟️ · ${me.dues.materials} 🧱 across all your stationed Elders (${me.dues.hours}h combined, max 12h per Elder). A freshly stationed Elder starts at 0 and builds up hourly. Sent to your Mailbox.`}
+                  {<EmojiText text={me.duesClaimedToday ? 'Already collected today (from any Arena) — new Dues keep building for tomorrow.' : `Ready: ${me.dues.tickets} 🎟️ · ${me.dues.materials} 🧱 across all your stationed Elders (${me.dues.hours}h combined, max 12h per Elder). A freshly stationed Elder starts at 0 and builds up hourly. Sent to your Mailbox.`} />}
                 </p>
                 <button disabled={busy || me.duesClaimedToday || (me.dues.tickets <= 0 && me.dues.materials <= 0)} onClick={onClaimDues}
                   className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[14px] ${!busy && !me.duesClaimedToday && (me.dues.tickets > 0 || me.dues.materials > 0) ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}>

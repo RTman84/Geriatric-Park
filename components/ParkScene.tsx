@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
@@ -147,9 +148,11 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           <div style={{ ...barBtn, pointerEvents: 'none' }}>👥 {rosterCount}/{capacity}</div>
           {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}>🏡 Grounds</button> : <div style={{ width: 1 }} />}
         </div>
-        {!readOnly && decorOptions && decorOptions.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6, padding: '0 10px', pointerEvents: 'none' }}>
-            <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); }} style={barBtn}>{decorMode ? '✔ Done decorating' : '🎨 Decorate'}</button>
+        {!readOnly && (onOpenExchange || onOpenWorkshop || (decorOptions && decorOptions.length > 0)) && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6, padding: '0 10px', pointerEvents: 'none', flexWrap: 'wrap' }}>
+            {onOpenExchange && <button onClick={onOpenExchange} style={barBtn}>Lodge</button>}
+            {onOpenWorkshop && <button onClick={onOpenWorkshop} style={barBtn}>Workshop</button>}
+            {decorOptions && decorOptions.length > 0 && <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); }} style={barBtn}>{decorMode ? 'Done decorating' : 'Decorate'}</button>}
           </div>
         )}
       </div>
@@ -281,11 +284,9 @@ const ParkScene: React.FC<ParkSceneProps> = ({
                 <button onClick={() => onCollect(id)} style={{ ...pillBase, background: '#16a34a', cursor: 'pointer' }}>
                   Collect {icon} {stored}
                 </button>
-              ) : built && !readOnly && (id === 'lodge' || id === 'workshop') ? (
-                <button onClick={() => openBuilding(id, true)} style={{ ...pillBase, background: '#2563eb', cursor: 'pointer' }}>{id === 'lodge' ? 'Open Lodge' : 'Open Workshop'}</button>
               ) : !built && !readOnly ? (
                 <button onClick={() => onOpenGrounds?.(id)} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
-                  Build · {amenity.cost} 🧱
+                  Build · {amenity.cost} <Gfx e="🧱" />
                 </button>
               ) : !built && readOnly ? (
                 <div style={{ ...pillBase, background: 'rgba(90,90,90,0.7)' }}>Not built</div>

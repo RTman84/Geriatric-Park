@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Gfx, EmojiText } from './Gfx';
 import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey } from '../constants';
 
 // PvP Shop: TV Dinners (earned only from Friend Battles, Arena, Raids and Court Ladder wins) buy antiques that
@@ -27,7 +28,7 @@ const PvpShop: React.FC<{
         <div className={`p-3 rounded-2xl mb-3 flex items-center justify-between ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
           <div>
             <div className="text-[12px] font-black uppercase opacity-60">Your TV Dinners</div>
-            <div className="text-xl font-black text-[var(--accent-500)]">{diners} 🍽️</div>
+            <div className="text-xl font-black text-[var(--accent-500)]">{diners} <Gfx e="🍽" /></div>
           </div>
           <div className="text-right text-[12px] font-bold opacity-70">Earned today: {Math.min(earnedToday, DINERS_DAILY_CAP)}/{DINERS_DAILY_CAP}<br />From Friend Battles, Arenas, Raids and Court Ladders</div>
         </div>
@@ -46,7 +47,7 @@ const PvpShop: React.FC<{
                     <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[a.rarity] }}>{a.rarity} · title: {a.title}</div>
                   </div>
                   <button disabled={has || diners < a.price} onClick={() => onBuyAntique(a.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${has ? 'bg-emerald-600 text-white' : diners >= a.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>
-                    {has ? 'Owned' : `${a.price} 🍽️`}
+                    {<EmojiText text={has ? 'Owned' : `${a.price} 🍽️`} />}
                   </button>
                 </div>
               );
@@ -64,7 +65,7 @@ const PvpShop: React.FC<{
                   <div className="font-black uppercase text-[15px] truncate">{g.name}</div>
                   <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[g.rarity] }}>{g.rarity} · {g.slot} slot · +{g.boost} {GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]}</div>
                 </div>
-                <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} 🍽️</button>
+                <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} <Gfx e="🍽" /></button>
               </div>
             ))}
           </div>
@@ -83,7 +84,7 @@ const PvpShop: React.FC<{
                   <div className="font-black uppercase text-[15px]">{b.name} <span className="opacity-60">· held {passes[b.kind]}/{PASS_HOLD_MAX}</span></div>
                   <div className="text-[12px] opacity-70">{b.desc}</div>
                 </div>
-                <button disabled={diners < PASS_PRICE[b.kind] || passes[b.kind] >= PASS_HOLD_MAX} onClick={() => onBuyPass(b.kind)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= PASS_PRICE[b.kind] && passes[b.kind] < PASS_HOLD_MAX ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{PASS_PRICE[b.kind]} 🍽️</button>
+                <button disabled={diners < PASS_PRICE[b.kind] || passes[b.kind] >= PASS_HOLD_MAX} onClick={() => onBuyPass(b.kind)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= PASS_PRICE[b.kind] && passes[b.kind] < PASS_HOLD_MAX ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{PASS_PRICE[b.kind]} <Gfx e="🍽" /></button>
               </div>
             ))}
           </div>

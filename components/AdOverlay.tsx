@@ -3,6 +3,7 @@
 // (AdSense display ads may not be rewarded, so they are no longer shown behind a reward.)
 // On the web this is a simulated timer for testing, or disabled -- see services/rewardedAds.ts.
 
+import { Gfx, EmojiText } from './Gfx';
 import React, { useEffect, useRef, useState } from 'react';
 import { AD_REVENUE_PAYOUT, REVENUE_SPLIT } from '../constants';
 import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
@@ -113,7 +114,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                     Each view's ad revenue is split three ways
                   </p>
                   <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold">💰 You get {playerPct}%</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold"><Gfx e="💰" /> You get {playerPct}%</span>
                     <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} PP</span>
                   </div>
                   <div className="flex justify-between">
