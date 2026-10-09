@@ -93,6 +93,10 @@ export default async function handler(req: Request): Promise<Response> {
     console.error('purchase insert failed', insErr.message); return json({ error: 'Purchases unavailable', detail: insErr.message }, 500);
   }
 
+  // The purchased Mementos go into the account's server-held balance (idempotent per purchase token).
+  const { error: mErr } = await supabase.from('memento_events').insert({ user_id: userId, kind: 'purchase', amount: product.mementos, ref: purchaseToken, meta: { productId, purchase: (inserted as any).id } });
+  if (mErr && mErr.code !== '23505') console.error('purchase memento credit failed', mErr.message);
+
   // Money in: the reserve gets its share of NET revenue, development the rest (idempotent per purchase token).
   const net = +(product.priceUsd * STORE_NET).toFixed(8), reserve = +(net * RESERVE_SHARE).toFixed(8);
   const { error: lErr } = await supabase.from('ledger_entries').insert([

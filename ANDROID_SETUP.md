@@ -51,11 +51,14 @@ verifies it with Google, credits Mementos once (migration `022_purchases.sql`) a
    - `GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL` = the `client_email` from the JSON
    - `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY` = the `private_key` from the JSON (keep it secret; never commit it)
    - `PLAY_PACKAGE_NAME` = `com.geriatricpark.game`
-4. Run `supabase/migrations/022_purchases.sql` in Supabase.
+4. Run `supabase/migrations/022_purchases.sql` AND `supabase/migrations/023_mementos_server.sql` in Supabase (023 holds the
+   server-side Mementos balance and refund handling).
 5. **Test with a license tester**: Play Console -> Settings -> License testing -> add your Google account. Test purchases are
    refused by default (see the marked line in `api/purchase.ts`); remove that line temporarily to test, then put it back.
-6. Mementos balance still lives in the player's save (like the rest of the economy); the purchase itself cannot be faked.
-   Moving the balance fully server-side belongs with the PP ledger project.
+6. The Mementos balance lives on the SERVER (`api/mementos.ts`); the game mirrors it and the server's number always wins.
+   Refunds: at most every 30 minutes the server asks Google for voided purchases (same service account) and takes refunded
+   Mementos back; if they were already spent, the Mementos purchases made since are revoked, newest first. For testing the PP
+   conversion before ads are verified, set `ALLOW_UNVERIFIED_PP_CONVERT=true` on a Preview deployment only.
 
 ## Known gaps (not done yet)
 - **Google sign-in inside the app**: Google blocks OAuth in embedded WebViews. Email/password and

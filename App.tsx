@@ -14,6 +14,7 @@ import ParkScene, { isDecorSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
+import { fetchMementos, buyRoom, buyKeepsake, convertPpToMementos, MementosError, type MementosState } from './services/mementosService';
 import { buyPack, retryPendingPurchases, loadPackPrices, billingAvailable, type VerifiedPurchase } from './services/billing';
 import BoardsPanel from './components/BoardsPanel';
 import { submitBoardScore, fetchBoard, BoardMode } from './services/boardsService';
@@ -1275,52 +1276,60 @@ const App: React.FC = () => {
     setState(prev => (prev.antiquesOwned ?? []).includes(id) || (prev.tvDinners ?? 0) < a.price ? prev : { ...prev, tvDinners: (prev.tvDinners ?? 0) - a.price, antiquesOwned: [...(prev.antiquesOwned ?? []), id] });
     notify(`${a.icon} ${a.name} is yours! New icon and title unlocked in your profile.`, 'good');
   }, [state.antiquesOwned, state.tvDinners, notify]);
-  // Credits a server-verified purchase exactly once (the purchase id is remembered in the save).
-  const creditPurchase = useCallback((v: VerifiedPurchase) => {
-    setState(prev => (prev.mementoPurchaseIds ?? []).includes(v.purchaseId) ? prev : { ...prev, mementos: (prev.mementos ?? 0) + v.mementos, mementoPurchaseIds: [...(prev.mementoPurchaseIds ?? []), v.purchaseId].slice(-300) });
-  }, []);
+  // The server's Mementos are the real ones: whatever it says replaces the local copy (balance, extra rooms, keepsakes).
+  const mementosSynced = useRef(false);
+  const applyServerMementos = useCallback((m: MementosState, announce = false) => {
+    setState(prev => {
+      const lost = (prev.mementoItemsOwned ?? []).filter(id => !m.items.includes(id)).length;
+      if (announce && mementosSynced.current && lost > 0) queueMicrotask(() => notify(`A refunded purchase was taken back: ${lost} keepsake${lost > 1 ? 's were' : ' was'} removed.`, 'bad'));
+      if (prev.mementos === m.balance && prev.premiumRooms === m.premiumRooms && (prev.mementoItemsOwned ?? []).length === m.items.length && m.items.every(id => (prev.mementoItemsOwned ?? []).includes(id))) return prev;
+      return { ...prev, mementos: m.balance, premiumRooms: m.premiumRooms, mementoItemsOwned: m.items };
+    });
+    mementosSynced.current = true;
+  }, [notify]);
+  const refreshMementos = useCallback(async () => { try { applyServerMementos(await fetchMementos(), true); } catch { /* offline or signed out: keep the last known copy */ } }, [applyServerMementos]);
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled || !authSession) return;
+    void refreshMementos();
+    const id = setInterval(() => void refreshMementos(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isLoaded, cloudSyncSettled, authSession, refreshMementos]);
   const [packPrices, setPackPrices] = useState<Record<string, string>>({});
   const [buyingPack, setBuyingPack] = useState(false);
   useEffect(() => { if (billingAvailable()) void loadPackPrices(MEMENTO_PACKS.map(p => p.id)).then(setPackPrices); }, []);
   useEffect(() => {
     if (!isLoaded || !cloudSyncSettled || !billingAvailable()) return;
-    void retryPendingPurchases().then(list => { list.forEach(creditPurchase); if (list.length) notify(`💛 Your earlier purchase was confirmed: +${list.reduce((t, v) => t + v.mementos, 0)} Mementos.`, 'good'); });
-  }, [isLoaded, cloudSyncSettled, creditPurchase, notify]);
+    void retryPendingPurchases().then(list => { if (list.length) { void refreshMementos(); notify(`💛 Your earlier purchase was confirmed: +${list.reduce((t, v) => t + v.mementos, 0)} Mementos.`, 'good'); } });
+  }, [isLoaded, cloudSyncSettled, refreshMementos, notify]);
   const handleBuyPack = useCallback(async (productId: string) => {
     if (buyingPack) return;
     setBuyingPack(true);
     try {
       const v = await buyPack(productId, authSession?.user?.id);
-      creditPurchase(v);
+      await refreshMementos();
       notify(`💛 Thank you! +${v.mementos} Mementos added.`, 'good');
     } catch (e) { notify((e as Error).message || 'The purchase did not go through.', 'bad'); }
     finally { setBuyingPack(false); }
-  }, [buyingPack, authSession, creditPurchase, notify]);
-  const handleConvertPp = useCallback((amountPp: number) => {
+  }, [buyingPack, authSession, refreshMementos, notify]);
+  const handleConvertPp = useCallback(async (amountPp: number) => {
     const amount = Math.round(amountPp * 100) / 100;
     if (!(amount >= PP_TO_MEMENTOS_MIN) || amount > state.pensionBalance + 1e-9) { notify('Not enough PP for that.', 'bad'); return; }
-    const gained = Math.floor(amount * MEMENTOS_PER_PP);
-    if (gained < 1) { notify('That is too small to convert.', 'bad'); return; }
-    setState(prev => prev.pensionBalance + 1e-9 < amount ? prev : { ...prev, pensionBalance: Math.max(0, prev.pensionBalance - amount), mementos: (prev.mementos ?? 0) + gained });
-    notify(`💛 Converted ${amount.toFixed(2)} PP into ${gained} Mementos.`, 'good');
-  }, [state.pensionBalance, notify]);
-  const handleBuyPremiumRoom = useCallback(() => {
-    const have = state.premiumRooms ?? 0;
-    if (have >= PREMIUM_ROOM_MAX) { notify('You already own every extra room.', 'bad'); return; }
-    const price = premiumRoomPrice(have);
-    if ((state.mementos ?? 0) < price) { notify(`You need ${price} Mementos.`, 'bad'); return; }
-    setState(prev => (prev.premiumRooms ?? 0) !== have || (prev.mementos ?? 0) < price ? prev : { ...prev, mementos: (prev.mementos ?? 0) - price, premiumRooms: have + 1 });
-    notify('🏠 +1 roster room added.', 'good');
-  }, [state.premiumRooms, state.mementos, notify]);
-  const handleBuyMementoItem = useCallback((id: string) => {
+    try {
+      const m = await convertPpToMementos(amount, 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+      setState(prev => ({ ...prev, pensionBalance: Math.max(0, prev.pensionBalance - amount) }));
+      applyServerMementos(m);
+      notify(`💛 Converted ${amount.toFixed(2)} PP into ${Math.floor(amount * MEMENTOS_PER_PP)} Mementos.`, 'good');
+    } catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
+  }, [state.pensionBalance, applyServerMementos, notify]);
+  const handleBuyPremiumRoom = useCallback(async () => {
+    try { const m = await buyRoom(); applyServerMementos(m); notify('🏠 +1 roster room added.', 'good'); }
+    catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
+  }, [applyServerMementos, notify]);
+  const handleBuyMementoItem = useCallback(async (id: string) => {
     const m = MEMENTO_ITEMS.find(x => x.id === id);
-    if (!m) return;
-    if (!mementoItemsForWeek(mementoWeekIndex()).some(x => x.id === id)) { notify('That keepsake is not on sale this week.', 'bad'); return; }
-    if ((state.mementoItemsOwned ?? []).includes(id)) { notify('You already own that keepsake.', 'bad'); return; }
-    if ((state.mementos ?? 0) < m.price) { notify(`You need ${m.price} Mementos.`, 'bad'); return; }
-    setState(prev => (prev.mementoItemsOwned ?? []).includes(id) || (prev.mementos ?? 0) < m.price ? prev : { ...prev, mementos: (prev.mementos ?? 0) - m.price, mementoItemsOwned: [...(prev.mementoItemsOwned ?? []), id] });
-    notify(`${m.icon} ${m.name} is yours! New icon and title unlocked.`, 'good');
-  }, [state.mementoItemsOwned, state.mementos, notify]);
+    try { const st = await buyKeepsake(id); applyServerMementos(st); if (m) notify(`${m.icon} ${m.name} is yours! New icon and title unlocked.`, 'good'); }
+    catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
+  }, [applyServerMementos, notify]);
   const handleBuyPass = useCallback((kind: 'arena' | 'raid') => {
     const price = PASS_PRICE[kind];
     const held = state.pvpPasses?.[kind] ?? 0;
