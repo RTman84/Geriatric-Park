@@ -45,7 +45,16 @@ function isAccountContext(value: AccountContext | Response): value is AccountCon
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_DURATIONS = [8, 12, 24];
 const OWNER_MAX_ACTIVE = 3; // how many of YOUR OWN Elders can be away at once, across all friends
-const HOST_MAX_VISITORS = 3; // how many visiting Elders any one host can have at once, across all senders
+const HOST_MAX_VISITORS = 3; // base: how many visiting Elders any one host can have at once, across all senders
+// Visitors' Lodge + Tinker's Workshop perks (neither required). Mirrors lodgeVisitorCap / exchangeXpBonusPct in constants.tsx.
+function hubLevels(profile: any) {
+  const built: string[] = Array.isArray(profile?.built_amenities) ? profile.built_amenities : [];
+  const lv = profile?.amenity_levels && typeof profile.amenity_levels === 'object' ? profile.amenity_levels : {};
+  const get = (id: string) => built.includes(id) ? clampNum(lv[id] ?? 1, 1, 10) : 0;
+  return { lodge: get('lodge'), workshop: get('workshop') };
+}
+const hostVisitorCap = (p: any) => { const h = hubLevels(p); return HOST_MAX_VISITORS + Math.ceil(h.lodge / 2) + Math.floor(h.workshop / 3); };
+const xpBonusPct = (p: any) => { const h = hubLevels(p); return Math.min(100, 6 * h.lodge + 3 * h.workshop); };
 const RESIDENT_XP_PER_HOUR = 15;
 const HOST_MAX_LOANS = 1; // a borrower can have one loaned Elder at a time (Squad Loan)
 const RARITIES = ['Common', 'Rare', 'Epic', 'Legendary'];
@@ -152,7 +161,8 @@ export default async function handler(req: Request): Promise<Response> {
           .from('resident_exchange').select('id', { count: 'exact', head: true }).eq('host_id', hostId).eq('mode', mode);
         if (hostCountErr) { console.error('Resident Exchange host-count failed', hostCountErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: hostCountErr.message }, 500); }
         if (mode === 'loan' && (hostCount ?? 0) >= HOST_MAX_LOANS) return serverJson({ error: 'That friend already has a borrowed Elder.' }, 409);
-        if (mode === 'visit' && (hostCount ?? 0) >= HOST_MAX_VISITORS) return serverJson({ error: "That friend's park is full of visitors right now." }, 409);
+        const { data: hostProfile } = await supabase.from('player_profiles').select('built_amenities, amenity_levels').eq('user_id', hostId).maybeSingle();
+        if (mode === 'visit' && (hostCount ?? 0) >= hostVisitorCap(hostProfile)) return serverJson({ error: "That friend's park is full of visitors right now." }, 409);
 
         const now = new Date();
         const endsAt = new Date(now.getTime() + durationHours * 3600000);
@@ -180,7 +190,8 @@ export default async function handler(req: Request): Promise<Response> {
         if (!row || row.owner_id !== userId) return serverJson({ error: 'Placement not found' }, 404);
 
         const elapsedHours = (Date.now() - Date.parse(row.placed_at)) / 3600000;
-        const xpEarned = Math.max(0, Math.round(Math.min(elapsedHours, row.duration_hours) * RESIDENT_XP_PER_HOUR));
+        const { data: hostProf } = await supabase.from('player_profiles').select('built_amenities, amenity_levels').eq('user_id', row.host_id).maybeSingle();
+        const xpEarned = Math.max(0, Math.round(Math.min(elapsedHours, row.duration_hours) * RESIDENT_XP_PER_HOUR * (1 + xpBonusPct(hostProf) / 100)));
 
         const { error: delErr } = await supabase.from('resident_exchange').delete().eq('id', placementId);
         if (delErr) { console.error('Resident Exchange recall delete failed', delErr.message); return serverJson({ error: 'Resident Exchange unavailable', detail: delErr.message }, 500); }

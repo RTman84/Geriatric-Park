@@ -853,6 +853,7 @@ export interface Amenity {
   structureDiscount?: { basePct: number; perLevelPct: number };     // % off every map-building's Ticket price
   scoreTrickle?: { basePerHour: number; perLevelPerHour: number };  // Community Score gained per hour, just for existing
   courtPurseBonus?: { perLevel: number };                           // flat Tickets added to the Court Champion purse
+  hub?: 'lodge' | 'workshop';                                       // a working place, not a producer: opens its own window
 }
 export const AMENITIES: Amenity[] = [
   { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home. Upgrade it to make room for more residents.', capacityBonus: 6, capacityPerLevel: 3 },
@@ -865,8 +866,8 @@ export const AMENITIES: Amenity[] = [
   { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping. A well-rested park is a productive park.', producerBoost: { basePct: 4, perLevelPct: 2 } },
   { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'production', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.', producer: { output: 'tickets', basePerHour: 2, perLevelPerHour: 1 } },
   { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- but a nicer court means a richer champion\'s purse.', courtPurseBonus: { perLevel: 5 } },
-  { id: 'workshop', name: "Tinker's Workshop", icon: amenityWorkshop, category: 'production', cost: 45, flavor: 'Nothing is ever really broken, just "in progress." Spare screws and salvaged parts pile up as Building Materials.', producer: { output: 'materials', basePerHour: 1.25, perLevelPerHour: 0.6 } },
-  { id: 'lodge', name: "Visitors' Lodge", icon: amenityLodge, category: 'production', cost: 40, flavor: 'Guests sign the book, leave a tip for the rocking chairs, and swear they will be back. Tips come in as Tickets.', producer: { output: 'tickets', basePerHour: 2.5, perLevelPerHour: 1.25 } },
+  { id: 'workshop', name: "Tinker's Workshop", icon: amenityWorkshop, category: 'production', cost: 45, hub: 'workshop', flavor: 'Nothing is ever really broken, just "in progress." Upgrade, sell and salvage gear here. Higher levels also help the Lodge: more room for visitors and extra Elder XP.' },
+  { id: 'lodge', name: "Visitors' Lodge", icon: amenityLodge, category: 'production', cost: 40, hub: 'lodge', flavor: 'Where your Folks go to stay with friends, and where friends\' Folks stay with you. Every level makes room for more visitors and sends them home with more Elder XP.' },
 ];
 // Max residents. The Retirement Cottage is the housing building: it raises capacity, and every level
 // raises it more. Existing rosters above capacity are grandfathered (nothing is removed) -- the cap
@@ -881,6 +882,28 @@ export function getBuildingLevel(levels: Record<string, number> | undefined, id:
   const v = levels?.[id];
   return typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(v))) : 1;
 }
+// ---- Lodge + Workshop perks (neither building is required; without them the base values apply).
+// Mirrored in api/resident-exchange.ts (the server decides the real cap and XP).
+export const EXCHANGE_BASE_VISITORS = 3;
+const hubLevel = (built: string[], levels: Record<string, number> | undefined, id: string) => built.includes(id) ? getBuildingLevel(levels, id) : 0;
+export function lodgeVisitorCap(built: string[], levels?: Record<string, number>): number {
+  const l = hubLevel(built, levels, 'lodge'), w = hubLevel(built, levels, 'workshop');
+  return EXCHANGE_BASE_VISITORS + Math.ceil(l / 2) + Math.floor(w / 3);
+}
+export function exchangeXpBonusPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(100, 6 * hubLevel(built, levels, 'lodge') + 3 * hubLevel(built, levels, 'workshop'));
+}
+export function workshopUpgradeDiscountPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(30, 3 * hubLevel(built, levels, 'workshop'));
+}
+export const applyUpgradeDiscount = (c: { tickets: number; materials: number }, pct: number) =>
+  ({ tickets: Math.max(1, Math.round(c.tickets * (1 - pct / 100))), materials: Math.max(1, Math.round(c.materials * (1 - pct / 100))) });
+export const applySalvageBonus = (v: { tickets: number; materials: number }, pct: number) =>
+  ({ tickets: Math.round(v.tickets * (1 + pct / 100)), materials: Math.round(v.materials * (1 + pct / 100)) });
+export function workshopSalvageBonusPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(50, 5 * hubLevel(built, levels, 'workshop'));
+}
+
 export function getHousingCapacity(builtAmenityIds: string[], levels?: Record<string, number>, parcelCount = 0, premiumRooms = 0): number {
   const parcelRooms = Math.min(PARCEL_HOUSING_CAP, Math.max(0, Math.floor(parcelCount))) * PARCEL_HOUSING_PER + Math.min(PREMIUM_ROOM_MAX, Math.max(0, Math.floor(premiumRooms)));
   const cottage = AMENITIES.find(a => a.id === 'cottage');

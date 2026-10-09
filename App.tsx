@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
 import { ArenaPanel } from './components/ArenaPanel';
 import { Gfx, EmojiText } from './components/Gfx';
+import WorkshopPanel from './components/WorkshopPanel';
 import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, raidHit, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
 import BattleScreen from './components/BattleScreen';
@@ -188,6 +189,7 @@ import {
   getGearSellValue,
   gearSlotKey,
   getGearMaxLevel,
+  workshopUpgradeDiscountPct, workshopSalvageBonusPct, applyUpgradeDiscount, applySalvageBonus,
 } from './constants';
 
 // A reward that paid itself: shows a top alert AND leaves a claimed note in the Mailbox saying what it was from.
@@ -491,6 +493,7 @@ const App: React.FC = () => {
   useEffect(() => { if (accountMessage) notify(accountMessage); }, [accountMessage, notify]);
   const [groundsFocusId, setGroundsFocusId] = useState<string | null>(null);
   const [showExchangeOverview, setShowExchangeOverview] = useState(false);
+  const [showWorkshop, setShowWorkshop] = useState(false);
   const [showParkHub, setShowParkHub] = useState(false);
   const [showPvpShop, setShowPvpShop] = useState(false);
   const [showBoards, setShowBoards] = useState(false);
@@ -2538,7 +2541,7 @@ const App: React.FC = () => {
     setState(prev => {
       const item = prev.inventory.find(i => i.id === itemId);
       if (!item) return prev;
-      const value = getGearSellValue(item);
+      const value = applySalvageBonus(getGearSellValue(item), workshopSalvageBonusPct(prev.builtAmenityIds, prev.amenityLevels));
       notify(`Sold ${item.name} for ${value.tickets} 🎟️ + ${value.materials} 🧱`, 'good');
       return {
         ...prev,
@@ -2556,7 +2559,7 @@ const App: React.FC = () => {
       if (!item) return prev;
       const level = item.level ?? 1;
       if (level >= getGearMaxLevel(item)) { notify('Already at max level for its rarity.'); return prev; }
-      const cost = getGearUpgradeCost(item);
+      const cost = applyUpgradeDiscount(getGearUpgradeCost(item), workshopUpgradeDiscountPct(prev.builtAmenityIds, prev.amenityLevels));
       if (prev.legacyTokens < cost.tickets || prev.buildingMaterials < cost.materials) {
         notify(`Need ${cost.tickets} Tickets + ${cost.materials} Materials to upgrade.`);
         return prev;
@@ -3007,7 +3010,7 @@ const App: React.FC = () => {
           {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
             ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 10).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),
-          ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
+          ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenWorkshop={() => setShowWorkshop(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} diners={state.tvDinners ?? 0} onOpenPvpShop={() => setShowPvpShop(true)} mementos={state.mementos ?? 0} onOpenMementoShop={() => setShowMementoShop(true)} onBuy={item => {
             if (state.legacyTokens < item.price) return notify("Not enough tokens!");
             if (item.id === 's1') {
@@ -3360,6 +3363,10 @@ const App: React.FC = () => {
           );
         })()}
 
+        {showWorkshop && <WorkshopPanel isDark={isDark} inventory={state.inventory} elders={state.allElders} tokens={state.legacyTokens} materials={state.buildingMaterials}
+          built={state.builtAmenityIds.includes('workshop')} level={state.builtAmenityIds.includes('workshop') ? getBuildingLevel(state.amenityLevels, 'workshop') : 0}
+          upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)}
+          onUpgrade={handleUpgradeGear} onSell={handleSellGear} onEquip={handleEquipElder} onClose={() => setShowWorkshop(false)} />}
         {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
 
         {showThrones && <ThronesPanel isDark={isDark} onWin={() => earnDiners(DINERS_COURT_WIN, 'Court Ladder win')} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
@@ -3505,7 +3512,7 @@ const App: React.FC = () => {
               <h2 className={`text-lg font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Hub</h2>
               <button onClick={() => setShowParkHub(false)} className="px-4 py-2 rounded-full bg-[var(--accent-600)] text-white text-[13px] font-black uppercase tracking-widest active:scale-95">✕ Close</button>
             </div>
-            <BasePanel isDark={isDark} onEvolve={handleEvolveElder} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onRenameElder={handleRenameElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
+            <BasePanel upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)} isDark={isDark} onEvolve={handleEvolveElder} elders={state.allElders} inventory={state.inventory} tokens={state.legacyTokens} onHealAll={handleHealSquad} onEquipElder={handleEquipElder} onUnequipElder={handleUnequipElder} onRenameElder={handleRenameElder} onUpgradeGear={handleUpgradeGear} onSellGear={handleSellGear} materials={state.buildingMaterials} onDividendClaim={handleClaimDividend} onMoveToTeam={handleMoveToTeam} onMoveToStandby={handleMoveToStandby} onScrapElder={handleScrapElder} lastCheckIn={state.lastLoginTimestamp} onCheckIn={handleDailyCheckIn} streak={state.dailyBoostsCount} lastDividendClaim={state.lastDividendClaim} shuffleboardKing={state.shuffleboard.currentKing} passiveBreakdown={passiveBreakdown} parkScore={state.parkCommunityScore} parkAssets={state.parkAssets} healPrice={getDiscountedPrice('Heal')} />
             </div>
           </div>
         )}

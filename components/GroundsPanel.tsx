@@ -8,11 +8,13 @@ import {
 // True for any building whose level actually changes something -- used to decide whether to show a
 // level badge / "Lv N" upgrade button, vs. a plain "Built" badge for something truly decorative.
 function hasLevelEffect(a: Amenity): boolean {
-  return a.capacityBonus !== undefined || !!a.producer || !!a.hpRegen || !!a.producerBoost || !!a.structureDiscount || !!a.scoreTrickle || !!a.courtPurseBonus;
+  return a.capacityBonus !== undefined || !!a.producer || !!a.hpRegen || !!a.producerBoost || !!a.structureDiscount || !!a.scoreTrickle || !!a.courtPurseBonus || !!a.hub;
 }
 // One short line describing what a level of this building is currently worth, for the non-producer,
 // non-housing effect types added 2026-09-22.
 function effectLine(a: Amenity, level: number): string | null {
+  if (a.hub === 'lodge') return `Hosts up to ${3 + Math.ceil(level / 2)} visitors, +${6 * level}% Elder XP for guests`;
+  if (a.hub === 'workshop') return `-${3 * level}% gear upgrade cost, +${5 * level}% salvage, +${Math.floor(level / 3)} visitors, +${3 * level}% guest XP`;
   if (a.hpRegen) return `Heals Team Elders ${(a.hpRegen.basePerHour + a.hpRegen.perLevelPerHour * (level - 1)).toFixed(1)}% max HP/hr`;
   if (a.producerBoost) return `+${(a.producerBoost.basePct + a.producerBoost.perLevelPct * (level - 1)).toFixed(1)}% output on every other working building`;
   if (a.structureDiscount) return `${(a.structureDiscount.basePct + a.structureDiscount.perLevelPct * (level - 1)).toFixed(1)}% off every map-building price`;
@@ -22,6 +24,8 @@ function effectLine(a: Amenity, level: number): string | null {
 }
 // Same, but for what the NEXT level would give -- shown in the upgrade button.
 function nextEffectPreview(a: Amenity, nextLevel: number): string {
+  if (a.hub === 'lodge') return `(${3 + Math.ceil(nextLevel / 2)} visitors, +${6 * nextLevel}% XP)`;
+  if (a.hub === 'workshop') return `(-${3 * nextLevel}% upgrade cost, +${5 * nextLevel}% salvage)`;
   if (a.hpRegen) return `(${(a.hpRegen.basePerHour + a.hpRegen.perLevelPerHour * (nextLevel - 1)).toFixed(1)}%/hr heal)`;
   if (a.producerBoost) return `(+${(a.producerBoost.basePct + a.producerBoost.perLevelPct * (nextLevel - 1)).toFixed(1)}% to other buildings)`;
   if (a.structureDiscount) return `(${(a.structureDiscount.basePct + a.structureDiscount.perLevelPct * (nextLevel - 1)).toFixed(1)}% off prices)`;

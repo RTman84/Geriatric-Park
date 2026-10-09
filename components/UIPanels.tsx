@@ -15,7 +15,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1289,7 +1289,7 @@ const evolveInfo = (e: Elder, tokens: number) => {
 
 export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   elders: Elder[], inventory: Gear[], tokens: number, materials: number,
-  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
+  upgradeDiscountPct?: number, salvageBonusPct?: number, onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
   onMoveToStandby: (id: string) => void, lastCheckIn?: number, 
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
@@ -1301,7 +1301,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   parkScore?: number,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
-}> = ({ onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
+}> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
   const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
   const [regDesc, setRegDesc] = React.useState(true);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
@@ -1506,7 +1506,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             })()}
             <div className="flex gap-2 mb-3 flex-shrink-0">
               {(item.level ?? 1) < getGearMaxLevel(item) && (() => {
-                const cost = getGearUpgradeCost(item);
+                const cost = applyUpgradeDiscount(getGearUpgradeCost(item), upgradeDiscountPct ?? 0);
                 const canAfford = tokens >= cost.tickets && materials >= cost.materials;
                 return (
                   <button
@@ -1519,7 +1519,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                 );
               })()}
               {onSellGear && (() => {
-                const sellValue = getGearSellValue(item);
+                const sellValue = applySalvageBonus(getGearSellValue(item), salvageBonusPct ?? 0);
                 return (
                   <button
                     onClick={() => { onSellGear(item.id); setSelectedItem(null); }}

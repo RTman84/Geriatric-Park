@@ -89,7 +89,8 @@ interface ParkSceneProps {
   capacity: number;
   materials: number;
   onOpenGrounds?: (amenityId?: string) => void;
-  onOpenExchange?: () => void; // the Away & Visiting window
+  onOpenExchange?: () => void; // the Away & Visiting window (Visitors' Lodge)
+  onOpenWorkshop?: () => void; // the gear window (Tinker's Workshop)
   onOpenHub?: () => void;
   onCollect?: (amenityId: string) => void;
   wanderers?: Wanderer[]; // Elders strolling the grounds: your own, visitors, and (in a friend's park) residents + your own visitor
@@ -116,7 +117,7 @@ const nameBar: React.CSSProperties = {
 
 const ParkScene: React.FC<ParkSceneProps> = ({
   isDark, builtAmenityIds, amenityLevels, amenityCollectedAt, comfortBonus, rosterCount, capacity, materials,
-  onOpenGrounds, onOpenExchange, onOpenHub, onCollect, readOnly = false, title, wanderers = [], decor = [], decorOptions, onPlaceDecor, onRemoveDecor, onDecorInvalid,
+  onOpenGrounds, onOpenExchange, onOpenWorkshop, onOpenHub, onCollect, readOnly = false, title, wanderers = [], decor = [], decorOptions, onPlaceDecor, onRemoveDecor, onDecorInvalid,
 }) => {
   const [decorMode, setDecorMode] = useState(false);
   const [decorPick, setDecorPick] = useState<string | null>(null);
@@ -240,13 +241,18 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         const built = builtAmenityIds.includes(id);
         const level = amenityLevels[id] ?? 1;
         const { xc, y } = slotFor(i);
+        const openBuilding = (bid: string, isBuilt: boolean) => {
+          if (isBuilt && bid === 'lodge' && onOpenExchange) return onOpenExchange();
+          if (isBuilt && bid === 'workshop' && onOpenWorkshop) return onOpenWorkshop();
+          onOpenGrounds?.(bid);
+        };
         const stored = built && amenity.producer
           ? producerStored(amenity, level, amenityCollectedAt[id], now, comfortBonus) : 0;
         const icon = amenity.producer?.output === 'tickets' ? '🎟️' : '🧱';
         return (
           <React.Fragment key={id}>
             <button
-              onClick={readOnly ? undefined : () => onOpenGrounds?.(id)}
+              onClick={readOnly ? undefined : () => openBuilding(id, built)}
               aria-label={amenity.name}
               style={{
                 position: 'absolute', left: `${((xc - BW / 2) / BG_W) * 100}%`, top: `${(y / BG_H) * 100}%`,
@@ -270,11 +276,13 @@ const ParkScene: React.FC<ParkSceneProps> = ({
               position: 'absolute', top: `${((y + BH - 6) / BG_H) * 100}%`, left: `${(xc / BG_W) * 100}%`,
               transform: 'translateX(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
-              <button onClick={readOnly ? undefined : () => onOpenGrounds?.(id)} style={{ ...nameBar, opacity: built ? 1 : 0.85, cursor: readOnly ? 'default' : 'pointer' }}>{amenity.name}</button>
+              <button onClick={readOnly ? undefined : () => openBuilding(id, built)} style={{ ...nameBar, opacity: built ? 1 : 0.85, cursor: readOnly ? 'default' : 'pointer' }}>{amenity.name}</button>
               {built && stored > 0 && !readOnly && onCollect ? (
                 <button onClick={() => onCollect(id)} style={{ ...pillBase, background: '#16a34a', cursor: 'pointer' }}>
                   Collect {icon} {stored}
                 </button>
+              ) : built && !readOnly && (id === 'lodge' || id === 'workshop') ? (
+                <button onClick={() => openBuilding(id, true)} style={{ ...pillBase, background: '#2563eb', cursor: 'pointer' }}>{id === 'lodge' ? 'Open Lodge' : 'Open Workshop'}</button>
               ) : !built && !readOnly ? (
                 <button onClick={() => onOpenGrounds?.(id)} style={{ ...pillBase, background: materials >= amenity.cost ? '#2563eb' : 'rgba(90,90,90,0.85)', cursor: 'pointer' }}>
                   Build · {amenity.cost} 🧱
