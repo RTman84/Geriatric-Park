@@ -140,7 +140,7 @@ export const TutorialOverlay: React.FC<{ onComplete: () => void; isDark: boolean
   const step = STEPS[currentStep];
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[5000] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
       <div className={`w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-[3rem] p-8 flex flex-col items-center text-center shadow-2xl border-2 transition-colors duration-500 ${isDark ? 'bg-slate-900 border-[var(--accent-500-a30)] text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
         <div className="mb-6 p-6 bg-slate-100/10 rounded-full animate-bounce">
           {step.icon}

@@ -142,7 +142,7 @@ import {
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
   getRankForLevel,
-  getUnlockedCosmetics,
+  getUnlockedCosmetics, cosmeticGoal,
   getSquadPower,
   ElderAvatarImg,
   resolveProfileDisplay,
@@ -2198,13 +2198,13 @@ const App: React.FC = () => {
   // Attack from the Friends list: same roll, same cooldown, same rewards and
   // same mail notice as the Court tab's Friend mode (both go through
   // rollFriendBattle + handleFriendBattleResult). Returns the result text.
-  const handleRefreshNearby = useCallback(async () => {
+  const handleRefreshNearby = useCallback(async (query?: string) => {
     if (nearbyBusy || Date.now() < nearbyReadyAt) return;
     setNearbyBusy(true); setNearbyError(null);
     try {
-      const { players } = await fetchNearbyPlayers();
+      const { players } = await fetchNearbyPlayers(typeof query === 'string' ? query : '');
       setNearbyPlayers(players);
-      if (players.length === 0) setNearbyError('No opted-in players are around your level right now. Try again soon.');
+      if (players.length === 0) setNearbyError(query ? 'No players found with that name.' : 'No other players found right now. Try again soon.');
     } catch (e) { setNearbyError(e instanceof Error ? e.message : 'Could not load players.'); }
     setNearbyReadyAt(Date.now() + NEARBY_REFRESH_COOLDOWN_MS);
     setNearbyBusy(false);
@@ -3380,7 +3380,7 @@ const App: React.FC = () => {
                       onClick={() => setState(p => ({ ...p, selectedTitle: c.key }))}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTitleKey === c.key ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-50 text-slate-600'}`}
                     >
-                      {c.title}
+                      <span className="text-left">{c.title}{cosmeticGoal(c.key, state.achievements) && <span className="block text-[11px] font-bold normal-case tracking-normal opacity-70">{cosmeticGoal(c.key, state.achievements)}</span>}</span>
                       {activeTitleKey === c.key && <CheckCircleIcon className="w-4 h-4" />}
                     </button>
                   ))}

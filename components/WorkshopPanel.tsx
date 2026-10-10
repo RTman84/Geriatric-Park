@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Elder, Gear } from '../types';
 import {
   ItemIcon, ElderAvatarImg, gearSlotKey, getGearMaxLevel, getGearUpgradeCost, getGearSellValue, getEffectiveGearBoost,
-  applyUpgradeDiscount, applySalvageBonus, GEAR_RARITY_COLOR,
+  applyUpgradeDiscount, applySalvageBonus, GEAR_RARITY_COLOR, rarityCardStyle,
 } from '../constants';
 import { Gfx } from './Gfx';
 
@@ -85,7 +85,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
                   {shown.map(i => {
                     const on = picked.includes(i.id);
                     return (
-                      <button key={i.id} onClick={() => multi ? togglePick(i.id) : (setSel(i.id), setPicking(false))} className={`relative p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 active:scale-95 ${sub} ${on ? 'ring-4 ring-rose-500' : ''}`} style={{ borderColor: GEAR_RARITY_COLOR[i.rarity ?? 'Common'] }}>
+                      <button key={i.id} onClick={() => multi ? togglePick(i.id) : (setSel(i.id), setPicking(false))} className={`relative p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 active:scale-95 ${sub} ${on ? 'ring-4 ring-rose-500' : ''}`} style={rarityCardStyle(i.rarity)}>
                         {multi && <span className={`absolute top-1 right-1 w-5 h-5 rounded-full border-2 text-[12px] font-black flex items-center justify-center ${on ? 'bg-rose-500 border-white text-white' : 'border-slate-400'}`}>{on ? '\u2713' : ''}</span>}
                         <ItemIcon name={i.name} icon={i.icon} size={48} />
                         <span className="text-[11px] leading-tight font-black uppercase text-center line-clamp-2">{i.name}</span>

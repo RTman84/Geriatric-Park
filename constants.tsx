@@ -216,7 +216,7 @@ export function getBracket(power: number) {
   for (const x of POWER_BRACKETS) if (power >= x.min) b = x;
   return b;
 }
-export const NEARBY_REFRESH_COOLDOWN_MS = 60 * 1000;
+export const NEARBY_REFRESH_COOLDOWN_MS = 1500; // only a double-tap guard: Refresh is effectively always available
 
 // Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
 // Ticket payout (wild Elders are now kept at the level and power they were fought at).
@@ -859,6 +859,22 @@ export function eventCosmetic(key: string): UnlockedCosmetic | null {
   return ev && m ? { key, icon: ev.icon, title: `${ev.title} ${m[2]}` } : null;
 }
 
+/** One plain line saying what the player did to earn a title/icon, shown under it in the profile picker. */
+const MODE_GOAL_NOUN: Record<string, string> = { battle: 'battles', court: 'Court matches', friend: 'Friend Battles', arena: 'Arena fights', exchange: 'Resident Exchange visits', bingo: 'Bingo sessions', collect: 'map pickups', evolve: 'Elder evolutions' };
+export function cosmeticGoal(key: string, achievements: Achievement[] = []): string {
+  let m: RegExpExecArray | null;
+  if ((m = /^rank:(.+)$/.exec(key))) { const t = RANK_TIERS.find(r => r.title === m![1]); return t ? `Reach level ${t.minLevel}` : ''; }
+  if ((m = /^achievement:(.+)$/.exec(key))) { const a = achievements.find(x => x.id === m![1]); return a ? a.description : 'Complete this Feat'; }
+  if ((m = /^mode:([a-z]+):([1-5])$/.exec(key))) { const t = MODE_BADGE_TIERS[Number(m[2]) - 1]; return t ? `${t.min} ${MODE_GOAL_NOUN[m[1]] ?? 'activities'} (lifetime)` : ''; }
+  const court = parseCourtHonor(key);
+  if (court) return `Finish #${court.place} on the Court Ladder in ${POWER_BRACKETS[court.bracket - 1]?.name ?? 'your bracket'}`;
+  if ((m = /^board:([a-z_]+):(\d{1,2}):([123])$/.exec(key))) return `Finish #${m[3]} on the weekly ${m[1].replace('_', ' ')} board in ${POWER_BRACKETS[Number(m[2]) - 1]?.name ?? 'your bracket'}`;
+  if (/^antique:/.test(key)) return 'Collect it in the PvP Shop (TV Dinners)';
+  if ((m = /^event:([a-z]+)-(\d{4})$/.exec(key))) { const ev = SEASONAL_EVENTS.find(e => e.id === m![1]); return ev ? `Complete all goals of ${ev.title} ${m[2]}` : ''; }
+  if (/^memento:/.test(key)) return 'Keepsake from the Mementos Shop';
+  return '';
+}
+
 export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = [], eventCosmetics: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
@@ -1474,6 +1490,11 @@ export const GEAR_RARITY_MULTIPLIER: Record<GearRarity, number> = {
 
 export const GEAR_RARITY_COLOR: Record<GearRarity, string> = {
   Common: '#94a3b8', Rare: '#3b82f6', Epic: '#a855f7', Legendary: '#f59e0b',
+};
+/** Border + glow + tint for an item card. Uses inset box-shadow and a gradient image, which the theme's border/background colour overrides (!important) cannot hide. */
+export const rarityCardStyle = (rarity?: GearRarity): React.CSSProperties => {
+  const c = GEAR_RARITY_COLOR[rarity ?? 'Common'];
+  return { borderColor: c, boxShadow: `inset 0 0 0 2px ${c}, 0 0 ${rarity && rarity !== 'Common' ? 12 : 0}px ${c}66`, backgroundImage: `linear-gradient(160deg, ${c}38, transparent 75%)` };
 };
 
 const GEAR_RARITY_WEIGHTS: [GearRarity, number][] = [

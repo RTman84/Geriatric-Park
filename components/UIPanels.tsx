@@ -16,7 +16,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1456,7 +1456,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {inventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? { borderColor: GEAR_RARITY_COLOR[item.rarity ?? 'Common'] } : undefined}>
+                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
                   <ItemIcon name={item.name} icon={item.icon} size={52} />
                   <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                   {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}

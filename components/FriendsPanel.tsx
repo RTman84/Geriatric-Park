@@ -27,7 +27,7 @@ interface FriendsPanelProps {
   nearbyBusy: boolean;
   nearbyError: string | null;
   nearbyReadyAt: number;
-  onRefreshNearby: () => void;
+  onRefreshNearby: (query?: string) => void;
   mySquadPower: number;
   onBattle: (friendUserId: string) => string;
   friendBattle: { lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
@@ -75,6 +75,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
   const [nowTick, setNowTick] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNowTick(Date.now()), 1000); return () => clearInterval(t); }, []);
   const nearbyWait = Math.max(0, nearbyReadyAt - nowTick);
+  const [findQuery, setFindQuery] = React.useState('');
   const [randomBusy, setRandomBusy] = useState(false);
   const [randomMessage, setRandomMessage] = useState<string | null>(null);
   const [toggleBusy, setToggleBusy] = useState(false);
@@ -236,10 +237,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
           {message && !notify && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{message}</p>}
         </div>
 
-        {/* Random matching -- opt-in only */}
+        {/* Visibility in Find Players */}
         <div className={`rounded-2xl p-4 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
           <div className="flex items-center justify-between mb-2">
-            <p className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Open to Random Matching</p>
+            <p className={`text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Show me in Find Players</p>
             <button
               onClick={handleToggle}
               disabled={toggleBusy || !data}
@@ -248,32 +249,25 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${data?.myOpenToRandom ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
-          <p className={`text-[12px] mb-3 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Off by default. When on, other players who also opt in can be matched with you.</p>
-          <button
-            onClick={handleRandomMatch}
-            disabled={randomBusy || !data?.myOpenToRandom}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-sm py-3 disabled:opacity-40"
-          >
-            <SparklesIcon className="w-4 h-4" /> Find a Random Friend
-          </button>
-          {randomMessage && !notify && <p className="text-[13px] font-bold mt-2 text-[var(--accent-500)]">{randomMessage}</p>}
+          <p className={`text-[12px] ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>On by default. Others see only your name, level and Squad Power, and nobody becomes your friend unless you accept their request. Turn off to hide yourself (you can still send requests and use a friend code).</p>
         </div>
 
         {/* Near-power opponents: opted-in players mostly in your bracket (with a little randomness) */}
         <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
           <div className="flex items-center justify-between mb-2 gap-2">
-            <h3 className="text-[15px] font-black uppercase">Find Opponents</h3>
+            <h3 className="text-[15px] font-black uppercase">Find Players</h3>
             <span className="text-[12px] font-black opacity-70">You: Bracket {getBracket(mySquadPower).n} {getBracket(mySquadPower).name} · PWR {mySquadPower}</span>
           </div>
-          <button
-            onClick={onRefreshNearby}
-            disabled={nearbyBusy || nearbyWait > 0}
-            className="w-full rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[14px] py-3 disabled:opacity-50"
-          >
-            {nearbyBusy ? 'Searching...' : nearbyWait > 0 ? `Refresh in ${Math.ceil(nearbyWait / 1000)}s` : nearby.length ? '🔄 Refresh list' : '🔍 Find players near my power'}
-          </button>
+          <div className="flex gap-2">
+            <input value={findQuery} onChange={e => setFindQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') onRefreshNearby(findQuery); }} placeholder="Search by name (optional)" maxLength={24}
+              className={`flex-1 min-w-0 rounded-xl border p-3 text-[14px] font-bold ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200'}`} />
+            <button onClick={() => onRefreshNearby(findQuery)} disabled={nearbyBusy}
+              className="px-4 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[13px] disabled:opacity-50">
+              {nearbyBusy ? '...' : findQuery.trim() ? '🔍 Search' : '🔄 Refresh'}
+            </button>
+          </div>
           {nearbyError && <p className="text-[13px] font-bold mt-2 opacity-80">{nearbyError}</p>}
-          <p className="text-[11px] opacity-60 mt-2">Only players who turned on "Open to random matching" are listed. Most are near your power; a few come from further away for variety.</p>
+          <p className="text-[11px] opacity-60 mt-2">Real players only. With no name typed you see a mix near your power plus a few from further away; tap Refresh any time for a new set. Send a request and they choose whether to accept.</p>
           <div className="space-y-2 mt-3">
             {nearby.map(p => {
               const br = getBracket(p.squad_power);
@@ -301,7 +295,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       onClick={() => { void sendFriendRequestByUserId(p.user_id).then(() => onRefresh()).catch(() => {}); }}
                       className={`px-3 py-2 rounded-lg font-black uppercase text-[12px] ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-slate-200 text-slate-700'}`}
                     >
-                      + Friend
+                      + Add Friend
                     </button>
                   </div>
                   {battleFeedback?.friendId === p.user_id && <p className="text-[12px] font-bold mt-2 text-[var(--accent-500)]">{battleFeedback.text}</p>}

@@ -120,8 +120,8 @@ export async function removeFriend(friendUserId: string): Promise<{ result: stri
   return parse(response);
 }
 
-export async function fetchNearbyPlayers(): Promise<{ myPower: number; players: PlayerProfileSnapshot[] }> {
+export async function fetchNearbyPlayers(query = ''): Promise<{ myPower: number; players: PlayerProfileSnapshot[] }> {
   const headers = await authHeaders();
-  const response = await fetch(apiUrl('/api/friends'), { method: 'POST', headers, body: JSON.stringify({ action: 'nearby' }) });
+  const response = await fetch(apiUrl('/api/friends'), { method: 'POST', headers, body: JSON.stringify({ action: 'nearby', query }) });
   return parse(response);
 }

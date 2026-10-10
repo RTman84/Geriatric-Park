@@ -150,7 +150,7 @@ const GameMap: React.FC<GameMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden" style={{ isolation: 'isolate', zIndex: 0 }}>
       <MapContainer 
         center={[currentLocation.lat, currentLocation.lng]} 
         zoom={zoom} 

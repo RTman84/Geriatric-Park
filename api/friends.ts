@@ -146,6 +146,10 @@ export default async function handler(req: Request): Promise<Response> {
       async function sendRequestTo(targetUserId: string): Promise<Response> {
         if (targetUserId === userId) return serverJson({ error: "You can't friend yourself." }, 400);
 
+        // Anti-spam: at most 30 unanswered outgoing requests at a time.
+        const { count: pendingOut } = await supabase.from('friend_requests').select('id', { count: 'exact', head: true }).eq('requester_id', userId).eq('status', 'pending');
+        if ((pendingOut ?? 0) >= 30) return serverJson({ error: 'You have 30 requests waiting for an answer. Wait for some replies first.' }, 429);
+
         const { data: reverse } = await supabase.from('friend_requests').select('id').eq('requester_id', targetUserId).eq('addressee_id', userId).eq('status', 'pending').maybeSingle();
         if (reverse) {
           const now = new Date().toISOString();
@@ -201,14 +205,18 @@ export default async function handler(req: Request): Promise<Response> {
         const { data: links } = await supabase.from('friend_requests').select('requester_id, addressee_id').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
         const linked = new Set<string>([userId]);
         (links ?? []).forEach(l => { linked.add(l.requester_id); linked.add(l.addressee_id); });
-        const { data: pool, error: poolErr } = await supabase.from('player_profiles').select(PROFILE_FIELDS).eq('open_to_random_friends', true).limit(300);
+        // Optional name search (real players only: every row here is a signed-in account). Sanitised so it can't break the filter.
+        const q = String(body?.query || '').replace(/[^A-Za-z0-9 _.-]/g, '').trim().slice(0, 24);
+        let poolQuery = supabase.from('player_profiles').select(PROFILE_FIELDS).eq('open_to_random_friends', true);
+        if (q) poolQuery = poolQuery.ilike('display_name', `%${q}%`);
+        const { data: pool, error: poolErr } = await poolQuery.limit(300);
         if (poolErr) { console.error('Nearby lookup failed', poolErr.message); return serverJson({ error: 'Players unavailable', detail: poolErr.message }, 500); }
         const cands = (pool ?? []).filter((p: any) => !linked.has(p.user_id));
         const shuffle = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
         const lo = myPower * 0.75, hi = myPower * 1.25;
         const near = shuffle(cands.filter((p: any) => (Number(p.squad_power) || 0) >= lo && (Number(p.squad_power) || 0) <= hi));
         const far = shuffle(cands.filter((p: any) => !near.includes(p)));
-        const picked = [...near.slice(0, 5), ...far.slice(0, 2)].slice(0, 6);
+        const picked = q ? shuffle(cands).slice(0, 12) : [...near.slice(0, 7), ...far.slice(0, 3)].slice(0, 10);
         return serverJson({ myPower, players: shuffle(picked) });
       }
 
