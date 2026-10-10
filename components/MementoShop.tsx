@@ -51,7 +51,7 @@ const MementoShop: React.FC<{
           <div className="text-[13px] opacity-80 mb-2">Spend earned PP on Mementos: 1 PP = {MEMENTOS_PER_PP} <Gfx e="💛" />. One way only, Mementos can never be turned back into PP. You have <b>{pp.toFixed(2)} PP</b>.</div>
           <div className="flex gap-2 flex-wrap">
             {[0.05, 0.1, 0.25, 0.5].map(a => (
-              <button key={a} disabled={pp + 1e-9 < a} onClick={() => onConvertPp(a)} className={btn(pp + 1e-9 >= a)}>{a.toFixed(2)} PP → {Math.floor(a * MEMENTOS_PER_PP)} <Gfx e="💛" /></button>
+              <button key={a} disabled={pp + 1e-9 < a} onClick={() => onConvertPp(a)} className={btn(pp + 1e-9 >= a)}>{a.toFixed(2)} <Gfx e="💰" size={14} /> PP → {Math.floor(a * MEMENTOS_PER_PP)} <Gfx e="💛" /></button>
             ))}
             <button disabled={pp < PP_TO_MEMENTOS_MIN} onClick={() => onConvertPp(Math.floor(pp * 100) / 100)} className={btn(pp >= PP_TO_MEMENTOS_MIN)}>All</button>
           </div>

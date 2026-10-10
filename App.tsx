@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
 import { ArenaPanel } from './components/ArenaPanel';
-import { Gfx, EmojiText } from './components/Gfx';
+import { Gfx, EmojiText, CURRENCY_INFO } from './components/Gfx';
 import WorkshopPanel from './components/WorkshopPanel';
 import { fetchArenas, chooseFaction, stationElder, recallElder, attackArena, claimArenaDues, raidHit, type ArenaInfo, type ArenaMe } from './services/arenaService';
 import GameMap from './components/GameMap';
@@ -1323,7 +1323,7 @@ const App: React.FC = () => {
       const m = await convertPpToMementos(amount, 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
       setState(prev => ({ ...prev, pensionBalance: Math.max(0, prev.pensionBalance - amount) }));
       applyServerMementos(m);
-      notify(`💛 Converted ${amount.toFixed(2)} PP into ${Math.floor(amount * MEMENTOS_PER_PP)} Mementos.`, 'good');
+      notify(`💛 Converted ${amount.toFixed(2)} 💰 PP into ${Math.floor(amount * MEMENTOS_PER_PP)} Mementos.`, 'good');
     } catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
   }, [state.pensionBalance, applyServerMementos, notify]);
   const handleBuyPremiumRoom = useCallback(async () => {
@@ -1869,7 +1869,7 @@ const App: React.FC = () => {
       legacyTokens: prev.legacyTokens + tokenBonus,
       earningsBreakdown: { ...prev.earningsBreakdown, active: prev.earningsBreakdown.active + totalPayout }
     }));
-    notify(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(4)} PP and ${tokenBonus} 🎟️!`);
+    notify(`Successfully claimed a Park Dividend of ${totalPayout.toFixed(4)} 💰 PP and ${tokenBonus} 🎟️!`);
   }, [state.lastDividendClaim, state.communityReserve, state.parkCommunityScore, state.settings.sfxEnabled]);
 
   // Cash Out: converts Pending Yield into real, cash-eligible pensionBalance.
@@ -1895,7 +1895,7 @@ const App: React.FC = () => {
       earningsBreakdown: { ...prev.earningsBreakdown, passive: prev.earningsBreakdown.passive + payout },
     }));
     const rateNote = rate < 1 ? ` (reserve is thin, so the rate was ${(rate * 100).toFixed(0)}%)` : '';
-    notify(`Cashed out ${payout.toFixed(4)} PP${rateNote}.${yieldConsumed < state.pendingYield - 1e-12 ? ' The rest of your Pending Yield is still waiting.' : ''}`);
+    notify(`Cashed out ${payout.toFixed(4)} 💰 PP${rateNote}.${yieldConsumed < state.pendingYield - 1e-12 ? ' The rest of your Pending Yield is still waiting.' : ''}`);
   }, [state.pendingYield, state.communityReserve, state.settings.sfxEnabled]);
 
   // Park Assets are the ONE way to raise your passive rate, and they are paid for with
@@ -1915,7 +1915,7 @@ const App: React.FC = () => {
       // Stars scale with the size of the investment (old formula was cost x 10 before the PP rescale)
       parkCommunityScore: prev.parkCommunityScore + Math.round((investment.cost / PP_SCALE_V2) * 10)
     }));
-    notify(`Investment confirmed! Your passive rate rose by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hour.`);
+    notify(`Investment confirmed! Your passive rate rose by ${(investment.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} 💰 PP/hour.`);
   }, [state.pendingYield, state.parkAssets, state.settings.sfxEnabled]);
 
   const handleWatchAdWithLimit = useCallback(() => {
@@ -3054,11 +3054,11 @@ const App: React.FC = () => {
           <div className="w-full flex items-center justify-between gap-2">
             <div className="text-[13px] font-black uppercase opacity-40 tracking-widest">v{GAME_VERSION}</div>
             <div className="flex items-center gap-x-3 gap-y-1 justify-end flex-wrap">
-              <span className="text-[15px] font-black uppercase text-emerald-500 leading-none">{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={20} /><span className="sr-only">PP</span></span>
-              <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none">{state.legacyTokens} <Gfx e="🎟️" size={20} /></span>
-              <span className="text-[15px] font-black uppercase text-amber-500 leading-none">{state.tvDinners ?? 0} <Gfx e="🍽️" size={20} /></span>
-              <span className="text-[15px] font-black uppercase text-orange-500 leading-none">{Math.floor(state.buildingMaterials)} <Gfx e="🧱" size={20} /></span>
-              <span className="text-[15px] font-black uppercase text-pink-400 leading-none">{state.mementos ?? 0} <Gfx e="💛" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-emerald-500 leading-none" title={CURRENCY_INFO["💰"].name} onClick={() => notify(`💰 ${CURRENCY_INFO["💰"].name}: ${CURRENCY_INFO["💰"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={20} /><span className="sr-only">PP</span></span>
+              <span className="text-[15px] font-black uppercase text-[var(--accent-500)] leading-none" title={CURRENCY_INFO["🎟️"].name} onClick={() => notify(`🎟️ ${CURRENCY_INFO["🎟️"].name}: ${CURRENCY_INFO["🎟️"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.legacyTokens} <Gfx e="🎟️" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-amber-500 leading-none" title={CURRENCY_INFO["🍽️"].name} onClick={() => notify(`🍽️ ${CURRENCY_INFO["🍽️"].name}: ${CURRENCY_INFO["🍽️"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.tvDinners ?? 0} <Gfx e="🍽️" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-orange-500 leading-none" title={CURRENCY_INFO["🧱"].name} onClick={() => notify(`🧱 ${CURRENCY_INFO["🧱"].name}: ${CURRENCY_INFO["🧱"].blurb}`, 'good')} style={{cursor:"pointer"}}>{Math.floor(state.buildingMaterials)} <Gfx e="🧱" size={20} /></span>
+              <span className="text-[15px] font-black uppercase text-pink-400 leading-none" title={CURRENCY_INFO["💛"].name} onClick={() => notify(`💛 ${CURRENCY_INFO["💛"].name}: ${CURRENCY_INFO["💛"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.mementos ?? 0} <Gfx e="💛" size={20} /></span>
             </div>
           </div>
         </header>
@@ -3101,8 +3101,8 @@ const App: React.FC = () => {
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
-            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} PP`);
-            notify(`${state.pensionBalance.toFixed(4)} PP redeemed to your park account!`);
+            if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} 💰 PP`);
+            notify(`${state.pensionBalance.toFixed(4)} 💰 PP redeemed to your park account!`);
             setState(p => ({...p, pensionBalance: 0, earningsBreakdown: {passive: 0, active: 0, sponsorship: 0}}));
           }} onWatchAd={handleWatchVideoReward} adCount={state.adUsage.count} onWatchAdTrigger={handleWatchAdWithLimit} onInvest={handleInvest} boostUntil={state.boostUntil}
             pendingYield={state.pendingYield} onCashOutYield={handleCashOutYield}
@@ -3436,11 +3436,11 @@ const App: React.FC = () => {
         {(showWorkshop || showGroundsPanel || showExchangeOverview || showParkHub || showPvpShop || showMementoShop || showBoards || showFriendsPanel || showThrones) && (
           <div className="fixed top-0 inset-x-0 z-[400] pointer-events-none flex justify-center">
             <div className="flex items-center gap-x-3 gap-y-0 flex-wrap justify-center px-3 py-[3px] rounded-b-2xl bg-black/80 text-[12px] font-black uppercase leading-tight max-w-full">
-              <span className="text-emerald-400">{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={14} /></span>
-              <span className="text-[var(--accent-400)]">{state.legacyTokens} <Gfx e="🎟️" size={14} /></span>
-              <span className="text-amber-400">{state.tvDinners ?? 0} <Gfx e="🍽️" size={14} /></span>
-              <span className="text-orange-400">{Math.floor(state.buildingMaterials ?? 0)} <Gfx e="🧱" size={14} /></span>
-              <span className="text-pink-300">{state.mementos ?? 0} <Gfx e="💛" size={14} /></span>
+              <span className="text-emerald-400" title={CURRENCY_INFO["💰"].name} onClick={() => notify(`💰 ${CURRENCY_INFO["💰"].name}: ${CURRENCY_INFO["💰"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={14} /></span>
+              <span className="text-[var(--accent-400)]" title={CURRENCY_INFO["🎟️"].name} onClick={() => notify(`🎟️ ${CURRENCY_INFO["🎟️"].name}: ${CURRENCY_INFO["🎟️"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.legacyTokens} <Gfx e="🎟️" size={14} /></span>
+              <span className="text-amber-400" title={CURRENCY_INFO["🍽️"].name} onClick={() => notify(`🍽️ ${CURRENCY_INFO["🍽️"].name}: ${CURRENCY_INFO["🍽️"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.tvDinners ?? 0} <Gfx e="🍽️" size={14} /></span>
+              <span className="text-orange-400" title={CURRENCY_INFO["🧱"].name} onClick={() => notify(`🧱 ${CURRENCY_INFO["🧱"].name}: ${CURRENCY_INFO["🧱"].blurb}`, 'good')} style={{cursor:"pointer"}}>{Math.floor(state.buildingMaterials ?? 0)} <Gfx e="🧱" size={14} /></span>
+              <span className="text-pink-300" title={CURRENCY_INFO["💛"].name} onClick={() => notify(`💛 ${CURRENCY_INFO["💛"].name}: ${CURRENCY_INFO["💛"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.mementos ?? 0} <Gfx e="💛" size={14} /></span>
             </div>
           </div>
         )}

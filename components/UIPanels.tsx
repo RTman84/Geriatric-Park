@@ -212,22 +212,22 @@ export const BankPanel: React.FC<{
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-[16px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
-        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(4)} PP</div>
+        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(4)} <Gfx e="💰" size={40} className="mx-1" /> PP</div>
         <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
           <SparklesIcon className="w-4 h-4" /> Redeem Pension Points
         </button>
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Rate/hr</span>
-            <span className="text-sm font-black tabular-nums block">{(rate * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP</span>
+            <span className="text-sm font-black tabular-nums block">{(rate * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP</span>
           </div>
           <div>
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Passive</span>
-            <span className="text-sm font-black tabular-nums block">{breakdown.passive.toFixed(4)} PP</span>
+            <span className="text-sm font-black tabular-nums block">{breakdown.passive.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
           </div>
           <div className="text-right">
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Sponsorship</span>
-            <span className="text-sm font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} PP</span>
+            <span className="text-sm font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
           </div>
         </div>
       </div>
@@ -258,7 +258,7 @@ export const BankPanel: React.FC<{
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
-          <span className="text-emerald-500 font-black text-base">{reserve.toFixed(4)} PP</span>
+          <span className="text-emerald-500 font-black text-base">{reserve.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
         </div>
         <div className="flex justify-between items-center mb-2">
           <span className={`text-[14px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
@@ -290,7 +290,7 @@ export const BankPanel: React.FC<{
           disabled={adsLeft <= 0}
           className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-[var(--accent-600)] text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
         >
-          {adsLeft > 0 ? `Watch Local Sponsor (+${(AD_REVENUE_PAYOUT * REVENUE_SPLIT.player).toFixed(4)} PP + 2x Passive Boost!)` : 'All slots used — reset at midnight'}
+          <EmojiText text={adsLeft > 0 ? `Watch Local Sponsor (+${(AD_REVENUE_PAYOUT * REVENUE_SPLIT.player).toFixed(4)} 💰 PP + 2x Passive Boost!)` : 'All slots used — reset at midnight'} />
         </button>
         {boostActive ? (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">
@@ -332,7 +332,7 @@ export const BankPanel: React.FC<{
                     <div className="flex-1 min-w-0">
                       <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></p>
                     </div>
-                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(count * item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(count * item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
                   </div>
                 ))}
                 {hasEarlier && (
@@ -342,7 +342,7 @@ export const BankPanel: React.FC<{
                       <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>Earlier purchases</p>
                       <p className={`text-[13px] font-bold ${muted}`}>Bought before assets were itemised</p>
                     </div>
-                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(earlier * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(earlier * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
                   </div>
                 )}
               </div>
@@ -390,7 +390,7 @@ export const BankPanel: React.FC<{
                         <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}{ownedCount > 0 && <span className="text-[var(--accent-500)]"> ×{ownedCount}/{PARK_ASSET_MAX_OWNED}</span>}</h5>
                         <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{maxed ? 'MAX' : `${price.toFixed(2)} Yield`}</span>
                       </div>
-                      <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr passive</p>
+                      <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr passive</p>
                       {!canAfford && (
                         <div className="mt-2">
                           <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}>
@@ -1154,7 +1154,7 @@ export const QuestPanel: React.FC<{
           <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{Math.round(parkScore)} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
         <div className={`mt-4 pt-4 border-t text-[14px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
-          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} <Gfx e="🎟" /></span> every time you claim.
+          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} <Gfx e="💰" size={16} /> PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} <Gfx e="🎟" /></span> every time you claim.
         </div>
       </div>
 
@@ -1368,11 +1368,11 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             <div className="space-y-1">
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Base Rate</span>
-                <span>{(passiveBreakdown.base * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                <span>{(passiveBreakdown.base * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Park Assets</span>
-                <span className="text-emerald-300">{(passiveBreakdown.assets * PASSIVE_TICKS_PER_HOUR).toFixed(6)} PP/hr</span>
+                <span className="text-emerald-300">{(passiveBreakdown.assets * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
               </div>
               <div className="flex justify-between text-[14px] font-black pt-2 mt-1 border-t border-white/10">
                 <span className="opacity-60">Elder Comfort → building output</span>

@@ -115,11 +115,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                   </p>
                   <div className="flex justify-between">
                     <span className="text-slate-700 dark:text-slate-200 font-bold"><Gfx e="💰" /> You get {playerPct}%</span>
-                    <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} PP</span>
+                    <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-700 dark:text-slate-200 font-bold">🏘️ Community Reserve {communityPct}%</span>
-                    <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} PP</span>
+                    <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-700 dark:text-slate-200 font-bold">🛠️ Development {devPct}%</span>
@@ -193,11 +193,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-700 dark:text-slate-200 font-bold">You get {playerPct}%</span>
-                  <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} PP</span>
+                  <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-700 dark:text-slate-200 font-bold">Community Reserve {communityPct}%</span>
-                  <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} PP</span>
+                  <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-700 dark:text-slate-200 font-bold">Park Stars</span>
