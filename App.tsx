@@ -190,6 +190,7 @@ import {
   gearSlotKey,
   getGearMaxLevel,
   workshopUpgradeDiscountPct, workshopSalvageBonusPct, applyUpgradeDiscount, applySalvageBonus,
+  activeSeasonalEvent, eventGoalProgress,
 } from './constants';
 
 // A reward that paid itself: shows a top alert AND leaves a claimed note in the Mailbox saying what it was from.
@@ -1746,6 +1747,61 @@ const App: React.FC = () => {
     }
   }, [isLoaded, cloudSyncSettled, state.quests, state.modeStats, state.claimedMilestones, state.season, handleClaimQuest, handleClaimMilestone, handleClaimSeasonReward]);
 
+  // ---- Seasonal events: join the running event (baseline of your mode counts), pay each goal as it is reached,
+  // and grant the permanent event title + icon once every goal is done. Rewards are Tickets/Materials/XP only.
+  const handleClaimEventGoal = useCallback((goalId: string) => {
+    const act = activeSeasonalEvent();
+    if (!act) return;
+    const goal = act.event.goals.find(g => g.id === goalId);
+    const key = `${act.event.id}-${act.year}`;
+    if (!goal) return;
+    setState(prev => {
+      const ep = prev.eventProgress;
+      if (!ep || ep.id !== key || ep.claimed.includes(goalId)) return prev;
+      if (eventGoalProgress(goal, prev.modeStats, ep.base) < goal.target) return prev;
+      const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, goal.xp);
+      const claimed = [...ep.claimed, goalId];
+      const finished = act.event.goals.every(g => claimed.includes(g.id));
+      const cosKey = `event:${key}`;
+      const addCos = finished && !(prev.eventCosmetics ?? []).includes(cosKey);
+      const mails = [rewardMail(act.event.name, `Event goal: ${goal.label}`, `Reward paid automatically: +${goal.tickets} Tickets, +${goal.materials} Materials, +${goal.xp} XP.`)];
+      if (addCos) mails.unshift(rewardMail(act.event.name, `${act.event.name} complete!`, `Every goal finished. You earned the permanent title "${act.event.title} ${act.year}" and its icon. Pick them in your profile.`));
+      return { ...prev, xp: nextXp, level: nextLevel, legacyTokens: prev.legacyTokens + goal.tickets, buildingMaterials: (prev.buildingMaterials ?? 0) + goal.materials,
+        season: { ...prev.season, xp: prev.season.xp + goal.xp },
+        eventProgress: { ...ep, claimed }, eventCosmetics: addCos ? [...(prev.eventCosmetics ?? []), cosKey] : prev.eventCosmetics,
+        mailbox: [...mails, ...prev.mailbox] };
+    });
+    notify(`${act.event.icon} ${act.event.name}: ${goal.label} done (+${goal.tickets} 🎟️, +${goal.materials} 🧱)`, 'good');
+  }, [notify]);
+
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    const sync = () => {
+      const act = activeSeasonalEvent();
+      const key = act ? `${act.event.id}-${act.year}` : null;
+      setState(prev => {
+        const ep = prev.eventProgress;
+        if (!act) return ep ? { ...prev, eventProgress: undefined } : prev;
+        if (ep && ep.id === key) return prev;
+        return { ...prev, eventProgress: { id: key!, base: { ...(prev.modeStats ?? {}) }, claimed: [] } };
+      });
+    };
+    sync();
+    const t = setInterval(sync, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [isLoaded, cloudSyncSettled]);
+
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    const act = activeSeasonalEvent();
+    const ep = state.eventProgress;
+    if (!act || !ep || ep.id !== `${act.event.id}-${act.year}`) return;
+    for (const g of act.event.goals) {
+      const k = 'ev:' + ep.id + ':' + g.id;
+      if (!ep.claimed.includes(g.id) && eventGoalProgress(g, state.modeStats, ep.base) >= g.target && !autoClaimedRef.current.has(k)) { autoClaimedRef.current.add(k); handleClaimEventGoal(g.id); }
+    }
+  }, [isLoaded, cloudSyncSettled, state.modeStats, state.eventProgress, handleClaimEventGoal]);
+
   const handleCollectItem = (item: MapItem) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
     handleQuestProgress('collect');
@@ -2959,7 +3015,7 @@ const App: React.FC = () => {
         <header className={`pt-5 pb-3 px-3 sm:px-6 border-b z-[60] flex flex-wrap justify-between items-end gap-y-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {(() => {
-              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
+              const display = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? [], state.eventCosmetics ?? []);
               return (
                 <>
                   <button
@@ -3041,7 +3097,7 @@ const App: React.FC = () => {
               notify(`${item.name} activated!`);
             }
           }} />}
-          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
+          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
@@ -3238,11 +3294,11 @@ const App: React.FC = () => {
         )}
 
         {showProfilePicker && (() => {
-          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
+          const unlocked = getUnlockedCosmetics(state.level, state.achievements, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? [], state.eventCosmetics ?? []);
           const currentRank = getRankForLevel(state.level);
           const activeIconKey = state.selectedAccountIcon || `rank:${currentRank.title}`;
           const activeTitleKey = state.selectedTitle || `rank:${currentRank.title}`;
-          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? []);
+          const previewDisplay = resolveProfileDisplay(state.level, state.achievements, state.selectedAccountIcon, state.selectedTitle, state.courtHonors ?? [], state.modeStats, state.antiquesOwned ?? [], state.mementoItemsOwned ?? [], state.eventCosmetics ?? []);
           const completedAchievements = state.achievements.filter(a => a.completed);
           const roster = state.allElders.filter(e => e.captured);
           const favoriteElders = state.favoriteElderIds.map(id => roster.find(e => e.id === id)).filter((e): e is Elder => !!e);
@@ -3377,6 +3433,17 @@ const App: React.FC = () => {
           );
         })()}
 
+        {(showWorkshop || showGroundsPanel || showExchangeOverview || showParkHub || showPvpShop || showMementoShop || showBoards || showFriendsPanel || showThrones) && (
+          <div className="fixed top-0 inset-x-0 z-[400] pointer-events-none flex justify-center">
+            <div className="flex items-center gap-x-3 gap-y-0 flex-wrap justify-center px-3 py-[3px] rounded-b-2xl bg-black/80 text-[12px] font-black uppercase leading-tight max-w-full">
+              <span className="text-emerald-400">{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={14} /></span>
+              <span className="text-[var(--accent-400)]">{state.legacyTokens} <Gfx e="🎟️" size={14} /></span>
+              <span className="text-amber-400">{state.tvDinners ?? 0} <Gfx e="🍽️" size={14} /></span>
+              <span className="text-orange-400">{Math.floor(state.buildingMaterials ?? 0)} <Gfx e="🧱" size={14} /></span>
+              <span className="text-pink-300">{state.mementos ?? 0} <Gfx e="💛" size={14} /></span>
+            </div>
+          </div>
+        )}
         {showWorkshop && <WorkshopPanel isDark={isDark} inventory={state.inventory} elders={state.allElders} tokens={state.legacyTokens} materials={state.buildingMaterials}
           built={state.builtAmenityIds.includes('workshop')} level={state.builtAmenityIds.includes('workshop') ? getBuildingLevel(state.amenityLevels, 'workshop') : 0}
           upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)}

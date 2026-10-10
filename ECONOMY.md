@@ -517,3 +517,8 @@ Both are optional hubs (features work without them at base values; nothing is ga
 - Visitors' Lodge (cost 40 Materials, levels 1-10): opens the Away & Visiting window from the Park. Visitors a host can have at once = 3 + ceil(level/2). Visiting Elders earn +6% Elder XP per level (host's building).
 - Tinker's Workshop (cost 45 Materials, levels 1-10): opens the gear window (upgrade / salvage / equip). -3% gear upgrade cost per level (max 30%), +5% salvage Tickets+Materials per level (max 50%). Also +1 visitor per 3 levels and +3% visiting-Elder XP per level.
 - Combined caps: visitors 3+5+3 = 11, XP bonus capped +100%. Enforced server-side in api/resident-exchange.ts (reads the host's synced built_amenities / amenity_levels). Sinks: building and upgrade costs in Materials/Tickets.
+
+## 6zc. Seasonal events (2026-10-09)
+Calendar events (UTC, yearly): Sweetheart Social (Feb 7-16), Spring Garden Fling (Apr 1-14), Summer Picnic (Jun 28-Jul 6), Grandparents' Day Week (Sep 4-13), Spooky Bingo Night (Oct 24-Nov 2), Thanksgiving Potluck (Nov 20-30), Winter Holiday Games (Dec 15-Jan 2). Three goals each, progress = growth of lifetime mode counts since you joined the event, so no new tracking hooks.
+- Goal rewards (paid automatically, alert + Mailbox note): 60-90 Tickets, 4-8 Materials, 80-120 XP. Per event about 190-270 Tickets, 12-23 Materials, 250-340 XP; 7 events a year, so roughly 1,500 Tickets and 120 Materials a year, a small fraction of normal play (see 6m).
+- Finishing all goals grants a permanent earned-only title + icon (`event:<id>-<year>`). Never PP, never passive income. The goals are play-driven (battles, bingo, court, arenas, visits), so there is no unbounded faucet; event pay stops when the window closes.

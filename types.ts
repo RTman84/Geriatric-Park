@@ -207,6 +207,8 @@ export interface GameState {
   // Otherwise a cosmetic key from getUnlockedCosmetics, e.g. 'achievement:a1'.
   selectedAccountIcon: string;
   selectedTitle: string;
+  eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }; // the seasonal event in progress: baseline of modeStats when you joined, goals already paid
+  eventCosmetics?: string[]; // permanent event titles/icons earned, keys like event:spooky-2026
   claimedMilestones?: string[]; // one-time milestone rewards already collected, keys like battle:3
   modeStats?: Record<string, number>; // lifetime activity counts by quest kind (drives mode badges)
   courtHonors?: string[]; // permanent Court ladder titles earned (keys like court:5:1)

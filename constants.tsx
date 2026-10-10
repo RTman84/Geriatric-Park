@@ -781,7 +781,62 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
   return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: tier.icon, title: `${def.name} ${tier.name}` } : null;
 }
 
-export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = []): UnlockedCosmetic[] {
+// ---- Seasonal events (calendar based, UTC, repeat every year). Progress = how much your lifetime mode counts grew
+// since you joined the event (no new tracking hooks). Rewards: Tickets / Materials / XP only (never PP), plus a
+// permanent earned-only title + icon for finishing every goal. Total per event is small on purpose (see ECONOMY.md).
+export interface SeasonalEventGoal { id: string; label: string; kinds: string[]; target: number; tickets: number; materials: number; xp: number }
+export interface SeasonalEvent { id: string; name: string; icon: string; blurb: string; title: string; start: [number, number]; end: [number, number]; goals: SeasonalEventGoal[] }
+export const SEASONAL_EVENTS: SeasonalEvent[] = [
+  { id: 'sweetheart', name: 'Sweetheart Social', icon: '\u{1F49D}', title: 'Sweetheart', start: [2, 7], end: [2, 16], blurb: 'Dances, visits and friendly rivalries. Bring a friend.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 5, tickets: 60, materials: 4, xp: 80 }, { id: 'b', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 8, tickets: 70, materials: 4, xp: 100 }, { id: 'c', label: 'Play Bingo', kinds: ['bingo'], target: 6, tickets: 60, materials: 4, xp: 80 }] },
+  { id: 'springfling', name: 'Spring Garden Fling', icon: '\u{1F337}', title: 'Green Thumb', start: [4, 1], end: [4, 14], blurb: 'Everything is blooming. Get out and collect.',
+    goals: [{ id: 'a', label: 'Collect map items', kinds: ['collect'], target: 30, tickets: 70, materials: 6, xp: 90 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 15, tickets: 70, materials: 4, xp: 100 }, { id: 'c', label: 'Evolve an Elder', kinds: ['evolve'], target: 1, tickets: 80, materials: 6, xp: 120 }] },
+  { id: 'summerpicnic', name: 'Summer Picnic & Fireworks', icon: '\u{1F386}', title: 'Picnic Champion', start: [6, 28], end: [7, 6], blurb: 'Potato salad, fireworks and shuffleboard in the sun.',
+    goals: [{ id: 'a', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 15, tickets: 70, materials: 4, xp: 100 }, { id: 'b', label: 'Fight in Arenas', kinds: ['arena'], target: 8, tickets: 70, materials: 5, xp: 100 }, { id: 'c', label: 'Collect map items', kinds: ['collect'], target: 25, tickets: 60, materials: 5, xp: 80 }] },
+  { id: 'grandparents', name: "Grandparents' Day Week", icon: '\u{1F475}', title: 'Favorite Grandparent', start: [9, 4], end: [9, 13], blurb: 'The whole family visits. Show off the park.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 6, tickets: 70, materials: 5, xp: 90 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 12, tickets: 60, materials: 4, xp: 80 }, { id: 'c', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 6, tickets: 70, materials: 4, xp: 100 }] },
+  { id: 'spooky', name: 'Spooky Bingo Night', icon: '\u{1F383}', title: 'Haunted Hall Regular', start: [10, 24], end: [11, 2], blurb: 'Lights out, daubers up. Something is rattling in the pavilion.',
+    goals: [{ id: 'a', label: 'Play Bingo', kinds: ['bingo'], target: 10, tickets: 80, materials: 5, xp: 100 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 15, tickets: 70, materials: 5, xp: 100 }, { id: 'c', label: 'Join Arena fights', kinds: ['arena'], target: 6, tickets: 80, materials: 6, xp: 120 }] },
+  { id: 'potluck', name: 'Thanksgiving Potluck', icon: '\u{1F983}', title: 'Casserole Captain', start: [11, 20], end: [11, 30], blurb: 'Everyone brings a dish. Somebody always brings three.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 6, tickets: 70, materials: 6, xp: 100 }, { id: 'b', label: 'Collect map items', kinds: ['collect'], target: 30, tickets: 70, materials: 6, xp: 90 }, { id: 'c', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 12, tickets: 70, materials: 4, xp: 100 }] },
+  { id: 'wintergames', name: 'Winter Holiday Games', icon: '\u2744\uFE0F', title: 'Winter Games Veteran', start: [12, 15], end: [1, 2], blurb: 'Sweaters, cocoa and a very competitive gift swap.',
+    goals: [{ id: 'a', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 20, tickets: 90, materials: 6, xp: 120 }, { id: 'b', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 10, tickets: 90, materials: 6, xp: 120 }, { id: 'c', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 8, tickets: 90, materials: 8, xp: 120 }] },
+];
+const eventInWindow = (ev: SeasonalEvent, m: number, d: number): boolean => {
+  const v = m * 100 + d, a = ev.start[0] * 100 + ev.start[1], b = ev.end[0] * 100 + ev.end[1];
+  return a <= b ? v >= a && v <= b : v >= a || v <= b;
+};
+// The event running right now (null between events). `ms` defaults to the current time.
+export function activeSeasonalEvent(ms: number = Date.now()): { event: SeasonalEvent; year: number; endsAt: number } | null {
+  const dt = new Date(ms), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+  for (const ev of SEASONAL_EVENTS) {
+    if (!eventInWindow(ev, m, d)) continue;
+    const wraps = ev.start[0] > ev.end[0];
+    const year = wraps && m <= ev.end[0] ? dt.getUTCFullYear() - 1 : dt.getUTCFullYear();
+    const endYear = wraps ? year + 1 : year;
+    return { event: ev, year, endsAt: Date.UTC(endYear, ev.end[0] - 1, ev.end[1] + 1) };
+  }
+  return null;
+}
+// The next event to start after `ms` (for the "coming up" line).
+export function nextSeasonalEvent(ms: number = Date.now()): { event: SeasonalEvent; startsAt: number } {
+  const y = new Date(ms).getUTCFullYear();
+  let best: { event: SeasonalEvent; startsAt: number } | null = null;
+  for (const ev of SEASONAL_EVENTS) for (const yy of [y, y + 1]) {
+    const t = Date.UTC(yy, ev.start[0] - 1, ev.start[1]);
+    if (t > ms && (!best || t < best.startsAt)) best = { event: ev, startsAt: t };
+  }
+  return best!;
+}
+export const eventGoalProgress = (g: SeasonalEventGoal, stats: Record<string, number> | undefined, base: Record<string, number> | undefined): number =>
+  Math.min(g.target, g.kinds.reduce((t, k) => t + Math.max(0, (Number(stats?.[k]) || 0) - (Number(base?.[k]) || 0)), 0));
+export function eventCosmetic(key: string): UnlockedCosmetic | null {
+  const m = /^event:([a-z]+)-(\d{4})$/.exec(key || '');
+  const ev = m && SEASONAL_EVENTS.find(e => e.id === m[1]);
+  return ev && m ? { key, icon: ev.icon, title: `${ev.title} ${m[2]}` } : null;
+}
+
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = [], eventCosmetics: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
     .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
@@ -795,7 +850,7 @@ export function getUnlockedCosmetics(level: number, achievements: Achievement[],
     for (let t = 1; t <= reached; t++) { const c = modeBadgeCosmetic(`mode:${def.mode}:${t}`, modeStats); if (c) badgeUnlocks.push(c); }
   }
   const antiqueUnlocks = antiquesOwned.map(id => antiqueCosmetic(`antique:${id}`)).filter((c): c is UnlockedCosmetic => !!c);
-  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks, ...mementosOwned.map(id => mementoCosmetic(`memento:${id}`)).filter((c): c is UnlockedCosmetic => !!c)];
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks, ...eventCosmetics.map(eventCosmetic).filter((c): c is UnlockedCosmetic => !!c), ...mementosOwned.map(id => mementoCosmetic(`memento:${id}`)).filter((c): c is UnlockedCosmetic => !!c)];
 }
 
 // Resolves what to actually show in the header: the player's chosen icon/title
@@ -809,13 +864,14 @@ export function resolveProfileDisplay(
   courtHonors?: string[], // own profile: honors must be earned. Omitted for other players' profiles (display only)
   modeStats?: Record<string, number>,
   antiquesOwned?: string[],
-  mementosOwned?: string[]
+  mementosOwned?: string[],
+  eventCosmetics?: string[]
 ): { icon: string; title: string } {
-  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? [], mementosOwned ?? []);
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? [], mementosOwned ?? [], eventCosmetics ?? []);
   if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
     const other = honorCosmetic(selectedTitle);
     if (other) unlocked.push(other);
-    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k) || mementoCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
+    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k) || mementoCosmetic(k) || eventCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
   }
   const rank = getRankForLevel(level);
   const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);

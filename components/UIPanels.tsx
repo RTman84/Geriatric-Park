@@ -16,7 +16,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, GEAR_RARITY_COLOR, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1136,8 +1136,9 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
 export const QuestPanel: React.FC<{ 
   quests: Quest[], achievements: Achievement[], parkScore: number, 
   onClaim: (id: string) => void, isDark: boolean,
-  modeStats?: Record<string, number>, claimedMilestones?: string[], onClaimMilestone?: (mode: string, tier: number) => void
-}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone }) => {
+  modeStats?: Record<string, number>, claimedMilestones?: string[], onClaimMilestone?: (mode: string, tier: number) => void,
+  eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }
+}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone, eventProgress }) => {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements' | 'milestones'>('daily');
   const daily = quests.filter(q => q.type === 'Daily');
   const weekly = quests.filter(q => q.type === 'Weekly');
@@ -1156,6 +1157,8 @@ export const QuestPanel: React.FC<{
           Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} <Gfx e="🎟" /></span> every time you claim.
         </div>
       </div>
+
+      <EventsCard isDark={isDark} modeStats={modeStats} eventProgress={eventProgress} />
 
       {/* Tab selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
@@ -1776,4 +1779,54 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
       </div>
     </div>
   );
+};// Seasonal event card: the running event with live goal progress, or a countdown to the next one.
+const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>; eventProgress?: { id: string; base: Record<string, number>; claimed: string[] } }> = ({ isDark, modeStats, eventProgress }) => {
+  const act = activeSeasonalEvent();
+  const card = `p-5 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`;
+  const daysLeft = (t: number) => Math.max(0, Math.ceil((t - Date.now()) / 86400000));
+  if (!act) {
+    const nx = nextSeasonalEvent();
+    return (
+      <div className={card}>
+        <div className="text-[13px] font-black uppercase tracking-widest text-slate-400 mb-1">Seasonal Events</div>
+        <div className={`text-[16px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{nx.event.icon} {nx.event.name} starts in {daysLeft(nx.startsAt)} days</div>
+        <div className="text-[13px] font-bold text-slate-400 mt-1">{nx.event.blurb} Finish every goal for a permanent event title and icon.</div>
+      </div>
+    );
+  }
+  const key = `${act.event.id}-${act.year}`;
+  const base = eventProgress && eventProgress.id === key ? eventProgress.base : undefined;
+  const claimed = eventProgress && eventProgress.id === key ? eventProgress.claimed : [];
+  const done = act.event.goals.every(g => claimed.includes(g.id));
+  return (
+    <div className={`${card} border-[var(--accent-500)]`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[13px] font-black uppercase tracking-widest text-[var(--accent-500)]">Event - {daysLeft(act.endsAt)} days left</div>
+          <div className={`text-[20px] font-black uppercase italic leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{act.event.icon} {act.event.name}</div>
+          <div className="text-[13px] font-bold text-slate-400 mt-1">{act.event.blurb}</div>
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        {act.event.goals.map(g => {
+          const p = base ? eventGoalProgress(g, modeStats, base) : 0;
+          const isDone = claimed.includes(g.id);
+          return (
+            <div key={g.id} className={`p-3 rounded-2xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+              <div className="flex justify-between items-baseline gap-2">
+                <span className={`text-[14px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{isDone ? '\u2713 ' : ''}{g.label}</span>
+                <span className="text-[13px] font-black text-slate-400 whitespace-nowrap">{p}/{g.target}</span>
+              </div>
+              <div className={`h-2 rounded-full mt-2 overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}><div className="h-full bg-[var(--accent-500)]" style={{ width: `${(p / g.target) * 100}%` }} /></div>
+              <div className="text-[12px] font-bold text-slate-400 mt-1">Reward: {g.tickets} <Gfx e="🎟️" size={14} /> {g.materials} <Gfx e="🧱" size={14} /> {g.xp} XP</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[13px] font-black mt-3 text-center" style={{ color: done ? '#22c55e' : undefined }}>{done ? `Complete! You earned "${act.event.title} ${act.year}".` : `Finish every goal to earn the title "${act.event.title} ${act.year}" and its icon.`}</div>
+    </div>
+  );
 };
+
+
+

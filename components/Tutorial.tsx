@@ -65,6 +65,36 @@ const STEPS: TutorialStep[] = [
     icon: <TrophyIcon className="w-12 h-12 text-rose-500" />
   },
   {
+    title: "Visitors' Lodge & Resident Exchange",
+    description: "Send a benched Elder to stay in a friend's park for 8, 12 or 24 hours. It earns Elder XP while away and your friend gets a gift you choose. Tap the Lodge in your Park (or use the Lodge button) to see who is away and who is visiting you. Upgrade the Lodge to host more visitors and give them more XP. You do not need to build it to use the Exchange.",
+    icon: <HomeIcon className="w-12 h-12 text-sky-500" />
+  },
+  {
+    title: "Tinker's Workshop",
+    description: "Upgrade, salvage and hand out gear in one place. Sort and filter your gear, or use Multi-salvage to scrap a pile at once. Building and upgrading the Workshop makes gear upgrades cheaper and salvage pay more, and also adds room and XP for visiting Elders. It is optional: everything works without it at the normal price.",
+    icon: <WrenchScrewdriverIcon className="w-12 h-12 text-amber-600" />
+  },
+  {
+    title: "TV Dinners & the PvP Shop",
+    description: "TV Dinners are earned only by playing against other people: Friend Battles, Arenas, Raids and the Court Ladder (up to 40 a day). Spend them in the PvP Shop on daily antiques, PvP-only gear and passes that waive Ticket fees. Each antique unlocks an icon and a title.",
+    icon: <TrophyIcon className="w-12 h-12 text-amber-500" />
+  },
+  {
+    title: "Mementos",
+    description: "Mementos are the premium currency. They are bought in the Mementos Shop, or you can convert some of your PP into them (one way only). They buy extra roster rooms and weekly keepsakes. PP itself can never be sold or bought, and everything in the game is still playable for free.",
+    icon: <SparklesIcon className="w-12 h-12 text-pink-400" />
+  },
+  {
+    title: "Boards, Brackets & Titles",
+    description: "Your Squad Power puts you in one of 10 brackets, so you compete against players near your strength in every mode. Each mode has its own weekly or daily board, and the top 3 in a bracket earn rewards and a permanent title. Tap your profile to choose any icon or title you have earned.",
+    icon: <TrophyIcon className="w-12 h-12 text-blue-500" />
+  },
+  {
+    title: "Seasonal Events",
+    description: "Holidays and seasons bring limited-time events with three goals each, tracked automatically from what you play. Goals pay Tickets, Materials and XP as you finish them, and completing all three earns a permanent event title and icon for that year. Check the Tasks tab to see what is running and what is coming next.",
+    icon: <SparklesIcon className="w-12 h-12 text-orange-500" />
+  },
+  {
     title: "Wild Residents & Rarity",
     description: "Tap a wild resident to see its level, rarity and power before you fight. A rarer Elder is stronger in every way: Common, Rare, Epic, then Legendary. A resident you guide home joins exactly as strong as you fought it.",
     icon: <SparklesIcon className="w-12 h-12 text-purple-500" />
