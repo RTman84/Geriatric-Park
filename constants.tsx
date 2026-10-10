@@ -55,6 +55,10 @@ import bossMarshalImg from './game-assets/raid/marshal.png';
 import bossBuffetImg from './game-assets/raid/buffet.png';
 import bossHorseImg from './game-assets/raid/horse.png';
 import bossPruneImg from './game-assets/raid/prune.png';
+import bossTaxImg from './game-assets/raid/tax.png';
+import bossThermostatImg from './game-assets/raid/thermostat.png';
+import bossBusImg from './game-assets/raid/bus.png';
+import bossTimeImg from './game-assets/raid/time.png';
 import factionBirdsImg from './game-assets/factions/early_birds.png';
 import factionOwlsImg from './game-assets/factions/night_owls.png';
 import factionDriversImg from './game-assets/factions/sunday_drivers.png';
@@ -539,10 +543,10 @@ export const RAID_BOSSES: RaidBoss[] = [
   { tier: 2, name: 'The Early-Bird Buffet Line', icon: '🍽️', art: bossBuffetImg, flavor: 'Camped at the dining hall since 3:45 for the 4:00 special. Will not be moved.', mechanic: 'More of a crowd than a single foe — a bit easier to whittle down than the Marshal.' },
   { tier: 3, name: 'Charley Horse', icon: '🦵', art: bossHorseImg, flavor: 'Strikes mid-shuffleboard-swing with zero warning.', mechanic: 'Comes and goes — check back often, since a fresh cramp can flare up any time the window is open.' },
   { tier: 3, name: 'The Prune Juice Reckoning', icon: '🧃', art: bossPruneImg, flavor: '"Hits like nature intended."', mechanic: 'Everyone gets exactly 2 attempts. A 3rd "isn\'t happening."' },
-  { tier: 4, name: 'The Property Tax Assessor', icon: '🧾', flavor: 'Reassesses your garden gnome as a \"detached outbuilding.\"', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
-  { tier: 4, name: 'The Thermostat Wars', icon: '🌡️', flavor: 'Seventy-two degrees. Seventy-four. Someone touched it again.', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
-  { tier: 5, name: 'The Casino Bus Tour', icon: '🚌', flavor: 'Next stop: every gift shop, buffet and slot machine in the state.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
-  { tier: 5, name: 'Father Time Himself', icon: '⏳', flavor: 'Undefeated. Slightly behind schedule. Very well-rested.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
+  { tier: 4, name: 'The Property Tax Assessor', icon: '🧾', art: bossTaxImg, flavor: 'Reassesses your garden gnome as a \"detached outbuilding.\"', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 4, name: 'The Thermostat Wars', icon: '🌡️', art: bossThermostatImg, flavor: 'Seventy-two degrees. Seventy-four. Someone touched it again.', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 5, name: 'The Casino Bus Tour', icon: '🚌', art: bossBusImg, flavor: 'Next stop: every gift shop, buffet and slot machine in the state.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
+  { tier: 5, name: 'Father Time Himself', icon: '⏳', art: bossTimeImg, flavor: 'Undefeated. Slightly behind schedule. Very well-rested.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
 ];
 export const RAID_FREE_ATTEMPTS = 2;
 export const RAID_EXTRA_ATTEMPT_COST = 15; // Tickets, for a 3rd+ attempt beyond the free 2
