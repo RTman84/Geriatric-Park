@@ -173,7 +173,7 @@ import {
   FRIEND_BATTLE_WIN_MATERIALS,
   MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, PREMIUM_ROOM_MAX, premiumRoomPrice, MEMENTO_ITEMS, mementoItemsForWeek, mementoWeekIndex,
   GEAR_RARITY_COLOR, UNIFORM_GEAR_BASE, UNIFORM_GEAR_NAMES, PASS_PRICE, PASS_HOLD_MAX, PARK_ASSET_MAX_OWNED, parkAssetCost,
-  DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
+  DINERS_DAILY_CAP, DINERS_FRIEND_WIN, DINERS_ARENA_WIN, DINERS_RAID_HIT, DINERS_RAID_HIT_BY_TIER, DINERS_COURT_WIN, antiqueById, antiquesForDay, antiqueDayIndex, PVP_GEAR,
   FRIEND_BATTLE_DAILY_REWARDS,
   FRIEND_BATTLE_UNREWARDED_XP_SHARE,
   rollFriendBattle,
@@ -1435,7 +1435,7 @@ const App: React.FC = () => {
     if (usedPass) bits.push('Rally Pass used: fee waived');
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
-    earnDiners(DINERS_RAID_HIT, 'Raid hit');
+    earnDiners(DINERS_RAID_HIT_BY_TIER[Math.max(0, Math.min(4, (activeArenaId ? arenaInfo[activeArenaId]?.raid?.tier : undefined) ?? 1) - 1)] ?? DINERS_RAID_HIT, 'Raid hit');
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail, isArenaNearby]);
 

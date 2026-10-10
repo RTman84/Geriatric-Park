@@ -67,14 +67,26 @@ const RAID_WINDOW_MINUTES = 90;
 // testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with services/worldMap.ts's copy.
 const RAID_CHANCE = 0.12; // restored from 0.6 after live testing was confirmed working (2026-09-27)
 const RAID_SALT = 2000;
-const RAID_BASE_HP = [3000, 6000, 10000];
-const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85];
+const RAID_EVENT_WINDOWS: [number, number, number, number][] = [[2, 7, 2, 16], [4, 1, 4, 14], [6, 28, 7, 6], [9, 4, 9, 13], [10, 24, 11, 2], [11, 20, 11, 30], [12, 15, 1, 2]]; // seasonal events (UTC month/day start-end); keep in sync with SEASONAL_EVENTS in constants.tsx
+const RAID_LEGENDARY_EVENT_CHANCE = 0.35; // during an event, this share of raids roll as Tier 5 Legendary
+const RAID_TIER_WEIGHTS = [0.45, 0.75, 0.92, 1.0]; // cumulative: T1 45% / T2 30% / T3 17% / T4 8% (T5 is event-only)
+function raidEventActive(ms: number): boolean {
+  const d = new Date(ms), v = (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  return RAID_EVENT_WINDOWS.some(([sm, sd, em, ed]) => { const a = sm * 100 + sd, b = em * 100 + ed; return a <= b ? v >= a && v <= b : v >= a || v <= b; });
+}
+
+const RAID_BASE_HP = [3000, 6000, 10000, 20000, 40000];
+const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85, 1.0, 1.2, 1.0, 1.3];
 const RAID_FREE_ATTEMPTS = 2;
 const RAID_EXTRA_ATTEMPT_COST = 15;
-const RAID_MAX_REWARDED_PER_DAY = 3;
-const RAID_PARTICIPATION_TICKETS = 10;
-const RAID_PARTICIPATION_MATERIALS = 2;
-const RAID_DEFEAT_BONUS_MATERIALS = 8;
+const RAID_MAX_REWARDED_PER_DAY = 10; // raised from 3 (2026-10-10)
+// Per-tier rewards (index = tier-1): participation Tickets / Materials, plus a defeat bonus of Materials.
+const RAID_PARTICIPATION_TICKETS = [10, 15, 25, 40, 60];
+const RAID_PARTICIPATION_MATERIALS = [2, 3, 4, 6, 8];
+const RAID_DEFEAT_BONUS_MATERIALS = [4, 8, 14, 22, 30];
+// Boss survived: participation pays between 50% and 100% depending on how much of the boss's HP you personally dealt
+// (10% of max HP or more = full pay).
+const RAID_PARTIAL_FLOOR = 0.5, RAID_PARTIAL_FULL_SHARE = 0.10;
 const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
 // 2026-09-27 rebalance (round 3, per player feedback): a FLAT damage-per-hit cap doesn't actually
 // create tier difficulty variance for a strong squad -- since the cap is a % of maxHp, damage per
@@ -88,7 +100,9 @@ const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
 // faster with help. Tier 3: 8% -- 10 x 8% = 80% < 100%, so NO single squad, however strong or
 // Ticket-rich, can ever fully solo it -- guarantees real cooperation on the hardest tier.
 const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches constants.tsx's copy
-const RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER = [0.5, 0.2, 0.08]; // by tier (1,2,3), matches constants.tsx's copy
+const RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER = [0.5, 0.25, 0.12, 0.09, 0.05]; // by tier (1-5), matches constants.tsx's copy
+const RAID_SATURATION_POWER = [1500, 5000, 16000, 24000, 24000]; // squad power at which a hit reaches its tier cap
+const RAID_POWER_EXPONENT = 0.65; // damage share = cap x min(1, (power / saturation)^0.65): power matters, with diminishing returns
 // Per-instance "power flux" (deterministic, seeded the same as everything else in this function --
 // see the extra rand() call below) so two raids of the same tier/boss never feel identical.
 const RAID_FLUX_MIN = 0.85;
@@ -109,10 +123,14 @@ function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
       const slotStart = dayStart + hour * 3600000;
       const rand = rng(hash32(cx, cy, RAID_SALT + slot * 10000 + dayOffset * 100000 + hashDay(dayKey)));
       if (rand() >= RAID_CHANCE) continue;
-      const tier = 1 + Math.floor(rand() * 3);
+      const tierRoll = rand();
       const bossInTier = rand() < 0.5 ? 0 : 1;
-      const bossIndex = (tier - 1) * 2 + bossInTier;
       const flux = RAID_FLUX_MIN + rand() * RAID_FLUX_RANGE;
+      const legendRoll = rand();
+      let tier = 1 + RAID_TIER_WEIGHTS.findIndex(w => tierRoll < w);
+      if (tier < 1) tier = 1;
+      if (raidEventActive(slotStart) && legendRoll < RAID_LEGENDARY_EVENT_CHANCE) tier = 5;
+      const bossIndex = (tier - 1) * 2 + bossInTier;
       const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex] * flux);
       out.push({ slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
     }
@@ -313,8 +331,10 @@ async function settleRaid(supabase: SupabaseClient, raidRow: any, defeated: bool
     if (already >= RAID_MAX_REWARDED_PER_DAY) continue;
     const { error: upErr } = await supabase.from('arena_player_daily').upsert({ user_id: h.user_id, day, raid_rewards: already + 1 }, { onConflict: 'user_id,day' });
     if (upErr) { console.error('Raid daily write failed', upErr.message); continue; }
-    const tickets = RAID_PARTICIPATION_TICKETS;
-    const materials = RAID_PARTICIPATION_MATERIALS + (defeated ? RAID_DEFEAT_BONUS_MATERIALS : 0);
+    const ti = Math.max(0, Math.min(4, num(raidRow.tier, 1) - 1));
+    const share = defeated ? 1 : RAID_PARTIAL_FLOOR + (1 - RAID_PARTIAL_FLOOR) * Math.min(1, (num(h.damage, 0) / Math.max(1, num(raidRow.max_hp, 1))) / RAID_PARTIAL_FULL_SHARE);
+    const tickets = Math.max(1, Math.round(RAID_PARTICIPATION_TICKETS[ti] * share));
+    const materials = Math.max(1, Math.round(RAID_PARTICIPATION_MATERIALS[ti] * share)) + (defeated ? RAID_DEFEAT_BONUS_MATERIALS[ti] : 0);
     await sendMail(supabase, {
       recipient: h.user_id, sender: h.user_id, senderName: boss, kind: 'raid_result', ref: raidRow.raid_id,
       tickets, materials,
@@ -325,7 +345,7 @@ async function settleRaid(supabase: SupabaseClient, raidRow: any, defeated: bool
   }
   return null;
 }
-const RAID_BOSS_NAMES = ['The HOA President', 'The DMV Clerk', 'The Golf-Cart Marshal', 'The Early-Bird Buffet Line', 'Charley Horse', 'The Prune Juice Reckoning'];
+const RAID_BOSS_NAMES = ['The HOA President', 'The DMV Clerk', 'The Golf-Cart Marshal', 'The Early-Bird Buffet Line', 'Charley Horse', 'The Prune Juice Reckoning', 'The Property Tax Assessor', 'The Thermostat Wars', 'The Casino Bus Tour', 'Father Time Himself'];
 
 async function settleIfDue(supabase: SupabaseClient, arenaId: string, now: number): Promise<Response | null> {
   const slots = raidSlotsFor(arenaId, now).filter(s => s.slotEnd <= now);
@@ -512,7 +532,8 @@ export default async function handler(req: Request): Promise<Response> {
       // the server only enforces the attempt count, never touches the Tickets balance itself.
       const rawDamage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
       const capPct = RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[slot.tier - 1] ?? RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER.length - 1];
-      const damage = Math.min(rawDamage, Math.round(slot.maxHp * capPct));
+      const satPower = RAID_SATURATION_POWER[slot.tier - 1] ?? RAID_SATURATION_POWER[RAID_SATURATION_POWER.length - 1];
+      const damage = Math.max(1, Math.round(slot.maxHp * capPct * Math.min(1, Math.pow(Math.max(1, rawDamage) / satPower, RAID_POWER_EXPONENT))));
       const { error: hitUpErr } = await supabase.from('arena_raid_hits').upsert({
         raid_id: slot.raidId, user_id: userId, power: me.squadPower,
         damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,

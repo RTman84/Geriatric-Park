@@ -4,7 +4,7 @@ import { Elder, ElderType } from '../types';
 import {
   ELDER_AVATARS, ElderAvatarImg, FACTIONS, factionById, FactionId, getElderPower,
   ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, ARENA_FACTION_LOCK_DAYS, arenaAttackCost,
-  raidBossByIndex, raidCountdownLabel, RAID_FREE_ATTEMPTS, RAID_EXTRA_ATTEMPT_COST, RAID_MAX_ATTEMPTS_PER_PLAYER,
+  raidBossByIndex, raidCountdownLabel, RAID_TIER_NAMES, RAID_FREE_ATTEMPTS, RAID_EXTRA_ATTEMPT_COST, RAID_MAX_ATTEMPTS_PER_PLAYER,
 } from '../constants';
 import type { ArenaInfo, ArenaMe, ArenaDefender } from '../services/arenaService';
 import type { RaidHitResult } from '../services/arenaService';
@@ -78,7 +78,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
           <div className="min-w-0">
             <h3 className="text-2xl font-black uppercase italic tracking-tighter truncate">🏟️ {site.name}</h3>
             <p className={`text-[14px] font-black uppercase tracking-widest ${muted}`}>
-              {holderFaction ? <span style={{ color: holderFaction.color }}>{holderFaction.icon} Held by {holderFaction.name}</span> : 'Neutral — up for grabs'}
+              {holderFaction ? <span style={{ color: holderFaction.color }}>{holderFaction.art ? <img src={holderFaction.art} alt="" className="inline-block w-5 h-5 object-contain align-middle mr-1" /> : holderFaction.icon} Held by {holderFaction.name}</span> : 'Neutral — up for grabs'}
             </p>
           </div>
           <button onClick={onClose} className={`px-3 py-1.5 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>Close</button>
@@ -92,7 +92,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
             {FACTIONS.map(f => (
               <button key={f.id} disabled={busy} onClick={() => setPendingFaction(f.id)}
                 className={`w-full text-left p-4 rounded-2xl border-2 flex items-center gap-3 active:scale-95 transition-all ${pendingFaction === f.id ? 'border-[var(--accent-500)]' : isDark ? 'border-slate-700' : 'border-slate-200'}`}>
-                <span className="text-3xl">{f.icon}</span>
+                {f.art ? <img src={f.art} alt="" className="w-14 h-14 object-contain" /> : <span className="text-3xl">{f.icon}</span>}
                 <span><span className="block font-black uppercase" style={{ color: f.color }}>{f.name}</span><span className={`block text-[14px] ${muted}`}>{f.blurb}</span></span>
               </button>
             ))}
@@ -105,7 +105,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
           <>
             <div className={`${card} mb-4`}>
               <div className="flex items-center justify-between">
-                <span className="font-black uppercase text-[14px]" style={{ color: factionById(myFaction)?.color }}>{factionById(myFaction)?.icon} You: {factionById(myFaction)?.name}</span>
+                <span className="font-black uppercase text-[14px]" style={{ color: factionById(myFaction)?.color }}>{factionById(myFaction)?.art ? <img src={factionById(myFaction)!.art} alt="" className="inline-block w-6 h-6 object-contain align-middle mr-1" /> : factionById(myFaction)?.icon} You: {factionById(myFaction)?.name}</span>
                 <span className={`text-[13px] font-black uppercase ${muted}`}>Attacks left: {attacksLeft}/{ARENA_MAX_ATTACKS_PER_DAY}</span>
               </div>
               {!switching ? (
@@ -126,7 +126,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                           <button key={f.id} disabled={busy} onClick={() => setSwitchTarget(f.id)}
                             className={`flex-1 py-2 rounded-xl text-[13px] font-black uppercase border-2 ${switchTarget === f.id ? '' : isDark ? 'border-slate-700' : 'border-slate-200'}`}
                             style={switchTarget === f.id ? { borderColor: f.color, color: f.color } : undefined}>
-                            {f.icon} {f.name}
+                            {f.art ? <img src={f.art} alt="" className="inline-block w-5 h-5 object-contain align-middle mr-1" /> : f.icon} {f.name}
                           </button>
                         ))}
                       </div>
@@ -150,7 +150,8 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                 return (
                   <div className={`${card} mb-4`}>
                     <p className="font-black uppercase text-[14px] mb-1">🐲 Raid incoming</p>
-                    <p className={`text-[14px] font-bold ${muted}`}>{boss.icon} {boss.name} arrives in {raidCountdownLabel(msUntil)}. Come back with friends — this one needs a crowd.</p>
+                    {boss.art && <img src={boss.art} alt="" className="w-28 h-28 object-contain mx-auto mb-1" />}
+                    <p className={`text-[14px] font-bold ${muted}`}>{!boss.art && boss.icon} {boss.name} arrives in {raidCountdownLabel(msUntil)}. Come back with friends — this one needs a crowd.</p>
                   </div>
                 );
               }
@@ -163,9 +164,10 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
               return (
                 <div className={`${card} mb-4`}>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-black uppercase text-[14px]">{boss.icon} {boss.name}</p>
+                    <p className="font-black uppercase text-[14px]">{!boss.art && boss.icon} {boss.name} <span className={`text-[11px] ${muted}`}>· {RAID_TIER_NAMES[raid.tier - 1]}</span></p>
                     <span className={`text-[12px] font-black uppercase ${muted}`}>{raid.settled ? 'Ended' : `${raidCountdownLabel(msLeft)} left`}</span>
                   </div>
+                  {boss.art && <img src={boss.art} alt="" className="w-36 h-36 object-contain mx-auto my-1" />}
                   <p className={`text-[13px] font-bold mb-2 ${muted}`}>{boss.flavor}</p>
                   <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
                     <div className="h-full bg-rose-500 transition-all" style={{ width: `${pct}%` }} />

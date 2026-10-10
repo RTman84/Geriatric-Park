@@ -15,7 +15,7 @@ export interface ArenaInfo {
   raid: ArenaRaidInfo | null;
 }
 export interface ArenaRaidInfo {
-  raidId: string; tier: 1 | 2 | 3; bossIndex: number; bossName: string;
+  raidId: string; tier: 1 | 2 | 3 | 4 | 5; bossIndex: number; bossName: string;
   startsAt: string; endsAt: string; active: boolean; maxHp: number; damageTotal: number;
   settled: boolean; defeated: boolean | null; myDamage: number; myAttempts: number;
 }

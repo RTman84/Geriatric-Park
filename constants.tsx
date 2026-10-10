@@ -49,6 +49,15 @@ import amenityNappod from './game-assets/amenities/nappod.png';
 import amenityPrunebar from './game-assets/amenities/prunebar.png';
 import amenityShuffleboard from './game-assets/amenities/shuffleboard_deco.png';
 import amenityWorkshop from './game-assets/amenities/workshop.png';
+import bossHoaImg from './game-assets/raid/hoa.png';
+import bossDmvImg from './game-assets/raid/dmv.png';
+import bossMarshalImg from './game-assets/raid/marshal.png';
+import bossBuffetImg from './game-assets/raid/buffet.png';
+import bossHorseImg from './game-assets/raid/horse.png';
+import bossPruneImg from './game-assets/raid/prune.png';
+import factionBirdsImg from './game-assets/factions/early_birds.png';
+import factionOwlsImg from './game-assets/factions/night_owls.png';
+import factionDriversImg from './game-assets/factions/sunday_drivers.png';
 import amenityLodge from './game-assets/amenities/lodge.png';
 
 import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
@@ -510,10 +519,10 @@ export function bumpDaily(x: any): { day: string; count: number } {
 // numbers below are the ones the client needs to DISPLAY prices and limits. Keep them in sync with the top of
 // api/arena.ts. Arenas never pay PP or raise passive income.
 export type FactionId = 'early_birds' | 'night_owls' | 'sunday_drivers';
-export const FACTIONS: { id: FactionId; name: string; icon: string; color: string; blurb: string }[] = [
-  { id: 'early_birds', name: 'Early Birds', icon: '🌅', color: '#f59e0b', blurb: 'Dinner at 4pm sharp. First in line, every time.' },
-  { id: 'night_owls', name: 'Night Owls', icon: '🦉', color: '#6366f1', blurb: 'Still up for the late-late show. Reading glasses on.' },
-  { id: 'sunday_drivers', name: 'Sunday Drivers', icon: '🚗', color: '#14b8a6', blurb: 'Fifteen under the limit, blinker on since Tuesday.' },
+export const FACTIONS: { id: FactionId; name: string; icon: string; art?: string; color: string; blurb: string }[] = [
+  { id: 'early_birds', name: 'Early Birds', icon: '🌅', art: factionBirdsImg, color: '#f59e0b', blurb: 'Dinner at 4pm sharp. First in line, every time.' },
+  { id: 'night_owls', name: 'Night Owls', icon: '🦉', art: factionOwlsImg, color: '#6366f1', blurb: 'Still up for the late-late show. Reading glasses on.' },
+  { id: 'sunday_drivers', name: 'Sunday Drivers', icon: '🚗', art: factionDriversImg, color: '#14b8a6', blurb: 'Fifteen under the limit, blinker on since Tuesday.' },
 ];
 export const factionById = (id: any) => FACTIONS.find(f => f.id === id);
 export const ARENA_FACTION_LOCK_DAYS = 30;
@@ -522,18 +531,28 @@ export const ARENA_FACTION_LOCK_DAYS = 30;
 // Two per tier, one from each of three themes so the joke doesn't wear thin. `hp` here is DISPLAY ONLY
 // -- api/arena.ts computes the real max_hp server-side from the same seeded roll; this array must stay
 // in this exact order (index = boss_index from services/worldMap.ts / the server).
-export interface RaidBoss { name: string; icon: string; flavor: string; mechanic: string; tier: 1 | 2 | 3 }
+export interface RaidBoss { name: string; icon: string; art?: string; flavor: string; mechanic: string; tier: 1 | 2 | 3 | 4 | 5 }
 export const RAID_BOSSES: RaidBoss[] = [
-  { tier: 1, name: 'The HOA President', icon: '🏘️', flavor: 'Cites you for a garden gnome "in violation of Article 12, Subsection C."', mechanic: 'A slice of the health bar is "Pending Appeal" — it creeps back up unless the whole community piles on together.' },
-  { tier: 1, name: 'The DMV Clerk', icon: '🪪', flavor: '"Now serving number 47." You are number 112.', mechanic: 'Absurdly padded health for its tier. The fight isn\'t dangerous — it\'s just long.' },
-  { tier: 2, name: 'The Golf-Cart Marshal', icon: '🛺', flavor: 'Terrorizes the walking paths at a blistering 12 mph. Writes tickets for socks with sandals.', mechanic: 'Zips around unpredictably — a tougher-than-average fight for its tier.' },
-  { tier: 2, name: 'The Early-Bird Buffet Line', icon: '🍽️', flavor: 'Camped at the dining hall since 3:45 for the 4:00 special. Will not be moved.', mechanic: 'More of a crowd than a single foe — a bit easier to whittle down than the Marshal.' },
-  { tier: 3, name: 'Charley Horse', icon: '🦵', flavor: 'Strikes mid-shuffleboard-swing with zero warning.', mechanic: 'Comes and goes — check back often, since a fresh cramp can flare up any time the window is open.' },
-  { tier: 3, name: 'The Prune Juice Reckoning', icon: '🧃', flavor: '"Hits like nature intended."', mechanic: 'Everyone gets exactly 2 attempts. A 3rd "isn\'t happening."' },
+  { tier: 1, name: 'The HOA President', icon: '🏘️', art: bossHoaImg, flavor: 'Cites you for a garden gnome "in violation of Article 12, Subsection C."', mechanic: 'A slice of the health bar is "Pending Appeal" — it creeps back up unless the whole community piles on together.' },
+  { tier: 1, name: 'The DMV Clerk', icon: '🪪', art: bossDmvImg, flavor: '"Now serving number 47." You are number 112.', mechanic: 'Absurdly padded health for its tier. The fight isn\'t dangerous — it\'s just long.' },
+  { tier: 2, name: 'The Golf-Cart Marshal', icon: '🛺', art: bossMarshalImg, flavor: 'Terrorizes the walking paths at a blistering 12 mph. Writes tickets for socks with sandals.', mechanic: 'Zips around unpredictably — a tougher-than-average fight for its tier.' },
+  { tier: 2, name: 'The Early-Bird Buffet Line', icon: '🍽️', art: bossBuffetImg, flavor: 'Camped at the dining hall since 3:45 for the 4:00 special. Will not be moved.', mechanic: 'More of a crowd than a single foe — a bit easier to whittle down than the Marshal.' },
+  { tier: 3, name: 'Charley Horse', icon: '🦵', art: bossHorseImg, flavor: 'Strikes mid-shuffleboard-swing with zero warning.', mechanic: 'Comes and goes — check back often, since a fresh cramp can flare up any time the window is open.' },
+  { tier: 3, name: 'The Prune Juice Reckoning', icon: '🧃', art: bossPruneImg, flavor: '"Hits like nature intended."', mechanic: 'Everyone gets exactly 2 attempts. A 3rd "isn\'t happening."' },
+  { tier: 4, name: 'The Property Tax Assessor', icon: '🧾', flavor: 'Reassesses your garden gnome as a \"detached outbuilding.\"', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 4, name: 'The Thermostat Wars', icon: '🌡️', flavor: 'Seventy-two degrees. Seventy-four. Someone touched it again.', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 5, name: 'The Casino Bus Tour', icon: '🚌', flavor: 'Next stop: every gift shop, buffet and slot machine in the state.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
+  { tier: 5, name: 'Father Time Himself', icon: '⏳', flavor: 'Undefeated. Slightly behind schedule. Very well-rested.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
 ];
 export const RAID_FREE_ATTEMPTS = 2;
 export const RAID_EXTRA_ATTEMPT_COST = 15; // Tickets, for a 3rd+ attempt beyond the free 2
-export const RAID_MAX_REWARDED_PER_DAY = 3;
+export const RAID_MAX_REWARDED_PER_DAY = 10; // raised from 3 (2026-10-10) so dedicated raiders can chase rewards; every raid still pays flat, tier-scaled rewards
+// Tier tables (index = tier-1). Keep in sync with api/arena.ts and services/worldMap.ts.
+export const RAID_TIER_NAMES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
+export const RAID_TIER_DAMAGE_CAP = [0.5, 0.25, 0.12, 0.09, 0.05]; // max share of boss HP one hit can do
+export const RAID_TIER_SATURATION = [1500, 5000, 16000, 24000, 24000]; // squad power at which a hit reaches the cap
+export const RAID_POWER_EXPONENT = 0.65;
+export const DINERS_RAID_HIT_BY_TIER = [2, 2, 3, 4, 5];
 export const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches api/arena.ts (restored from 4, 2026-09-27 round 3 -- tier's damage cap now governs solo-feasibility instead of attempt count)
 export const raidBossByIndex = (i: number) => RAID_BOSSES[Math.max(0, Math.min(RAID_BOSSES.length - 1, i))];
 export function raidCountdownLabel(msUntil: number): string {
@@ -1533,7 +1552,7 @@ export const SEASONAL_REWARDS = [
 
 // --- TV Dinners: the PvP / Arena / Raid currency and its shop (2026-10-06) ---------------------------------
 // Earned ONLY from social/competitive play (daily-capped), spent ONLY in the PvP shop. Never PP, never passive income.
-export const DINERS_DAILY_CAP = 40;
+export const DINERS_DAILY_CAP = 100; // raised from 40 (2026-10-10): raids now allow up to 10 rewarded raids a day
 export const DINERS_FRIEND_WIN = 3;
 export const DINERS_ARENA_WIN = 3;
 export const DINERS_RAID_HIT = 2;

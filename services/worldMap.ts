@@ -100,10 +100,18 @@ export const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
 export const RAID_WINDOW_MINUTES = 90;
 export const RAID_CHANCE = 0.12; // restored from the 0.6 testing bump (2026-09-27) -- keep in sync with api/arena.ts's copy.
 const RAID_SALT = 2000;
+const RAID_EVENT_WINDOWS: [number, number, number, number][] = [[2, 7, 2, 16], [4, 1, 4, 14], [6, 28, 7, 6], [9, 4, 9, 13], [10, 24, 11, 2], [11, 20, 11, 30], [12, 15, 1, 2]]; // seasonal events (UTC month/day start-end); keep in sync with SEASONAL_EVENTS in constants.tsx
+const RAID_LEGENDARY_EVENT_CHANCE = 0.35; // during an event, this share of raids roll as Tier 5 Legendary
+const RAID_TIER_WEIGHTS = [0.45, 0.75, 0.92, 1.0]; // cumulative: T1 45% / T2 30% / T3 17% / T4 8% (T5 is event-only)
+function raidEventActive(ms: number): boolean {
+  const d = new Date(ms), v = (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  return RAID_EVENT_WINDOWS.some(([sm, sd, em, ed]) => { const a = sm * 100 + sd, b = em * 100 + ed; return a <= b ? v >= a && v <= b : v >= a || v <= b; });
+}
+
 // Two bosses per tier (index 0-5); HP multipliers differ per boss even within a tier, purely for
 // texture, matching the ARENA_DESIGN.md flavor notes (the DMV Clerk's absurdly padded HP, etc.).
-export const RAID_BASE_HP = [3000, 6000, 10000]; // by tier (1,2,3)
-export const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85]; // per boss_index 0-5
+export const RAID_BASE_HP = [3000, 6000, 10000, 20000, 40000]; // by tier (1-5)
+export const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85, 1.0, 1.2, 1.0, 1.3]; // per boss_index 0-9
 // Per-instance "power flux" -- keep in sync with api/arena.ts's copy (same values, same position
 // in the rand() sequence) so two raids of the same tier/boss never feel identical.
 const RAID_FLUX_MIN = 0.85;
@@ -128,12 +136,16 @@ export function getArenaRaidSlots(arenaId: string, now: number = Date.now()): Ra
       const slotStart = raidSlotStart(dayStart, hour);
       const rand = rng(hash32(cx, cy, RAID_SALT + slot * 10000 + dayOffset * 100000 + hashDay(dayKey)));
       if (rand() >= RAID_CHANCE) continue;
-      const tier = 1 + Math.floor(rand() * 3);
+      const tierRoll = rand();
       const bossInTier = rand() < 0.5 ? 0 : 1;
-      const bossIndex = (tier - 1) * 2 + bossInTier;
       // Deterministic "power flux" -- same extra rand() call, same position, as api/arena.ts, so
       // both sides predict the identical maxHp with no server round-trip.
       const flux = RAID_FLUX_MIN + rand() * RAID_FLUX_RANGE;
+      const legendRoll = rand();
+      let tier = 1 + RAID_TIER_WEIGHTS.findIndex(w => tierRoll < w);
+      if (tier < 1) tier = 1;
+      if (raidEventActive(slotStart) && legendRoll < RAID_LEGENDARY_EVENT_CHANCE) tier = 5;
+      const bossIndex = (tier - 1) * 2 + bossInTier;
       const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex] * flux);
       out.push({ arenaId, slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
     }
