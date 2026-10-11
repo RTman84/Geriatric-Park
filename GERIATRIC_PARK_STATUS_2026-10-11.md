@@ -1,0 +1,35 @@
+# Geriatric Park - STATUS (as of 2026-10-11)
+Paste this whole file as the first message in a new chat. Repo: `RTman84/Geriatric-Park`. Branch: `phase2/account-backend-foundation-clean` (only active branch). **GitHub head `badc833` (plus this doc), everything pushed.** Supersedes `GERIATRIC_PARK_STATUS_2026-10-09.md`; the efficiency rules, owner steps, decisions and standing rules in the 10-08 and 10-09 docs still apply unchanged. Newest `ECONOMY.md` sections: 6zd to 6zg. Art prompts: `ART_PROMPTS.md`.
+
+## Supabase migrations: ALL applied by the owner (001-004, 006-013, 015-029)
+New this session: 024 raid tiers, 025 find players (everyone listed by default), 026 Gold Pass (`memento_events` kind 'pass'), 027 friend-request mail kind, 028 set bonuses (`arena_bonus_pct`, `raid_bonus_pct`), 029 `max_elder_power`.
+
+## Built this session (all on GitHub)
+- **Raids:** tiers 1-5 (tier 4 Epic, tier 5 Legendary events only, 35% of raids during seasonal events). Damage per hit = boss HP x tier cap (50/25/12/9/5%) x min(1, (squad power / saturation)^0.65), saturation 1,500/5,000/16,000/24,000/24,000, so power matters up to each tier's point; tiers 1-3 can be soloed by strong enough squads (T1 by everyone, T2 from bracket 4, T3 bracket 9+), tiers 4-5 cannot. Per-tier rewards (Tickets 10/15/25/40/60, Materials, defeat bonus), partial credit when a boss survives. 10 bosses with art (all done). 10 rewarded raids/day (was 3). 11 daily windows (was 3), chance 18%, Arena density 60%.
+- **Freedom/economy:** Arena 10 free attacks/day, 5 min cooldown, 40/day cap; Friend Battle 60 attacks/day, 10 rewarded wins/day; TV Dinners daily cap 180, per-win rewards raised (Friend 5, Arena 6, Court 6, Raid hit 3/4/5/7/10 by tier).
+- **Art wired in:** 6 + 4 raid bosses, 3 faction emblems (Gfx/constants `art` fields). Currency names on hover/tap in both header strips; PP icon beside PP amounts everywhere.
+- **Social:** Find Players (name search, always-open Refresh, default-visible with a hide switch, 30 pending-request cap); friend requests arrive in the Mailbox with Accept/Decline (`friend_request` mail kind, api/friends.ts inserts it).
+- **Titles:** each shows how it was earned (`cosmeticGoal`). Tutorial now above the map (z-index + map isolation). Theme-proof rarity cards (`rarityCardStyle`). Park Hub gear inventory sort; shared Elder sort (registry saves it, all Elder pickers follow it).
+- **Elder Pass v2:** global 30-day seasons from 2026-10-01 (`currentSeasonWindow`), 30 ranks x 800 XP, Pass XP automatically from all modes (daily play cap 500), free lane + titles at 10/20/30, Gold Pass 550 Mementos (about $5, server-priced in `api/mementos.ts`, one per season) with a second lane and 6 Gold titles/icons.
+- **Elder stats fixed:** ONE formula (`canonicalElderStats`): standard(level, rarity) x evolution multipliers + equipped gear. One-time migration `eldersCanonicalV1` reset every saved Elder (old numbers kept in `preCanonical`); wild Elders now follow the formula for their level/rarity; evolving and levelling follow it. Example: Lv71 Legendary stage 2 went from 7,262 to about 3,840 power. If that nerf is too harsh, add a flat per-stage evolution bonus instead.
+- **Gear sets:** Clubhouse Champion (Arena) and Boss Buster (Raid), 4 pieces each, drops 10% per defender beaten / 6% per raid hit, max 3 per mode per day; 2 pieces +4% Arena / +5% raid damage, 4 pieces +10% / +12%. Bonuses computed from the synced save (`api/account/save.ts`) and applied in `api/arena.ts` (clamped). Stationing limit uses the strongest Elder OR the squad total.
+- **Art prep:** `ART_PROMPTS.md` has 24 sheets with layouts and priorities (P1 medals/glyphs/ranks/gear/pass/events, P2 keepsakes, P3 60 antiques).
+
+## Verification owed (nothing below has been played live)
+Friend request Mailbox Accept/Decline (two accounts); Find Players search and hide switch; Gold Pass purchase and auto-claims; Pass screen layout and season rollover at 2026-10-31; Elder stats after the migration (check a few Elders in the Park Registry, and squad power/bracket changes); wild Elder fights and captures matching their level; Arena/Raid set drops, the Gear Sets card and server-side bonuses; stationing an Elder stronger than the squad; raid availability with the new windows; tutorial layer on top of the map; rarity borders in the Park Hub inventory.
+
+## Decisions to remember (standing)
+- Gold Pass is cosmetic/convenience only (never power, passive income or PP), priced in Mementos only (PP can be converted to Mementos one way). Pass XP comes moderately from all modes, nothing required.
+- Friend requests go to the Mailbox; Find Players lists everyone online or not, with a hide switch.
+- Arena/Raid gear bonuses apply only in their own mode and never touch PP or passive income.
+- Raids should be common enough that most players can catch one; every player should have a clearable tier.
+
+## Open / next
+1. Art: generate sheets from `ART_PROMPTS.md` (start with S01-S04, S07-S08), then wire in place of emoji (sets S08 replace placeholder emoji).
+2. Review Ticket economy: free Pass lane pays about 5,150 Tickets per season at rank 30; also check PvP shop prices against the higher TV Dinner income.
+3. Decide whether the Elder stat reset needs an evolution bonus to soften the drop for high-level Elders.
+4. Not built: Resident Exchange host standing preference, Friend Battle pass, Court Ladder extra challenges, Mementos Elder Pass track, ad-free option, Alliance/Clan, 3D avatars, Steam.
+5. Launch track unchanged (see the 10-08 doc): first Android build in Actions, native Google sign-in, back button, bundle Tailwind, Play Console steps, server-authoritative economy, merge phase2 to main, rotate keys, legal review before any real payout.
+
+## Owner step reminder
+Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.
