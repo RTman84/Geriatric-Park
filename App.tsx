@@ -184,7 +184,7 @@ import {
   DEFAULT_UI_THEME_ID,
   applyUITheme,
   rollGearRarity,
-  getEffectiveGearBoost,
+  getEffectiveGearBoost, canonicalElderStats, evolutionCum, rollSetPiece, SET_DROP_CHANCE, SET_DROP_DAILY_CAP, ARENA_SET_NAME, RAID_SET_NAME,
   getGearUpgradeCost,
   getGearSellValue,
   gearSlotKey,
@@ -284,7 +284,7 @@ function grantElderXp(elder: Elder, amount: number): Elder {
   const { xp: nextXp, level: nextLevel } = applyXpGain(elder.xp ?? 0, elder.level, amount, xpForElderLevel, ELDER_MAX_LEVEL);
   const levelsGained = nextLevel - elder.level;
   if (levelsGained <= 0) return { ...elder, xp: nextXp };
-  const statBonus = Math.round(STAT_BONUS_PER_LEVEL * levelsGained * (RARITY_STAT_MULTIPLIER[elder.rarity] ?? 1));
+  const statBonus = Math.round(STAT_BONUS_PER_LEVEL * levelsGained * (RARITY_STAT_MULTIPLIER[elder.rarity] ?? 1) * evolutionCum(elder.evolutionStage));
   const nextMaxHp = elder.maxHp + statBonus * 2;
   return {
     ...elder,
@@ -1039,6 +1039,18 @@ const App: React.FC = () => {
         }
         withDefaults.gearSlotsV2 = true;
       }
+      // 2026-10-11 one-time reset to the ONE standard stat formula (see canonicalElderStats): wild captures used to arrive with
+      // stats scaled to the player's best Elder instead of their level, and evolution multiplied whatever the Elder had at that
+      // moment, so Elders of the same level/rarity could differ enormously. The old numbers are kept in `preCanonical`.
+      if (!withDefaults.eldersCanonicalV1) {
+        const old = { strength: withDefaults.strength, wit: withDefaults.wit, agility: withDefaults.agility, tenacity: withDefaults.tenacity, maxHp: withDefaults.maxHp };
+        const c = canonicalElderStats(withDefaults);
+        const ratio = old.maxHp > 0 ? Math.max(0, Math.min(1, (withDefaults.hp || 0) / old.maxHp)) : 1;
+        withDefaults.preCanonical = old;
+        withDefaults.strength = c.strength; withDefaults.wit = c.wit; withDefaults.agility = c.agility; withDefaults.tenacity = c.tenacity;
+        withDefaults.maxHp = c.maxHp; withDefaults.hp = Math.max(1, Math.round(c.maxHp * ratio));
+        withDefaults.eldersCanonicalV1 = true;
+      }
       if (!isNameGenderMatched(withDefaults.name, withDefaults.type)) {
         return { ...withDefaults, name: getRandomElderName(withDefaults.type) };
       }
@@ -1400,6 +1412,24 @@ const App: React.FC = () => {
     return () => clearTimeout(t);
   }, [isLoaded, cloudSyncSettled, state.goldenGames?.highestLeagueCleared]);
 
+  // Arena / Raid set pieces: a small chance per defender beaten / per raid hit, capped per mode per day. Goes straight to the inventory.
+  const maybeDropSetPiece = useCallback((set: 'arena' | 'raid', rolls: number) => {
+    if (rolls <= 0) return;
+    let dropped: Gear | null = null;
+    const today = new Date().toISOString().slice(0, 10);
+    setState(prev => {
+      const sd = prev.setDrops?.day === today ? prev.setDrops : { day: today, arena: 0, raid: 0 };
+      if (sd[set] >= SET_DROP_DAILY_CAP) return prev;
+      let hit = false;
+      for (let i = 0; i < Math.min(rolls, 10); i++) if (Math.random() < SET_DROP_CHANCE[set]) { hit = true; break; }
+      if (!hit) return prev;
+      const piece = rollSetPiece(set);
+      dropped = piece;
+      return { ...prev, inventory: [...prev.inventory, piece], setDrops: { ...sd, [set]: sd[set] + 1 } };
+    });
+    if (dropped) setTimeout(() => notify(`🎁 ${set === 'arena' ? ARENA_SET_NAME : RAID_SET_NAME} set piece: ${(dropped as Gear).name} (${(dropped as Gear).rarity})! Wear 2 or 4 pieces for a ${set} bonus.`, 'good'), 0);
+  }, [notify]);
+
   const handleArenaAttack = useCallback(() => runArenaAction('Attacking', async () => {
     if (!isArenaNearby(activeArenaId)) { notify('Get closer to this Arena first. You can recall and collect Dues from anywhere.', 'bad'); return; }
     if (!activeArenaId) return;
@@ -1431,6 +1461,7 @@ const App: React.FC = () => {
     if (result.flipped) bits.push('The Arena is now neutral — station an Elder to claim it!');
     notify(`🏟️ ${result.arenaName}: ${bits.join(' · ')}`, result.beaten > 0 ? 'good' : 'bad');
     if (result.rewardedWins > 0) earnDiners(DINERS_ARENA_WIN, 'Arena win');
+    maybeDropSetPiece('arena', result.beaten);
     setState(prev => ({ ...prev, modeStats: bumpStat(prev.modeStats, 'arena'), quests: prev.quests.map(q => (!q.completed && q.kind === 'arena') ? { ...q, progress: Math.min(q.target, q.progress + 1) } : q) }));
   }), [runArenaAction, activeArenaId, arenaMe, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, isArenaNearby]);
 
@@ -1459,6 +1490,7 @@ const App: React.FC = () => {
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT_BY_TIER[Math.max(0, Math.min(4, (activeArenaId ? arenaInfo[activeArenaId]?.raid?.tier : undefined) ?? 1) - 1)] ?? DINERS_RAID_HIT, 'Raid hit');
     setState(prev => withSeasonActivityXp(prev, SEASON_RAID_HIT_XP));
+    maybeDropSetPiece('raid', 1);
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail, isArenaNearby]);
 
@@ -2734,14 +2766,12 @@ const App: React.FC = () => {
         legacyTokens: prev.legacyTokens - cost,
         allElders: prev.allElders.map(e => {
           if (e.id !== elderId) return e;
-          const nextMaxHp = Math.round(e.maxHp * multiplier);
+          const c = canonicalElderStats({ ...e, evolutionStage: nextStage });
+          const nextMaxHp = c.maxHp;
           return {
             ...e,
             evolutionStage: nextStage,
-            strength: Math.round(e.strength * multiplier),
-            wit: Math.round(e.wit * multiplier),
-            agility: Math.round(e.agility * multiplier),
-            tenacity: Math.round(e.tenacity * multiplier),
+            strength: c.strength, wit: c.wit, agility: c.agility, tenacity: c.tenacity,
             maxHp: nextMaxHp,
             hp: nextMaxHp,
             comfortGeneration: e.comfortGeneration * multiplier,
@@ -2832,7 +2862,9 @@ const App: React.FC = () => {
   // already wearing a piece of gear, and that gear tends to be better than a typical drop.
   const CAPTURE_GEAR_CHANCE = 0.08;
   const finalizeCapturedElder = (e: Elder): Elder => {
-    const captured: Elder = { ...e, hp: e.maxHp, obtainedAt: Date.now(), rarityStatsV1: true, equipment: { ...(e.equipment ?? {}) } };
+    // The fight used stats scaled to the player's best Elder; the Elder you KEEP gets the standard stats for its level and rarity.
+    const std = canonicalElderStats({ level: e.level, rarity: e.rarity, evolutionStage: e.evolutionStage ?? 0, equipment: {} });
+    const captured: Elder = { ...e, strength: std.strength, wit: std.wit, agility: std.agility, tenacity: std.tenacity, maxHp: std.maxHp, hp: std.maxHp, obtainedAt: Date.now(), rarityStatsV1: true, eldersCanonicalV1: true, equipment: { ...(e.equipment ?? {}) } };
     if (Math.random() < CAPTURE_GEAR_CHANCE) {
       const gearPool = ITEM_POOL.filter(i => i.type === 'Equipment');
       const pick = gearPool[Math.floor(Math.random() * gearPool.length)];

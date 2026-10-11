@@ -10,7 +10,7 @@ import {
   ClipboardDocumentListIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline';
-import { ElderType, PowerType, Achievement, Quest } from './types';
+import { ElderType, PowerType, Achievement, Quest, Gear } from './types';
 
 // Every image below is imported (not referenced by a hardcoded /public path).
 // Vite content-hashes imported assets at build time -- e.g.
@@ -207,6 +207,58 @@ export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' |
     out[k] = { total, base, rarity, gear, evolution: Math.max(0, total - base - rarity - gear) };
   });
   return out;
+}
+
+// ONE standard formula for an Elder's stats: the level/rarity curve, times the evolution multipliers, plus equipped gear (added after,
+// not multiplied). Levelling, evolving, capturing and the 2026-10-11 migration all produce exactly this, so no Elder can be stronger or
+// weaker than another of the same level, rarity, stage and gear (this fixed wild captures arriving with inflated stats and evolution
+// multiplying whatever an Elder happened to have at the time).
+export const evolutionCum = (stage?: number): number => (stage && stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage && stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
+export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any> }) {
+  const rarity = e.rarity ?? 'Common';
+  const std = standardElderStats(e.level, rarity), cum = evolutionCum(e.evolutionStage);
+  const gear = { strength: 0, wit: 0, agility: 0, tenacity: 0 };
+  const key: Record<string, 'strength' | 'wit' | 'agility' | 'tenacity'> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
+  for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && key[slot]) gear[key[slot]] += getEffectiveGearBoost(item as any);
+  return {
+    strength: Math.round(std.strength * cum) + gear.strength, wit: Math.round(std.wit * cum) + gear.wit,
+    agility: Math.round(std.agility * cum) + gear.agility, tenacity: Math.round(std.tenacity * cum) + gear.tenacity,
+    maxHp: Math.round(std.maxHp * cum),
+  };
+}
+
+// --- Arena and Raid gear sets (2026-10-11) -----------------------------------------------------------------------
+// Drop from Arena wins / Raid hits (rare, capped per day). Wearing 2 or 4 distinct pieces on your squad gives a bonus in THAT mode only.
+export interface SetPiece { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; description: string }
+export const ARENA_SET_NAME = 'Clubhouse Champion', RAID_SET_NAME = 'Boss Buster';
+export const ARENA_SET_PIECES: SetPiece[] = [
+  { id: 'as_head', name: "Champion's Sweatband", icon: '\u{1F9E2}', slot: 'Head', description: 'Clubhouse Champion set. Increases Wit.' },
+  { id: 'as_body', name: 'Clubhouse Cardigan', icon: '\u{1F9E5}', slot: 'Body', description: 'Clubhouse Champion set. Increases Tenacity.' },
+  { id: 'as_acc', name: 'Banner Brooch', icon: '\u{1F4DB}', slot: 'Accessory', description: 'Clubhouse Champion set. Increases Strength.' },
+  { id: 'as_charm', name: 'Faction Pin', icon: '\u{1F4CC}', slot: 'Charm', description: 'Clubhouse Champion set. Increases Agility.' },
+];
+export const RAID_SET_PIECES: SetPiece[] = [
+  { id: 'rs_head', name: 'Whistle-Blower Cap', icon: '\u26D1\uFE0F', slot: 'Head', description: 'Boss Buster set. Increases Wit.' },
+  { id: 'rs_body', name: 'Reflective Crossing Vest', icon: '\u{1F9BA}', slot: 'Body', description: 'Boss Buster set. Increases Tenacity.' },
+  { id: 'rs_acc', name: 'Clipboard Shield', icon: '\u{1F4CB}', slot: 'Accessory', description: 'Boss Buster set. Increases Strength.' },
+  { id: 'rs_charm', name: 'Lucky Bingo Dauber', icon: '\u{1F3AF}', slot: 'Charm', description: 'Boss Buster set. Increases Agility.' },
+];
+export const SET_BONUS_PCT = { arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12] } as const; // index = distinct pieces worn (0-4). Mirrored in api/account/save.ts
+export const SET_DROP_CHANCE = { arena: 0.10, raid: 0.06 } as const; // per defender beaten / per raid hit
+export const SET_DROP_DAILY_CAP = 3; // per mode per day
+export function countSetPieces(team: { equipment?: Record<string, any> }[], set: 'arena' | 'raid'): number {
+  const names = new Set((set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES).map(p => p.name));
+  const slots = new Set<string>();
+  for (const e of team) for (const [slot, it] of Object.entries(e.equipment ?? {})) if (it && (it as any).set === set && names.has((it as any).name)) slots.add(slot);
+  return slots.size;
+}
+export const getSetBonusPct = (team: { equipment?: Record<string, any> }[], set: 'arena' | 'raid'): number => SET_BONUS_PCT[set][Math.min(4, countSetPieces(team, set))];
+export function rollSetPiece(set: 'arena' | 'raid'): Gear {
+  const pieces = set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES;
+  const p = pieces[Math.floor(Math.random() * pieces.length)];
+  const r = Math.random();
+  const rarity: Gear['rarity'] = r < 0.05 ? 'Legendary' : r < 0.30 ? 'Epic' : 'Rare';
+  return { id: 'gear_' + Math.random().toString(36).slice(2, 11), name: p.name, boost: 3, description: p.description, icon: p.icon, slot: p.slot, rarity, level: 1, set };
 }
 
 // What a Resident Exchange gift is worth after `hours` hours away (mirrors api/resident-exchange.ts).

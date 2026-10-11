@@ -3,7 +3,7 @@ import { Gfx, EmojiText } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -1494,6 +1494,35 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
           </span>
         </button>
       </div>
+
+      {/* Arena / Raid gear sets */}
+      {(() => {
+        const squad = elders.filter(e => e.status === 'Team' && !e.borrowed);
+        const rows = [
+          { name: ARENA_SET_NAME, mode: 'Arena power', set: 'arena' as const, hint: 'Drops from Arena wins' },
+          { name: RAID_SET_NAME, mode: 'Raid damage', set: 'raid' as const, hint: 'Drops from Raid hits' },
+        ];
+        return (
+          <div className="mb-6">
+            <h3 className={`text-[17px] font-black uppercase px-4 mb-3 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Gear Sets</h3>
+            <div className={`p-4 rounded-[2rem] border grid gap-3 ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'}`}>
+              {rows.map(r => {
+                const n = countSetPieces(squad, r.set);
+                const pct = getSetBonusPct(squad, r.set);
+                return (
+                  <div key={r.set} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-black uppercase">{r.name} <span className="opacity-60">{n}/4</span></p>
+                      <p className="text-[12px] font-bold opacity-70">{r.hint}. Wear 2 pieces: +{SET_BONUS_PCT[r.set][2]}% {r.mode}, 4 pieces: +{SET_BONUS_PCT[r.set][4]}%.</p>
+                    </div>
+                    <span className={`text-[15px] font-black flex-shrink-0 ${pct > 0 ? 'text-emerald-500' : 'opacity-50'}`}>{pct > 0 ? `+${pct}%` : 'none'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Inventory */}
       <div className="mb-10">

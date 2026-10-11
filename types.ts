@@ -78,6 +78,7 @@ export interface Gear {
   slot: 'Head' | 'Body' | 'Accessory' | 'Charm';
   rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
   level: number; // upgrade level, starts at 1
+  set?: 'arena' | 'raid'; // earned set piece (Arena / Raid sets give a bonus in their own mode)
 }
 
 export interface BingoBlitzState {
@@ -225,6 +226,7 @@ export interface GameState {
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
+  setDrops?: { day: string; arena: number; raid: number }; // Arena/Raid set pieces dropped today (daily cap)
 }
 
 export interface Elder {
@@ -249,6 +251,8 @@ export interface Elder {
   };
   obtainedAt?: number; // when this Elder joined the park (for sorting); older Elders may not have it
   starterStatsV2?: boolean; // true once a starter Elder's too-low base stats have been corrected (2026-10-06)
+  eldersCanonicalV1?: boolean; // stats were reset to the one standard formula (level, rarity, evolution, gear) on 2026-10-11
+  preCanonical?: { strength: number; wit: number; agility: number; tenacity: number; maxHp: number }; // pre-reset stats, kept so the change can be undone
   rarityStatsV1?: boolean; // true once the rarity stat bonus has been applied to this Elder (2026-10-02)
   gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;

@@ -221,11 +221,15 @@ function duesFor(rows: any[], now: number) {
 }
 
 async function loadMe(supabase: SupabaseClient, userId: string, now: number) {
-  const [profileRes, dailyRes, defRes] = await Promise.all([
-    supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power').eq('user_id', userId).maybeSingle(),
+  let [profileRes, dailyRes, defRes] = await Promise.all([
+    supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power, arena_bonus_pct, raid_bonus_pct').eq('user_id', userId).maybeSingle(),
     supabase.from('arena_player_daily').select('attacks, wins, dues_claimed').eq('user_id', userId).eq('day', todayKey()).maybeSingle(),
     supabase.from('arena_defenders').select('id, arena_id, elder, power, placed_at, dues_from').eq('user_id', userId),
   ]);
+  if (profileRes.error && /arena_bonus_pct|raid_bonus_pct/.test(String(profileRes.error.message))) {
+    // Migration 028 not applied yet: carry on without set bonuses instead of breaking every Arena call.
+    profileRes = await supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power').eq('user_id', userId).maybeSingle() as typeof profileRes;
+  }
   if (profileRes.error) return { error: dbFail('profile read', profileRes.error) };
   if (dailyRes.error) return { error: dbFail('daily read', dailyRes.error) };
   if (defRes.error) return { error: dbFail('defenders read', defRes.error) };
@@ -240,6 +244,8 @@ async function loadMe(supabase: SupabaseClient, userId: string, now: number) {
       faction: FACTIONS.includes(profile?.faction) ? profile.faction : null,
       factionChangedAt: profile?.faction_changed_at ?? null,
       squadPower: num(profile?.squad_power, 0),
+      arenaBonusPct: Math.max(0, Math.min(10, num(profile?.arena_bonus_pct, 0))),
+      raidBonusPct: Math.max(0, Math.min(12, num(profile?.raid_bonus_pct, 0))),
       attacksToday: num(daily?.attacks, 0),
       winsToday: num(daily?.wins, 0),
       duesClaimedToday: !!daily?.dues_claimed,
@@ -530,7 +536,7 @@ export default async function handler(req: Request): Promise<Response> {
       if (attemptsSoFar >= RAID_MAX_ATTEMPTS_PER_PLAYER) return fail(429, `You've hit ${RAID_BOSS_NAMES[slot.bossIndex]} enough times for this Raid — let others take a swing.`);
       // Tickets for extra attempts are charged client-side (same pattern as the Arena attack fee) --
       // the server only enforces the attempt count, never touches the Tickets balance itself.
-      const rawDamage = Math.round(me.squadPower * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
+      const rawDamage = Math.round(me.squadPower * (1 + me.raidBonusPct / 100) * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
       const capPct = RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[slot.tier - 1] ?? RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER.length - 1];
       const satPower = RAID_SATURATION_POWER[slot.tier - 1] ?? RAID_SATURATION_POWER[RAID_SATURATION_POWER.length - 1];
       const damage = Math.max(1, Math.round(slot.maxHp * capPct * Math.min(1, Math.pow(Math.max(1, rawDamage) / satPower, RAID_POWER_EXPONENT))));
@@ -641,7 +647,7 @@ export default async function handler(req: Request): Promise<Response> {
       const beatenRows: any[] = [];
       for (let i = 0; i < defs.length; i++) {
         const d = defs[i];
-        const eff = me.squadPower * Math.pow(FATIGUE, i) * (1 - VARIANCE + Math.random() * VARIANCE * 2);
+        const eff = me.squadPower * (1 + me.arenaBonusPct / 100) * Math.pow(FATIGUE, i) * (1 - VARIANCE + Math.random() * VARIANCE * 2);
         const won = eff > d.power;
         log.push({ owner: '', elder: String(d.elder?.name ?? 'Elder'), power: d.power, attackerPower: Math.round(eff), won });
         if (!won) break;

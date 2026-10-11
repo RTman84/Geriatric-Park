@@ -62,6 +62,23 @@ function byteLength(value: string): number {
 // Mirrors getElderPower/getSquadPower in constants.tsx -- duplicated here for
 // the same self-contained-file reason as everything else in this file, since
 // this is a different runtime bundle than the client.
+// Arena / Raid gear sets: distinct set pieces worn by the squad -> percent bonus in that mode (mirrors SET_BONUS_PCT in constants.tsx).
+const SET_PIECE_NAMES: Record<'arena' | 'raid', string[]> = {
+  arena: ["Champion's Sweatband", 'Clubhouse Cardigan', 'Banner Brooch', 'Faction Pin'],
+  raid: ['Whistle-Blower Cap', 'Reflective Crossing Vest', 'Clipboard Shield', 'Lucky Bingo Dauber'],
+};
+const SET_BONUS_PCT_TABLE = { arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12] };
+function setBonusFrom(saveData: any, set: 'arena' | 'raid'): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  const slots = new Set<string>();
+  for (const e of elders) {
+    if (e?.status !== 'Team' || !e?.equipment || typeof e.equipment !== 'object') continue;
+    for (const [slot, it] of Object.entries(e.equipment as Record<string, any>)) {
+      if (it && it.set === set && SET_PIECE_NAMES[set].includes(String(it.name))) slots.add(slot);
+    }
+  }
+  return SET_BONUS_PCT_TABLE[set][Math.min(4, slots.size)];
+}
 function squadPowerFrom(saveData: any): number {
   const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
   return elders
@@ -108,6 +125,8 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       achievements_completed: achievements.filter((a: any) => a?.completed).length,
       achievements_total: achievements.length,
       squad_power: squadPowerFrom(saveData),
+      arena_bonus_pct: setBonusFrom(saveData, 'arena'),
+      raid_bonus_pct: setBonusFrom(saveData, 'raid'),
       favorite_elders: favoriteElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
       park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })),
@@ -157,7 +176,8 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       let inserted = false;
       let lastError: string | null = null;
       for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
-        const { error: insertErr } = await supabase.from('player_profiles').insert({ user_id: userId, friend_code: generateFriendCode(), ...statFields });
+        const { arena_bonus_pct: _ia, raid_bonus_pct: _ir, ...insertFields } = statFields as any; // bonuses start at the column default (0) and are set by the next sync
+        const { error: insertErr } = await supabase.from('player_profiles').insert({ user_id: userId, friend_code: generateFriendCode(), ...insertFields });
         if (!insertErr) { inserted = true; break; }
         lastError = insertErr.message;
         if (!String(insertErr.message).includes('friend_code')) break;
@@ -166,7 +186,12 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       return null;
     }
 
-    const { error: updateErr } = await supabase.from('player_profiles').update(statFields).eq('user_id', userId);
+    let { error: updateErr } = await supabase.from('player_profiles').update(statFields).eq('user_id', userId);
+    if (updateErr && /arena_bonus_pct|raid_bonus_pct/.test(String(updateErr.message))) {
+      // Migration 028 not applied yet: keep syncing everything else rather than losing squad power updates.
+      const { arena_bonus_pct: _a, raid_bonus_pct: _r, ...withoutBonus } = statFields as any;
+      ({ error: updateErr } = await supabase.from('player_profiles').update(withoutBonus).eq('user_id', userId));
+    }
     if (updateErr) { console.error('Player profile sync failed (non-fatal)', updateErr.message); return updateErr.message; }
     return null;
   } catch (e: any) {
