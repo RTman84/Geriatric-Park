@@ -63,6 +63,9 @@ export interface Season {
   startDate: number;
   endDate: number;
   claimedLevels: number[];
+  claimedGold?: number[]; // Gold lane ranks already paid (only meaningful when isPremium)
+  activityDay?: string; // UTC day for the activity-XP cap
+  activityXpToday?: number;
 }
 
 export interface Gear {

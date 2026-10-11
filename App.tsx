@@ -16,7 +16,7 @@ import ParkScene, { isDecorSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
-import { fetchMementos, buyRoom, buyKeepsake, convertPpToMementos, MementosError, type MementosState } from './services/mementosService';
+import { fetchMementos, buyRoom, buyKeepsake, buyGoldPass, convertPpToMementos, MementosError, type MementosState } from './services/mementosService';
 import { buyPack, retryPendingPurchases, loadPackPrices, billingAvailable, type VerifiedPurchase } from './services/billing';
 import BoardsPanel from './components/BoardsPanel';
 import { submitBoardScore, fetchBoard, BoardMode } from './services/boardsService';
@@ -123,7 +123,7 @@ import {
   ELDER_TYPE_STYLING,
   SHOP_ITEMS,
   SEASON_XP_PER_LEVEL,
-  SEASONAL_REWARDS,
+  SEASONAL_REWARDS, currentSeasonWindow, SEASON_ACTIVITY_XP, SEASON_RAID_HIT_XP, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, passCosmeticKey,
   WITHDRAWAL_MINIMUM,
   DAILY_REWARDS,
   INVESTMENT_TIERS,
@@ -211,6 +211,13 @@ function calculatePassiveIncome(state: GameState, elapsedMs: number): number {
 }
 
 const modeKindKnownMode = (m: string): boolean => MODE_BADGES.some(x => x.mode === m);
+// Adds Elder Pass XP earned from play, honouring the daily activity cap (existing Task/Quest/pickup XP is added separately and is not capped here).
+const withSeasonActivityXp = (prev: GameState, xp: number): GameState => {
+  const today = new Date().toISOString().slice(0, 10);
+  const used = prev.season.activityDay === today ? (prev.season.activityXpToday ?? 0) : 0;
+  const add = Math.max(0, Math.min(Math.round(xp), SEASON_ACTIVITY_DAILY_CAP - used));
+  return add <= 0 ? prev : { ...prev, season: { ...prev.season, xp: prev.season.xp + add, activityDay: today, activityXpToday: used + add } };
+};
 const bumpStat = (m: Record<string, number> | undefined, kind: string, n = 1): Record<string, number> => ({ ...(m ?? {}), [kind]: Math.min(1e9, (Number(m?.[kind]) || 0) + n) });
 const SAVE_KEY = 'geriatric_park_v17_save';
 const MALE_NAMES = ["Arthur", "Barnaby", "Harold", "Otis", "Clarence", "Mortimer", "Cecil"];
@@ -900,26 +907,25 @@ const App: React.FC = () => {
     return s;
   };
 
-  const SEASON_NAMES = ["Autumn Gathering", "Winter Warmth", "Spring Bloom", "Summer Social"];
+  // Seasons are global 30-day windows (see currentSeasonWindow) so the server can sell a Gold Pass per season.
   const applySeasonRollover = (s: GameState): GameState => {
-    // Guard against saves from before claimedLevels existed on Season.
-    const season = s.season.claimedLevels ? s.season : { ...s.season, claimedLevels: [] };
-    if (season.endDate <= Date.now()) {
-      const nextId = season.id + 1;
-      return {
-        ...s,
-        season: {
-          id: nextId,
-          name: SEASON_NAMES[(nextId - 1) % SEASON_NAMES.length],
-          xp: 0,
-          isPremium: false,
-          startDate: Date.now(),
-          endDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
-          claimedLevels: [],
-        },
-      };
-    }
-    return { ...s, season };
+    const win = currentSeasonWindow();
+    const prevSeason = s.season.claimedLevels ? s.season : { ...s.season, claimedLevels: [] };
+    if (prevSeason.id === win.id && prevSeason.endDate === win.end) return { ...s, season: prevSeason };
+    // New (or first global) season: ranks and claims reset. A saved season from the same id keeps its XP.
+    const keep = prevSeason.id === win.id;
+    return {
+      ...s,
+      season: {
+        id: win.id, name: win.name, startDate: win.start, endDate: win.end,
+        xp: keep ? prevSeason.xp : 0,
+        isPremium: keep ? !!prevSeason.isPremium : false,
+        claimedLevels: keep ? prevSeason.claimedLevels : [],
+        claimedGold: keep ? (prevSeason.claimedGold ?? []) : [],
+        activityDay: keep ? prevSeason.activityDay : undefined,
+        activityXpToday: keep ? prevSeason.activityXpToday : undefined,
+      },
+    };
   };
 
   // Safe-default Elder fields added after existing saves were created (xp,
@@ -1287,6 +1293,8 @@ const App: React.FC = () => {
     setState(prev => {
       const lost = (prev.mementoItemsOwned ?? []).filter(id => !m.items.includes(id)).length;
       if (announce && mementosSynced.current && lost > 0) queueMicrotask(() => notify(`A refunded purchase was taken back: ${lost} keepsake${lost > 1 ? 's were' : ' was'} removed.`, 'bad'));
+      const owned = m.passes ? m.passes.includes(String(prev.season.id)) : !!prev.season.isPremium;
+      if (!!prev.season.isPremium !== owned) return { ...prev, mementos: m.balance, premiumRooms: m.premiumRooms, mementoItemsOwned: m.items, season: { ...prev.season, isPremium: owned } };
       if (prev.mementos === m.balance && prev.premiumRooms === m.premiumRooms && (prev.mementoItemsOwned ?? []).length === m.items.length && m.items.every(id => (prev.mementoItemsOwned ?? []).includes(id))) return prev;
       return { ...prev, mementos: m.balance, premiumRooms: m.premiumRooms, mementoItemsOwned: m.items };
     });
@@ -1328,6 +1336,10 @@ const App: React.FC = () => {
   }, [state.pensionBalance, applyServerMementos, notify]);
   const handleBuyPremiumRoom = useCallback(async () => {
     try { const m = await buyRoom(); applyServerMementos(m); notify('🏠 +1 roster room added.', 'good'); }
+    catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
+  }, [applyServerMementos, notify]);
+  const handleBuyGoldPass = useCallback(async () => {
+    try { const st = await buyGoldPass(); applyServerMementos(st); notify('🌟 Gold Pass unlocked for this season! Your Gold rewards pay automatically as you rank up.', 'good'); }
     catch (e) { if (e instanceof MementosError && e.state) applyServerMementos(e.state); notify((e as Error).message, 'bad'); }
   }, [applyServerMementos, notify]);
   const handleBuyMementoItem = useCallback(async (id: string) => {
@@ -1436,6 +1448,7 @@ const App: React.FC = () => {
     if (result.settled) bits.push(result.defeated ? `${result.bossName} defeated!` : 'The window closed.');
     notify(`🐲 ${bits.join(' · ')}`, 'good');
     earnDiners(DINERS_RAID_HIT_BY_TIER[Math.max(0, Math.min(4, (activeArenaId ? arenaInfo[activeArenaId]?.raid?.tier : undefined) ?? 1) - 1)] ?? DINERS_RAID_HIT, 'Raid hit');
+    setState(prev => withSeasonActivityXp(prev, SEASON_RAID_HIT_XP));
     if (result.settled) void refreshMail();
   }), [runArenaAction, activeArenaId, arenaInfo, state.legacyTokens, state.pvpPasses, state.settings.sfxEnabled, notify, refreshMail, isArenaNearby]);
 
@@ -1672,18 +1685,29 @@ const App: React.FC = () => {
     });
   }, [state.allElders.length, state.parkCommunityScore, state.battleWins, state.pensionBalance, state.parkAssets, state.challengeLadder?.highestCleared, state.goldenGames?.highestLeagueCleared, state.stationedAt, state.faction]);
 
-  const handleClaimSeasonReward = useCallback((level: number) => {
+  const handleClaimSeasonReward = useCallback((level: number, lane: 'free' | 'gold' = 'free') => {
     const currentLevel = Math.min(Math.floor(state.season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
     const reward = SEASONAL_REWARDS.find(r => r.level === level);
-    if (!reward || level > currentLevel || state.season.claimedLevels.includes(level)) return;
+    if (!reward || level > currentLevel) return;
+    if (lane === 'gold' ? (!state.season.isPremium || (state.season.claimedGold ?? []).includes(level)) : state.season.claimedLevels.includes(level)) return;
+    const tickets = lane === 'gold' ? reward.goldTickets : reward.tickets;
+    const materials = lane === 'gold' ? reward.goldMaterials : reward.materials;
+    const cos = lane === 'gold' ? reward.goldCosmetic : reward.freeCosmetic;
+    const cosKey = cos ? passCosmeticKey(state.season.id, level, lane) : null;
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
-    notify(`🎖️ Elder Pass level ${level} reached (+${reward.tickets} 🎟️)`, 'good');
-    setState(prev => ({
-      ...prev,
-      legacyTokens: prev.legacyTokens + reward.tickets,
-      season: { ...prev.season, claimedLevels: [...prev.season.claimedLevels, level] },
-      mailbox: [rewardMail('Elder Pass', `Pass level ${level} reward`, `You reached Elder Pass level ${level}. Reward paid automatically: +${reward.tickets} 🎟️ Tickets.`), ...prev.mailbox],
-    }));
+    notify(`${lane === 'gold' ? '🌟 Gold ' : ''}Elder Pass rank ${level} (+${tickets} 🎟️${materials ? `, +${materials} 🧱` : ''}${cos ? `, title: ${cos.label}` : ''})`, 'good');
+    setState(prev => {
+      if (lane === 'gold' ? (!prev.season.isPremium || (prev.season.claimedGold ?? []).includes(level)) : prev.season.claimedLevels.includes(level)) return prev;
+      const text = `You reached Elder Pass rank ${level}${lane === 'gold' ? ' (Gold Pass)' : ''}. Reward paid automatically: +${tickets} 🎟️ Tickets${materials ? `, +${materials} 🧱 Materials` : ''}${cos ? `, and the title "${cos.label}"` : ''}.`;
+      return {
+        ...prev,
+        legacyTokens: prev.legacyTokens + tickets,
+        buildingMaterials: (prev.buildingMaterials ?? 0) + materials,
+        eventCosmetics: cosKey && !(prev.eventCosmetics ?? []).includes(cosKey) ? [...(prev.eventCosmetics ?? []), cosKey] : prev.eventCosmetics,
+        season: lane === 'gold' ? { ...prev.season, claimedGold: [...(prev.season.claimedGold ?? []), level] } : { ...prev.season, claimedLevels: [...prev.season.claimedLevels, level] },
+        mailbox: [rewardMail('Elder Pass', `Pass rank ${level} reward${lane === 'gold' ? ' (Gold)' : ''}`, text), ...prev.mailbox],
+      };
+    });
   }, [state.season, state.settings.sfxEnabled, notify]);
 
 
@@ -1743,9 +1767,30 @@ const App: React.FC = () => {
     }
     const curLevel = Math.min(Math.floor(state.season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
     for (const r of SEASONAL_REWARDS) {
-      if (r.level <= curLevel && !state.season.claimedLevels.includes(r.level) && !autoClaimedRef.current.has('s:' + state.season.id + ':' + r.level)) { autoClaimedRef.current.add('s:' + state.season.id + ':' + r.level); handleClaimSeasonReward(r.level); }
+      if (r.level > curLevel) break;
+      if (!state.season.claimedLevels.includes(r.level) && !autoClaimedRef.current.has('s:' + state.season.id + ':' + r.level)) { autoClaimedRef.current.add('s:' + state.season.id + ':' + r.level); handleClaimSeasonReward(r.level, 'free'); }
+      if (state.season.isPremium && !(state.season.claimedGold ?? []).includes(r.level) && !autoClaimedRef.current.has('g:' + state.season.id + ':' + r.level)) { autoClaimedRef.current.add('g:' + state.season.id + ':' + r.level); handleClaimSeasonReward(r.level, 'gold'); }
     }
   }, [isLoaded, cloudSyncSettled, state.quests, state.modeStats, state.claimedMilestones, state.season, handleClaimQuest, handleClaimMilestone, handleClaimSeasonReward]);
+
+  // Elder Pass XP from play: every mode counts a little (nothing is required). Watches the lifetime mode counters for growth.
+  const activitySnapRef = useRef<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled) return;
+    const stats = state.modeStats ?? {};
+    const snap = activitySnapRef.current;
+    activitySnapRef.current = { ...stats };
+    if (!snap) return;
+    let xp = 0;
+    for (const [k, w] of Object.entries(SEASON_ACTIVITY_XP)) { const d = (Number(stats[k]) || 0) - (Number(snap[k]) || 0); if (d > 0) xp += d * w; }
+    if (xp > 0) setState(prev => withSeasonActivityXp(prev, xp));
+  }, [isLoaded, cloudSyncSettled, state.modeStats]);
+  // A new global season starts at the same moment for everyone, even if the app was left open.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const id = window.setInterval(() => { if (currentSeasonWindow().id !== state.season.id) setState(prev => applySeasonRollover(prev)); }, 60000);
+    return () => window.clearInterval(id);
+  }, [isLoaded, state.season.id]);
 
   // ---- Seasonal events: join the running event (baseline of your mode counts), pay each goal as it is reached,
   // and grant the permanent event title + icon once every goal is done. Rewards are Tickets/Materials/XP only.
@@ -3099,7 +3144,7 @@ const App: React.FC = () => {
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
-          {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} onClaim={handleClaimSeasonReward} />}
+          {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} mementos={state.mementos ?? 0} signedIn={!!authSession} onClaim={handleClaimSeasonReward} onBuyGold={handleBuyGoldPass} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} 💰 PP`);
             notify(`${state.pensionBalance.toFixed(4)} 💰 PP redeemed to your park account!`);

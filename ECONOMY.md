@@ -529,3 +529,10 @@ Calendar events (UTC, yearly): Sweetheart Social (Feb 7-16), Spring Garden Fling
 - Participation per tier: Tickets 10/15/25/40/60, Materials 2/3/4/6/8, defeat bonus Materials +4/+8/+14/+22/+30. A surviving boss pays 50-100% of participation depending on your damage share (10% of max HP = full).
 - Rewarded raids per player per day 3 -> 10; attempts per raid stay 10 (2 free, then 15 Tickets each). TV Dinners per hit by tier 2/2/3/4/5; shared TV Dinners daily cap 40 -> 100.
 - Worst case for one heavy raider/day: 10 x tier-5 participation = 600 Tickets + 80 Materials + defeat bonuses; TV Dinners hard-capped at 100/day. Revisit after real raid data. Migration 024 widens arena_raids checks to tier 1-5 / boss 0-9.
+
+## 6ze. Elder Pass v2: 30 ranks, Gold Pass (2026-10-10)
+- Seasons are GLOBAL 30-day windows from 2026-10-01 (`currentSeasonWindow`), so ranks line up and the server can sell a per-season pass. 30 ranks x 800 XP = 24,000 XP.
+- Pass XP from play (automatic, nothing required): battle 20, shuffleboard 15, tournament 25, challenge 20, Friend Battle 25, Arena 25, Raid hit 30, exchange send 25 / host 15, Bingo 25, pickup 3, evolve 100; capped at 500 XP/day from play. Task/Quest/pickup XP that already fed the season is on top (uncapped, unchanged).
+- Free lane: Tickets every rank (about 5,150 per season total), Materials every 3rd rank, titles at ranks 10/20/30. Gold lane (550 Mementos, about $5, server-priced in `api/mementos.ts`, one per season, refundable via the voided-purchase flow): about 50% extra Tickets, Materials every 2nd rank, 6 Gold titles/icons (ranks 5-30). Cosmetic and convenience only; never PP or passive income.
+- TO REVIEW once real play data exists: free-lane Tickets (~170/day if a player reaches rank 30) against the Ticket sink table in 6m.
+- Migration 026 widens `memento_events.kind` to allow 'pass'.

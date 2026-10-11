@@ -150,7 +150,20 @@ export function xpForPlayerLevel(level: number): number {
   const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, MAX_PLAYER_LEVEL));
   return Math.round(XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, lvl - 1));
 }
-export const SEASON_XP_PER_LEVEL = 1000;
+export const SEASON_XP_PER_LEVEL = 800; // was 1000 with 10 ranks; the Pass now has 30 ranks (24,000 XP a season)
+// Seasons are GLOBAL 30-day windows from this epoch (so the server can sell a per-season Gold Pass and everyone's ranks line up).
+export const SEASON_EPOCH = Date.UTC(2026, 9, 1);
+export const SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
+export const SEASON_NAMES = ['Autumn Gathering', 'Winter Warmth', 'Spring Bloom', 'Summer Social'];
+export function currentSeasonWindow(now: number = Date.now()): { id: number; name: string; start: number; end: number } {
+  const idx = Math.max(0, Math.floor((now - SEASON_EPOCH) / SEASON_LENGTH_MS));
+  return { id: idx + 1, name: SEASON_NAMES[idx % SEASON_NAMES.length], start: SEASON_EPOCH + idx * SEASON_LENGTH_MS, end: SEASON_EPOCH + (idx + 1) * SEASON_LENGTH_MS };
+}
+// Pass XP from play: every mode counts a little, nothing is required, and a daily cap keeps it steady (existing Task/Quest/pickup XP is on top).
+export const SEASON_ACTIVITY_XP: Record<string, number> = { battle: 20, shuffleboard: 15, tournament: 25, challenge: 20, friend_battle: 25, arena: 25, exchange_send: 25, exchange_host: 15, bingo: 25, collect: 3, evolve: 100 };
+export const SEASON_RAID_HIT_XP = 30;
+export const SEASON_ACTIVITY_DAILY_CAP = 500;
+export const GOLD_PASS_PRICE_MEMENTOS = 550; // about $5 of Mementos (550-pack is $4.99). Server-side price lives in api/mementos.ts
 
 export const TRAINING_BASE_COST = 50; 
 export const STAT_BONUS_PER_LEVEL = 5;
@@ -854,6 +867,7 @@ export function nextSeasonalEvent(ms: number = Date.now()): { event: SeasonalEve
 export const eventGoalProgress = (g: SeasonalEventGoal, stats: Record<string, number> | undefined, base: Record<string, number> | undefined): number =>
   Math.min(g.target, g.kinds.reduce((t, k) => t + Math.max(0, (Number(stats?.[k]) || 0) - (Number(base?.[k]) || 0)), 0));
 export function eventCosmetic(key: string): UnlockedCosmetic | null {
+  if ((key || '').startsWith('pass:')) return passCosmetic(key);
   const m = /^event:([a-z]+)-(\d{4})$/.exec(key || '');
   const ev = m && SEASONAL_EVENTS.find(e => e.id === m[1]);
   return ev && m ? { key, icon: ev.icon, title: `${ev.title} ${m[2]}` } : null;
@@ -871,6 +885,7 @@ export function cosmeticGoal(key: string, achievements: Achievement[] = []): str
   if ((m = /^board:([a-z_]+):(\d{1,2}):([123])$/.exec(key))) return `Finish #${m[3]} on the weekly ${m[1].replace('_', ' ')} board in ${POWER_BRACKETS[Number(m[2]) - 1]?.name ?? 'your bracket'}`;
   if (/^antique:/.test(key)) return 'Collect it in the PvP Shop (TV Dinners)';
   if ((m = /^event:([a-z]+)-(\d{4})$/.exec(key))) { const ev = SEASONAL_EVENTS.find(e => e.id === m![1]); return ev ? `Complete all goals of ${ev.title} ${m[2]}` : ''; }
+  if ((m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key))) return `Reach Elder Pass rank ${m[2]} in ${SEASON_NAMES[(Number(m[1]) - 1) % SEASON_NAMES.length]}${m[3] === 'gold' ? ' (Gold Pass)' : ''}`;
   if (/^memento:/.test(key)) return 'Keepsake from the Mementos Shop';
   return '';
 }
@@ -1562,18 +1577,35 @@ export function getGearSellValue(item: { boost: number; rarity?: GearRarity; lev
   };
 }
 
-export const SEASONAL_REWARDS = [
-  { level: 1, icon: '🎟️', name: 'Starter Kit', free: '100 Tickets', tickets: 100 },
-  { level: 2, icon: '🍭', name: 'Sweet Treat', free: '15 Tickets', tickets: 15 },
-  { level: 3, icon: '🌅', name: 'Morning Badge', free: '20 Tickets', tickets: 20 },
-  { level: 4, icon: '🥿', name: 'Fast Feet', free: '25 Tickets', tickets: 25 },
-  { level: 5, icon: '💎', name: 'Ticket Cache', free: '500 Tickets', tickets: 500 },
-  { level: 6, icon: '🧢', name: 'Sun Protection', free: '20 Tickets', tickets: 20 },
-  { level: 7, icon: '📻', name: 'Broadcast', free: '30 Tickets', tickets: 30 },
-  { level: 8, icon: '💎', name: 'Artifact', free: '40 Tickets', tickets: 40 },
-  { level: 9, icon: '🍀', name: 'Crafting', free: '35 Tickets', tickets: 35 },
-  { level: 10, icon: '🏆', name: 'Grand Prize', free: '1000 Tickets', tickets: 1000 }
+export interface PassCosmeticDef { rank: number; lane: 'free' | 'gold'; icon: string; label: string }
+// Cosmetic titles/icons from the Pass: free lane at ranks 10/20/30, Gold lane every 5 ranks. Cosmetic only, never power, PP or passive income.
+export const PASS_COSMETICS: PassCosmeticDef[] = [
+  { rank: 10, lane: 'free', icon: '\u{1F3C5}', label: 'Regular' }, { rank: 20, lane: 'free', icon: '\u{1F396}\uFE0F', label: 'Veteran' }, { rank: 30, lane: 'free', icon: '\u{1F3C6}', label: 'Champion' },
+  { rank: 5, lane: 'gold', icon: '\u{1FA99}', label: 'Gilded Guest' }, { rank: 10, lane: 'gold', icon: '\u2728', label: 'Golden Regular' }, { rank: 15, lane: 'gold', icon: '\u{1F4AB}', label: 'Gilded Veteran' },
+  { rank: 20, lane: 'gold', icon: '\u{1F947}', label: 'Golden Champion' }, { rank: 25, lane: 'gold', icon: '\u{1F451}', label: 'Gold Legend' }, { rank: 30, lane: 'gold', icon: '\u{1F31F}', label: 'Golden Icon' },
 ];
+export const passCosmeticKey = (seasonId: number, rank: number, lane: 'free' | 'gold') => `pass:${seasonId}:${rank}:${lane}`;
+export function passCosmetic(key: string): UnlockedCosmetic | null {
+  const m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key || '');
+  if (!m) return null;
+  const def = PASS_COSMETICS.find(d => d.rank === Number(m[2]) && d.lane === m[3]);
+  if (!def) return null;
+  const season = SEASON_NAMES[(Number(m[1]) - 1) % SEASON_NAMES.length];
+  return { key, icon: def.icon, title: `${season} ${def.label}` };
+}
+// 30 ranks. Ranks 1-10 keep the original Ticket payouts; every 3rd rank also pays Materials; ranks 15/20/25/30 are big milestones.
+const PASS_FREE_TICKETS = [100, 15, 20, 25, 500, 20, 30, 40, 35, 1000, 40, 45, 50, 55, 400, 60, 65, 70, 75, 500, 80, 85, 90, 95, 400, 100, 110, 120, 130, 800];
+export interface SeasonalReward { level: number; icon: string; name: string; free: string; tickets: number; materials: number; freeCosmetic?: PassCosmeticDef; gold: string; goldTickets: number; goldMaterials: number; goldCosmetic?: PassCosmeticDef }
+export const SEASONAL_REWARDS: SeasonalReward[] = PASS_FREE_TICKETS.map((tickets, i) => {
+  const level = i + 1;
+  const materials = level % 3 === 0 ? 5 + Math.floor(level / 3) * 2 : 0;
+  const goldTickets = Math.max(25, Math.round(tickets * 0.5 / 5) * 5);
+  const goldMaterials = level % 2 === 0 ? 4 + Math.floor(level / 2) : 0;
+  const freeCosmetic = PASS_COSMETICS.find(d => d.rank === level && d.lane === 'free');
+  const goldCosmetic = PASS_COSMETICS.find(d => d.rank === level && d.lane === 'gold');
+  const bits = (t: number, m: number, c?: PassCosmeticDef) => [`${t} Tickets`, m ? `${m} Materials` : '', c ? `Title: ${c.label}` : ''].filter(Boolean).join(' + ');
+  return { level, icon: level % 10 === 0 ? '\u{1F3C6}' : level % 5 === 0 ? '\u{1F381}' : '\u{1F39F}\uFE0F', name: level % 5 === 0 ? 'Milestone' : `Rank ${level}`, free: bits(tickets, materials, freeCosmetic), tickets, materials, freeCosmetic, gold: bits(goldTickets, goldMaterials, goldCosmetic), goldTickets, goldMaterials, goldCosmetic };
+});
 
 // --- TV Dinners: the PvP / Arena / Raid currency and its shop (2026-10-06) ---------------------------------
 // Earned ONLY from social/competitive play (daily-capped), spent ONLY in the PvP shop. Never PP, never passive income.

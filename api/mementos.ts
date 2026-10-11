@@ -27,6 +27,9 @@ async function requireAccount(req: Request): Promise<AccountContext | Response> 
 // ---- Catalog (must match constants.tsx; the server is the one that decides) ------------------------------------------
 const PREMIUM_ROOM_MAX = 10;
 const roomPrice = (owned: number) => 15 + 5 * owned;
+const GOLD_PASS_PRICE = 550; // about $5 of Mementos; keep in sync with GOLD_PASS_PRICE_MEMENTOS in constants.tsx
+const SEASON_EPOCH = Date.UTC(2026, 9, 1), SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000; // global seasons, same as currentSeasonWindow() in constants.tsx
+const currentSeasonId = (now = Date.now()) => Math.max(0, Math.floor((now - SEASON_EPOCH) / SEASON_LENGTH_MS)) + 1;
 const MEMENTOS_PER_PP = 100, PP_MIN = 0.01, PP_CONVERT_PER_DAY = 2;
 const ITEM_PRICES: Record<string, number> = { m01: 60, m02: 80, m03: 60, m04: 70, m05: 60, m06: 90, m07: 80, m08: 100, m09: 150, m10: 70, m11: 90, m12: 120 };
 const ITEM_IDS = Object.keys(ITEM_PRICES); // same order as MEMENTO_ITEMS
@@ -50,7 +53,7 @@ async function loadEvents(supabase: SupabaseClient, userId: string): Promise<Ev[
 function deriveState(events: Ev[]) {
   const revoked = new Set(events.filter(e => e.kind === 'revoke').map(e => String(e.meta?.of ?? '')));
   const live = (kind: string) => events.filter(e => e.kind === kind && !revoked.has(e.ref));
-  return { balance: events.reduce((t, e) => t + e.amount, 0), rooms: live('room').length, items: live('item').map(e => e.ref.slice(5)), convertedPp: events.filter(e => e.kind === 'convert').reduce((t, e) => t + Number(e.meta?.pp ?? 0), 0) };
+  return { balance: events.reduce((t, e) => t + e.amount, 0), rooms: live('room').length, items: live('item').map(e => e.ref.slice(5)), passes: live('pass').map(e => e.ref.slice(5)), convertedPp: events.filter(e => e.kind === 'convert').reduce((t, e) => t + Number(e.meta?.pp ?? 0), 0) };
 }
 async function addEvent(supabase: SupabaseClient, userId: string, kind: string, amount: number, ref: string, meta: object = {}): Promise<'ok' | 'duplicate' | 'error'> {
   const { error } = await supabase.from('memento_events').insert({ user_id: userId, kind, amount, ref, meta });
@@ -59,7 +62,7 @@ async function addEvent(supabase: SupabaseClient, userId: string, kind: string, 
 }
 async function snapshot(supabase: SupabaseClient, userId: string) {
   const s = deriveState(await loadEvents(supabase, userId));
-  return { balance: s.balance, premiumRooms: s.rooms, items: s.items };
+  return { balance: s.balance, premiumRooms: s.rooms, items: s.items, passes: s.passes };
 }
 
 // ---- Refunds ------------------------------------------------------------------------------------------------------------
@@ -91,7 +94,7 @@ export async function processRefund(supabase: SupabaseClient, purchase: { id: nu
   let balance = deriveState(events).balance;
   if (balance < 0) {
     const gone = new Set(events.filter(e => e.kind === 'revoke').map(e => String(e.meta?.of ?? '')));
-    const spends = events.filter(e => (e.kind === 'room' || e.kind === 'item') && !gone.has(e.ref) && e.created_at >= purchase.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
+    const spends = events.filter(e => (e.kind === 'room' || e.kind === 'item' || e.kind === 'pass') && !gone.has(e.ref) && e.created_at >= purchase.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
     for (const sp of spends) {
       if (balance >= 0) break;
       if (await addEvent(supabase, userId, 'revoke', -sp.amount, `revoke:${sp.ref}`, { of: sp.ref, purchase: purchase.id }) === 'ok') { balance -= sp.amount; revoked.push(sp.ref); }
@@ -134,9 +137,9 @@ export default async function handler(req: Request): Promise<Response> {
     const action = String(body?.action || '');
     const events = await loadEvents(supabase, userId);
     const st = deriveState(events);
-    const fail = (error: string, status = 400) => json({ error, ...{ balance: st.balance, premiumRooms: st.rooms, items: st.items } }, status);
+    const fail = (error: string, status = 400) => json({ error, ...{ balance: st.balance, premiumRooms: st.rooms, items: st.items, passes: st.passes } }, status);
 
-    async function spend(kind: 'room' | 'item', price: number, ref: string, meta: object) {
+    async function spend(kind: 'room' | 'item' | 'pass', price: number, ref: string, meta: object) {
       if (st.balance < price) return fail(`You need ${price} Mementos.`, 402);
       const r = await addEvent(supabase, userId, kind, -price, ref, meta);
       if (r === 'duplicate') return fail('You already have that.', 409);
@@ -151,6 +154,11 @@ export default async function handler(req: Request): Promise<Response> {
     if (action === 'room') {
       if (st.rooms >= PREMIUM_ROOM_MAX) return fail('You already own every extra room.', 409);
       return spend('room', roomPrice(st.rooms), `room:${st.rooms}`, {});
+    }
+    if (action === 'pass') {
+      const seasonId = String(currentSeasonId());
+      if (st.passes.includes(seasonId)) return fail('You already have this season\'s Gold Pass.', 409);
+      return spend('pass', GOLD_PASS_PRICE, `pass:${seasonId}`, { season: Number(seasonId) });
     }
     if (action === 'item') {
       const id = String(body?.id || '');

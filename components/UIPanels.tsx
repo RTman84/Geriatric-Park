@@ -3,7 +3,7 @@ import { Gfx, EmojiText } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -1088,41 +1088,67 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
 
 // ─── Elder Pass Panel ─────────────────────────────────────────────────────────
 
-export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim: (level: number) => void }> = ({ season, isDark, onClaim }) => {
-  const currentLevel = Math.min(Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
-  const levelXP = season.xp % SEASON_XP_PER_LEVEL;
+export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, mementos?: number, signedIn?: boolean, onClaim: (level: number, lane?: 'free' | 'gold') => void, onBuyGold?: () => void }> = ({ season, isDark, mementos = 0, signedIn = false, onClaim, onBuyGold }) => {
+  const maxRank = SEASONAL_REWARDS.length;
+  const currentLevel = Math.min(Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1, maxRank);
+  const maxed = season.xp >= SEASON_XP_PER_LEVEL * maxRank;
+  const levelXP = maxed ? SEASON_XP_PER_LEVEL : season.xp % SEASON_XP_PER_LEVEL;
   const daysLeft = Math.max(0, Math.ceil((season.endDate - Date.now()) / (24 * 60 * 60 * 1000)));
+  const gold = !!season.isPremium;
+  const claimedGold = season.claimedGold ?? [];
+  const nextMilestone = SEASONAL_REWARDS.find(r => r.level > currentLevel && (r.freeCosmetic || r.goldCosmetic || r.level % 5 === 0));
+  const card = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
+  const lane = (done: boolean, ready: boolean, locked: boolean, text: string, onClick: () => void, goldLane: boolean) => (
+    <div className={`flex-1 min-w-0 p-3 rounded-2xl border-2 flex flex-col gap-1 ${goldLane ? (locked ? 'border-amber-500/30 opacity-70' : 'border-amber-400') : (isDark ? 'border-slate-700' : 'border-slate-200')}`}>
+      <span className={`text-[11px] font-black uppercase tracking-widest ${goldLane ? 'text-amber-500' : 'opacity-60'}`}>{goldLane ? '🌟 Gold' : 'Free'}</span>
+      <span className="text-[13px] font-black leading-tight">{text}</span>
+      <span className="mt-1 text-[12px] font-black uppercase">
+        {done ? <span className="text-emerald-500">✓ Claimed</span> : locked ? <span className="opacity-60">{goldLane && !gold ? 'Gold only' : 'Locked'}</span> : ready ? <button onClick={onClick} className="px-3 py-1 rounded-lg bg-[var(--accent-600)] text-white">Claim</button> : null}
+      </span>
+    </div>
+  );
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
-        <h2 className="text-[17px] font-black text-[var(--accent-400)] uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
+      <div className={`rounded-[40px] p-8 text-white shadow-2xl mb-6 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
+        <h2 className="text-[17px] font-black text-[var(--accent-400)] uppercase tracking-widest mb-2">PASS RANK {currentLevel} / {maxRank}{gold ? ' · 🌟 GOLD' : ''}</h2>
         <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
         <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
         <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
           <div className="h-full bg-[var(--accent-500)] rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
         </div>
-        <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
+        <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{maxed ? 'Season complete: every rank reached!' : `${levelXP} / ${SEASON_XP_PER_LEVEL} XP to next rank`}</p>
       </div>
-      <div className="space-y-4">
-        {SEASONAL_REWARDS.map((reward, i) => {
-          const unlocked = reward.level <= currentLevel;
-          const claimed = season.claimedLevels.includes(reward.level);
+      <div className={`p-4 rounded-2xl border mb-6 text-[13px] font-bold ${card}`}>
+        <p className="font-black uppercase text-[13px] mb-1">How ranks work</p>
+        <p className="opacity-80">Everything you do earns Pass XP automatically: battles, Court, Friend Battles, Arenas, Raids, Bingo, Exchange visits, evolving, collecting, plus Tasks. Nothing is required, a bit of any of it keeps you moving. Up to {SEASON_ACTIVITY_DAILY_CAP} XP a day comes from play. Each rank pays Tickets (and Materials), and ranks 10, 20 and 30 unlock a season title. Rewards pay automatically. A new season starts every 30 days and ranks reset, but titles you earned are yours forever.</p>
+        {nextMilestone && !maxed && <p className="mt-2 text-[var(--accent-500)] font-black">Next milestone: rank {nextMilestone.level} ({nextMilestone.free}{nextMilestone.goldCosmetic && !gold ? `; Gold adds "${nextMilestone.goldCosmetic.label}"` : ''}).</p>}
+      </div>
+      {!gold ? (
+        <div className="p-5 rounded-[2rem] border-2 border-amber-400 mb-6 bg-gradient-to-br from-amber-500/15 to-transparent">
+          <h3 className="text-[18px] font-black uppercase text-amber-500">🌟 Gold Pass · this season</h3>
+          <p className="text-[13px] font-bold opacity-80 mt-1">A second reward lane on every rank: extra Tickets and Materials, plus 6 exclusive Gold titles and icons (ranks 5, 10, 15, 20, 25, 30). Cosmetic and convenience only: it never adds power, passive income or PP, and the free lane stays fully playable. Buying mid-season pays out every Gold rank you have already reached.</p>
+          <button onClick={onBuyGold} disabled={!signedIn || mementos < GOLD_PASS_PRICE_MEMENTOS || !onBuyGold} className="mt-3 w-full py-3 rounded-2xl bg-amber-500 text-slate-900 font-black uppercase text-[14px] disabled:opacity-40 active:scale-95">
+            {!signedIn ? 'Sign in to buy' : mementos < GOLD_PASS_PRICE_MEMENTOS ? `Need ${GOLD_PASS_PRICE_MEMENTOS - mementos} more Mementos` : `Unlock for ${GOLD_PASS_PRICE_MEMENTOS} Mementos`}
+          </button>
+          <p className="text-[11px] opacity-60 mt-2">You have <Gfx e="💛" size={14} /> {mementos} Mementos. Get them in the Mementos Shop (about $5 for {GOLD_PASS_PRICE_MEMENTOS}) or convert PP you earned from sponsors.</p>
+        </div>
+      ) : <p className="text-center text-[13px] font-black uppercase text-amber-500 mb-6">🌟 Gold Pass active this season</p>}
+      <div className="space-y-3">
+        {SEASONAL_REWARDS.map(reward => {
+          const reached = reward.level <= currentLevel && (reward.level === 1 || season.xp >= SEASON_XP_PER_LEVEL * (reward.level - 1));
+          const freeDone = season.claimedLevels.includes(reward.level);
+          const goldDone = claimedGold.includes(reward.level);
           return (
-            <div key={i} className={`p-6 rounded-[2.5rem] border flex items-center justify-between shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${!unlocked ? 'opacity-40 grayscale' : ''}`}>
-              <div className="flex items-center gap-5 min-w-0">
-                <div className="w-12 h-12 bg-[var(--accent-500-a10)] rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
-                <div>
-                  <span className={`block text-[13px] font-black ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase mb-1`}>Rank {reward.level}</span>
-                  <span className={`text-[16px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
-                </div>
+            <div key={reward.level} className={`p-4 rounded-[2rem] border shadow-sm ${card} ${reward.level % 5 === 0 ? 'ring-2 ring-[var(--accent-500)]/40' : ''}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{reward.icon}</div>
+                <span className="text-[14px] font-black uppercase">Rank {reward.level}{reward.level % 5 === 0 ? ' · Milestone' : ''}</span>
+                {!reached && <span className="ml-auto text-[11px] font-black uppercase opacity-50">Locked</span>}
               </div>
-              {claimed ? (
-                <CheckCircleIcon className="w-7 h-7 text-emerald-500" />
-              ) : unlocked ? (
-                <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-[var(--accent-600)] text-white text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Claim</button>
-              ) : (
-                <span className={`text-[13px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Locked</span>
-              )}
+              <div className="flex gap-2">
+                {lane(freeDone, reached && !freeDone, !reached, reward.free, () => onClaim(reward.level, 'free'), false)}
+                {lane(goldDone, reached && gold && !goldDone, !reached || !gold, reward.gold, () => onClaim(reward.level, 'gold'), true)}
+              </div>
             </div>
           );
         })}
