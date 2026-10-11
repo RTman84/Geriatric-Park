@@ -163,7 +163,7 @@ export default async function handler(req: Request): Promise<Response> {
           return serverJson({ result: 'friends' });
         }
 
-        const { error: insertErr } = await supabase.from('friend_requests').insert({ requester_id: userId, addressee_id: targetUserId, status: 'pending' });
+        const { data: newReq, error: insertErr } = await supabase.from('friend_requests').insert({ requester_id: userId, addressee_id: targetUserId, status: 'pending' }).select('id').single();
         if (insertErr) {
           if (String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique')) {
             return serverJson({ error: 'Already sent or already friends.' }, 409);
@@ -171,6 +171,18 @@ export default async function handler(req: Request): Promise<Response> {
           console.error('Friend request insert failed', insertErr.message);
           return serverJson({ error: 'Friends unavailable', detail: insertErr.message }, 500);
         }
+        // Tell the addressee in their Mailbox (best effort: the request itself is already saved and still shows under Friends).
+        try {
+          const { data: me } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
+          const reqId = String(newReq?.id ?? '').slice(0, 60);
+          if (reqId) {
+            const { error: mailErr } = await supabase.from('mail_inbox').insert({
+              recipient_id: targetUserId, sender_id: userId, sender_name: String(me?.display_name || 'A player').slice(0, 40), kind: 'friend_request',
+              day: new Date().toISOString().slice(0, 10), ref: reqId, note: reqId, updated_at: new Date().toISOString(),
+            });
+            if (mailErr) console.error('friend request mail failed', mailErr.message);
+          }
+        } catch (e) { console.error('friend request mail failed', (e as Error).message); }
         return serverJson({ result: 'sent' });
       }
 

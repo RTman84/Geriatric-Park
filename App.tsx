@@ -648,6 +648,16 @@ const App: React.FC = () => {
     await refreshFriends();
   }, [refreshFriends]);
 
+  // Accept / Decline straight from the Mailbox. Either way the message is marked answered so it never asks twice.
+  const handleRespondMailRequest = useCallback(async (msgId: string, requestId: string, accept: boolean) => {
+    try {
+      await respondToFriendRequest(requestId, accept);
+      notify(accept ? '🤝 Friend added!' : 'Request declined.', 'good');
+      await refreshFriends();
+    } catch (e) { notify((e as Error).message || 'That request is no longer available.', 'bad'); }
+    setState(prev => ({ ...prev, mailbox: prev.mailbox.map(m => m.id === msgId ? { ...m, claimed: true } : m) }));
+  }, [refreshFriends, notify]);
+
   const handleRemoveFriend = useCallback(async (friendUserId: string) => {
     await removeFriend(friendUserId);
     await refreshFriends();
@@ -3143,7 +3153,7 @@ const App: React.FC = () => {
             }
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
-          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
+          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onRespondFriendRequest={handleRespondMailRequest} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} mementos={state.mementos ?? 0} signedIn={!!authSession} onClaim={handleClaimSeasonReward} onBuyGold={handleBuyGoldPass} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} 💰 PP`);

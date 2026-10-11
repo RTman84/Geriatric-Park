@@ -112,7 +112,7 @@ const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark 
 
 // ─── Mailbox Panel ────────────────────────────────────────────────────────────
 
-export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
+export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onRespondFriendRequest?: (msgId: string, requestId: string, accept: boolean) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onRespondFriendRequest, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
   const [giftOpenId, setGiftOpenId] = React.useState<string | null>(null);
   return (
   <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
@@ -168,12 +168,18 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
               ].filter(Boolean).join(' + ')} />}
             </button>
           )}
-          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && (
+          {msg.friendRequest && !msg.claimed && onRespondFriendRequest && (
+            <div className="flex gap-2">
+              <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, true)} className="flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 bg-emerald-600 text-white">Accept</button>
+              <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, false)} className={`flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>Decline</button>
+            </div>
+          )}
+          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && !msg.friendRequest && (
             <button onClick={() => onClaim(msg.id)} className={`w-full font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
               Mark as Read
             </button>
           )}
-          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
+          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{msg.friendRequest ? 'Answered' : (msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
         </div>
       )) : <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black tracking-widest">Inbox is empty</div>}
     </div>
@@ -1333,6 +1339,20 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   healPrice?: { cost: number; soldOut: boolean }
 }> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
   const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
+  const [gearSort, setGearSort] = React.useState<'newest' | 'rarity' | 'slot' | 'level' | 'boost' | 'name'>('rarity');
+  const sortedInventory = React.useMemo(() => {
+    const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+    const slotOrder: Record<string, number> = { Head: 0, Body: 1, Accessory: 2, Charm: 3 };
+    const idx = new Map<string, number>(inventory.map((g, i): [string, number] => [g.id, i]));
+    return [...inventory].sort((a, b) => {
+      if (gearSort === 'newest') return (idx.get(b.id) ?? 0) - (idx.get(a.id) ?? 0);
+      if (gearSort === 'name') return a.name.localeCompare(b.name);
+      if (gearSort === 'slot') return ((slotOrder[a.slot] ?? 0) - (slotOrder[b.slot] ?? 0)) || ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0)) || (b.level - a.level);
+      if (gearSort === 'level') return (b.level - a.level) || ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0));
+      if (gearSort === 'boost') return (b.boost - a.boost) || (b.level - a.level);
+      return ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0)) || (b.level - a.level) || (b.boost - a.boost);
+    });
+  }, [inventory, gearSort]);
   const [regDesc, setRegDesc] = React.useState(true);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
   const [regRarity, setRegRarity] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
@@ -1477,11 +1497,19 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
 
       {/* Inventory */}
       <div className="mb-10">
-        <h3 className={`text-[17px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Inventory</h3>
+        <div className="flex items-center justify-between gap-3 px-4 mb-4">
+          <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Inventory</h3>
+          {inventory.length > 1 && (
+            <select value={gearSort} onChange={ev => setGearSort(ev.target.value as typeof gearSort)} className={`rounded-xl px-3 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>
+              <option value="rarity">Sort: Rarity</option><option value="slot">Sort: Slot</option><option value="level">Sort: Level</option>
+              <option value="boost">Sort: Boost</option><option value="newest">Sort: Newest</option><option value="name">Sort: Name</option>
+            </select>
+          )}
+        </div>
         <div className={`p-4 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
-              {inventory.map(item => (
+              {sortedInventory.map(item => (
                 <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
                   <ItemIcon name={item.name} icon={item.icon} size={52} />
                   <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
