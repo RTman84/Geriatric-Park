@@ -209,6 +209,32 @@ export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' |
   return out;
 }
 
+// One shared Elder ordering: the Park Registry saves the player's sort choice and every Elder picker (equip, Arena station, Exchange,
+// Workshop) follows it, so Elders always appear in the same places.
+export type ElderSortMode = 'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name';
+const ELDER_SORT_KEY = 'gp_elder_sort';
+export function readElderSortPref(): { sort: ElderSortMode; desc: boolean } {
+  try {
+    const v = JSON.parse(localStorage.getItem(ELDER_SORT_KEY) || '{}');
+    const ok: ElderSortMode[] = ['power', 'level', 'rarity', 'type', 'obtained', 'name'];
+    return { sort: ok.includes(v.sort) ? v.sort : 'power', desc: v.desc !== false };
+  } catch { return { sort: 'power', desc: true }; }
+}
+export function writeElderSortPref(sort: ElderSortMode, desc: boolean) { try { localStorage.setItem(ELDER_SORT_KEY, JSON.stringify({ sort, desc })); } catch { /* storage unavailable */ } }
+interface SortableElder { id: string; name: string; type: any; level: number; rarity?: string; strength: number; wit: number; tenacity: number; obtainedAt?: number }
+export function sortEldersBy<T extends SortableElder>(list: T[], sort: ElderSortMode, desc: boolean, order?: T[]): T[] {
+  const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+  const idx = new Map<string, number>((order ?? list).map((e, i): [string, number] => [e.id, i]));
+  const pw = (e: T) => e.strength + e.tenacity + e.wit;
+  const key = (e: T): number | string => sort === 'power' ? pw(e) : sort === 'level' ? e.level : sort === 'rarity' ? (rr[e.rarity ?? 'Common'] ?? 0) : sort === 'obtained' ? (e.obtainedAt ?? (idx.get(e.id) ?? 0)) : sort === 'name' ? e.name.toLowerCase() : String(e.type);
+  return [...list].sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    const c = typeof ka === 'string' ? ka.localeCompare(kb as string) : (ka as number) - (kb as number);
+    return (desc ? -c : c) || pw(b) - pw(a);
+  });
+}
+export function sortEldersByPref<T extends SortableElder>(list: T[]): T[] { const p = readElderSortPref(); return sortEldersBy<T>(list, p.sort, p.desc); }
+
 // ONE standard formula for an Elder's stats: the level/rarity curve, times the evolution multipliers, plus equipped gear (added after,
 // not multiplied). Levelling, evolving, capturing and the 2026-10-11 migration all produce exactly this, so no Elder can be stronger or
 // weaker than another of the same level, rarity, stage and gear (this fixed wild captures arriving with inflated stats and evolution
@@ -621,7 +647,7 @@ export const RAID_TIER_NAMES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary
 export const RAID_TIER_DAMAGE_CAP = [0.5, 0.25, 0.12, 0.09, 0.05]; // max share of boss HP one hit can do
 export const RAID_TIER_SATURATION = [1500, 5000, 16000, 24000, 24000]; // squad power at which a hit reaches the cap
 export const RAID_POWER_EXPONENT = 0.65;
-export const DINERS_RAID_HIT_BY_TIER = [2, 2, 3, 4, 5];
+export const DINERS_RAID_HIT_BY_TIER = [3, 4, 5, 7, 10];
 export const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches api/arena.ts (restored from 4, 2026-09-27 round 3 -- tier's damage cap now governs solo-feasibility instead of attempt count)
 export const raidBossByIndex = (i: number) => RAID_BOSSES[Math.max(0, Math.min(RAID_BOSSES.length - 1, i))];
 export function raidCountdownLabel(msUntil: number): string {
@@ -633,11 +659,11 @@ export function raidCountdownLabel(msUntil: number): string {
 }
 export const ARENA_MAX_SLOTS = 6;
 export const ARENA_MAX_PER_PLAYER = 3;
-export const ARENA_FREE_ATTACKS = 5;
-export const ARENA_MAX_ATTACKS_PER_DAY = 20;
+export const ARENA_FREE_ATTACKS = 10; // 5 -> 10 (2026-10-11)
+export const ARENA_MAX_ATTACKS_PER_DAY = 40; // 20 -> 40 (2026-10-11), matches api/arena.ts
 export const ARENA_ATTACK_COST_BASE = 10;
 export const ARENA_ATTACK_COST_GROWTH = 1.4;
-export const ARENA_ATTACK_COOLDOWN_MIN = 10;
+export const ARENA_ATTACK_COOLDOWN_MIN = 5; // 10 -> 5 (2026-10-11), matches api/arena.ts
 export const ARENA_REWARDED_WINS_PER_DAY = 10;
 export const ARENA_DUES_MAX_HOURS = 12;
 // Attack number n (0-based, how many attacks you already made today): free for the first few, then Tickets.
@@ -656,7 +682,7 @@ export function arenaAttackCost(attacksToday: number): number {
 // keeps this safe to build without a second layer of cross-account
 // transaction coordination.
 export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000; // per opponent: attacking one friend never makes you wait to attack another
-export const FRIEND_BATTLE_DAILY_ATTACK_CAP = 30; // soft total so nobody can spam players all day (rewards are separately capped)
+export const FRIEND_BATTLE_DAILY_ATTACK_CAP = 60; // 30 -> 60 (2026-10-11) // soft total so nobody can spam players all day (rewards are separately capped)
 export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
 // Longevity pass (2026-09-20): was 40-80 Tickets + 6 Materials per win on a 5-minute cooldown, i.e. up to
 // ~720 Tickets and ~72 Materials an hour for anyone who could win. Now small rewards, and only the first
@@ -664,7 +690,7 @@ export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
 export const FRIEND_BATTLE_WIN_TICKETS_MIN = 12;
 export const FRIEND_BATTLE_WIN_TICKETS_MAX = 24;
 export const FRIEND_BATTLE_WIN_MATERIALS = 2;
-export const FRIEND_BATTLE_DAILY_REWARDS = 6;
+export const FRIEND_BATTLE_DAILY_REWARDS = 10; // 6 -> 10 (2026-10-11)
 export const FRIEND_BATTLE_UNREWARDED_XP_SHARE = 0.25; // Elder/player XP share once the daily rewards are used up
 export const FRIEND_BATTLE_LOSS_TICKETS = 15;
 export const FRIEND_BATTLE_WIN_ELDER_XP = 50;
@@ -1661,11 +1687,11 @@ export const SEASONAL_REWARDS: SeasonalReward[] = PASS_FREE_TICKETS.map((tickets
 
 // --- TV Dinners: the PvP / Arena / Raid currency and its shop (2026-10-06) ---------------------------------
 // Earned ONLY from social/competitive play (daily-capped), spent ONLY in the PvP shop. Never PP, never passive income.
-export const DINERS_DAILY_CAP = 100; // raised from 40 (2026-10-10): raids now allow up to 10 rewarded raids a day
-export const DINERS_FRIEND_WIN = 3;
-export const DINERS_ARENA_WIN = 3;
-export const DINERS_RAID_HIT = 2;
-export const DINERS_COURT_WIN = 4;
+export const DINERS_DAILY_CAP = 180; // 40 -> 100 -> 180 (2026-10-11): TV Dinners were too scarce for how often players battle // raised from 40 (2026-10-10): raids now allow up to 10 rewarded raids a day
+export const DINERS_FRIEND_WIN = 5;
+export const DINERS_ARENA_WIN = 6;
+export const DINERS_RAID_HIT = 3;
+export const DINERS_COURT_WIN = 6;
 
 export type AntiqueRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 export interface Antique { id: string; name: string; icon: string; rarity: AntiqueRarity; price: number; title: string }

@@ -79,6 +79,11 @@ function setBonusFrom(saveData: any, set: 'arena' | 'raid'): number {
   }
   return SET_BONUS_PCT_TABLE[set][Math.min(4, slots.size)];
 }
+// Strongest single Elder the player owns (any status), so a benched Elder can still be stationed at an Arena.
+function maxElderPowerFrom(saveData: any): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  return elders.reduce((m: number, e: any) => Math.max(m, (Number(e?.strength) || 0) + (Number(e?.tenacity) || 0) + (Number(e?.wit) || 0)), 0);
+}
 function squadPowerFrom(saveData: any): number {
   const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
   return elders
@@ -126,6 +131,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       achievements_total: achievements.length,
       squad_power: squadPowerFrom(saveData),
       arena_bonus_pct: setBonusFrom(saveData, 'arena'),
+      max_elder_power: Math.min(1000000, Math.round(maxElderPowerFrom(saveData))),
       raid_bonus_pct: setBonusFrom(saveData, 'raid'),
       favorite_elders: favoriteElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
@@ -176,7 +182,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       let inserted = false;
       let lastError: string | null = null;
       for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
-        const { arena_bonus_pct: _ia, raid_bonus_pct: _ir, ...insertFields } = statFields as any; // bonuses start at the column default (0) and are set by the next sync
+        const { arena_bonus_pct: _ia, raid_bonus_pct: _ir, max_elder_power: _im, ...insertFields } = statFields as any; // bonuses start at the column default (0) and are set by the next sync
         const { error: insertErr } = await supabase.from('player_profiles').insert({ user_id: userId, friend_code: generateFriendCode(), ...insertFields });
         if (!insertErr) { inserted = true; break; }
         lastError = insertErr.message;
@@ -187,9 +193,9 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
     }
 
     let { error: updateErr } = await supabase.from('player_profiles').update(statFields).eq('user_id', userId);
-    if (updateErr && /arena_bonus_pct|raid_bonus_pct/.test(String(updateErr.message))) {
+    if (updateErr && /arena_bonus_pct|raid_bonus_pct|max_elder_power/.test(String(updateErr.message))) {
       // Migration 028 not applied yet: keep syncing everything else rather than losing squad power updates.
-      const { arena_bonus_pct: _a, raid_bonus_pct: _r, ...withoutBonus } = statFields as any;
+      const { arena_bonus_pct: _a, raid_bonus_pct: _r, max_elder_power: _m, ...withoutBonus } = statFields as any;
       ({ error: updateErr } = await supabase.from('player_profiles').update(withoutBonus).eq('user_id', userId));
     }
     if (updateErr) { console.error('Player profile sync failed (non-fatal)', updateErr.message); return updateErr.message; }

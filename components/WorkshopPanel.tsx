@@ -4,6 +4,7 @@ import {
   ItemIcon, ElderAvatarImg, gearSlotKey, getGearMaxLevel, getGearUpgradeCost, getGearSellValue, getEffectiveGearBoost,
   applyUpgradeDiscount, applySalvageBonus, GEAR_RARITY_COLOR, rarityCardStyle,
 } from '../constants';
+import { sortEldersByPref } from '../constants';
 import { Gfx } from './Gfx';
 
 // Tinker's Workshop window: everything to do with gear in one place (upgrade, salvage, equip).
@@ -138,7 +139,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
                   <button onClick={() => setPicking(p => !p)} className="w-full py-3 rounded-2xl font-black uppercase text-[13px] bg-emerald-600 text-white active:scale-95 mb-2">{picking ? 'Hide Elders' : 'Give to an Elder'}</button>
                   {picking && (
                     <div className="space-y-2">
-                      {elders.filter(e => !e.awayUntil || e.awayUntil < Date.now()).map(e => {
+                      {sortEldersByPref<Elder>(elders.filter(e => !e.awayUntil || e.awayUntil < Date.now())).map(e => {
                         const occ = e.equipment?.[gearSlotKey(item.slot)];
                         return (
                           <button key={e.id} onClick={() => { onEquip(e.id, item); setSel(null); setPicking(false); }} className={`w-full p-3 rounded-2xl flex items-center gap-3 text-left active:scale-95 ${sub}`}>

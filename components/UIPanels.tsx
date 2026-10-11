@@ -3,7 +3,7 @@ import { Gfx, EmojiText } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -1338,7 +1338,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
 }> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
-  const [regSort, setRegSort] = React.useState<'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name'>('power');
+  const [regSort, setRegSort] = React.useState<ElderSortMode>(() => readElderSortPref().sort);
   const [gearSort, setGearSort] = React.useState<'newest' | 'rarity' | 'slot' | 'level' | 'boost' | 'name'>('rarity');
   const sortedInventory = React.useMemo(() => {
     const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
@@ -1353,25 +1353,19 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
       return ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0)) || (b.level - a.level) || (b.boost - a.boost);
     });
   }, [inventory, gearSort]);
-  const [regDesc, setRegDesc] = React.useState(true);
+  const [regDesc, setRegDesc] = React.useState(() => readElderSortPref().desc);
+  React.useEffect(() => { writeElderSortPref(regSort, regDesc); }, [regSort, regDesc]);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
   const [regRarity, setRegRarity] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
   const [regType, setRegType] = React.useState<string>('All');
   const [regStatus, setRegStatus] = React.useState<'All' | 'Squad' | 'Bench' | 'Away'>('All');
   const regElders = React.useMemo(() => {
     const rarityRank: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
-    const indexOf = new Map<string, number>(elders.map((e, i) => [e.id, i] as [string, number]));
     const list = elders.filter(e =>
       (regRarity === 'All' || e.rarity === regRarity) &&
       (regType === 'All' || String(e.type) === regType) &&
       (regStatus === 'All' || (regStatus === 'Squad' ? e.status === 'Team' : regStatus === 'Away' ? !!e.awayUntil : (e.status !== 'Team' && !e.awayUntil))));
-    const key = (e: Elder): number | string => regSort === 'power' ? getElderPower(e) : regSort === 'level' ? e.level : regSort === 'rarity' ? (rarityRank[e.rarity] ?? 0)
-      : regSort === 'obtained' ? (e.obtainedAt ?? (indexOf.get(e.id) ?? 0)) : regSort === 'name' ? e.name.toLowerCase() : String(e.type);
-    return [...list].sort((a, b) => {
-      const ka = key(a), kb = key(b);
-      const c = typeof ka === 'string' ? ka.localeCompare(kb as string) : (ka as number) - (kb as number);
-      return (regDesc ? -c : c) || getElderPower(b) - getElderPower(a);
-    });
+    return sortEldersBy(list, regSort, regDesc, elders);
   }, [elders, regSort, regDesc, regRarity, regType, regStatus]);
   const elderTypes = React.useMemo(() => Array.from(new Set(elders.map(e => String(e.type)))), [elders]);
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
@@ -1621,7 +1615,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             {/* min-h guarantees at least ~2 Elder rows are always visible no matter how much
                 room the header/description/buttons above end up taking. */}
             <div className="flex-1 min-h-[220px] overflow-y-auto custom-scrollbar space-y-2 px-1 -mx-1">
-              {elders.map(e => {
+              {sortEldersByPref<Elder>(elders).map(e => {
                 const slotKey = gearSlotKey(item.slot);
                 const occupant = e.equipment?.[slotKey];
                 return (

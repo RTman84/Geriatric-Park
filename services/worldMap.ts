@@ -63,7 +63,7 @@ export function getWorldStructures(lat: number, lng: number, ring = 1): Structur
 // Shared like the buildings above: a cell holds an Arena with probability ARENA_CELL_CHANCE, at a fixed spot.
 // THE SAME MATH IS DUPLICATED INSIDE api/arena.ts (shared imports are not bundled on Vercel here) -- if you
 // change anything in this section, change it there too, or the server will reject Arenas the map shows.
-export const ARENA_CELL_CHANCE = 0.4;
+export const ARENA_CELL_CHANCE = 0.6; // 0.4 -> 0.6 (2026-10-11): existing Arenas stay where they are, more appear between them
 const ARENA_SALT = 1000;
 export const ARENA_NAMES = [
   'Sunny Acres Clubhouse', 'Maple Court Rec Hall', 'Bingo Bluff Arena', 'Shady Oaks Lodge',
@@ -96,9 +96,11 @@ export function getWorldArenas(lat: number, lng: number, ring = 1): ArenaSite[] 
 // someone actually hits it (api/arena.ts creates the row lazily on first hit) -- everyone computes the
 // same upcoming schedule with no server round-trip, the same way Arena placement works above.
 // THE SAME MATH IS DUPLICATED INSIDE api/arena.ts -- change both places together.
-export const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
+// Indexes 0-2 are the original windows (kept first so existing raid ids and seeds stay valid); the rest were added 2026-10-11 so a raid
+// can be live at most times of day (windows are 90 min, at least 2 h apart).
+export const RAID_WINDOW_HOURS_UTC = [15, 19, 0, 2, 4, 6, 8, 10, 12, 17, 21];
 export const RAID_WINDOW_MINUTES = 90;
-export const RAID_CHANCE = 0.12; // restored from the 0.6 testing bump (2026-09-27) -- keep in sync with api/arena.ts's copy.
+export const RAID_CHANCE = 0.18; // 0.12 -> 0.18 (2026-10-11), about 2 raids per Arena per day -- keep in sync with api/arena.ts's copy. // restored from the 0.6 testing bump (2026-09-27) -- keep in sync with api/arena.ts's copy.
 const RAID_SALT = 2000;
 const RAID_EVENT_WINDOWS: [number, number, number, number][] = [[2, 7, 2, 16], [4, 1, 4, 14], [6, 28, 7, 6], [9, 4, 9, 13], [10, 24, 11, 2], [11, 20, 11, 30], [12, 15, 1, 2]]; // seasonal events (UTC month/day start-end); keep in sync with SEASONAL_EVENTS in constants.tsx
 const RAID_LEGENDARY_EVENT_CHANCE = 0.35; // during an event, this share of raids roll as Tier 5 Legendary

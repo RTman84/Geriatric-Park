@@ -43,8 +43,8 @@ const FACTIONS = ['early_birds', 'night_owls', 'sunday_drivers'];
 const MAX_SLOTS = 6;
 const MAX_ARENAS_PER_PLAYER = 3;
 const FACTION_LOCK_MS = 30 * 24 * 60 * 60 * 1000;
-const ATTACK_COOLDOWN_MS = 10 * 60 * 1000;
-const MAX_ATTACKS_PER_DAY = 20;
+const ATTACK_COOLDOWN_MS = 5 * 60 * 1000; // 10 -> 5 min (2026-10-11)
+const MAX_ATTACKS_PER_DAY = 40; // 20 -> 40 (2026-10-11)
 const REWARDED_WINS_PER_DAY = 10;
 const FATIGUE = 0.85;          // attacker power x0.85 for each defender already fought this attack
 const VARIANCE = 0.15;         // +-15% roll
@@ -61,11 +61,11 @@ const DUES_HOURS_PER_MATERIAL = 6;
 const MAX_IDS = 30;
 
 // ---- Raids: DUPLICATE of services/worldMap.ts's Raid section. Keep identical. ------------------------
-const RAID_WINDOW_HOURS_UTC = [15, 19, 0];
+const RAID_WINDOW_HOURS_UTC = [15, 19, 0, 2, 4, 6, 8, 10, 12, 17, 21]; // keep in sync with services/worldMap.ts
 const RAID_WINDOW_MINUTES = 90;
 // TEMP FOR LIVE TESTING (2026-09-25): raised from 0.12 to make raids land reliably during a
 // testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with services/worldMap.ts's copy.
-const RAID_CHANCE = 0.12; // restored from 0.6 after live testing was confirmed working (2026-09-27)
+const RAID_CHANCE = 0.18; // restored from 0.6 after live testing was confirmed working (2026-09-27)
 const RAID_SALT = 2000;
 const RAID_EVENT_WINDOWS: [number, number, number, number][] = [[2, 7, 2, 16], [4, 1, 4, 14], [6, 28, 7, 6], [9, 4, 9, 13], [10, 24, 11, 2], [11, 20, 11, 30], [12, 15, 1, 2]]; // seasonal events (UTC month/day start-end); keep in sync with SEASONAL_EVENTS in constants.tsx
 const RAID_LEGENDARY_EVENT_CHANCE = 0.35; // during an event, this share of raids roll as Tier 5 Legendary
@@ -148,7 +148,7 @@ function raidById(arenaId: string, raidId: string, now: number): RaidSlot | null
 // ---- Shared world grid: DUPLICATE of services/worldMap.ts (Arena section). Keep identical. ---------------
 const WORLD_SEED = 20260920;
 const WORLD_CELL_DEG = 0.02;
-const ARENA_CELL_CHANCE = 0.4;
+const ARENA_CELL_CHANCE = 0.6;
 const ARENA_SALT = 1000;
 const ARENA_NAMES = [
   'Sunny Acres Clubhouse', 'Maple Court Rec Hall', 'Bingo Bluff Arena', 'Shady Oaks Lodge',
@@ -222,11 +222,11 @@ function duesFor(rows: any[], now: number) {
 
 async function loadMe(supabase: SupabaseClient, userId: string, now: number) {
   let [profileRes, dailyRes, defRes] = await Promise.all([
-    supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power, arena_bonus_pct, raid_bonus_pct').eq('user_id', userId).maybeSingle(),
+    supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power, arena_bonus_pct, raid_bonus_pct, max_elder_power').eq('user_id', userId).maybeSingle(),
     supabase.from('arena_player_daily').select('attacks, wins, dues_claimed').eq('user_id', userId).eq('day', todayKey()).maybeSingle(),
     supabase.from('arena_defenders').select('id, arena_id, elder, power, placed_at, dues_from').eq('user_id', userId),
   ]);
-  if (profileRes.error && /arena_bonus_pct|raid_bonus_pct/.test(String(profileRes.error.message))) {
+  if (profileRes.error && /arena_bonus_pct|raid_bonus_pct|max_elder_power/.test(String(profileRes.error.message))) {
     // Migration 028 not applied yet: carry on without set bonuses instead of breaking every Arena call.
     profileRes = await supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power').eq('user_id', userId).maybeSingle() as typeof profileRes;
   }
@@ -246,6 +246,7 @@ async function loadMe(supabase: SupabaseClient, userId: string, now: number) {
       squadPower: num(profile?.squad_power, 0),
       arenaBonusPct: Math.max(0, Math.min(10, num(profile?.arena_bonus_pct, 0))),
       raidBonusPct: Math.max(0, Math.min(12, num(profile?.raid_bonus_pct, 0))),
+      maxElderPower: Math.max(0, num(profile?.max_elder_power, 0)),
       attacksToday: num(daily?.attacks, 0),
       winsToday: num(daily?.wins, 0),
       duesClaimedToday: !!daily?.dues_claimed,
@@ -592,7 +593,8 @@ export default async function handler(req: Request): Promise<Response> {
       const power = Math.floor(num(body?.power, -1));
       // Same trust level as Friend Battle: power comes from the client, but it can't exceed what the player's
       // synced squad could plausibly field (floor of 100 so brand-new players aren't blocked).
-      if (power < 0 || power > Math.max(me.squadPower, 100)) return fail(400, 'Elder power out of range — let your squad sync, then try again.');
+      // (A benched Elder can be stronger than the whole squad's total, so the limit is the strongest Elder OR the squad.)
+      if (power < 0 || power > Math.max(me.squadPower, me.maxElderPower, 100)) return fail(400, 'Elder power out of range — let your squad sync, then try again.');
       if (holder && holder !== myFaction) return fail(403, 'An opposing faction holds this Arena. Defeat its defenders first.');
       if (!holder && stateRow?.priority_until && ms(stateRow.priority_until) > now && stateRow.priority_faction && stateRow.priority_faction !== myFaction) {
         return fail(403, 'The faction that just cleared this Arena has first claim for a few minutes.', { priorityUntil: stateRow.priority_until });

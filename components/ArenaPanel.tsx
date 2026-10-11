@@ -6,6 +6,7 @@ import {
   ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, ARENA_FACTION_LOCK_DAYS, arenaAttackCost,
   raidBossByIndex, raidCountdownLabel, RAID_TIER_NAMES, RAID_FREE_ATTEMPTS, RAID_EXTRA_ATTEMPT_COST, RAID_MAX_ATTEMPTS_PER_PLAYER,
 } from '../constants';
+import { sortEldersByPref } from '../constants';
 import type { ArenaInfo, ArenaMe, ArenaDefender } from '../services/arenaService';
 import type { RaidHitResult } from '../services/arenaService';
 import type { ArenaSite } from '../services/worldMap';
@@ -65,8 +66,8 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
   const priorityBlocks = !holder && priorityMins > 0 && info?.priorityFaction && info.priorityFaction !== myFaction;
   const squad = elders.filter(e => e.captured && e.status === 'Team');
   const candidates = elders
-    .filter(e => e.captured && !stationedAt[e.id])
-    .sort((a, b) => getElderPower(b) - getElderPower(a));
+    .filter(e => e.captured && !stationedAt[e.id]);
+  const candidatesSorted = sortEldersByPref<Elder>(candidates);
   const canStation = !!myFaction && !myDefender && !priorityBlocks && (!holder || holder === myFaction) && defenders.length < ARENA_MAX_SLOTS
     && (me?.defenders.length ?? 0) < ARENA_MAX_PER_PLAYER;
   const canAttack = !!myFaction && !!holder && holder !== myFaction && shieldMins === 0 && attacksLeft > 0 && (me?.squadPower ?? 0) > 0 && tokens >= attackCost;
@@ -281,7 +282,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
               <p className={`text-[13px] font-bold mb-3 ${muted}`}>It leaves your squad and can't be scrapped until recalled or knocked out.</p>
               {candidates.length === 0 && <p className={`text-[14px] font-bold ${muted}`}>You have no free Elders.</p>}
               <div className="space-y-2">
-                {candidates.map(e => {
+                {candidatesSorted.map(e => {
                   const leavesEmpty = e.status === 'Team' && squad.length <= 1;
                   return (
                     <button key={e.id} disabled={busy || leavesEmpty} onClick={() => { setChoosing(false); onStation(e); }}

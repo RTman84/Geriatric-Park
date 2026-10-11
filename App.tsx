@@ -2987,15 +2987,14 @@ const App: React.FC = () => {
   // lower, Epic higher). Based on your best Elder, not the current squad, so swapping squads can't shrink opponents.
   const scaleWildElder = useCallback((w: Elder): Elder => {
     const mine = state.allElders.filter(e => e.captured && !e.borrowed);
-    const topPower = Math.max(28, ...mine.map(e => getElderPower(e)));
     const topLevel = Math.max(1, ...mine.map(e => e.level));
     const tier = w.rarity === 'Legendary' ? 1.4 : w.rarity === 'Epic' ? 1.2 : w.rarity === 'Rare' ? 1.0 : 0.85;
-    const spread = 0.6 + Math.random() * 0.9; // wide: from a pushover (60%) to a real threat (150%) of your best Elder
-    const target = Math.max(28, topPower * tier * spread);
-    const f = target / 28; // wild base stats are 10 / 10 / 8 / 8
-    const maxHp = Math.max(80, Math.round(80 + (target - 28) * 1.5));
+    const spread = 0.6 + Math.random() * 0.9; // from a pushover (60%) to a real threat (150%) of your best level
     const level = Math.min(100, Math.max(1, Math.round(topLevel * spread * Math.sqrt(tier))));
-    return { ...w, level, strength: Math.round(10 * f), wit: Math.round(10 * f), tenacity: Math.round(8 * f), agility: Math.round(8 * f), maxHp, hp: maxHp };
+    // Stats come from the same standard formula every Elder uses (level + rarity), so a wild Elder is exactly as strong as its level and
+    // rarity say, fights and captures match, and nothing arrives stronger than an Elder you raised to that level.
+    const c = canonicalElderStats({ level, rarity: w.rarity, evolutionStage: 0, equipment: {} });
+    return { ...w, level, strength: c.strength, wit: c.wit, tenacity: c.tenacity, agility: c.agility, maxHp: c.maxHp, hp: c.maxHp, eldersCanonicalV1: true };
   }, [state.allElders]);
   const battleTeam = useMemo(() => [...activeTeam, ...borrowedElders], [activeTeam, borrowedElders]);
   const roamingElders = useMemo(() => state.allElders.filter(e => e.isRoaming), [state.allElders]);

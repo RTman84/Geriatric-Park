@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Gfx, EmojiText } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
+import { sortEldersByPref } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import { sendFriendRequestByUserId } from '../services/socialService';
@@ -399,7 +400,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                                 className={`w-full mb-2 p-2 rounded-lg text-[13px] font-bold ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
                               >
                                 <option value="">Choose an Elder…</option>
-                                {availableToSend.map(e => <option key={e.id} value={e.id}>{e.name} · {e.type} · Lv.{e.level} {e.rarity} · PWR {getElderPower(e)}</option>)}
+                                {sortEldersByPref<Elder>(availableToSend).map(e => <option key={e.id} value={e.id}>{e.name} · {e.type} · Lv.{e.level} {e.rarity} · PWR {getElderPower(e)}</option>)}
                               </select>
                               <div className="flex gap-2 mb-2">
                                 {[8, 12, 24].map(h => (
