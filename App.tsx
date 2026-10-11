@@ -141,6 +141,8 @@ import {
   SCRAP_RARITY_MULTIPLIER, parseCourtHonor, parseBoardHonor, modeKindKnown, MODE_MILESTONE_REWARDS, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
+  modeBadgeArt,
+  modeGlyphArt,
   getRankForLevel,
   getUnlockedCosmetics, cosmeticGoal,
   getSquadPower,
@@ -3109,7 +3111,7 @@ const App: React.FC = () => {
                     className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-lg overflow-hidden ${isDark ? 'bg-[var(--accent-500)]' : 'bg-[var(--accent-600)]'}`}
                     title="Change profile icon & title"
                   >
-                    {isImagePath(display.icon) ? <img src={display.icon} alt={display.title} className="w-full h-full object-cover" /> : display.icon}
+                    {isImagePath(display.icon) ? <img src={display.icon} alt={display.title} className="w-full h-full object-contain p-0.5" /> : display.icon}
                   </button>
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
@@ -3412,7 +3414,7 @@ const App: React.FC = () => {
                 <div className={`rounded-[2rem] p-6 mb-8 border-2 ${isDark ? 'bg-slate-800 border-[var(--accent-500-a30)]' : 'bg-slate-50 border-[var(--accent-100)]'}`}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl overflow-hidden ${isDark ? 'bg-[var(--accent-500)]' : 'bg-[var(--accent-600)]'}`}>
-                      {isImagePath(previewDisplay.icon) ? <img src={previewDisplay.icon} alt={previewDisplay.title} className="w-full h-full object-cover" /> : previewDisplay.icon}
+                      {isImagePath(previewDisplay.icon) ? <img src={previewDisplay.icon} alt={previewDisplay.title} className="w-full h-full object-contain p-0.5" /> : previewDisplay.icon}
                     </div>
                     <div className="min-w-0">
                       <p className="font-black text-base uppercase truncate">{authSession?.user.displayName || 'Park Visitor'}</p>
@@ -3453,7 +3455,7 @@ const App: React.FC = () => {
                       title={c.title}
                       className={`aspect-square rounded-2xl flex items-center justify-center text-2xl overflow-hidden border-2 transition-all ${activeIconKey === c.key ? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]' : isDark ? 'border-slate-800 bg-slate-800' : 'border-slate-100 bg-slate-50'}`}
                     >
-                      {isImagePath(c.icon) ? <img src={c.icon} alt={c.title} className="w-full h-full object-cover" /> : c.icon}
+                      {isImagePath(c.icon) ? <img src={c.icon} alt={c.title} className="w-full h-full object-contain p-0.5" /> : c.icon}
                     </button>
                   ))}
                 </div>
@@ -3481,8 +3483,15 @@ const App: React.FC = () => {
                     return (
                       <div key={m.mode} className={`px-4 py-3 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                         <div className="flex items-center justify-between">
-                          <span className="text-[14px] font-black uppercase">{m.name}</span>
-                          <span className="text-[13px] font-black">{reached > 0 ? `${MODE_BADGE_TIERS[reached - 1].icon} ${MODE_BADGE_TIERS[reached - 1].name}` : 'Not yet'}</span>
+                          <span className="flex items-center gap-2 text-[14px] font-black uppercase">{modeGlyphArt(m.mode) && <img src={modeGlyphArt(m.mode)} alt="" className="w-7 h-7 object-contain" />}{m.name}</span>
+                          <span className="text-[13px] font-black">{reached > 0 ? MODE_BADGE_TIERS[reached - 1].name : 'Not yet'}</span>
+                        </div>
+                        <div className="flex gap-1.5 mt-2">
+                          {MODE_BADGE_TIERS.map(t => (
+                            <div key={t.tier} title={`${t.name} at ${t.min}`} className={`w-11 h-11 rounded-lg flex items-center justify-center ${t.tier <= reached ? '' : 'opacity-30 grayscale'}`}>
+                              {modeBadgeArt(m.mode, t.tier) ? <img src={modeBadgeArt(m.mode, t.tier)} alt={t.name} className="w-full h-full object-contain" /> : <span className="text-xl">{t.icon}</span>}
+                            </div>
+                          ))}
                         </div>
                         <p className="text-[12px] opacity-70">{count} total{next ? ` · next: ${next.name} at ${next.min}` : ' · max tier reached'}</p>
                       </div>

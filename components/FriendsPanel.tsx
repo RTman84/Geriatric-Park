@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gfx, EmojiText } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
+import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, isImagePath, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import { sortEldersByPref } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
@@ -49,7 +49,7 @@ interface FriendsPanelProps {
 // themselves sees on their own profile.
 function friendDisplay(profile: PlayerProfileSnapshot) {
   const rank = getRankForLevel(profile.level);
-  return { icon: rank.icon, title: rank.title };
+  return { icon: rank.art || rank.icon, title: rank.title };
 }
 
 // One line telling BOTH sides what an exchange is for and what each will get (amounts shown for a full stay).
@@ -356,7 +356,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
               return (
                 <div key={friend.user_id} className={`rounded-2xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
                   <button onClick={() => setExpandedFriendId(isExpanded ? null : friend.user_id)} className="w-full flex items-center gap-3 p-3 text-left">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[var(--accent-500-a10)]">{display.icon}</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[var(--accent-500-a10)] overflow-hidden">{isImagePath(display.icon) ? <img src={display.icon} alt="" className="w-full h-full object-contain" /> : display.icon}</div>
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</p>
                       <p className={`text-[12px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{display.title} · PWR {friend.squad_power}</p>

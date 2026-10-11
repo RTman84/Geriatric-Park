@@ -100,6 +100,7 @@ import earlyBirdImg from './game-assets/achievements/early_bird.png';
 import communityPillarImg from './game-assets/achievements/community_pillar.png';
 import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
+import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART } from './game-assets/badges/badgeArt';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
 // and only ever have `.completed` toggled, never cloned with a new id.
@@ -801,15 +802,16 @@ export function isImagePath(src: string): boolean {
   return /^(\/|https?:|data:)/.test(src);
 }
 
-export const RANK_TIERS: { minLevel: number, title: string, icon: string }[] = [
-  { minLevel: 1,  title: 'Newcomer', icon: '🌱' },
-  { minLevel: 5,  title: 'Regular',  icon: '🎯' },
-  { minLevel: 10, title: 'Veteran',  icon: '🏅' },
-  { minLevel: 15, title: 'Champion', icon: '🏆' },
-  { minLevel: 20, title: 'Legend',   icon: '👑' },
-  { minLevel: 30, title: 'Park Icon', icon: '⭐' },
+// `icon` stays an emoji for plain-text uses (toasts); `art` is the real medal image shown wherever an icon is drawn.
+export const RANK_TIERS: { minLevel: number, title: string, icon: string, art: string }[] = [
+  { minLevel: 1,  title: 'Newcomer', icon: '🌱', art: RANK_ART[0] },
+  { minLevel: 5,  title: 'Regular',  icon: '🎯', art: RANK_ART[1] },
+  { minLevel: 10, title: 'Veteran',  icon: '🏅', art: RANK_ART[2] },
+  { minLevel: 15, title: 'Champion', icon: '🏆', art: RANK_ART[3] },
+  { minLevel: 20, title: 'Legend',   icon: '👑', art: RANK_ART[4] },
+  { minLevel: 30, title: 'Park Icon', icon: '⭐', art: RANK_ART[5] },
 ];
-export function getRankForLevel(level: number): { title: string, icon: string } {
+export function getRankForLevel(level: number): { title: string, icon: string, art: string } {
   let rank = RANK_TIERS[0];
   for (const tier of RANK_TIERS) {
     if (level >= tier.minLevel) rank = tier;
@@ -885,6 +887,9 @@ export const modeCount = (stats: Record<string, number> | undefined, mode: strin
   const def = MODE_BADGES.find(m => m.mode === mode);
   return def ? def.kinds.reduce((sum, k) => sum + Math.max(0, Number(stats?.[k]) || 0), 0) : 0;
 };
+// Art for a mode badge tier (glyph on the tier frame) and for the bare glyph; undefined falls back to the emoji.
+export const modeBadgeArt = (mode: string, tier: number): string | undefined => MODE_BADGE_ART[mode]?.[tier - 1];
+export const modeGlyphArt = (mode: string): string | undefined => MODE_GLYPH_ART[mode];
 export const modeTierReached = (count: number): number => MODE_BADGE_TIERS.reduce((t, x) => (count >= x.min ? x.tier : t), 0);
 export const modeKindKnown = (kind: string): boolean => MODE_BADGES.some(m => m.kinds.includes(kind));
 export function modeBadgeCosmetic(key: string, stats: Record<string, number> | undefined): UnlockedCosmetic | null {
@@ -892,7 +897,7 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
   const def = m && MODE_BADGES.find(x => x.mode === m[1]);
   if (!m || !def) return null;
   const tier = MODE_BADGE_TIERS[Number(m[2]) - 1];
-  return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: tier.icon, title: `${def.name} ${tier.name}` } : null;
+  return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: MODE_BADGE_ART[def.mode]?.[tier.tier - 1] || tier.icon, title: `${def.name} ${tier.name}` } : null;
 }
 
 // ---- Seasonal events (calendar based, UTC, repeat every year). Progress = how much your lifetime mode counts grew
@@ -971,7 +976,7 @@ export function cosmeticGoal(key: string, achievements: Achievement[] = []): str
 export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = [], eventCosmetics: string[] = []): UnlockedCosmetic[] {
   const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
     .filter(t => level >= t.minLevel)
-    .map(t => ({ key: `rank:${t.title}`, icon: t.icon, title: t.title }));
+    .map(t => ({ key: `rank:${t.title}`, icon: t.art || t.icon, title: t.title }));
   const achievementUnlocks: UnlockedCosmetic[] = achievements
     .filter(a => a.completed)
     .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
@@ -1009,7 +1014,7 @@ export function resolveProfileDisplay(
   const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
   const titleMatch = unlocked.find(c => c.key === selectedTitle);
   return {
-    icon: iconMatch ? iconMatch.icon : rank.icon,
+    icon: iconMatch ? iconMatch.icon : (rank.art || rank.icon),
     title: titleMatch ? titleMatch.title : rank.title,
   };
 }
