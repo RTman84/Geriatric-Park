@@ -31,5 +31,10 @@ Friend request Mailbox Accept/Decline (two accounts); Find Players search and hi
 4. Not built: Resident Exchange host standing preference, Friend Battle pass, Court Ladder extra challenges, Mementos Elder Pass track, ad-free option, Alliance/Clan, 3D avatars, Steam.
 5. Launch track unchanged (see the 10-08 doc): first Android build in Actions, native Google sign-in, back button, bundle Tailwind, Play Console steps, server-authoritative economy, merge phase2 to main, rotate keys, legal review before any real payout.
 
+## Art wired in after this doc was first written (commit 00ab0c4)
+- Sheets S01-S03 done: 6 rank medals (replace rank emoji in header, picker, profile preview, friends list), 8 mode glyphs, 5 tier frames. Mode badges are pre-composited glyph-on-frame webp files (40) in `game-assets/badges/`, mapped in `badgeArt.ts` (explicit imports; constants.tsx stays esbuild-testable). `RANK_TIERS[].art`, `modeBadgeArt(mode, tier)`, `modeGlyphArt(mode)` in constants. Picker shows all 5 tier medals per mode (unearned dimmed). Icon boxes use object-contain so ribbons are not cropped.
+- Still emoji: Court place medals / Boards honors (S04), gear sets (S07-S08), pass/event art, keepsakes, antiques, remaining sweep.
+- Source cutting scripts were in /tmp (not persisted): flood-fill white background from edges, label components, sort by rows then columns, composite glyph (62% of frame width, centered 40% down) on frame.
+
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.
