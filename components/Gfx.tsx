@@ -5,6 +5,7 @@ import ppImg from '../game-assets/icons/pp.png';
 import tvDinnerImg from '../game-assets/icons/tvdinner.png';
 import mementoImg from '../game-assets/icons/memento.png';
 import passImg from '../game-assets/icons/pass.png';
+import { BRACKET_ART, PLACE_ART } from '../game-assets/badges/badgeArt';
 
 // Emoji -> real art map. Drop a PNG in game-assets/icons/ and add one line here;
 // until an entry exists the original emoji is shown, so nothing breaks mid-migration.
@@ -50,4 +51,14 @@ export const CURRENCY_INFO: Record<string, { name: string; blurb: string }> = {
   '🍽️': { name: 'TV Dinners', blurb: 'Earned from PvP, Arenas and Raids. Spend in the PvP Shop.' },
   '🧱': { name: 'Building Materials', blurb: 'Build and upgrade your Park.' },
   '💛': { name: 'Mementos', blurb: 'Premium currency for the Mementos Shop.' },
+};
+
+// Power-bracket crest (1-10) and 1st/2nd/3rd place medal images. Return nothing for out-of-range values.
+export const BracketCrest: React.FC<{ n: number; className?: string }> = ({ n, className = 'w-7 h-7' }) => {
+  const src = BRACKET_ART[n - 1];
+  return src ? <img src={src} alt="" className={`${className} object-contain inline-block flex-shrink-0`} /> : null;
+};
+export const PlaceMedal: React.FC<{ place: number; className?: string }> = ({ place, className = 'w-6 h-6' }) => {
+  const src = PLACE_ART[place - 1];
+  return src ? <img src={src} alt="" className={`${className} object-contain inline-block flex-shrink-0`} /> : null;
 };

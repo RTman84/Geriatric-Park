@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { POWER_BRACKETS } from '../constants';
+import { BracketCrest } from './Gfx';
 import { fetchBoard, BoardData, BoardMode } from '../services/boardsService';
 
 const MODES: { id: BoardMode; label: string; icon: string; unit: string; blurb: string }[] = [
@@ -39,7 +40,7 @@ const BoardsPanel: React.FC<{ isDark: boolean; onClose: () => void }> = ({ isDar
           <button disabled={(bracket ?? 1) <= 1} onClick={() => setBracket(b => Math.max(1, (b ?? data?.bracket ?? 1) - 1))} className={tab(false)}>◀</button>
           <div className="text-center">
             <div className="text-[12px] font-black uppercase opacity-60">Bracket {bracket ?? data?.bracket ?? '…'}</div>
-            <div className="text-[16px] font-black">{bName}</div>
+            <div className="text-[16px] font-black flex items-center justify-center gap-2"><BracketCrest n={bracket ?? data?.bracket ?? 1} className="w-9 h-9" />{bName}</div>
           </div>
           <button disabled={(bracket ?? 1) >= 10} onClick={() => setBracket(b => Math.min(10, (b ?? data?.bracket ?? 1) + 1))} className={tab(false)}>▶</button>
         </div>

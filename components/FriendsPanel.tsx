@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Gfx, EmojiText } from './Gfx';
+import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, isImagePath, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
 import { sortEldersByPref } from '../constants';
@@ -257,7 +257,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
         <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
           <div className="flex items-center justify-between mb-2 gap-2">
             <h3 className="text-[15px] font-black uppercase">Find Players</h3>
-            <span className="text-[12px] font-black opacity-70">You: Bracket {getBracket(mySquadPower).n} {getBracket(mySquadPower).name} · PWR {mySquadPower}</span>
+            <span className="text-[12px] font-black opacity-70 flex items-center gap-1.5"><BracketCrest n={getBracket(mySquadPower).n} className="w-6 h-6" />You: Bracket {getBracket(mySquadPower).n} {getBracket(mySquadPower).name} · PWR {mySquadPower}</span>
           </div>
           <div className="flex gap-2">
             <input value={findQuery} onChange={e => setFindQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') onRefreshNearby(findQuery); }} placeholder="Search by name (optional)" maxLength={24}
@@ -278,7 +278,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black text-[14px] uppercase truncate">{p.display_name || 'Park Visitor'}</p>
-                      <p className="text-[12px] font-bold opacity-70">Lv {p.level} · PWR {p.squad_power} · Bracket {br.n} {br.name}</p>
+                      <p className="text-[12px] font-bold opacity-70 flex items-center gap-1"><BracketCrest n={br.n} className="w-5 h-5" />Lv {p.level} · PWR {p.squad_power} · Bracket {br.n} {br.name}</p>
                     </div>
                     <span className={`text-[11px] font-black uppercase ${p.squad_power > mySquadPower * 1.15 ? 'text-orange-500' : p.squad_power < mySquadPower * 0.85 ? 'text-emerald-500' : 'text-amber-400'}`}>
                       {p.squad_power > mySquadPower * 1.15 ? 'Tougher' : p.squad_power < mySquadPower * 0.85 ? 'Easier' : 'Even'}

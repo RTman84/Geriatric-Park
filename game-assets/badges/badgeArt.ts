@@ -54,6 +54,22 @@ import mode_evolve_2 from './mode_evolve_2.webp';
 import mode_evolve_3 from './mode_evolve_3.webp';
 import mode_evolve_4 from './mode_evolve_4.webp';
 import mode_evolve_5 from './mode_evolve_5.webp';
+import place1 from './place_1.webp';
+import place2 from './place_2.webp';
+import place3 from './place_3.webp';
+import bracket1 from './bracket_1.webp';
+import bracket2 from './bracket_2.webp';
+import bracket3 from './bracket_3.webp';
+import bracket4 from './bracket_4.webp';
+import bracket5 from './bracket_5.webp';
+import bracket6 from './bracket_6.webp';
+import bracket7 from './bracket_7.webp';
+import bracket8 from './bracket_8.webp';
+import bracket9 from './bracket_9.webp';
+import bracket10 from './bracket_10.webp';
+import trophyArt from './trophy.webp';
+import laurelArt from './laurel.webp';
+import bannerArt from './banner.webp';
 
 export const RANK_ART: string[] = [rank1, rank2, rank3, rank4, rank5, rank6];
 export const MODE_GLYPH_ART: Record<string, string> = { battle: glyph_battle, court: glyph_court, friend: glyph_friend, arena: glyph_arena, exchange: glyph_exchange, bingo: glyph_bingo, collect: glyph_collect, evolve: glyph_evolve };
@@ -67,3 +83,6 @@ export const MODE_BADGE_ART: Record<string, string[]> = {
   collect: [mode_collect_1, mode_collect_2, mode_collect_3, mode_collect_4, mode_collect_5],
   evolve: [mode_evolve_1, mode_evolve_2, mode_evolve_3, mode_evolve_4, mode_evolve_5],
 };
+export const PLACE_ART: string[] = [place1, place2, place3]; // 1st, 2nd, 3rd place medals
+export const BRACKET_ART: string[] = [bracket1, bracket2, bracket3, bracket4, bracket5, bracket6, bracket7, bracket8, bracket9, bracket10]; // crest per power bracket 1-10
+export const EXTRA_ART = { trophy: trophyArt, laurel: laurelArt, banner: bannerArt }; // weekly-board trophy, laurel wreath, blank ribbon banner

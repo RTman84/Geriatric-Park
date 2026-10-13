@@ -100,7 +100,7 @@ import earlyBirdImg from './game-assets/achievements/early_bird.png';
 import communityPillarImg from './game-assets/achievements/community_pillar.png';
 import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
-import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART } from './game-assets/badges/badgeArt';
+import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART } from './game-assets/badges/badgeArt';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
 // and only ever have `.completed` toggled, never cloned with a new id.
@@ -839,7 +839,7 @@ export function parseCourtHonor(key: string): { bracket: number; place: number }
 export function courtHonorCosmetic(key: string): UnlockedCosmetic | null {
   const h = parseCourtHonor(key);
   if (!h) return null;
-  return { key, icon: COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+  return { key, icon: PLACE_ART[h.place - 1] || COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
 }
 
 // Weekly leaderboard honors: finishing top 3 of a bracket on a weekly board (Arena / Raid / Friend Battle) earns a permanent
@@ -856,7 +856,7 @@ export function parseBoardHonor(key: string): { mode: string; bracket: number; p
 export function boardHonorCosmetic(key: string): UnlockedCosmetic | null {
   const h = parseBoardHonor(key);
   if (!h) return null;
-  return { key, icon: BOARD_HONOR_MODES[h.mode].icon, title: `${POWER_BRACKETS[h.bracket - 1].name} ${BOARD_HONOR_MODES[h.mode].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+  return { key, icon: PLACE_ART[h.place - 1] || BOARD_HONOR_MODES[h.mode].icon, title: `${POWER_BRACKETS[h.bracket - 1].name} ${BOARD_HONOR_MODES[h.mode].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
 }
 export const honorCosmetic = (key: string): UnlockedCosmetic | null => courtHonorCosmetic(key) ?? boardHonorCosmetic(key);
 

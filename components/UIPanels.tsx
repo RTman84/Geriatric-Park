@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Gfx, EmojiText } from './Gfx';
+import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
@@ -744,7 +744,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                 <button disabled={(leaderboard.bracket ?? 1) <= 1} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) - 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>◀</button>
                 <div className="text-center">
                   <div className="text-[12px] font-black uppercase opacity-60">Bracket {leaderboard.bracket ?? 1}{leaderboard.myBracket === leaderboard.bracket ? ' (yours)' : ''}</div>
-                  <div className="text-[15px] font-black">{POWER_BRACKETS[(leaderboard.bracket ?? 1) - 1]?.name}</div>
+                  <div className="text-[15px] font-black flex items-center justify-center gap-2"><BracketCrest n={leaderboard.bracket ?? 1} className="w-8 h-8" />{POWER_BRACKETS[(leaderboard.bracket ?? 1) - 1]?.name}</div>
                 </div>
                 <button disabled={(leaderboard.bracket ?? 1) >= 10} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) + 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>▶</button>
               </div>

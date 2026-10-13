@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
 import { POWER_BRACKETS, COURT_PLACE_LABELS, COURT_PLACE_ICONS } from '../constants';
+import { BracketCrest, PlaceMedal } from './Gfx';
 import { fetchCourtState, challengeLadder, claimLadderPurse, type CourtState } from '../services/courtService';
 
 // Bracket ladders: each power bracket has a top-10 ladder; ranks 1-3 earn titles and a daily Ticket purse.
@@ -49,7 +50,7 @@ const ThronesPanel: React.FC<{
         {state && (
           <>
             <div className={`p-3 rounded-2xl mb-3 ${card}`}>
-              <p className="text-[14px] font-black uppercase">Your bracket: {state.myBracket}. {POWER_BRACKETS[myIdx].name} · PWR {state.myPower}</p>
+              <p className="text-[14px] font-black uppercase flex items-center gap-2"><BracketCrest n={state.myBracket} className="w-10 h-10" /><span>Your bracket: {state.myBracket}. {POWER_BRACKETS[myIdx].name} · PWR {state.myPower}</span></p>
               <p className="text-[12px] opacity-70">{state.mine ? `You are rank ${state.mine.rank}.` : 'You are not on the ladder yet.'} Challenges left today: {state.challengesLeft}/{state.dailyChallenges}</p>
               {!state.mine && <button disabled={busy || state.challengesLeft <= 0} onClick={() => challenge()} className="w-full mt-2 py-2 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[13px] disabled:opacity-40">Join the ladder</button>}
               {state.mine?.purseAvailable && (
@@ -63,7 +64,7 @@ const ThronesPanel: React.FC<{
                 const reach = !!state.mine && e.rank < state.mine.rank && e.rank >= state.mine.rank - state.challengeReach;
                 return (
                   <div key={e.rank} className={`px-3 py-2 rounded-xl flex items-center gap-2 ${e.mine ? (isDark ? 'bg-slate-700' : 'bg-amber-50 border border-amber-200') : card}`}>
-                    <span className="w-7 text-[14px] font-black">{e.rank <= 3 ? COURT_PLACE_ICONS[e.rank - 1] : `#${e.rank}`}</span>
+                    <span className="w-7 text-[14px] font-black">{e.rank <= 3 ? <PlaceMedal place={e.rank} className="w-7 h-7" /> : `#${e.rank}`}</span>
                     <span className="flex-1 min-w-0 text-[13px] font-black truncate">{e.mine ? 'You' : (e.display_name || 'Park Visitor')} <span className="opacity-60 font-bold">· PWR {e.power}</span></span>
                     {reach && <button disabled={busy || state.challengesLeft <= 0} onClick={() => challenge(e.rank)} className="px-3 py-1 rounded-lg bg-rose-600 text-white font-black uppercase text-[11px] disabled:opacity-40">Challenge</button>}
                     {state.mine === null && e.rank === 10 && state.myLadder.length >= 10 && <button disabled={busy || state.challengesLeft <= 0} onClick={() => challenge(10)} className="px-3 py-1 rounded-lg bg-rose-600 text-white font-black uppercase text-[11px] disabled:opacity-40">Challenge</button>}
@@ -77,7 +78,7 @@ const ThronesPanel: React.FC<{
                 const t3 = state.top3.find(x => x.bracket === b.n)?.entries ?? [];
                 return (
                   <div key={b.n} className={`px-3 py-2 rounded-xl ${card}`}>
-                    <p className="text-[12px] font-black uppercase">{b.n}. {b.name} <span className="opacity-50">({b.min}+)</span></p>
+                    <p className="text-[12px] font-black uppercase flex items-center gap-2"><BracketCrest n={b.n} className="w-8 h-8" /><span>{b.n}. {b.name} <span className="opacity-50">({b.min}+)</span></span></p>
                     <p className="text-[12px] opacity-80 truncate">{t3.length ? t3.map(e => `${COURT_PLACE_ICONS[e.rank - 1]} ${e.mine ? 'You' : (e.display_name || 'Park Visitor')}`).join('   ') : 'Vacant'}</p>
                     {t3.length > 0 && <p className="text-[10px] opacity-50">{COURT_PLACE_LABELS.slice(0, t3.length).join(' · ')} titles</p>}
                   </div>
