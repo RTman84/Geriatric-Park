@@ -313,6 +313,21 @@ export const NEARBY_REFRESH_COOLDOWN_MS = 1500; // only a double-tap guard: Refr
 // Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
 // Ticket payout (wild Elders are now kept at the level and power they were fought at).
 export const SCRAP_LEVEL_CAP = 25;
+
+// Wild Elder level. Never more than WILD_LEVEL_MAX_ABOVE levels above the player's strongest captured Elder. It centres on the midpoint of
+// that top level and the average level of the player's top 6 Elders (so one lopsided roster can't skew it), rolls 70-120% of that centre,
+// and rarer Elders skew a little higher (Common x0.9 ... Legendary x1.15). `rand` is a 0-1 number (Math.random in the game).
+export const WILD_LEVEL_MAX_ABOVE = 10;
+export function wildElderLevel(ownedLevels: number[], rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary', rand: number): number {
+  const lv = ownedLevels.filter(n => Number.isFinite(n) && n >= 1).sort((a, b) => b - a);
+  const top = lv[0] ?? 1;
+  const top6 = lv.slice(0, 6);
+  const avg = top6.length ? top6.reduce((s, n) => s + n, 0) / top6.length : 1;
+  const centre = (top + avg) / 2;
+  const rarityBias = rarity === 'Legendary' ? 1.15 : rarity === 'Epic' ? 1.08 : rarity === 'Rare' ? 1.0 : 0.9;
+  const rolled = Math.round(centre * (0.7 + 0.5 * Math.min(1, Math.max(0, rand))) * rarityBias);
+  return Math.min(100, top + WILD_LEVEL_MAX_ABOVE, Math.max(1, rolled));
+}
 // Highest squad power a fully built late-game squad can realistically reach (6 Elders at max level, evolved,
 // Epic/Legendary, some gear). Tier 100 of the Golden Games and the Challenge ladder are pegged to this, so every
 // tier is reachable and difficulty tracks real progression instead of compounding past anything attainable.

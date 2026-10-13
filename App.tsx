@@ -141,6 +141,7 @@ import {
   SCRAP_RARITY_MULTIPLIER, parseCourtHonor, parseBoardHonor, modeKindKnown, MODE_MILESTONE_REWARDS, MODE_BADGES, MODE_BADGE_TIERS, modeCount, modeTierReached, GUIDE_SUCCESS_RATE, RARITY_STAT_MULTIPLIER, standardElderStats,
   LEVEL_UP_TICKET_REWARD,
   RANK_TIERS,
+  wildElderLevel,
   modeBadgeArt,
   modeGlyphArt,
   getRankForLevel,
@@ -2985,14 +2986,11 @@ const App: React.FC = () => {
         status: 'Team' as const, borrowed: true, loanedBy: r.owner?.display_name || 'a friend',
       } as Elder;
     }), [residentExchangeHosting]);
-  // Wild Elders scale to the player: power lands within roughly 85-115% of your strongest captured Elder (Common a bit
-  // lower, Epic higher). Based on your best Elder, not the current squad, so swapping squads can't shrink opponents.
+  // Wild Elders scale to the player: level centres between your best Elder and your top-6 average and is capped at your best + 10
+  // (see wildElderLevel). Based on your roster, not the current squad, so swapping squads can't shrink opponents.
   const scaleWildElder = useCallback((w: Elder): Elder => {
     const mine = state.allElders.filter(e => e.captured && !e.borrowed);
-    const topLevel = Math.max(1, ...mine.map(e => e.level));
-    const tier = w.rarity === 'Legendary' ? 1.4 : w.rarity === 'Epic' ? 1.2 : w.rarity === 'Rare' ? 1.0 : 0.85;
-    const spread = 0.6 + Math.random() * 0.9; // from a pushover (60%) to a real threat (150%) of your best level
-    const level = Math.min(100, Math.max(1, Math.round(topLevel * spread * Math.sqrt(tier))));
+    const level = wildElderLevel(mine.map(e => e.level), w.rarity, Math.random());
     // Stats come from the same standard formula every Elder uses (level + rarity), so a wild Elder is exactly as strong as its level and
     // rarity say, fights and captures match, and nothing arrives stronger than an Elder you raised to that level.
     const c = canonicalElderStats({ level, rarity: w.rarity, evolutionStage: 0, equipment: {} });

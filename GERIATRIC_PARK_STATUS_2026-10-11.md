@@ -39,5 +39,11 @@ Friend request Mailbox Accept/Decline (two accounts); Find Players search and hi
 ## Friend park roster (migration 030, `park_elders`)
 Friend parks only showed the friend's 3 Featured Folks (`favorite_elders`). New column `player_profiles.park_elders` (up to 30 captured, home, highest level first; synced in `api/account/save.ts`, returned by `api/friends.ts`) now feeds the friend's ParkScene wanderers (falls back to Featured if empty). RUN migration 030 BEFORE the deploy goes live: the friends route and profile sync both name the column. A friend's roster appears after their next save/autosave.
 
+## Wild Elder level cap
+`wildElderLevel` (constants.tsx) now sets wild levels: capped at your top Elder + 10, centred between your top level and top-6 average. See ECONOMY.md "Wild Elder levels". Needs a live check that fights feel right (new players still meet level-1 wilds).
+
+## Open: friend park roster
+User still sees no Elders in a friend's park after migration 030 + deploy. Waiting on the result of `select display_name, jsonb_array_length(park_elders), jsonb_array_length(favorite_elders), updated_at from player_profiles order by updated_at desc limit 10;` to tell stale data (friend on old build / not saved) from a code bug.
+
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.
