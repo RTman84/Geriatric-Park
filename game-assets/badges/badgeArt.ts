@@ -70,6 +70,36 @@ import bracket10 from './bracket_10.webp';
 import trophyArt from './trophy.webp';
 import laurelArt from './laurel.webp';
 import bannerArt from './banner.webp';
+import honor_1_1 from './honor_1_1.webp';
+import honor_1_2 from './honor_1_2.webp';
+import honor_1_3 from './honor_1_3.webp';
+import honor_2_1 from './honor_2_1.webp';
+import honor_2_2 from './honor_2_2.webp';
+import honor_2_3 from './honor_2_3.webp';
+import honor_3_1 from './honor_3_1.webp';
+import honor_3_2 from './honor_3_2.webp';
+import honor_3_3 from './honor_3_3.webp';
+import honor_4_1 from './honor_4_1.webp';
+import honor_4_2 from './honor_4_2.webp';
+import honor_4_3 from './honor_4_3.webp';
+import honor_5_1 from './honor_5_1.webp';
+import honor_5_2 from './honor_5_2.webp';
+import honor_5_3 from './honor_5_3.webp';
+import honor_6_1 from './honor_6_1.webp';
+import honor_6_2 from './honor_6_2.webp';
+import honor_6_3 from './honor_6_3.webp';
+import honor_7_1 from './honor_7_1.webp';
+import honor_7_2 from './honor_7_2.webp';
+import honor_7_3 from './honor_7_3.webp';
+import honor_8_1 from './honor_8_1.webp';
+import honor_8_2 from './honor_8_2.webp';
+import honor_8_3 from './honor_8_3.webp';
+import honor_9_1 from './honor_9_1.webp';
+import honor_9_2 from './honor_9_2.webp';
+import honor_9_3 from './honor_9_3.webp';
+import honor_10_1 from './honor_10_1.webp';
+import honor_10_2 from './honor_10_2.webp';
+import honor_10_3 from './honor_10_3.webp';
 
 export const RANK_ART: string[] = [rank1, rank2, rank3, rank4, rank5, rank6];
 export const MODE_GLYPH_ART: Record<string, string> = { battle: glyph_battle, court: glyph_court, friend: glyph_friend, arena: glyph_arena, exchange: glyph_exchange, bingo: glyph_bingo, collect: glyph_collect, evolve: glyph_evolve };
@@ -86,3 +116,16 @@ export const MODE_BADGE_ART: Record<string, string[]> = {
 export const PLACE_ART: string[] = [place1, place2, place3]; // 1st, 2nd, 3rd place medals
 export const BRACKET_ART: string[] = [bracket1, bracket2, bracket3, bracket4, bracket5, bracket6, bracket7, bracket8, bracket9, bracket10]; // crest per power bracket 1-10
 export const EXTRA_ART = { trophy: trophyArt, laurel: laurelArt, banner: bannerArt }; // weekly-board trophy, laurel wreath, blank ribbon banner
+// Honor icon per power bracket and place: the bracket's crest inside the 1st/2nd/3rd place medal. HONOR_ART[bracket - 1][place - 1].
+export const HONOR_ART: string[][] = [
+  [honor_1_1, honor_1_2, honor_1_3],
+  [honor_2_1, honor_2_2, honor_2_3],
+  [honor_3_1, honor_3_2, honor_3_3],
+  [honor_4_1, honor_4_2, honor_4_3],
+  [honor_5_1, honor_5_2, honor_5_3],
+  [honor_6_1, honor_6_2, honor_6_3],
+  [honor_7_1, honor_7_2, honor_7_3],
+  [honor_8_1, honor_8_2, honor_8_3],
+  [honor_9_1, honor_9_2, honor_9_3],
+  [honor_10_1, honor_10_2, honor_10_3],
+];
