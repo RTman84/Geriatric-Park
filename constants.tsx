@@ -325,8 +325,13 @@ export function wildElderLevel(ownedLevels: number[], rarity: 'Common' | 'Rare' 
   const avg = top6.length ? top6.reduce((s, n) => s + n, 0) / top6.length : 1;
   const centre = (top + avg) / 2;
   const rarityBias = rarity === 'Legendary' ? 1.15 : rarity === 'Epic' ? 1.08 : rarity === 'Rare' ? 1.0 : 0.9;
-  const rolled = Math.round(centre * (0.7 + 0.5 * Math.min(1, Math.max(0, rand))) * rarityBias);
-  return Math.min(100, top + WILD_LEVEL_MAX_ABOVE, Math.max(1, rolled));
+  const r = Math.min(1, Math.max(0, rand));
+  const rolled = Math.round(centre * (0.7 + 0.5 * r) * rarityBias);
+  // Low-level boost: while your best Elder is still low, wilds get up to a few extra levels (3 below level 10, 2 below 20, 1 below 30)
+  // so new and freshly captured Elders always have fights worth XP. Based on Elder levels only, never the account level.
+  const lowBoost = top < 10 ? 3 : top < 20 ? 2 : top < 30 ? 1 : 0;
+  const bonus = Math.floor(r * (lowBoost + 1));
+  return Math.min(100, top + WILD_LEVEL_MAX_ABOVE, Math.max(1, rolled + bonus));
 }
 // Highest squad power a fully built late-game squad can realistically reach (6 Elders at max level, evolved,
 // Epic/Legendary, some gear). Tier 100 of the Golden Games and the Challenge ladder are pegged to this, so every
