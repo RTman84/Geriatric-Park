@@ -42,8 +42,14 @@ Friend parks only showed the friend's 3 Featured Folks (`favorite_elders`). New 
 ## Wild Elder level cap
 `wildElderLevel` (constants.tsx) now sets wild levels: capped at your top Elder + 10, centred between your top level and top-6 average. See ECONOMY.md "Wild Elder levels". Needs a live check that fights feel right (new players still meet level-1 wilds).
 
-## Open: friend park roster
-User still sees no Elders in a friend's park after migration 030 + deploy. Waiting on the result of `select display_name, jsonb_array_length(park_elders), jsonb_array_length(favorite_elders), updated_at from player_profiles order by updated_at desc limit 10;` to tell stale data (friend on old build / not saved) from a code bug.
+## Friend park roster: RESOLVED
+Friends' Elders now show when visiting (migration 030 applied, confirmed by the user 2026-10-13).
+
+## Wild level boost
+`wildElderLevel` adds up to +3 / +2 / +1 extra levels while the player's best Elder is below level 10 / 20 / 30 (Elder levels only, never account level), still inside the +10 cap.
+
+## Android Back button (launch-track item, done)
+`services/backButton.ts` (loads `@capacitor/app` only on native) + a handler in App.tsx: Back closes the top-most overlay, then returns to the map from any other tab, then "Press Back again to exit" (second press within 2 s exits). Ignored during a fight, an ad or a random event. Logic unit-tested with fake plugins; NOT yet tried on a device. The Actions build runs `npx cap sync android`, which registers the new plugin in the Android project (building locally needs `npx cap sync android` first). Panels with their own internal sub-views (e.g. an expanded friend row) close whole on Back for now.
 
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.

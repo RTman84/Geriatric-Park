@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { registerBackButton } from './services/backButton';
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
 import { ArenaPanel } from './components/ArenaPanel';
 import { Gfx, EmojiText, CURRENCY_INFO } from './components/Gfx';
@@ -1668,6 +1669,30 @@ const App: React.FC = () => {
       window.removeEventListener('pagehide', flush);
     };
   }, [state, isLoaded, cloudSyncSettled, authSession]);
+
+  // Android Back button: close the top-most overlay first, then return to the map from any other tab, then (via the service) ask for a
+  // second press to exit. Back is ignored during a fight, an ad or a random event so a stray press can't dump the player out of it.
+  const backRef = useRef<() => boolean>(() => false);
+  backRef.current = () => {
+    if (showAdOverlay || battleOpponent || activeEvent) return true;
+    if (encounter) { setEncounter(null); return true; }
+    if (showTutorial) { setShowTutorial(false); return true; }
+    if (showProfilePicker) { setShowProfilePicker(false); return true; }
+    if (showSettings) { setShowSettings(false); return true; }
+    if (showMementoShop) { setShowMementoShop(false); return true; }
+    if (showPvpShop) { setShowPvpShop(false); return true; }
+    if (showBoards) { setShowBoards(false); return true; }
+    if (showThrones) { setShowThrones(false); return true; }
+    if (activeArenaId) { setActiveArenaId(null); return true; }
+    if (showFriendsPanel) { setShowFriendsPanel(false); return true; }
+    if (showWorkshop) { setShowWorkshop(false); return true; }
+    if (showExchangeOverview) { setShowExchangeOverview(false); return true; }
+    if (showGroundsPanel) { setShowGroundsPanel(false); return true; }
+    if (showParkHub) { setShowParkHub(false); return true; }
+    if (activeTab !== 'map') { setActiveTab('map'); return true; }
+    return false;
+  };
+  useEffect(() => registerBackButton(() => backRef.current(), () => notify('Press Back again to exit')), [notify]);
 
   const triggerTab = (id: string) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('click');
