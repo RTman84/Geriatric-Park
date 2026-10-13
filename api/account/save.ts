@@ -112,6 +112,20 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       .filter(Boolean)
       .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name, level: Number.isFinite(e.level) ? e.level : 1, rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common' }));
 
+    // Roster for the friend-park view: captured Elders that are home (not away), highest level first, max 30. Untrusted-save rules apply.
+    const nowMs = Date.now();
+    const parkElders = elders
+      .filter((e: any) => e && e.captured === true && typeof e.type === 'string' && typeof e.name === 'string' && !(Number.isFinite(e.awayUntil) && e.awayUntil > nowMs))
+      .sort((a: any, b: any) => (Number.isFinite(b.level) ? b.level : 1) - (Number.isFinite(a.level) ? a.level : 1))
+      .slice(0, 30)
+      .map((e: any) => ({
+        type: e.type.slice(0, 40),
+        evolutionStage: [0, 1, 2].includes(e.evolutionStage) ? e.evolutionStage : 0,
+        name: e.name.slice(0, 40),
+        level: Number.isFinite(e.level) ? Math.max(1, Math.floor(e.level)) : 1,
+        rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common',
+      }));
+
     // A bracket title can only be shown to other players if the server recorded the honor (court_honors).
     const verifiedCourtKey = async (key: unknown): Promise<string | null> => {
       if (typeof key !== 'string' || !(key.startsWith('court:') || key.startsWith('board:'))) return typeof key === 'string' ? key : null;
@@ -134,6 +148,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       max_elder_power: Math.min(1000000, Math.round(maxElderPowerFrom(saveData))),
       raid_bonus_pct: setBonusFrom(saveData, 'raid'),
       favorite_elders: favoriteElders,
+      park_elders: parkElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
       park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })),
       // Active (unfinished) quests, so friends can pick one when leaving an Elder to help. Untrusted-save rules apply.

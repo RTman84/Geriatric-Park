@@ -36,5 +36,8 @@ Friend request Mailbox Accept/Decline (two accounts); Find Players search and hi
 - Still emoji: Court place medals / Boards honors (S04), gear sets (S07-S08), pass/event art, keepsakes, antiques, remaining sweep.
 - Source cutting scripts were in /tmp (not persisted): flood-fill white background from edges, label components, sort by rows then columns, composite glyph (62% of frame width, centered 40% down) on frame.
 
+## Friend park roster (migration 030, `park_elders`)
+Friend parks only showed the friend's 3 Featured Folks (`favorite_elders`). New column `player_profiles.park_elders` (up to 30 captured, home, highest level first; synced in `api/account/save.ts`, returned by `api/friends.ts`) now feeds the friend's ParkScene wanderers (falls back to Featured if empty). RUN migration 030 BEFORE the deploy goes live: the friends route and profile sync both name the column. A friend's roster appears after their next save/autosave.
+
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.
