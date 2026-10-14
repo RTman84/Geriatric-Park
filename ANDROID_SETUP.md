@@ -78,3 +78,9 @@ Google blocks sign-in inside an app's built-in browser, so in the Android app "C
 2. Nothing to change in Google Cloud: Google still returns to Supabase's own callback, which already works on the website.
 3. The Android project picks up the new plugin (`@capacitor/browser`) when the GitHub Actions build runs `cap sync`; building locally needs `npx cap sync android` first.
 The website sign-in is unchanged. If the app id `com.geriatricpark.game` ever changes, change it in `services/nativeAuth.ts` and the manifest intent-filter and update the Supabase redirect URL to match.
+
+## AdMob ids wired in (2026-10-14)
+- App ID `ca-app-pub-4749065898882415~7060559259` is in `AndroidManifest.xml`. Rewarded ad unit `ca-app-pub-4749065898882415/9578911384` is in `.env.native`. Both are public ids, not secrets.
+- The real ad unit is used ONLY by a production build: `npm run build:native:release` (sets `VITE_ADMOB_PRODUCTION=true`). Debug APKs and the GitHub "Android debug build" always show Google's TEST ad, so testing never produces real impressions or clicks. Never tap real ads on your own account.
+- `public/app-ads.txt` (`google.com, pub-4749065898882415, DIRECT, f08c47fec0942fa0`) is served at the website root as `/app-ads.txt`. AdMob checks it on the developer website listed in the Play Store listing; production serves `main`, so it is only live on the production domain after phase2 is merged to `main`.
+- Still to do for ads: AdMob payments profile, the server-side verification callback URL (`https://<production domain>/api/ledger`, after the production deploy), a release workflow that runs `build:native:release`, and the Play Console Data Safety / privacy policy text for ads.

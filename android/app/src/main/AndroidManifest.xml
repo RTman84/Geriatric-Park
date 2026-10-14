@@ -33,11 +33,11 @@
 
         </activity>
 
-        <!-- AdMob app id. This is Google's TEST app id; replace with the real one from the
-             AdMob console before the production release (see ANDROID_SETUP.md). -->
+        <!-- AdMob app id (the real one from the AdMob console; it is public, not a secret). Test builds still show Google's test ads
+             because services/rewardedAds.ts only uses the real ad unit when VITE_ADMOB_PRODUCTION=true. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-4749065898882415~7060559259" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

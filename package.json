@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit",
     "preview": "vite preview",
     "build:native": "vite build --mode native",
+    "build:native:release": "VITE_ADMOB_PRODUCTION=true vite build --mode native",
     "android:sync": "npm run build:native && cap sync android"
   },
   "dependencies": {

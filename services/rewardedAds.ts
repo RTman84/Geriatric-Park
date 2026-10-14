@@ -20,8 +20,12 @@ export function getAdsMode(): AdsMode {
 // Google's official AdMob TEST ids. Real ids come from the AdMob console (see ANDROID_SETUP.md);
 // they are not secret, but they must not be used until the account and app are approved.
 const TEST_REWARDED_AD_UNIT = 'ca-app-pub-3940256099942544/5224354917';
-const rewardedAdUnit = (import.meta.env.VITE_ADMOB_REWARDED_ID as string | undefined) || TEST_REWARDED_AD_UNIT;
+// The REAL ad unit is used only in a production build (VITE_ADMOB_PRODUCTION=true, see `npm run build:native:release`). Every other
+// build (debug APKs, previews, local) always gets Google's test ad, so developers and testers never generate real-ad impressions or
+// clicks (which can get an AdMob account flagged), even though the real id sits in .env.native.
 const useTestAds = import.meta.env.VITE_ADMOB_PRODUCTION !== 'true';
+const realRewardedAdUnit = import.meta.env.VITE_ADMOB_REWARDED_ID as string | undefined;
+const rewardedAdUnit = !useTestAds && realRewardedAdUnit ? realRewardedAdUnit : TEST_REWARDED_AD_UNIT;
 
 export interface RewardedAdResult {
   completed: boolean;   // true ONLY if the player earned the reward (watched enough of the ad)
