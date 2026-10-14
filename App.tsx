@@ -26,7 +26,7 @@ import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel,
 import { audioManager } from './services/audioManager';
 import {
   isCloudAccountsConfigured, supabase, getCurrentSession, updateDisplayName,
-  startGoogleSignIn, startNativeAuthListener, signInWithEmail, signUpWithEmail, sendMagicLink, signOut as authSignOut,
+  startGoogleSignIn, startNativeAuthListener, signInWithEmail, signUpWithEmail, sendMagicLink, signOut as authSignOut, deleteAccount,
   type AuthSession,
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
@@ -1123,6 +1123,8 @@ const App: React.FC = () => {
 
   // Cloud save sync: pull the cloud save on sign-in (initial session or later),
   // and keep whichever copy (local vs cloud) has the higher revision number.
+  // Set just before a reset/delete reloads the page, so the save-on-close handlers can't write the old save straight back.
+  const skipSavesRef = useRef(false);
   const cloudRevisionRef = useRef<number>(Number(localStorage.getItem(`${SAVE_KEY}_rev`)) || 0);
   const [cloudCheckDone, setCloudCheckDone] = useState(!isCloudAccountsConfigured());
   // True once the cloud-save fetch has actually finished (success OR failure) -- distinct from
@@ -1584,6 +1586,23 @@ const App: React.FC = () => {
     }
   }, [displayNameInput, state]);
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const handleDeleteAccount = useCallback(async () => {
+    setAccountBusy(true);
+    try {
+      await deleteAccount();
+      skipSavesRef.current = true;
+      setAuthSession(null);
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(`${SAVE_KEY}_rev`);
+      window.location.reload();
+    } catch (error) {
+      setAccountMessage(error instanceof Error ? error.message : 'Could not delete the account. Please try again.');
+      setAccountBusy(false);
+    }
+  }, []);
+
   const handleAccountSignOut = useCallback(async () => {
     setAccountBusy(true);
     try {
@@ -1622,7 +1641,7 @@ const App: React.FC = () => {
   // above) still applies and will correctly prefer real cloud progress over a few seconds of new play.
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (isLoaded && state.hasStarted) {
+      if (isLoaded && state.hasStarted && !skipSavesRef.current) {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
         catch (e) { console.error("Save failed", e); }
 
@@ -1652,7 +1671,7 @@ const App: React.FC = () => {
   // on the 2s debounce above.
   useEffect(() => {
     const flush = () => {
-      if (!isLoaded || !state.hasStarted) return;
+      if (!isLoaded || !state.hasStarted || skipSavesRef.current) return;
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
       // Same fix as the debounced autosave above: never push, or bump the revision counter, without a real session.
       if (isCloudAccountsConfigured() && cloudSyncSettled && authSession) {
@@ -3114,6 +3133,7 @@ const App: React.FC = () => {
                 // this button ineffective for the exact case it exists to fix, since a stale high
                 // revision from before the reset would still outrank a real cloud save on the next
                 // sign-in and silently block the restore (see the authSession fix above, 2026-09-28).
+                skipSavesRef.current = true;
                 localStorage.removeItem(SAVE_KEY);
                 localStorage.removeItem(`${SAVE_KEY}_rev`);
                 window.location.reload();
@@ -3352,6 +3372,18 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <button type="button" disabled={accountBusy} onClick={handleAccountSignOut} className={`w-full rounded-2xl py-3 text-sm font-black uppercase ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>Sign out</button>
+                      {!deleteOpen ? (
+                        <button type="button" disabled={accountBusy} onClick={() => { setDeleteOpen(true); setDeleteText(''); }} className="w-full py-2 text-[13px] font-black uppercase text-red-500 opacity-80">Delete account</button>
+                      ) : (
+                        <div className="space-y-2 rounded-2xl border-2 border-red-500/60 p-3">
+                          <p className="text-[13px] font-bold leading-snug">Delete your account permanently? This removes your cloud save, profile, friends, Mailbox, Arena, Raid and ladder data, and your progress on this device. It cannot be undone. Purchase and ad-revenue records are kept without your name for accounting. Type DELETE to confirm.</p>
+                          <input value={deleteText} onChange={e => setDeleteText(e.target.value)} autoCapitalize="characters" placeholder="DELETE" className={`w-full rounded-xl px-3 py-2 text-sm font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-900'}`} />
+                          <div className="flex gap-2">
+                            <button type="button" disabled={accountBusy} onClick={() => setDeleteOpen(false)} className={`flex-1 rounded-xl py-2 text-sm font-black uppercase ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>Cancel</button>
+                            <button type="button" disabled={accountBusy || deleteText.trim() !== 'DELETE'} onClick={handleDeleteAccount} className="flex-1 rounded-xl bg-red-600 py-2 text-sm font-black uppercase text-white disabled:opacity-40">Delete forever</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">

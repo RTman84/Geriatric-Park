@@ -1,6 +1,7 @@
 import { createClient, type Session, type User } from '@supabase/supabase-js';
 import { accountConfig } from './accountConfig';
 import { isNativeApp, NATIVE_AUTH_REDIRECT, parseAuthCallback } from './nativeAuth';
+import { apiUrl } from './api';
 
 export type AuthProvider = 'google' | 'email';
 
@@ -155,6 +156,20 @@ export async function signOut(): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+// Permanently deletes the signed-in account and its server data (api/account/delete.ts), then ends the local session.
+export async function deleteAccount(): Promise<void> {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Sign in to delete your account.');
+  const response = await fetch(apiUrl('/api/account/delete'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: 'DELETE' }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Could not delete the account. Please try again.');
+  await signOut().catch(() => { /* the account is already gone on the server; the local session is cleared on reload anyway */ });
 }
 
 export async function getAccessToken(): Promise<string | null> {
