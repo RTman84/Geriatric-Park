@@ -51,5 +51,11 @@ Friends' Elders now show when visiting (migration 030 applied, confirmed by the 
 ## Android Back button (launch-track item, done)
 `services/backButton.ts` (loads `@capacitor/app` only on native) + a handler in App.tsx: Back closes the top-most overlay, then returns to the map from any other tab, then "Press Back again to exit" (second press within 2 s exits). Ignored during a fight, an ad or a random event. Logic unit-tested with fake plugins; NOT yet tried on a device. The Actions build runs `npx cap sync android`, which registers the new plugin in the Android project (building locally needs `npx cap sync android` first). Panels with their own internal sub-views (e.g. an expanded friend row) close whole on Back for now.
 
+## Tailwind + fonts bundled locally (2026-10-13)
+Tailwind CDN script removed: Tailwind 3.4 is now a build-time dependency (`tailwind.config.js`, `postcss.config.js`, `index.css` imported in `index.tsx`). Fredoka comes from `@fontsource/fredoka` (latin 300-700). Removed the dead importmap, the Google Fonts link and the duplicate unpkg Leaflet CSS link. The app now renders fully with no network except the web-only AdSense script (stripped from native builds). Verified with headless screenshots (starter screen, map, Park) with all external requests blocked. New Tailwind classes must appear literally in the source (no `text-${color}-500` style building); content globs cover ./*.tsx, components/, services/.
+
+## Evolution bonus scales with levels (2026-10-13)
+See ECONOMY.md "Evolution bonus that grows with levels". Evolved Elders' stored stats refresh when account level or Elder level/stage changes. Not yet played live: check an evolved Elder's stats before and after a player level-up.
+
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.

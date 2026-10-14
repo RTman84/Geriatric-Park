@@ -1670,6 +1670,25 @@ const App: React.FC = () => {
     };
   }, [state, isLoaded, cloudSyncSettled, authSession]);
 
+  // Evolved Elders' stats depend on the Elder's level AND the account level (see evolutionCum). Stored stats are refreshed whenever
+  // either changes, and after levelling (which adds stats incrementally). Idempotent: nothing is written when the stats already match.
+  const evolvedSig = useMemo(() => state.allElders.filter(e => e.captured && !e.borrowed && (e.evolutionStage ?? 0) > 0).map(e => `${e.id}:${e.level}:${e.evolutionStage}`).join('|'), [state.allElders]);
+  useEffect(() => {
+    if (!isLoaded || !evolvedSig) return;
+    setState(prev => {
+      let changed = false;
+      const next = prev.allElders.map(e => {
+        if (!e.captured || e.borrowed || (e.evolutionStage ?? 0) <= 0) return e;
+        const c = canonicalElderStats(e, prev.level);
+        if (c.strength === e.strength && c.wit === e.wit && c.agility === e.agility && c.tenacity === e.tenacity && c.maxHp === e.maxHp) return e;
+        changed = true;
+        const wasFull = !(e.hp < e.maxHp);
+        return { ...e, strength: c.strength, wit: c.wit, agility: c.agility, tenacity: c.tenacity, maxHp: c.maxHp, hp: wasFull ? c.maxHp : Math.min(e.hp, c.maxHp) };
+      });
+      return changed ? { ...prev, allElders: next } : prev;
+    });
+  }, [isLoaded, evolvedSig, state.level]);
+
   // Android Back button: close the top-most overlay first, then return to the map from any other tab, then (via the service) ask for a
   // second press to exit. Back is ignored during a fight, an ad or a random event so a stray press can't dump the player out of it.
   const backRef = useRef<() => boolean>(() => false);
@@ -2794,7 +2813,7 @@ const App: React.FC = () => {
         legacyTokens: prev.legacyTokens - cost,
         allElders: prev.allElders.map(e => {
           if (e.id !== elderId) return e;
-          const c = canonicalElderStats({ ...e, evolutionStage: nextStage });
+          const c = canonicalElderStats({ ...e, evolutionStage: nextStage }, prev.level);
           const nextMaxHp = c.maxHp;
           return {
             ...e,

@@ -240,10 +240,24 @@ export function sortEldersByPref<T extends SortableElder>(list: T[]): T[] { cons
 // not multiplied). Levelling, evolving, capturing and the 2026-10-11 migration all produce exactly this, so no Elder can be stronger or
 // weaker than another of the same level, rarity, stage and gear (this fixed wild captures arriving with inflated stats and evolution
 // multiplying whatever an Elder happened to have at the time).
-export const evolutionCum = (stage?: number): number => (stage && stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage && stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
-export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any> }) {
+// Evolution gets stronger as the Elder and the player progress. The base multipliers (x1.3, then x1.75 = x2.275 at stage 2) describe the
+// GAIN from evolving; that gain is scaled by up to +EVOLUTION_LEVEL_BONUS_MAX (+60%) as progress goes from 0 to 1, where progress is
+// 60% Elder level and 40% account level (both out of 100). Examples at stage 2: Elder 25 / player 25 -> x2.47; 50 / 50 -> x2.66;
+// 100 / 100 -> x3.04 (about +34% over the old flat x2.275), so a maxed Legendary is clearly the strongest thing in the game.
+export const EVOLUTION_LEVEL_BONUS_MAX = 0.6;
+export const evolutionProgress = (elderLevel: number, playerLevel: number): number => {
+  const e = Math.min(1, Math.max(0, (Number.isFinite(elderLevel) ? elderLevel : 1) / 100));
+  const p = Math.min(1, Math.max(0, (Number.isFinite(playerLevel) ? playerLevel : 1) / 100));
+  return 0.6 * e + 0.4 * p;
+};
+export const evolutionCum = (stage?: number, elderLevel?: number, playerLevel?: number): number => {
+  const base = (stage && stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage && stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
+  if (base <= 1 || elderLevel === undefined) return base;
+  return 1 + (base - 1) * (1 + EVOLUTION_LEVEL_BONUS_MAX * evolutionProgress(elderLevel, playerLevel ?? 1));
+};
+export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any> }, playerLevel: number = 1) {
   const rarity = e.rarity ?? 'Common';
-  const std = standardElderStats(e.level, rarity), cum = evolutionCum(e.evolutionStage);
+  const std = standardElderStats(e.level, rarity), cum = evolutionCum(e.evolutionStage, e.level, playerLevel);
   const gear = { strength: 0, wit: 0, agility: 0, tenacity: 0 };
   const key: Record<string, 'strength' | 'wit' | 'agility' | 'tenacity'> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
   for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && key[slot]) gear[key[slot]] += getEffectiveGearBoost(item as any);
