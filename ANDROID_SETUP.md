@@ -71,3 +71,10 @@ verifies it with Google, credits Mementos once (migration `022_purchases.sql`) a
 - **iOS**: not set up (Steam is not possible for ad rewards; see ECONOMY.md 4c).
 - **Web production**: set `VITE_ADS_MODE=off` on the production web deploy before public launch
   so the simulated sponsor can't grant PP without real ad revenue behind it.
+
+## Google sign-in inside the app (done in code 2026-10-14; ONE dashboard step for you)
+Google blocks sign-in inside an app's built-in browser, so in the Android app "Continue with Google" opens a normal browser tab (Chrome Custom Tabs) and the browser returns to the app through the link `com.geriatricpark.game://auth-callback`. Email magic links and sign-up confirmation emails use the same return link.
+1. Supabase dashboard -> your project -> **Authentication** -> **URL Configuration** -> under **Redirect URLs** click **Add URL**, paste `com.geriatricpark.game://auth-callback`, **Save**. (Keep the existing website URLs.)
+2. Nothing to change in Google Cloud: Google still returns to Supabase's own callback, which already works on the website.
+3. The Android project picks up the new plugin (`@capacitor/browser`) when the GitHub Actions build runs `cap sync`; building locally needs `npx cap sync android` first.
+The website sign-in is unchanged. If the app id `com.geriatricpark.game` ever changes, change it in `services/nativeAuth.ts` and the manifest intent-filter and update the Supabase redirect URL to match.

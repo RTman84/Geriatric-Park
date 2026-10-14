@@ -26,7 +26,7 @@ import { TeamPanel, BankPanel, BasePanel, ElderPassPanel, QuestPanel, ShopPanel,
 import { audioManager } from './services/audioManager';
 import {
   isCloudAccountsConfigured, supabase, getCurrentSession, updateDisplayName,
-  startGoogleSignIn, signInWithEmail, signUpWithEmail, sendMagicLink, signOut as authSignOut,
+  startGoogleSignIn, startNativeAuthListener, signInWithEmail, signUpWithEmail, sendMagicLink, signOut as authSignOut,
   type AuthSession,
 } from './services/authService';
 import { fetchCloudSave, uploadCloudSave } from './services/cloudSaveService';
@@ -1533,7 +1533,8 @@ const App: React.FC = () => {
       if (event === 'SIGNED_IN') { void syncFromCloud(); void refreshLeaderboard(); void refreshFriends(); void refreshResidentExchange(); }
       void getCurrentSession().then(setAuthSession).catch(() => setAuthSession(null));
     });
-    return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); };
+    const stopNativeAuth = startNativeAuthListener(msg => setAccountMessage(msg));
+    return () => { sub.subscription.unsubscribe(); clearTimeout(timeout); stopNativeAuth(); };
   }, [syncFromCloud, refreshLeaderboard, refreshFriends, refreshResidentExchange]);
 
   useEffect(() => {
@@ -3354,7 +3355,7 @@ const App: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <button type="button" disabled={accountBusy} onClick={() => startGoogleSignIn()} className="w-full rounded-2xl bg-white py-3 text-sm font-black uppercase text-slate-800 shadow ring-1 ring-slate-200 disabled:opacity-50">Continue with Google</button>
+                      <button type="button" disabled={accountBusy} onClick={() => { setAccountMessage(null); startGoogleSignIn().catch(e => setAccountMessage(e instanceof Error ? e.message : 'Google sign-in failed.')); }} className="w-full rounded-2xl bg-white py-3 text-sm font-black uppercase text-slate-800 shadow ring-1 ring-slate-200 disabled:opacity-50">Continue with Google</button>
                       <div className={`text-center text-[13px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>or email</div>
                       <input value={accountEmail} onChange={e => setAccountEmail(e.target.value)} type="email" autoComplete="email" placeholder="Email" className={`w-full rounded-xl border p-3 text-sm ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'border-slate-200'}`} />
                       <input value={accountPassword} onChange={e => setAccountPassword(e.target.value)} type="password" autoComplete="current-password" placeholder="Password" className={`w-full rounded-xl border p-3 text-sm ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'border-slate-200'}`} />

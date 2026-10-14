@@ -57,5 +57,8 @@ Tailwind CDN script removed: Tailwind 3.4 is now a build-time dependency (`tailw
 ## Evolution bonus scales with levels (2026-10-13)
 See ECONOMY.md "Evolution bonus that grows with levels". Evolved Elders' stored stats refresh when account level or Elder level/stage changes. Not yet played live: check an evolved Elder's stats before and after a player level-up.
 
+## Native Google sign-in for the Android app (2026-10-14)
+`services/nativeAuth.ts` (return link `com.geriatricpark.game://auth-callback`, `parseAuthCallback`) + `startGoogleSignIn` / `startNativeAuthListener` in `services/authService.ts`: on native, Google opens in Chrome Custom Tabs (`@capacitor/browser`) with PKCE (`flowType: 'pkce'` on native only; web stays implicit), and the `appUrlOpen` / launch-URL listener exchanges the code. Magic link and sign-up confirmation use the same return link. Manifest has the matching intent-filter. Logic tested with fake plugins (good code, cold start, error, cancelled, unrelated links ignored, web unchanged); NOT tried on a device. OWNER STEP: add `com.geriatricpark.game://auth-callback` to Supabase -> Authentication -> URL Configuration -> Redirect URLs (details in ANDROID_SETUP.md).
+
 ## Owner step reminder
 Delete the GitHub token that was pasted in chat (Settings, Developer settings, Fine-grained tokens). A new token is needed for the next push.
