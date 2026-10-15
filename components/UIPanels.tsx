@@ -3,7 +3,7 @@ import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, ARENA_SET_PIECES, RAID_SET_PIECES, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -1117,7 +1117,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       <div className={`rounded-[40px] p-8 text-white shadow-2xl mb-6 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-[17px] font-black text-[var(--accent-400)] uppercase tracking-widest mb-2">PASS RANK {currentLevel} / {maxRank}{gold ? ' · 🌟 GOLD' : ''}</h2>
-        <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
+        <h1 className="flex items-center gap-3 text-5xl font-black uppercase leading-none italic tracking-tighter"><img src={UI_ART.elderPass} alt="" className="w-16 h-16 object-contain not-italic" />Elder Pass</h1>
         <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
         <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
           <div className="h-full bg-[var(--accent-500)] rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
@@ -1131,14 +1131,14 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
       </div>
       {!gold ? (
         <div className="p-5 rounded-[2rem] border-2 border-amber-400 mb-6 bg-gradient-to-br from-amber-500/15 to-transparent">
-          <h3 className="text-[18px] font-black uppercase text-amber-500">🌟 Gold Pass · this season</h3>
+          <h3 className="flex items-center gap-2 text-[18px] font-black uppercase text-amber-500"><img src={UI_ART.goldPass} alt="" className="w-10 h-10 object-contain" />Gold Pass · this season</h3>
           <p className="text-[13px] font-bold opacity-80 mt-1">A second reward lane on every rank: extra Tickets and Materials, plus 6 exclusive Gold titles and icons (ranks 5, 10, 15, 20, 25, 30). Cosmetic and convenience only: it never adds power, passive income or PP, and the free lane stays fully playable. Buying mid-season pays out every Gold rank you have already reached.</p>
           <button onClick={onBuyGold} disabled={!signedIn || mementos < GOLD_PASS_PRICE_MEMENTOS || !onBuyGold} className="mt-3 w-full py-3 rounded-2xl bg-amber-500 text-slate-900 font-black uppercase text-[14px] disabled:opacity-40 active:scale-95">
             {!signedIn ? 'Sign in to buy' : mementos < GOLD_PASS_PRICE_MEMENTOS ? `Need ${GOLD_PASS_PRICE_MEMENTOS - mementos} more Mementos` : `Unlock for ${GOLD_PASS_PRICE_MEMENTOS} Mementos`}
           </button>
           <p className="text-[11px] opacity-60 mt-2">You have <Gfx e="💛" size={14} /> {mementos} Mementos. Get them in the Mementos Shop (about $5 for {GOLD_PASS_PRICE_MEMENTOS}) or convert PP you earned from sponsors.</p>
         </div>
-      ) : <p className="text-center text-[13px] font-black uppercase text-amber-500 mb-6">🌟 Gold Pass active this season</p>}
+      ) : <p className="flex items-center justify-center gap-2 text-center text-[13px] font-black uppercase text-amber-500 mb-6"><img src={UI_ART.goldPass} alt="" className="w-8 h-8 object-contain" />Gold Pass active this season</p>}
       <div className="space-y-3">
         {SEASONAL_REWARDS.map(reward => {
           const reached = reward.level <= currentLevel && (reward.level === 1 || season.xp >= SEASON_XP_PER_LEVEL * (reward.level - 1));
@@ -1200,7 +1200,7 @@ export const QuestPanel: React.FC<{
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {tab === 'daily' ? '📅 Daily' : tab === 'weekly' ? '📆 Weekly' : '🏅 Feats'}
+            {tab === 'daily' ? '📅 Daily' : tab === 'weekly' ? '📆 Weekly' : tab === 'milestones' ? '🎯 Goals' : '🏅 Feats'}
           </button>
         ))}
       </div>
@@ -1507,6 +1507,12 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                   <div key={r.set} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[14px] font-black uppercase">{r.name} <span className="opacity-60">{n}/4</span></p>
+                      <div className="flex gap-1.5 my-1">
+                        {(r.set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES).map(p => {
+                          const worn = squad.some(e => Object.values(e.equipment ?? {}).some((it: any) => it?.name === p.name));
+                          return <div key={p.id} title={`${p.name} (${p.slot})${worn ? ' - worn' : ''}`} className={`w-10 h-10 rounded-lg flex items-center justify-center ${worn ? 'bg-emerald-500/20 ring-2 ring-emerald-500' : 'opacity-60'}`}><ItemIcon name={p.name} icon={p.icon} size={32} /></div>;
+                        })}
+                      </div>
                       <p className="text-[12px] font-bold opacity-70">{r.hint}. Wear 2 pieces: +{SET_BONUS_PCT[r.set][2]}% {r.mode}, 4 pieces: +{SET_BONUS_PCT[r.set][4]}%.</p>
                     </div>
                     <span className={`text-[15px] font-black flex-shrink-0 ${pct > 0 ? 'text-emerald-500' : 'opacity-50'}`}>{pct > 0 ? `+${pct}%` : 'none'}</span>
@@ -1866,7 +1872,7 @@ const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>
     return (
       <div className={card}>
         <div className="text-[13px] font-black uppercase tracking-widest text-slate-400 mb-1">Seasonal Events</div>
-        <div className={`text-[16px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{nx.event.icon} {nx.event.name} starts in {daysLeft(nx.startsAt)} days</div>
+        <div className={`text-[16px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}><span className="inline-flex items-center gap-2">{eventArt(nx.event.id) ? <img src={eventArt(nx.event.id)} alt="" className="w-14 h-14 object-contain" /> : nx.event.icon} {nx.event.name} starts in {daysLeft(nx.startsAt)} days</span></div>
         <div className="text-[13px] font-bold text-slate-400 mt-1">{nx.event.blurb} Finish every goal for a permanent event title and icon.</div>
       </div>
     );
@@ -1880,7 +1886,7 @@ const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[13px] font-black uppercase tracking-widest text-[var(--accent-500)]">Event - {daysLeft(act.endsAt)} days left</div>
-          <div className={`text-[20px] font-black uppercase italic leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{act.event.icon} {act.event.name}</div>
+          <div className={`text-[20px] font-black uppercase italic leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}><span className="flex items-center gap-3">{eventArt(act.event.id) ? <img src={eventArt(act.event.id)} alt="" className="w-20 h-20 object-contain flex-shrink-0" /> : act.event.icon} {act.event.name}</span></div>
           <div className="text-[13px] font-bold text-slate-400 mt-1">{act.event.blurb}</div>
         </div>
       </div>

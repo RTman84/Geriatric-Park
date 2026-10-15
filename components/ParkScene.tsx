@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR } from '../constants';
+import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR, UI_ART } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
 import trail from '../game-assets/park/cut/trail.png';
@@ -151,7 +151,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         {!readOnly && (onOpenExchange || onOpenWorkshop || (decorOptions && decorOptions.length > 0)) && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6, padding: '0 10px', pointerEvents: 'none', flexWrap: 'wrap' }}>
             {onOpenExchange && <button onClick={onOpenExchange} style={barBtn}>Lodge</button>}
-            {onOpenWorkshop && <button onClick={onOpenWorkshop} style={barBtn}>Workshop</button>}
+            {onOpenWorkshop && <button onClick={onOpenWorkshop} style={barBtn}><img src={UI_ART.workshop} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }} />Workshop</button>}
             {decorOptions && decorOptions.length > 0 && <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); }} style={barBtn}>{decorMode ? 'Done decorating' : 'Decorate'}</button>}
           </div>
         )}

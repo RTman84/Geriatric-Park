@@ -101,6 +101,7 @@ import communityPillarImg from './game-assets/achievements/community_pillar.png'
 import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
 import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
+import { EVENT_ART, NEW_GEAR_ART, UI_ART } from './game-assets/newArt';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
 // and only ever have `.completed` toggled, never cloned with a new id.
@@ -939,6 +940,8 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
 // permanent earned-only title + icon for finishing every goal. Total per event is small on purpose (see ECONOMY.md).
 export interface SeasonalEventGoal { id: string; label: string; kinds: string[]; target: number; tickets: number; materials: number; xp: number }
 export interface SeasonalEvent { id: string; name: string; icon: string; blurb: string; title: string; start: [number, number]; end: [number, number]; goals: SeasonalEventGoal[] }
+export { UI_ART };
+export const eventArt = (id: string): string | undefined => EVENT_ART[id];
 export const SEASONAL_EVENTS: SeasonalEvent[] = [
   { id: 'sweetheart', name: 'Sweetheart Social', icon: '\u{1F49D}', title: 'Sweetheart', start: [2, 7], end: [2, 16], blurb: 'Dances, visits and friendly rivalries. Bring a friend.',
     goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 5, tickets: 60, materials: 4, xp: 80 }, { id: 'b', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 8, tickets: 70, materials: 4, xp: 100 }, { id: 'c', label: 'Play Bingo', kinds: ['bingo'], target: 6, tickets: 60, materials: 4, xp: 80 }] },
@@ -987,7 +990,7 @@ export function eventCosmetic(key: string): UnlockedCosmetic | null {
   if ((key || '').startsWith('pass:')) return passCosmetic(key);
   const m = /^event:([a-z]+)-(\d{4})$/.exec(key || '');
   const ev = m && SEASONAL_EVENTS.find(e => e.id === m[1]);
-  return ev && m ? { key, icon: ev.icon, title: `${ev.title} ${m[2]}` } : null;
+  return ev && m ? { key, icon: EVENT_ART[ev.id] || ev.icon, title: `${ev.title} ${m[2]}` } : null;
 }
 
 /** One plain line saying what the player did to earn a title/icon, shown under it in the profile picker. */
@@ -1278,6 +1281,7 @@ export const ElderAvatarImg: React.FC<{
 // `name` is the one field that survives spawn -> purchase/collection -> inventory
 // -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
 export const ITEM_ICON_ASSETS: Record<string, string> = {
+  ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
   // SHOP_ITEMS (s1-s4)
   'High-Fiber Muffin': branMuffinImg,
   'Tennis Ball Walker': walkerTennisBallImg,

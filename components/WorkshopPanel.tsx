@@ -4,7 +4,7 @@ import {
   ItemIcon, ElderAvatarImg, gearSlotKey, getGearMaxLevel, getGearUpgradeCost, getGearSellValue, getEffectiveGearBoost,
   applyUpgradeDiscount, applySalvageBonus, GEAR_RARITY_COLOR, rarityCardStyle,
 } from '../constants';
-import { sortEldersByPref } from '../constants';
+import { sortEldersByPref, UI_ART } from '../constants';
 import { Gfx } from './Gfx';
 
 // Tinker's Workshop window: everything to do with gear in one place (upgrade, salvage, equip).
@@ -52,7 +52,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
     <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3">
       <div className={`w-full max-w-md h-[92vh] rounded-[2.5rem] border shadow-2xl p-5 flex flex-col ${card}`}>
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
-          <h2 className="text-[20px] font-black uppercase italic">Tinker's Workshop</h2>
+          <h2 className="flex items-center gap-2 text-[20px] font-black uppercase italic"><img src={UI_ART.workshop} alt="" className="w-9 h-9 object-contain not-italic" />Tinker's Workshop</h2>
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-black uppercase text-[13px] active:scale-95">Close</button>
         </div>
         <div className={`p-3 rounded-2xl mb-3 text-[13px] font-bold flex-shrink-0 ${sub}`}>
