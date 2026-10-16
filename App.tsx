@@ -124,6 +124,8 @@ import {
   ELDER_TYPE_STYLING,
   SHOP_ITEMS,
   SEASON_XP_PER_LEVEL,
+  getBestSetBonus,
+  withSetBonus,
   SEASONAL_REWARDS, currentSeasonWindow, SEASON_ACTIVITY_XP, SEASON_RAID_HIT_XP, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, passCosmeticKey,
   WITHDRAWAL_MINIMUM,
   DAILY_REWARDS,
@@ -1399,7 +1401,7 @@ const App: React.FC = () => {
     if ((state.tvDinners ?? 0) < g.price) { notify(`You need ${g.price} 🍽️ TV Dinners.`, 'bad'); return; }
     setState(prev => (prev.tvDinners ?? 0) < g.price ? prev : {
       ...prev, tvDinners: (prev.tvDinners ?? 0) - g.price,
-      inventory: [...prev.inventory, { id: 'pvp_' + Math.random().toString(36).slice(2, 11), name: g.name, icon: g.icon, boost: g.boost, description: g.description, slot: g.slot, rarity: g.rarity, level: 1 }],
+      inventory: [...prev.inventory, { id: 'pvp_' + Math.random().toString(36).slice(2, 11), name: g.name, icon: g.icon, boost: g.boost, description: g.description, slot: g.slot, rarity: g.rarity, level: 1, set: g.set }],
     });
     notify(`${g.name} added to your Park Hub inventory.`, 'good');
   }, [state.tvDinners, notify]);
@@ -2373,7 +2375,7 @@ const App: React.FC = () => {
     if (waitMs > 0) return `You just battled ${friend.display_name || 'that player'} - ready again in ${Math.ceil(waitMs / 60000)} min. Other players are fair game right now.`;
     const attacksToday = state.friendBattle.attackDay === new Date().toISOString().slice(0, 10) ? (state.friendBattle.attacksToday ?? 0) : 0;
     if (attacksToday >= FRIEND_BATTLE_DAILY_ATTACK_CAP) return `You've reached today's limit of ${FRIEND_BATTLE_DAILY_ATTACK_CAP} player battles. It resets at midnight UTC.`;
-    const { won, ticketsEarned } = rollFriendBattle(getSquadPower(squad), friend.squad_power);
+    const { won, ticketsEarned } = rollFriendBattle(withSetBonus(getSquadPower(squad), getBestSetBonus(squad).pct), withSetBonus(friend.squad_power, friend.arena_bonus_pct));
     const result = handleFriendBattleResult(won, ticketsEarned, friend.user_id);
     const name = friend.display_name || 'Park Visitor';
     return won

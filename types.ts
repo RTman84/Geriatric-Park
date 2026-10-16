@@ -69,6 +69,7 @@ export interface Season {
   activityXpToday?: number;
 }
 
+export type GearSetId = 'porch' | 'club' | 'heirloom' | 'arena' | 'raid';
 export interface Gear {
   id: string;
   name: string;
@@ -78,7 +79,7 @@ export interface Gear {
   slot: 'Head' | 'Body' | 'Accessory' | 'Charm';
   rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
   level: number; // upgrade level, starts at 1
-  set?: 'arena' | 'raid'; // earned set piece (Arena / Raid sets give a bonus in their own mode)
+  set?: GearSetId; // which gear set the piece belongs to (see GEAR_SET_INFO in constants.tsx)
 }
 
 export interface BingoBlitzState {

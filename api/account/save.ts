@@ -62,22 +62,32 @@ function byteLength(value: string): number {
 // Mirrors getElderPower/getSquadPower in constants.tsx -- duplicated here for
 // the same self-contained-file reason as everything else in this file, since
 // this is a different runtime bundle than the client.
-// Arena / Raid gear sets: distinct set pieces worn by the squad -> percent bonus in that mode (mirrors SET_BONUS_PCT in constants.tsx).
-const SET_PIECE_NAMES: Record<'arena' | 'raid', string[]> = {
+// Gear sets: distinct pieces of a set worn by the squad -> one percent bonus that applies to Arena power, Raid damage AND PvP power.
+// Only the best set counts. Mirrors GEAR_SET_INFO in constants.tsx (names and bonus tables must stay in sync).
+const SET_PIECE_NAMES: Record<string, string[]> = {
+  porch: ['Porch Sun Visor', 'League Windbreaker', 'Lucky Bocce Ball', 'Lemonade Lucky Pin'],
+  club: ['Tournament Visor', 'Club Blazer', 'Champion Cufflinks', 'Lucky Rabbit Foot'],
+  heirloom: ['Golden Reading Glasses', 'Velvet Smoking Jacket', 'Heirloom Pocket Watch', 'Four-Leaf Clover Pin'],
   arena: ["Champion's Sweatband", 'Clubhouse Cardigan', 'Banner Brooch', 'Faction Pin'],
   raid: ['Whistle-Blower Cap', 'Reflective Crossing Vest', 'Clipboard Shield', 'Lucky Bingo Dauber'],
 };
-const SET_BONUS_PCT_TABLE = { arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12] };
-function setBonusFrom(saveData: any, set: 'arena' | 'raid'): number {
+const SET_BONUS_PCT_TABLE: Record<string, number[]> = {
+  porch: [0, 0, 2, 2, 5], club: [0, 0, 4, 4, 10], heirloom: [0, 0, 6, 6, 14], arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12],
+};
+function bestSetBonusFrom(saveData: any): number {
   const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
-  const slots = new Set<string>();
-  for (const e of elders) {
-    if (e?.status !== 'Team' || !e?.equipment || typeof e.equipment !== 'object') continue;
-    for (const [slot, it] of Object.entries(e.equipment as Record<string, any>)) {
-      if (it && it.set === set && SET_PIECE_NAMES[set].includes(String(it.name))) slots.add(slot);
+  let best = 0;
+  for (const set of Object.keys(SET_PIECE_NAMES)) {
+    const slots = new Set<string>();
+    for (const e of elders) {
+      if (e?.status !== 'Team' || !e?.equipment || typeof e.equipment !== 'object') continue;
+      for (const [slot, it] of Object.entries(e.equipment as Record<string, any>)) {
+        if (it && SET_PIECE_NAMES[set].includes(String(it.name))) slots.add(slot);
+      }
     }
+    best = Math.max(best, SET_BONUS_PCT_TABLE[set][Math.min(4, slots.size)]);
   }
-  return SET_BONUS_PCT_TABLE[set][Math.min(4, slots.size)];
+  return best;
 }
 // Strongest single Elder the player owns (any status), so a benched Elder can still be stationed at an Arena.
 function maxElderPowerFrom(saveData: any): number {
@@ -144,9 +154,9 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       achievements_completed: achievements.filter((a: any) => a?.completed).length,
       achievements_total: achievements.length,
       squad_power: squadPowerFrom(saveData),
-      arena_bonus_pct: setBonusFrom(saveData, 'arena'),
+      arena_bonus_pct: bestSetBonusFrom(saveData), // arena_bonus_pct and raid_bonus_pct both hold the player's best set bonus; PvP (Court, Friend Battle) uses it too
       max_elder_power: Math.min(1000000, Math.round(maxElderPowerFrom(saveData))),
-      raid_bonus_pct: setBonusFrom(saveData, 'raid'),
+      raid_bonus_pct: bestSetBonusFrom(saveData),
       favorite_elders: favoriteElders,
       park_elders: parkElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],

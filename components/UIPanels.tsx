@@ -3,7 +3,7 @@ import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, SET_BONUS_PCT, ARENA_SET_NAME, RAID_SET_NAME, ARENA_SET_PIECES, RAID_SET_PIECES, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, getBestSetBonus, GEAR_SET_INFO, GEAR_SET_ORDER, getSetPieces, withSetBonus, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -446,7 +446,7 @@ interface ShuffleboardProps {
   leaderboardError: boolean;
   onRetryLeaderboard: () => void;
   onAddFriendFromLeaderboard?: (userId: string) => void;
-  friends: { user_id: string; display_name: string | null; squad_power: number }[];
+  friends: { user_id: string; display_name: string | null; squad_power: number; arena_bonus_pct?: number }[];
   friendBattle: { nextMatchAt: number; lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => { tickets: number; materials: number; rewarded: boolean };
 }
@@ -540,7 +540,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (!friend) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const { won, ticketsEarned } = rollFriendBattle(getSquadPower(team.filter(e => !e.borrowed)), friend.squad_power);
+      const { won, ticketsEarned } = rollFriendBattle(withSetBonus(getSquadPower(team.filter(e => !e.borrowed)), getBestSetBonus(team.filter(e => !e.borrowed)).pct), withSetBonus(friend.squad_power, friend.arena_bonus_pct));
       const result = onFriendBattleResult(won, ticketsEarned, friend.user_id);
       setLastResultWon(won);
       setLastResult(won
@@ -1489,31 +1489,31 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         </button>
       </div>
 
-      {/* Arena / Raid gear sets */}
+      {/* Gear sets: every set gives the same bonus to Arena power, Raid damage and PvP power; only the best one counts */}
       {(() => {
         const squad = elders.filter(e => e.status === 'Team' && !e.borrowed);
-        const rows = [
-          { name: ARENA_SET_NAME, mode: 'Arena power', set: 'arena' as const, hint: 'Drops from Arena wins' },
-          { name: RAID_SET_NAME, mode: 'Raid damage', set: 'raid' as const, hint: 'Drops from Raid hits' },
-        ];
+        const best = getBestSetBonus(squad);
         return (
           <div className="mb-6">
-            <h3 className={`text-[17px] font-black uppercase px-4 mb-3 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Gear Sets</h3>
-            <div className={`p-4 rounded-[2rem] border grid gap-3 ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'}`}>
-              {rows.map(r => {
-                const n = countSetPieces(squad, r.set);
-                const pct = getSetBonusPct(squad, r.set);
+            <h3 className={`text-[17px] font-black uppercase px-4 mb-1 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Gear Sets</h3>
+            <p className="px-4 mb-3 text-[12px] font-bold opacity-70">Wear 2 or 4 pieces of a set on your squad. The bonus boosts Arena power, Raid damage and PvP power (Court ladder and Friend Battles). Only your best set counts, so they don't stack.</p>
+            <div className={`p-4 rounded-[2rem] border grid gap-4 ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <p className={`text-[14px] font-black uppercase ${best.pct > 0 ? 'text-emerald-500' : 'opacity-60'}`}>{best.set ? `Active: ${GEAR_SET_INFO[best.set].name} +${best.pct}%` : 'No set bonus active'}</p>
+              {GEAR_SET_ORDER.map(id => {
+                const info = GEAR_SET_INFO[id];
+                const n = countSetPieces(squad, id);
+                const pct = getSetBonusPct(squad, id);
                 return (
-                  <div key={r.set} className="flex items-center justify-between gap-3">
+                  <div key={id} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[14px] font-black uppercase">{r.name} <span className="opacity-60">{n}/4</span></p>
+                      <p className="text-[14px] font-black uppercase">{info.name} <span className="opacity-60">{n}/4</span></p>
                       <div className="flex gap-1.5 my-1">
-                        {(r.set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES).map(p => {
+                        {getSetPieces(id).map(p => {
                           const worn = squad.some(e => Object.values(e.equipment ?? {}).some((it: any) => it?.name === p.name));
                           return <div key={p.id} title={`${p.name} (${p.slot})${worn ? ' - worn' : ''}`} className={`w-10 h-10 rounded-lg flex items-center justify-center ${worn ? 'bg-emerald-500/20 ring-2 ring-emerald-500' : 'opacity-60'}`}><ItemIcon name={p.name} icon={p.icon} size={32} /></div>;
                         })}
                       </div>
-                      <p className="text-[12px] font-bold opacity-70">{r.hint}. Wear 2 pieces: +{SET_BONUS_PCT[r.set][2]}% {r.mode}, 4 pieces: +{SET_BONUS_PCT[r.set][4]}%.</p>
+                      <p className="text-[12px] font-bold opacity-70">{info.source}. 2 pieces: +{info.bonus[2]}%, 4 pieces: +{info.bonus[4]}%.</p>
                     </div>
                     <span className={`text-[15px] font-black flex-shrink-0 ${pct > 0 ? 'text-emerald-500' : 'opacity-50'}`}>{pct > 0 ? `+${pct}%` : 'none'}</span>
                   </div>

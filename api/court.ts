@@ -56,6 +56,9 @@ export default async function handler(req: Request): Promise<Response> {
   const { data: me, error: meErr } = await supabase.from('player_profiles').select('squad_power, display_name').eq('user_id', userId).maybeSingle();
   if (meErr) { console.error('Court profile lookup failed', meErr.message); return serverJson({ error: 'Court unavailable', detail: meErr.message }, 500); }
   const myPower = Math.max(0, Math.floor(Number(me?.squad_power) || 0));
+  // Gear-set bonus (best set, stored in arena_bonus_pct) boosts the challenge roll for both sides. Missing column / error -> no bonus.
+  const setBonus = async (uid: string) => { const { data } = await supabase.from('player_profiles').select('arena_bonus_pct').eq('user_id', uid).maybeSingle(); return Math.max(0, Math.min(14, Number((data as any)?.arena_bonus_pct) || 0)); };
+  const myBonus = await setBonus(userId);
   const myBracket = bracketOf(myPower);
   const myName = (me?.display_name && String(me.display_name).slice(0, 40)) || 'Park Visitor';
 
@@ -145,7 +148,8 @@ export default async function handler(req: Request): Promise<Response> {
       const { data: tp } = await supabase.from('player_profiles').select('squad_power').eq('user_id', target.user_id).maybeSingle();
       const targetPower = Math.max(1, Math.floor(Number(tp?.squad_power) || target.power));
       const tSnap = { ...target }; const mSnap = mine ? { ...mine } : null; // snapshots: both rows are rewritten below
-      const won = myPower * (0.85 + Math.random() * 0.3) > targetPower * INCUMBENT_EDGE * (0.9 + Math.random() * 0.2);
+      const targetBonus = await setBonus(target.user_id);
+      const won = myPower * (1 + myBonus / 100) * (0.85 + Math.random() * 0.3) > targetPower * (1 + targetBonus / 100) * INCUMBENT_EDGE * (0.9 + Math.random() * 0.2);
       if (won) {
         if (mSnap) { // swap the two spots
           await supabase.from('court_ladder').update({ user_id: tSnap.user_id, display_name: tSnap.display_name, power: targetPower, last_active: tSnap.last_active, purse_day: tSnap.purse_day }).eq('bracket', myBracket).eq('rank', mSnap.rank);

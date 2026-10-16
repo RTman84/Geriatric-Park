@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey } from '../constants';
+import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey, GEAR_SET_INFO, getEffectiveGearBoost, getGearMaxLevel, ItemIcon } from '../constants';
 
 // PvP Shop: TV Dinners (earned only from Friend Battles, Arena, Raids and Court Ladder wins) buy antiques that
 // rotate daily and gear that is only sold here. Never PP, never passive income.
@@ -57,17 +57,29 @@ const PvpShop: React.FC<{
 
         {tab === 'gear' && (
           <div className="space-y-3">
-            <p className="text-[13px] opacity-70">Gear sold only here, stronger than most drops. It goes to your Park Hub inventory; the slot decides which stat it boosts.</p>
-            {PVP_GEAR.map(g => (
-              <div key={g.id} className={`${card} flex items-center gap-3`} style={{ borderColor: GEAR_RARITY_COLOR[g.rarity] }}>
-                <div className="text-3xl">{g.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-black uppercase text-[15px] truncate">{g.name}</div>
-                  <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[g.rarity] }}>{g.rarity} · {g.slot} slot · +{g.boost} {GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]}</div>
+            <p className="text-[13px] opacity-70">Gear sold only here, stronger than most drops. It goes to your Park Hub inventory; the slot decides which stat it boosts. Wearing pieces of one set also gives a bonus (see each set).</p>
+            {(['porch', 'club', 'heirloom'] as const).map(setId => {
+              const info = GEAR_SET_INFO[setId];
+              const pieces = PVP_GEAR.filter(g => g.set === setId);
+              return (
+                <div key={setId} className="space-y-2">
+                  <div className="px-1">
+                    <div className="font-black uppercase text-[15px]">{info.name} <span className="opacity-60 text-[12px]">· {pieces.reduce((n, g) => n + g.price, 0)} <Gfx e="🍽" /> for all 4</span></div>
+                    <div className="text-[12px] font-bold opacity-70">Wear 2 pieces: +{info.bonus[2]}%, 4 pieces: +{info.bonus[4]}% to Arena power, Raid damage and PvP power. Only your best set counts.</div>
+                  </div>
+                  {pieces.map(g => (
+                    <div key={g.id} className={`${card} flex items-center gap-3`} style={{ borderColor: GEAR_RARITY_COLOR[g.rarity] }}>
+                      <div className="w-10 h-10 flex items-center justify-center"><ItemIcon name={g.name} icon={g.icon} size={40} /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-black uppercase text-[15px] leading-tight">{g.name}</div>
+                        <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[g.rarity] }}>{g.rarity} · {g.slot} slot · +{getEffectiveGearBoost(g)} {GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]} (up to +{getEffectiveGearBoost({ ...g, level: getGearMaxLevel(g) })} fully upgraded)</div>
+                      </div>
+                      <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} <Gfx e="🍽" /></button>
+                    </div>
+                  ))}
                 </div>
-                <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} <Gfx e="🍽" /></button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

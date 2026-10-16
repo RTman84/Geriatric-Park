@@ -10,7 +10,7 @@ import {
   ClipboardDocumentListIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline';
-import { ElderType, PowerType, Achievement, Quest, Gear } from './types';
+import { ElderType, PowerType, Achievement, Quest, Gear, GearSetId } from './types';
 
 // Every image below is imported (not referenced by a hardcoded /public path).
 // Vite content-hashes imported assets at build time -- e.g.
@@ -270,7 +270,7 @@ export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rar
 }
 
 // --- Arena and Raid gear sets (2026-10-11) -----------------------------------------------------------------------
-// Drop from Arena wins / Raid hits (rare, capped per day). Wearing 2 or 4 distinct pieces on your squad gives a bonus in THAT mode only.
+// Arena and Raid sets drop from Arena wins / Raid hits (rare, capped per day). See GEAR_SET_INFO below for how every set's bonus works.
 export interface SetPiece { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; description: string }
 export const ARENA_SET_NAME = 'Clubhouse Champion', RAID_SET_NAME = 'Boss Buster';
 export const ARENA_SET_PIECES: SetPiece[] = [
@@ -285,16 +285,44 @@ export const RAID_SET_PIECES: SetPiece[] = [
   { id: 'rs_acc', name: 'Clipboard Shield', icon: '\u{1F4CB}', slot: 'Accessory', description: 'Boss Buster set. Increases Strength.' },
   { id: 'rs_charm', name: 'Lucky Bingo Dauber', icon: '\u{1F3AF}', slot: 'Charm', description: 'Boss Buster set. Increases Agility.' },
 ];
-export const SET_BONUS_PCT = { arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12] } as const; // index = distinct pieces worn (0-4). Mirrored in api/account/save.ts
+// Five gear sets. EVERY set gives the same percentage to Arena power, Raid damage and PvP power (Court ladder + Friend Battle), and only the
+// player's BEST set counts (no stacking). index = distinct pieces worn on the squad (0-4); 2 and 3 pieces give the same bonus.
+// Rarer = stronger: Porch League (cheap PvP starter) < Clubhouse Champion = Tournament Club < Boss Buster (rarer drop) < Heirloom Collection.
+// Mirrored in api/account/save.ts (SET_PIECE_NAMES / SET_BONUS_PCT_TABLE).
+export type { GearSetId };
+export const GEAR_SET_INFO: Record<GearSetId, { name: string; source: string; bonus: readonly [number, number, number, number, number] }> = {
+  porch:    { name: 'Porch League',        source: 'PvP shop starter set (cheapest)', bonus: [0, 0, 2, 2, 5] },
+  club:     { name: 'Tournament Club',     source: 'PvP shop (Epic)',                 bonus: [0, 0, 4, 4, 10] },
+  heirloom: { name: 'Heirloom Collection', source: 'PvP shop (Legendary)',            bonus: [0, 0, 6, 6, 14] },
+  arena:    { name: ARENA_SET_NAME,        source: 'Drops from Arena wins',           bonus: [0, 0, 4, 4, 10] },
+  raid:     { name: RAID_SET_NAME,         source: 'Drops from Raid hits (rarer)',    bonus: [0, 0, 5, 5, 12] },
+};
+export const GEAR_SET_ORDER: GearSetId[] = ['porch', 'club', 'arena', 'raid', 'heirloom'];
+export const SET_MAX_BONUS_PCT = 14;
 export const SET_DROP_CHANCE = { arena: 0.10, raid: 0.06 } as const; // per defender beaten / per raid hit
 export const SET_DROP_DAILY_CAP = 3; // per mode per day
-export function countSetPieces(team: { equipment?: Record<string, any> }[], set: 'arena' | 'raid'): number {
-  const names = new Set((set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES).map(p => p.name));
+/** Pieces of a set (name, icon, slot). PvP sets come from the PvP shop list, Arena/Raid from their drop lists. */
+export function getSetPieces(set: GearSetId): { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm' }[] {
+  if (set === 'arena') return ARENA_SET_PIECES;
+  if (set === 'raid') return RAID_SET_PIECES;
+  return PVP_GEAR.filter(g => g.set === set);
+}
+/** How many different pieces of a set the squad wears (matched by name, so pieces bought before sets existed still count). */
+export function countSetPieces(team: { equipment?: Record<string, any> }[], set: GearSetId): number {
+  const names = new Set(getSetPieces(set).map(p => p.name));
   const slots = new Set<string>();
-  for (const e of team) for (const [slot, it] of Object.entries(e.equipment ?? {})) if (it && (it as any).set === set && names.has((it as any).name)) slots.add(slot);
+  for (const e of team) for (const [slot, it] of Object.entries(e.equipment ?? {})) if (it && names.has((it as any).name)) slots.add(slot);
   return slots.size;
 }
-export const getSetBonusPct = (team: { equipment?: Record<string, any> }[], set: 'arena' | 'raid'): number => SET_BONUS_PCT[set][Math.min(4, countSetPieces(team, set))];
+export const getSetBonusPct = (team: { equipment?: Record<string, any> }[], set: GearSetId): number => GEAR_SET_INFO[set].bonus[Math.min(4, countSetPieces(team, set))];
+/** The squad's best set bonus (what actually applies to Arena, Raid and PvP). */
+export function getBestSetBonus(team: { equipment?: Record<string, any> }[]): { pct: number; set: GearSetId | null } {
+  let best: { pct: number; set: GearSetId | null } = { pct: 0, set: null };
+  for (const id of GEAR_SET_ORDER) { const pct = getSetBonusPct(team, id); if (pct > best.pct) best = { pct, set: id }; }
+  return best;
+}
+/** Power after a set bonus (used in PvP rolls). */
+export const withSetBonus = (power: number, pct?: number): number => power * (1 + Math.max(0, Math.min(SET_MAX_BONUS_PCT, Number(pct) || 0)) / 100);
 export function rollSetPiece(set: 'arena' | 'raid'): Gear {
   const pieces = set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES;
   const p = pieces[Math.floor(Math.random() * pieces.length)];
@@ -1789,15 +1817,21 @@ export const antiqueCosmetic = (key: string): { key: string; icon: string; title
 };
 
 // Gear sold only for TV Dinners (stronger than most drops; the sink for the PvP currency). Slot decides the stat.
-export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; boost: number; rarity: 'Epic' | 'Legendary'; price: number; description: string }[] = [
-  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Wit.' },
-  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Tenacity.' },
-  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Strength.' },
-  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Agility.' },
-  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Wit.' },
-  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.' },
-  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Strength.' },
-  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Agility.' },
+export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; boost: number; rarity: 'Rare' | 'Epic' | 'Legendary'; price: number; description: string; set: 'porch' | 'club' | 'heirloom' }[] = [
+  // Porch League: the cheap starter set (Rare, 40 TV Dinners a piece, 160 for all four), smallest set bonus.
+  { id: 'pg9', name: 'Porch Sun Visor', icon: '👒', slot: 'Head', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Wit.', set: 'porch' },
+  { id: 'pg10', name: 'League Windbreaker', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Tenacity.', set: 'porch' },
+  { id: 'pg11', name: 'Lucky Bocce Ball', icon: '🎱', slot: 'Accessory', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Strength.', set: 'porch' },
+  { id: 'pg12', name: 'Lemonade Lucky Pin', icon: '🍋', slot: 'Charm', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Agility.', set: 'porch' },
+  // Tournament Club (Epic, 120 each) and Heirloom Collection (Legendary, 320 each).
+  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Wit.', set: 'club' },
+  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Tenacity.', set: 'club' },
+  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Strength.', set: 'club' },
+  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Agility.', set: 'club' },
+  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Wit.', set: 'heirloom' },
+  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.', set: 'heirloom' },
+  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Strength.', set: 'heirloom' },
+  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Agility.', set: 'heirloom' },
 ];
 
 // --- Mementos: premium currency (2026-10-06) -----------------------------------------------------------------

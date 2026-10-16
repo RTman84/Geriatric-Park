@@ -15,6 +15,7 @@ export interface PlayerProfileSnapshot {
   achievements_completed: number;
   achievements_total: number;
   squad_power: number;
+  arena_bonus_pct?: number; // the player's best gear-set bonus (also applies to PvP rolls)
   favorite_elders: { type: string; evolutionStage: 0 | 1 | 2; name: string; level?: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary' }[];
   park_elders?: { type: string; evolutionStage: 0 | 1 | 2; name: string; level?: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary' }[];
   built_amenities: string[];
