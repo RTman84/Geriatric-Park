@@ -1,3 +1,5 @@
+> SUPERSEDED by GERIATRIC_PARK_STATUS_2026-10-16.md (start there).
+
 # Geriatric Park - STATUS (as of 2026-10-11)
 Paste this whole file as the first message in a new chat. Repo: `RTman84/Geriatric-Park`. Branch: `phase2/account-backend-foundation-clean` (only active branch). **GitHub head `badc833` (plus this doc), everything pushed.** Supersedes `GERIATRIC_PARK_STATUS_2026-10-09.md`; the efficiency rules, owner steps, decisions and standing rules in the 10-08 and 10-09 docs still apply unchanged. Newest `ECONOMY.md` sections: 6zd to 6zg. Art prompts: `ART_PROMPTS.md`.
 
