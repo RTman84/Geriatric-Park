@@ -190,7 +190,7 @@ import {
   DEFAULT_UI_THEME_ID,
   applyUITheme,
   rollGearRarity,
-  getEffectiveGearBoost, canonicalElderStats, evolutionCum, rollSetPiece, SET_DROP_CHANCE, SET_DROP_DAILY_CAP, ARENA_SET_NAME, RAID_SET_NAME,
+  getEffectiveGearBoost, canonicalElderStats, evolutionCum, xpCatchUp, rollSetPiece, SET_DROP_CHANCE, SET_DROP_DAILY_CAP, ARENA_SET_NAME, RAID_SET_NAME,
   getGearUpgradeCost,
   getGearSellValue,
   gearSlotKey,
@@ -269,7 +269,8 @@ function applyXpGain(
   thresholdFor: (lvl: number) => number = xpForPlayerLevel,
   maxLevel: number = MAX_PLAYER_LEVEL,
 ): { xp: number; level: number } {
-  let nextXp = xp + amount;
+  // Endgame catch-up: above level 25 XP awards are scaled up so late levels stay reachable (see xpCatchUp in constants.tsx).
+  let nextXp = xp + Math.round(amount * xpCatchUp(level, thresholdFor));
   let nextLevel = level;
   while (nextLevel < maxLevel) {
     const needed = thresholdFor(nextLevel);
@@ -1692,15 +1693,16 @@ const App: React.FC = () => {
     };
   }, [state, isLoaded, cloudSyncSettled, authSession]);
 
-  // Evolved Elders' stats depend on the Elder's level AND the account level (see evolutionCum). Stored stats are refreshed whenever
-  // either changes, and after levelling (which adds stats incrementally). Idempotent: nothing is written when the stats already match.
-  const evolvedSig = useMemo(() => state.allElders.filter(e => e.captured && !e.borrowed && (e.evolutionStage ?? 0) > 0).map(e => `${e.id}:${e.level}:${e.evolutionStage}`).join('|'), [state.allElders]);
+  // Elder stats follow ONE formula (canonicalElderStats): level, rarity, evolution (which depends on the Elder's level AND the account level),
+  // and gear (scaled by the Elder's level). Stored stats are refreshed whenever any input changes, and after levelling or equipping (which add
+  // stats incrementally). Idempotent: nothing is written when the stats already match.
+  const evolvedSig = useMemo(() => state.allElders.filter(e => e.captured && !e.borrowed).map(e => `${e.id}:${e.level}:${e.evolutionStage ?? 0}:${Object.entries(e.equipment ?? {}).map(([s, it]: [string, any]) => `${s}${it?.name}${it?.level}${it?.rarity}`).join(',')}`).join('|'), [state.allElders]);
   useEffect(() => {
     if (!isLoaded || !evolvedSig) return;
     setState(prev => {
       let changed = false;
       const next = prev.allElders.map(e => {
-        if (!e.captured || e.borrowed || (e.evolutionStage ?? 0) <= 0) return e;
+        if (!e.captured || e.borrowed) return e;
         const c = canonicalElderStats(e, prev.level);
         if (c.strength === e.strength && c.wit === e.wit && c.agility === e.agility && c.tenacity === e.tenacity && c.maxHp === e.maxHp) return e;
         changed = true;
@@ -1982,7 +1984,7 @@ const App: React.FC = () => {
         const team = nextElders.filter(e => e.status === 'Team');
         if (team.length > 0) {
           const targetIdx = nextElders.indexOf(team[Math.floor(Math.random() * team.length)]);
-          if (targetIdx !== -1) nextElders[targetIdx] = { ...nextElders[targetIdx], strength: nextElders[targetIdx].strength + 1, wit: nextElders[targetIdx].wit + 1 };
+          if (targetIdx !== -1) nextElders = grantElderXpById(nextElders, nextElders[targetIdx].id, 40); // XP instead of raw +1 stats (stats always follow the shared formula)
         }
       } else if (item.type === 'Snack') {
         if (item.name === 'Old Map') { xpGain += (item.boost || 50); }

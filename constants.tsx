@@ -199,7 +199,7 @@ export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' |
   (['strength', 'wit', 'agility', 'tenacity'] as StatKey[]).forEach(k => {
     const total = e[k];
     let gear = 0;
-    for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && gearKey[slot] === k) gear += getEffectiveGearBoost(item as any);
+    for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && gearKey[slot] === k) gear += Math.round(getEffectiveGearBoost(item as any) * gearLevelScale(e.level));
     gear = Math.min(gear, Math.max(0, total));
     // Base = what a Common Elder of this level has; rarity = the extra a higher rarity adds at this level; gear = equipped
     // gear; evolution = whatever is left. (The old version divided the whole stat by the evolution multiplier, which is
@@ -256,12 +256,31 @@ export const evolutionCum = (stage?: number, elderLevel?: number, playerLevel?: 
   if (base <= 1 || elderLevel === undefined) return base;
   return 1 + (base - 1) * (1 + EVOLUTION_LEVEL_BONUS_MAX * evolutionProgress(elderLevel, playerLevel ?? 1));
 };
+// --- Endgame scaling (2026-10-16) ---------------------------------------------------------------------------------------------
+// Gear is a flat stat, which stops mattering once an Elder's own stats reach the thousands. From Elder level 30 on, every gear piece counts
+// for more: x1 up to level 30, then +1 for every 20 levels (level 50 = x2, 70 = x3, 100 = x4.5). Nothing changes below level 30.
+export const GEAR_SCALE_START_LEVEL = 30;
+export const GEAR_SCALE_LEVELS_PER_STEP = 20;
+export const gearLevelScale = (elderLevel: number): number =>
+  1 + Math.max(0, (Number.isFinite(elderLevel) ? elderLevel : 1) - GEAR_SCALE_START_LEVEL) / GEAR_SCALE_LEVELS_PER_STEP;
+// XP rewards are small flat numbers while each level costs more and more (Elder level 60 costs 8,150 XP, level 99 about 112,000). Above level
+// 25 every XP award is multiplied by how much more that level costs than level 25 (raised to 0.75, so late levels still take a bit longer).
+// Example (Elder): level 40 x2.1, 60 x6.0, 80 x16, 99 x42. Nothing changes at level 25 or below.
+export const XP_CATCHUP_START_LEVEL = 25;
+export const XP_CATCHUP_EXPONENT = 0.75;
+export function xpCatchUp(level: number, thresholdFor: (lvl: number) => number): number {
+  if (!(level > XP_CATCHUP_START_LEVEL)) return 1;
+  const ref = thresholdFor(XP_CATCHUP_START_LEVEL), now = thresholdFor(level);
+  return ref > 0 && now > 0 ? Math.max(1, Math.pow(now / ref, XP_CATCHUP_EXPONENT)) : 1;
+}
+
 export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any> }, playerLevel: number = 1) {
   const rarity = e.rarity ?? 'Common';
   const std = standardElderStats(e.level, rarity), cum = evolutionCum(e.evolutionStage, e.level, playerLevel);
   const gear = { strength: 0, wit: 0, agility: 0, tenacity: 0 };
   const key: Record<string, 'strength' | 'wit' | 'agility' | 'tenacity'> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
-  for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && key[slot]) gear[key[slot]] += getEffectiveGearBoost(item as any);
+  const gearScale = gearLevelScale(e.level);
+  for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && key[slot]) gear[key[slot]] += Math.round(getEffectiveGearBoost(item as any) * gearScale);
   return {
     strength: Math.round(std.strength * cum) + gear.strength, wit: Math.round(std.wit * cum) + gear.wit,
     agility: Math.round(std.agility * cum) + gear.agility, tenacity: Math.round(std.tenacity * cum) + gear.tenacity,
