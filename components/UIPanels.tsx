@@ -3,7 +3,7 @@ import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, getBestSetBonus, GEAR_SET_INFO, GEAR_SET_ORDER, getSetPieces, withSetBonus, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, getBestSetBonus, GLYPH_ART, isImagePath, GEAR_SET_INFO, GEAR_SET_ORDER, getSetPieces, withSetBonus, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
   MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
@@ -647,7 +647,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : mode === 'league' ? '🏅 Golden' : '🆚 Friend'}
+            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : mode === 'league' ? '🏅 Golden' : '🆚 Friend'}
           </button>
         ))}
       </div>
@@ -662,7 +662,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'passive' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🤖</div>
+            <img src={GLYPH_ART.autoplay} alt="" className="w-20 h-20 mx-auto mb-3 object-contain" />
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Auto-Play Mode</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Your Elders train and compete automatically in the background — stronger squads make steadier progress</p>
           </div>
@@ -1147,7 +1147,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
           return (
             <div key={reward.level} className={`p-4 rounded-[2rem] border shadow-sm ${card} ${reward.level % 5 === 0 ? 'ring-2 ring-[var(--accent-500)]/40' : ''}`}>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{reward.icon}</div>
+                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const art = (reward.goldCosmetic ?? reward.freeCosmetic)?.icon; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })()}</div>
                 <span className="text-[14px] font-black uppercase">Rank {reward.level}{reward.level % 5 === 0 ? ' · Milestone' : ''}</span>
                 {!reached && <span className="ml-auto text-[11px] font-black uppercase opacity-50">Locked</span>}
               </div>

@@ -101,7 +101,8 @@ import communityPillarImg from './game-assets/achievements/community_pillar.png'
 import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
 import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
-import { EVENT_ART, NEW_GEAR_ART, UI_ART } from './game-assets/newArt';
+import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
+import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
 // and only ever have `.completed` toggled, never cloned with a new id.
@@ -110,6 +111,7 @@ export const ACHIEVEMENT_ICON_ASSETS: Record<string, string> = {
   a2: communityPillarImg,
   a3: debateChampionImg,
   a4: wealthyPensionerImg,
+  ...FEAT_ART, // a5-a10
 };
 
 export const GAME_VERSION = '1.7.0';
@@ -987,7 +989,9 @@ export function modeBadgeCosmetic(key: string, stats: Record<string, number> | u
 // permanent earned-only title + icon for finishing every goal. Total per event is small on purpose (see ECONOMY.md).
 export interface SeasonalEventGoal { id: string; label: string; kinds: string[]; target: number; tickets: number; materials: number; xp: number }
 export interface SeasonalEvent { id: string; name: string; icon: string; blurb: string; title: string; start: [number, number]; end: [number, number]; goals: SeasonalEventGoal[] }
-export { UI_ART };
+// Gold Pass emblem is the winged golden ticket from sheet S10 (replaces the purple tickets).
+export const UI_ART = { ...UI_ART_BASE, goldPass: PASS_ART.goldWinged };
+export { PASS_ART, GLYPH_ART };
 export const eventArt = (id: string): string | undefined => EVENT_ART[id];
 export const SEASONAL_EVENTS: SeasonalEvent[] = [
   { id: 'sweetheart', name: 'Sweetheart Social', icon: '\u{1F49D}', title: 'Sweetheart', start: [2, 7], end: [2, 16], blurb: 'Dances, visits and friendly rivalries. Bring a friend.',
@@ -1329,6 +1333,7 @@ export const ElderAvatarImg: React.FC<{
 // -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
 export const ITEM_ICON_ASSETS: Record<string, string> = {
   ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
+  ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and the first 30 antiques
   // SHOP_ITEMS (s1-s4)
   'High-Fiber Muffin': branMuffinImg,
   'Tennis Ball Walker': walkerTennisBallImg,
@@ -1752,6 +1757,7 @@ export const PASS_COSMETICS: PassCosmeticDef[] = [
   { rank: 5, lane: 'gold', icon: '\u{1FA99}', label: 'Gilded Guest' }, { rank: 10, lane: 'gold', icon: '\u2728', label: 'Golden Regular' }, { rank: 15, lane: 'gold', icon: '\u{1F4AB}', label: 'Gilded Veteran' },
   { rank: 20, lane: 'gold', icon: '\u{1F947}', label: 'Golden Champion' }, { rank: 25, lane: 'gold', icon: '\u{1F451}', label: 'Gold Legend' }, { rank: 30, lane: 'gold', icon: '\u{1F31F}', label: 'Golden Icon' },
 ];
+PASS_COSMETICS.forEach(d => { const art = PASS_LANE_ART[d.label]; if (art) d.icon = art; }); // lane titles/icons use the sheet S09 art
 export const passCosmeticKey = (seasonId: number, rank: number, lane: 'free' | 'gold') => `pass:${seasonId}:${rank}:${lane}`;
 export function passCosmetic(key: string): UnlockedCosmetic | null {
   const m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key || '');
@@ -1832,7 +1838,7 @@ export const antiqueById = (id: string) => ANTIQUES.find(a => a.id === id);
 export const antiqueCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
   if (typeof key !== 'string' || !key.startsWith('antique:')) return null;
   const a = antiqueById(key.slice(8));
-  return a ? { key, icon: a.icon, title: a.title } : null;
+  return a ? { key, icon: ITEM_ICON_ASSETS[a.name] || a.icon, title: a.title } : null;
 };
 
 // Gear sold only for TV Dinners (stronger than most drops; the sink for the PvP currency). Slot decides the stat.
@@ -1883,7 +1889,7 @@ export function weeksUntilMemento(id: string, fromWeek: number): number {
 export const mementoCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
   if (typeof key !== 'string' || !key.startsWith('memento:')) return null;
   const m = MEMENTO_ITEMS.find(x => x.id === key.slice(8));
-  return m ? { key, icon: m.icon, title: m.title } : null;
+  return m ? { key, icon: ITEM_ICON_ASSETS[m.name] || m.icon, title: m.title } : null;
 };
 
 // PvP boosts (TV Dinners): one-use passes that waive the Ticket fee on a paid Arena attack / extra Raid attempt.

@@ -126,6 +126,7 @@ import {
   SEASON_XP_PER_LEVEL,
   getBestSetBonus,
   withSetBonus,
+  GLYPH_ART,
   SEASONAL_REWARDS, currentSeasonWindow, SEASON_ACTIVITY_XP, SEASON_RAID_HIT_XP, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, passCosmeticKey,
   WITHDRAWAL_MINIMUM,
   DAILY_REWARDS,
@@ -3161,7 +3162,7 @@ const App: React.FC = () => {
   // Nav items with shuffleboard added
   const NAV_WITH_COURT = [
     ...NAV_ITEMS,
-    { id: 'shuffleboard', label: 'Court', icon: <span className="text-xl">🥏</span> }
+    { id: 'shuffleboard', label: 'Court', icon: <img src={GLYPH_ART.courtPuck} alt="" className="w-6 h-6 object-contain" /> }
   ];
 
   return (

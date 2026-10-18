@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Elder } from '../types';
 import { generateElderBio } from '../services/geminiService';
-import { ELDER_AVATARS, ElderAvatarImg, GUIDE_SUCCESS_RATE, comfortPoints } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, GUIDE_SUCCESS_RATE, comfortPoints, GLYPH_ART } from '../constants';
 
 interface ElderInteractionProps {
   elder: Elder;
@@ -62,7 +62,7 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
                 ✕
               </button>
               <div className="absolute top-4 left-4 px-3 py-1 bg-black/20 rounded-full text-white text-[14px] font-black uppercase tracking-widest backdrop-blur-sm">
-                🧭 Guide to Geriatric Park
+                <img src={GLYPH_ART.guide} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Guide to Geriatric Park
               </div>
               <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-inner animate-pulse overflow-hidden">
                 <ElderAvatarImg type={elder.type} stage={elder.evolutionStage ?? 0} fill />
@@ -125,7 +125,7 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
         {step === 1 && (
           <div className="p-12 flex flex-col items-center text-center">
             <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center text-4xl mb-6 animate-bounce">
-              🧭
+              <img src={GLYPH_ART.guide} alt="" className="w-16 h-16 object-contain" />
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-2">Guiding...</h2>
             <p className="text-slate-600">Walking {elder.name} toward the park.</p>

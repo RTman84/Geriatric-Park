@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { POWER_BRACKETS } from '../constants';
+import { POWER_BRACKETS, GLYPH_ART, modeGlyphArt } from '../constants';
 import { BracketCrest } from './Gfx';
 import { fetchBoard, BoardData, BoardMode } from '../services/boardsService';
 
 const MODES: { id: BoardMode; label: string; icon: string; unit: string; blurb: string }[] = [
-  { id: 'golden', label: 'Golden Games', icon: '🏆', unit: 'tier', blurb: 'Highest tier cleared (all time).' },
-  { id: 'arena', label: 'Arenas', icon: '🏟️', unit: 'defenders beaten', blurb: 'Defenders beaten this week.' },
-  { id: 'raid', label: 'Raids', icon: '🐲', unit: 'damage', blurb: 'Total Raid damage this week.' },
-  { id: 'friend', label: 'Friend Battles', icon: '🆚', unit: 'wins', blurb: 'Player battle wins this week.' },
+  { id: 'golden', label: 'Golden Games', icon: GLYPH_ART.courtLadders, unit: 'tier', blurb: 'Highest tier cleared (all time).' },
+  { id: 'arena', label: 'Arenas', icon: modeGlyphArt('arena') ?? '🏟️', unit: 'defenders beaten', blurb: 'Defenders beaten this week.' },
+  { id: 'raid', label: 'Raids', icon: GLYPH_ART.raid, unit: 'damage', blurb: 'Total Raid damage this week.' },
+  { id: 'friend', label: 'Friend Battles', icon: modeGlyphArt('friend') ?? '🆚', unit: 'wins', blurb: 'Player battle wins this week.' },
 ];
 
 const BoardsPanel: React.FC<{ isDark: boolean; onClose: () => void }> = ({ isDark, onClose }) => {
@@ -34,7 +34,7 @@ const BoardsPanel: React.FC<{ isDark: boolean; onClose: () => void }> = ({ isDar
           <button onClick={onClose} className="px-4 py-2 rounded-full bg-[var(--accent-600)] text-white text-[13px] font-black uppercase">✕ Close</button>
         </div>
         <div className="flex gap-2 overflow-x-auto mb-3">
-          {MODES.map(m => <button key={m.id} onClick={() => setMode(m.id)} className={tab(mode === m.id)}>{m.icon} {m.label}</button>)}
+          {MODES.map(m => <button key={m.id} onClick={() => setMode(m.id)} className={tab(mode === m.id)}><img src={m.icon} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />{m.label}</button>)}
         </div>
         <div className={`p-3 rounded-2xl mb-3 flex items-center justify-between ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
           <button disabled={(bracket ?? 1) <= 1} onClick={() => setBracket(b => Math.max(1, (b ?? data?.bracket ?? 1) - 1))} className={tab(false)}>◀</button>

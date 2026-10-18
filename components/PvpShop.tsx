@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey, GEAR_SET_INFO, getEffectiveGearBoost, getGearMaxLevel, ItemIcon } from '../constants';
+import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey, GEAR_SET_INFO, getEffectiveGearBoost, getGearMaxLevel, ItemIcon, PASS_ART } from '../constants';
 
 // PvP Shop: TV Dinners (earned only from Friend Battles, Arena, Raids and Court Ladder wins) buy antiques that
 // rotate daily and gear that is only sold here. Never PP, never passive income.
@@ -41,7 +41,7 @@ const PvpShop: React.FC<{
               const has = ownedSet.has(a.id);
               return (
                 <div key={a.id} className={`${card} flex items-center gap-3`} style={{ borderColor: GEAR_RARITY_COLOR[a.rarity] }}>
-                  <div className="text-4xl">{a.icon}</div>
+                  <div className="text-4xl"><ItemIcon name={a.name} icon={a.icon} size={44} /></div>
                   <div className="flex-1 min-w-0">
                     <div className="font-black uppercase text-[15px] truncate">{a.name}</div>
                     <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[a.rarity] }}>{a.rarity} · title: {a.title}</div>
@@ -91,7 +91,7 @@ const PvpShop: React.FC<{
               { kind: 'raid' as const, icon: '🎟️', name: 'Rally Pass', desc: 'Waives the Ticket fee on one extra Raid attempt (after your 2 free ones).' },
             ]).map(b => (
               <div key={b.kind} className={`${card} flex items-center gap-3`}>
-                <div className="text-3xl">{b.icon}</div>
+                <div className="text-3xl"><img src={b.kind === 'arena' ? PASS_ART.attack : PASS_ART.rally} alt={b.name} className="w-12 h-12 object-contain" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-black uppercase text-[15px]">{b.name} <span className="opacity-60">· held {passes[b.kind]}/{PASS_HOLD_MAX}</span></div>
                   <div className="text-[12px] opacity-70">{b.desc}</div>
@@ -111,7 +111,7 @@ const PvpShop: React.FC<{
                 const d = has ? 0 : daysUntilAntique(a.id, day);
                 return (
                   <div key={a.id} className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} ${has ? '' : 'opacity-60'}`} style={has ? { borderColor: GEAR_RARITY_COLOR[a.rarity] } : undefined}>
-                    <div className="text-2xl">{has ? a.icon : '❔'}</div>
+                    <div className="text-2xl"><div className={has ? '' : isDark ? 'brightness-0 invert opacity-25' : 'brightness-0 opacity-30'}><ItemIcon name={a.name} icon={a.icon} size={40} /></div></div>
                     <div className="text-[11px] font-black uppercase leading-tight truncate">{has ? a.name : a.rarity}</div>
                     <div className="text-[10px] font-bold opacity-70">{has ? 'Owned' : d === 0 ? 'On sale today' : `Back in ${d}d`}</div>
                   </div>

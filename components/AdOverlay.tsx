@@ -5,7 +5,7 @@
 
 import { Gfx, EmojiText } from './Gfx';
 import React, { useEffect, useRef, useState } from 'react';
-import { AD_REVENUE_PAYOUT, REVENUE_SPLIT } from '../constants';
+import { AD_REVENUE_PAYOUT, REVENUE_SPLIT, GLYPH_ART } from '../constants';
 import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
 import { beginAdView, fetchVerifiedTotals } from '../services/ledgerService';
 
@@ -93,7 +93,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
 
         {/* Header */}
         <div className="bg-[var(--accent-600)] px-6 py-4 text-white text-center">
-          <div className="text-2xl mb-1">📺</div>
+          <img src={GLYPH_ART.watchAd} alt="" className="w-12 h-12 mx-auto mb-1 object-contain" />
           <h2 className="font-black text-lg uppercase tracking-wide">Sponsor Break</h2>
           <p className="text-[var(--accent-200)] text-sm mt-1">
             {adCount}/{maxAds} sponsorship slots used today
@@ -150,7 +150,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* LOADING (native AdMob) */}
           {phase === 'loading' && (
             <div className="text-center py-8 space-y-3">
-              <div className="text-4xl animate-pulse">📺</div>
+              <img src={GLYPH_ART.watchAd} alt="" className="w-16 h-16 mx-auto animate-pulse object-contain" />
               <p className="text-slate-700 dark:text-slate-200 font-bold text-base">Loading sponsor…</p>
             </div>
           )}
@@ -186,7 +186,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* REWARD */}
           {phase === 'reward' && (
             <div className="text-center py-4 space-y-3">
-              <div className="text-5xl">🎉</div>
+              <img src={GLYPH_ART.victory} alt="" className="w-20 h-20 mx-auto object-contain" />
               <p className="font-black text-xl text-slate-800 dark:text-slate-100">
                 Reward Earned!
               </p>

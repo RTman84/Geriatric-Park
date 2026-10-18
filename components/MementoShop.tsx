@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
@@ -35,7 +35,7 @@ const MementoShop: React.FC<{
         <div className="space-y-2 mb-5">
           {MEMENTO_PACKS.map(p => (
             <div key={p.id} className={`${card} flex items-center gap-3`}>
-              <div className="text-3xl"><Gfx e="💛" /></div>
+              <div className="text-3xl"><img src={p.id === 'mementos_100' ? PASS_ART.mementos100 : p.id === 'mementos_550' ? PASS_ART.mementos550 : PASS_ART.mementos1150} alt={p.label} className="w-14 h-14 object-contain" /></div>
               <div className="flex-1 min-w-0">
                 <div className="font-black uppercase text-[15px] truncate">{p.label}</div>
                 <div className="text-[12px] opacity-70">{p.mementos} Mementos</div>
@@ -74,7 +74,7 @@ const MementoShop: React.FC<{
             const has = ownedSet.has(m.id);
             return (
               <div key={m.id} className={`${card} flex items-center gap-3`}>
-                <div className="text-4xl">{m.icon}</div>
+                <div className="text-4xl"><ItemIcon name={m.name} icon={m.icon} size={44} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-black uppercase text-[15px] truncate">{m.name}</div>
                   <div className="text-[12px] opacity-70">Title: {m.title}</div>
@@ -92,7 +92,7 @@ const MementoShop: React.FC<{
             const w = has ? 0 : weeksUntilMemento(m.id, week);
             return (
               <div key={m.id} className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} ${has ? '' : 'opacity-60'}`}>
-                <div className="text-2xl">{has ? m.icon : '❔'}</div>
+                <div className="text-2xl"><div className={has ? '' : isDark ? 'brightness-0 invert opacity-25' : 'brightness-0 opacity-30'}><ItemIcon name={m.name} icon={m.icon} size={40} /></div></div>
                 <div className="text-[11px] font-black uppercase leading-tight truncate">{has ? m.name : 'Keepsake'}</div>
                 <div className="text-[10px] font-bold opacity-70">{has ? 'Owned' : w === 0 ? 'On sale now' : `Back in ${w}w`}</div>
               </div>

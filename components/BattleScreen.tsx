@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Elder, PowerType } from '../types';
-import { ELDER_AVATARS, ElderAvatarImg, POWER_ADVANTAGE, ELDER_TYPE_STYLING, GUIDE_SUCCESS_RATE, getElderPower } from '../constants';
+import { ELDER_AVATARS, ElderAvatarImg, POWER_ADVANTAGE, ELDER_TYPE_STYLING, GUIDE_SUCCESS_RATE, getElderPower, GLYPH_ART } from '../constants';
 import { generateBattleDialogue } from '../services/geminiService';
 import { audioManager } from '../services/audioManager';
 import { PlayIcon, ArrowsRightLeftIcon, CpuChipIcon } from '@heroicons/react/24/solid';
@@ -282,7 +282,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
               title={guideBlockedReason ? 'Your park is full — upgrade your Retirement Cottage or scrap a Folk to make room.' : undefined}
               className="w-24 bg-orange-600 hover:bg-orange-500 text-white rounded-3xl flex flex-col items-center justify-center active:scale-95 transition-all shadow-xl border-b-8 border-orange-900 disabled:opacity-50"
             >
-              <span className="text-xl mb-1">🧭</span>
+              <img src={GLYPH_ART.guide} alt="" className="w-9 h-9 mb-1 object-contain" />
               <span className="text-[12px] font-black uppercase">{guideBlockedReason ?? 'Guide'}</span>
             </button>
           )}
