@@ -1,3 +1,5 @@
+> SUPERSEDED by GERIATRIC_PARK_STATUS_2026-10-17.md (start there).
+
 # Geriatric Park - CARRY-OVER (2026-10-16)
 Paste this whole file as the first message in a new chat. Repo: `RTman84/Geriatric-Park`, branch `phase2/account-backend-foundation-clean` (only active branch). Supersedes `GERIATRIC_PARK_STATUS_2026-10-11.md` (its efficiency rules and standing rules are repeated at the end of this file). Sections: **1. Missing art prompts** -> **2. New ideas and concerns from 10-16, with plans** -> **3. The rest of the list** -> **4. Rules**.
 
