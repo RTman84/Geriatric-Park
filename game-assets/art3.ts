@@ -96,6 +96,7 @@ import a93 from './glyphs/victory.webp';
 import a94 from './glyphs/watch_ad.webp';
 import a124 from './glyphs/challenge_canes.webp';
 import a125 from './glyphs/golden_tower.webp';
+import a126 from './antiques/founders_shuffleboard_cue.webp';
 import a95 from './antiques/silver_teapot.webp';
 import a96 from './antiques/phonograph.webp';
 import a97 from './antiques/brass_telescope.webp';
@@ -214,6 +215,7 @@ export const ITEM_ART3: Record<string, string> = {
   "Ivory Chess Set": a121,
   "The First Casserole Dish": a122,
   "Gilded TV Dinner Tray": a123,
+  "Founder's Shuffleboard Cue": a126,
 };
 
 // Elder Pass lane cosmetic icons by label.
