@@ -1,0 +1,100 @@
+GERIATRIC PARK - ART PROMPTS, BATCH 2 (2026-10-19)
+Everything below is copy-paste ready: each batch has the STYLE, LAYOUT, ITEMS and NEGATIVE PROMPT together. Paste one batch per generation. Attach a finished sheet from game-assets as a Style Reference. Keep 6-12 cells per sheet.
+
+HOW TO QA EACH SHEET BEFORE UPLOADING (reject and re-roll an item if you see any of these): double handles on canes or cups, extra or missing legs on the walker, readable gibberish text, merged or touching items, items cropped at the edge, a floor or shadow under items, a label or caption, stray extra items.
+
+ORDER: N1 (nav, most visible) -> N2 -> N3 -> N4a -> N4b. Upload each sheet as soon as it is done and I will cut, defringe, check on a dark background and wire it.
+
+
+====================================================================================================
+N1 - Nav bar + header icons (12 icons, 4 columns x 3 rows)
+====================================================================================================
+Why: Replaces the line-art Heroicons in the bottom nav (Map, Team, Park, Shop, Tasks, Pass, Bank) and the header (Mailbox, Friends, Settings, Activity Log, plus a daily-streak flame). Court already has art (glyph_court), so it is NOT in this sheet. These sit at about 32px: bold silhouettes, one clear object each, similar visual weight, front-facing, centered.
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no cast shadows, no floor. LAYOUT: 4 columns x 3 rows, one icon per cell, items numbered left to right, top to bottom.
+1 Map tab: a folded paper park map with a winding dotted trail and a red map pin on it
+2 Team tab: three small elder heads side by side, a grandma in a straw sun hat, a bearded grandpa in a navy flat cap, a grandma with purple glasses and a gray bun, all smiling
+3 Park tab: a cozy clubhouse cottage with a red tile roof, a small blue flag and a little tree beside it
+4 Shop tab: a paper shopping bag with gold rope handles and a small gold star tag
+5 Tasks tab: a wooden clipboard with a checklist of three ticked lines and a pencil clipped on top
+6 Pass tab: a golden ticket with a perforated stub edge and a star in the middle
+7 Bank tab: a plump pink piggy bank wearing tiny round glasses, a gold coin dropping into the slot
+8 Mailbox: a cream envelope with a red wax seal, flap slightly open
+9 Friends: two elder heads side by side waving, a small red heart between them
+10 Settings: a brass cogwheel with a tiny wooden handle crank
+11 Activity Log: an open ledger book with a small round clock on the page and a ribbon bookmark
+12 Daily streak: a bright orange flame with a yellow core and a tiny smiley glow
+
+NEGATIVE PROMPT:
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
+
+====================================================================================================
+N2 - Court and combat icons (6 icons, 3 columns x 2 rows)
+====================================================================================================
+Why: Replaces the emoji on the Court mode tabs and cards: Daily Tournament trophy, Friend Battle, Court Champion crown, mystery rival, Wheelchair Away and Walk On buttons. (Challenge canes, Golden Games tower, Auto-Play and Court Ladders already exist.)
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no cast shadows, no floor. LAYOUT: 3 columns x 2 rows, one icon per cell, items numbered left to right, top to bottom.
+1 Daily Tournament: a gold trophy cup with a small sunburst behind it and a tear-off calendar page on the base
+2 Friend Battle: two cheerful elders facing each other with friendly raised fists, a small bright spark between them, one in a green cardigan and one in a blue cardigan
+3 Court Champion: a gold crown with red jewels resting on a shuffleboard puck
+4 Mystery Rival: the dark blue-gray silhouette of an elder with glasses and a flat cap, a glowing gold question mark floating over the head, no face detail
+5 Wheelchair Away: a friendly elder in a wheelchair zooming forward with curved speed lines behind, one arm up cheering, no ramp, no floor
+6 Walk On: an elder walking away with a wooden cane and a small bag, seen from the side, one step forward, no ground line
+
+NEGATIVE PROMPT:
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
+
+====================================================================================================
+N3 - Tasks tabs and small status icons (8 icons, 4 columns x 2 rows)
+====================================================================================================
+Why: Replaces the emoji on the Tasks tab labels (Daily, Weekly, Goals, Feats), the streak flame, the Claimed check, the ad-boost countdown, and the first-generation Antique Pocket Watch (the old art does not match the new style).
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no cast shadows, no floor. LAYOUT: 4 columns x 2 rows, one icon per cell, items numbered left to right, top to bottom.
+1 Daily tasks: a tear-off wall calendar page with a bright sun on it, no readable numbers
+2 Weekly tasks: a weekly planner board with seven small colored dots in a row
+3 Goals: a round archery target with a dart in the bullseye and a small red flag on top
+4 Feats: a gold rosette ribbon medal with two long ribbon tails and a laurel wreath
+5 Streak flame: a bright orange flame with a yellow core and a tiny smiley glow
+6 Claimed: a green checkmark inside a gold wax seal
+7 Boost active: a gold stopwatch with a small lightning bolt on its face
+8 Antique Pocket Watch: a gold pocket watch on a chain, lid open, white face with simple unreadable tick marks
+
+NEGATIVE PROMPT:
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
+
+====================================================================================================
+N4a - Redo of first-generation shop items, part 1 (6 items, 3 columns x 2 rows)
+====================================================================================================
+Why: The first-generation item art (muffin, walker, hat, loafers, hearing aid, glasses) is darker and painterly and does not match the new glossy style. The Tennis Ball Walker is the worst offender and must be a real walker.
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no cast shadows, no floor. LAYOUT: 3 columns x 2 rows, one item per cell, items numbered left to right, top to bottom.
+1 High-Fiber Muffin: a plump bran muffin in a paper cup, raisins and oat flakes on top, a small curl of steam
+2 Tennis Ball Walker: a silver aluminum folding walker, rectangular tube frame with two black hand grips on top and exactly four legs, a bright yellow-green tennis ball cut over the foot of each front leg, no wheels, three-quarter view, every leg and rail clearly separate
+3 Straw Sunhat: a wide-brim woven straw sun hat with a blue ribbon band and a white daisy
+4 Comfy Loafers: a pair of tan leather loafers with soft cream cushioned soles, side by side, same size
+5 Hearing Aid Plus: a small beige behind-the-ear hearing aid with a gold accent and three tiny sound-wave arcs
+6 Reading Glasses: a pair of round gold-rimmed reading glasses with clear lenses, arms folded half open, a thin beaded chain loop attached to both arms
+
+NEGATIVE PROMPT:
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
+
+====================================================================================================
+N4b - Redo of first-generation shop and found items, part 2 (6 items, 3 columns x 2 rows)
+====================================================================================================
+Why: Same reason as N4a: the map pickups and shop charms do not match the new art. Each must read clearly at about 48px.
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no cast shadows, no floor. LAYOUT: 3 columns x 2 rows, one item per cell, items numbered left to right, top to bottom.
+1 Bingo Lucky Charm: a round brass charm on a small ring holding a shiny red bingo ball with a tiny gold star, no number on the ball
+2 Hard Candy: a red and white swirl candy wrapped in clear twisted cellophane
+3 Vintage Radio: a small handheld transistor radio in cream and brown with a round dial and a short antenna, no readable markings
+4 Lost Dentures: a cartoon set of upper and lower dentures with pink gums and white teeth, a tiny gold sparkle, slightly smiling, friendly not scary
+5 Old Map: a rolled parchment treasure map tied with twine, a red X and a dotted trail visible on the unrolled edge, no readable words
+6 Garden Charm: a four-leaf clover pendant in bright green enamel with a gold rim, on a short gold chain loop
+
+NEGATIVE PROMPT:
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
