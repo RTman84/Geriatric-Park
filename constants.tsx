@@ -1333,7 +1333,7 @@ export const ElderAvatarImg: React.FC<{
 // -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
 export const ITEM_ICON_ASSETS: Record<string, string> = {
   ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
-  ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and the first 30 antiques
+  ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and all 59 antiques with art (Founder's Shuffleboard Cue still emoji)
   // SHOP_ITEMS (s1-s4)
   'High-Fiber Muffin': branMuffinImg,
   'Tennis Ball Walker': walkerTennisBallImg,

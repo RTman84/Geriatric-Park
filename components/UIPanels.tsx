@@ -647,7 +647,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? '⚔️ Challenge' : mode === 'league' ? '🏅 Golden' : '🆚 Friend'}
+            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Golden</> : '🆚 Friend'}
           </button>
         ))}
       </div>

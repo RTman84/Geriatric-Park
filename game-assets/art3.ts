@@ -94,6 +94,37 @@ import a91 from './glyphs/raid.webp';
 import a92 from './glyphs/roster_room.webp';
 import a93 from './glyphs/victory.webp';
 import a94 from './glyphs/watch_ad.webp';
+import a124 from './glyphs/challenge_canes.webp';
+import a125 from './glyphs/golden_tower.webp';
+import a95 from './antiques/silver_teapot.webp';
+import a96 from './antiques/phonograph.webp';
+import a97 from './antiques/brass_telescope.webp';
+import a98 from './antiques/cast-iron_skillet.webp';
+import a99 from './antiques/typewriter.webp';
+import a100 from './antiques/grandfather_clock.webp';
+import a101 from './antiques/quilted_heirloom.webp';
+import a102 from './antiques/pocket_compass.webp';
+import a103 from './antiques/wooden_cane.webp';
+import a104 from './antiques/victory_garden_sign.webp';
+import a105 from './antiques/banjo.webp';
+import a106 from './antiques/gramophone_horn.webp';
+import a107 from './antiques/porcelain_teacups.webp';
+import a108 from './antiques/spinning_wheel.webp';
+import a109 from './antiques/dance_hall_poster.webp';
+import a110 from './antiques/war_bond_frame.webp';
+import a111 from './antiques/hand-cranked_radio.webp';
+import a112 from './antiques/fishing_creel.webp';
+import a113 from './antiques/golden_bingo_cage.webp';
+import a114 from './antiques/crystal_chandelier.webp';
+import a115 from './antiques/velvet_armchair.webp';
+import a116 from './antiques/jeweled_hearing_horn.webp';
+import a117 from './antiques/mahogany_radio_cabinet.webp';
+import a118 from './antiques/opera_glasses.webp';
+import a119 from './antiques/ballroom_trophy.webp';
+import a120 from './antiques/stained-glass_lamp.webp';
+import a121 from './antiques/ivory_chess_set.webp';
+import a122 from './antiques/the_first_casserole_dish.webp';
+import a123 from './antiques/gilded_tv_dinner_tray.webp';
 
 // Gear, shop boosters, keepsakes and antiques by item name (merged into ITEM_ICON_ASSETS in constants.tsx).
 export const ITEM_ART3: Record<string, string> = {
@@ -154,6 +185,35 @@ export const ITEM_ART3: Record<string, string> = {
   "Wartime Love Letters": a55,
   "Waxed Puck": a56,
   "Wool Cardigan": a57,
+  "Silver Teapot": a95,
+  "Phonograph": a96,
+  "Brass Telescope": a97,
+  "Cast-Iron Skillet": a98,
+  "Typewriter": a99,
+  "Grandfather Clock": a100,
+  "Quilted Heirloom": a101,
+  "Pocket Compass": a102,
+  "Wooden Cane": a103,
+  "Victory Garden Sign": a104,
+  "Banjo": a105,
+  "Gramophone Horn": a106,
+  "Porcelain Teacups": a107,
+  "Spinning Wheel": a108,
+  "Dance Hall Poster": a109,
+  "War Bond Frame": a110,
+  "Hand-Cranked Radio": a111,
+  "Fishing Creel": a112,
+  "Golden Bingo Cage": a113,
+  "Crystal Chandelier": a114,
+  "Velvet Armchair": a115,
+  "Jeweled Hearing Horn": a116,
+  "Mahogany Radio Cabinet": a117,
+  "Opera Glasses": a118,
+  "Ballroom Trophy": a119,
+  "Stained-Glass Lamp": a120,
+  "Ivory Chess Set": a121,
+  "The First Casserole Dish": a122,
+  "Gilded TV Dinner Tray": a123,
 };
 
 // Elder Pass lane cosmetic icons by label.
@@ -192,4 +252,6 @@ export const GLYPH_ART: Record<string, string> = {
   rosterRoom: a92,
   victory: a93,
   watchAd: a94,
+  challengeCanes: a124,
+  goldenTower: a125,
 };
