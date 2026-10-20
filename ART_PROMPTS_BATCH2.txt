@@ -3,7 +3,7 @@ Everything below is copy-paste ready: each batch has the STYLE, LAYOUT, ITEMS an
 
 HOW TO QA EACH SHEET BEFORE UPLOADING (reject and re-roll an item if you see any of these): double handles on canes or cups, extra or missing legs on the walker, readable gibberish text, merged or touching items, items cropped at the edge, a floor or shadow under items, a label or caption, stray extra items.
 
-ORDER: N1 (nav, most visible) -> N2 -> N3 -> N4a -> N4b. Upload each sheet as soon as it is done and I will cut, defringe, check on a dark background and wire it.
+ORDER: N1 (nav, most visible) -> N5 (Park Assets) -> N2 -> N3 -> N4a -> N4b. Upload each sheet as soon as it is done and I will cut, defringe, check on a dark background and wire it.
 
 
 ====================================================================================================
@@ -98,3 +98,22 @@ Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy hi
 
 NEGATIVE PROMPT:
 text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts, merged items
+
+====================================================================================================
+N5 - Park Assets redo (6 items, 3 columns x 2 rows) - ONE art set used in BOTH the Bank list and the Park scene placement
+====================================================================================================
+Why: the Bank list shows the old parcel art (it has signs, 'equity share' papers and painted lettering), but placing an asset in the Park scene currently shows a plain emoji. The owner wants ONE identical visual in both places with NO words, signs or signage. These must be stand-alone props: no round stone base, no ground, no shadow, so they sit directly on the park grass and also read clearly at about 48px in the Bank list. Keep all six at the same visual scale and the same three-quarter view as the park buildings. Placeable footprint: roughly square, no tall thin parts that vanish when small.
+
+PROMPT (paste all of this):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no signs, no plaques, no banners, no drop shadows, no cast shadows, no floor. LAYOUT: 3 columns x 2 rows, one stand-alone prop per cell, same scale, three-quarter view, items numbered left to right, top to bottom.
+1 Garden Plot: a raised wooden planter box overflowing with tomatoes, carrots, lettuce and a sunflower, a small watering can leaning on one corner, no sign
+2 Park Bench Sponsor: a classic green park bench with black wrought-iron scrollwork ends and wooden slats, a small potted flower at one end, no plaque
+3 Bingo Hall Equity: a small cheerful bingo pavilion with a striped awning, a big wire bingo ball cage with colorful balls on the roof as its symbol, string lights, no lettering anywhere
+4 Shuttle Van Fleet: a cream and green retirement-community shuttle van with a side wheelchair ramp lowered, round headlights, exactly four wheels, no lettering or logo
+5 The Golden Wing: a gilded statue of one large feathered golden wing rising from a small marble pedestal, polished and sparkling, no inscription
+6 Park Directorship: an ornate wooden director's armchair with gold trim and a red velvet cushion, a gold gavel resting on the seat, no nameplate
+
+NEGATIVE PROMPT:
+text, letters, numbers, signs, signboard, plaque, banner, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, drop shadow, cast shadow, floor, round base, stone base, table, extra legs, extra wheels, duplicated parts, merged items, documents, certificates, paper
+
+QA: reject any item with writing, a sign or plaque, a stone/grass base, a cast shadow, paper documents, a wrong wheel count on the van, or a bench with extra legs.
