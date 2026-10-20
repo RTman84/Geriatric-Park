@@ -1,5 +1,22 @@
 // Art delivered 2026-10-16 (sheets S07b, S09, S10, S13-S19, S25, S26, S28, S29), cut by a second Claude account and cleaned (white sticker border trimmed).
 // Maps are keyed by the NAMES the game uses so shops and cosmetics can look art up the same way as ITEM_ICON_ASSETS.
+import gl_tournament from './glyphs/tournament.webp';
+import gl_friendBattle from './glyphs/friend_battle.webp';
+import gl_courtChampion from './glyphs/court_champion.webp';
+import gl_mysteryRival from './glyphs/mystery_rival.webp';
+import gl_wheelchair from './glyphs/wheelchair_away.webp';
+import gl_walkOn from './glyphs/walk_on.webp';
+import gl_tabDaily from './glyphs/tab_daily.webp';
+import gl_tabWeekly from './glyphs/tab_weekly.webp';
+import gl_tabGoals from './glyphs/tab_goals.webp';
+import gl_tabFeats from './glyphs/tab_feats.webp';
+import gl_claimed from './glyphs/claimed.webp';
+import gl_adBoost from './glyphs/ad_boost.webp';
+import gl_streak from './glyphs/streak_flame.webp';
+import gl_navMailbox from './nav/nav_mailbox.webp';
+import gl_navFriends from './nav/nav_friends.webp';
+import gl_navSettings from './nav/nav_settings.webp';
+import gl_activityLog from './nav/nav_activity_log.webp';
 import a1 from './antiques/almanac.webp';
 import a2 from './keepsakes/anniversary_locket.webp';
 import a3 from './shop/bingo_dauber_xl.webp';
@@ -256,4 +273,21 @@ export const GLYPH_ART: Record<string, string> = {
   watchAd: a94,
   challengeCanes: a124,
   goldenTower: a125,
+  tournament: gl_tournament,
+  friendBattle: gl_friendBattle,
+  courtChampion: gl_courtChampion,
+  mysteryRival: gl_mysteryRival,
+  wheelchair: gl_wheelchair,
+  walkOn: gl_walkOn,
+  tabDaily: gl_tabDaily,
+  tabWeekly: gl_tabWeekly,
+  tabGoals: gl_tabGoals,
+  tabFeats: gl_tabFeats,
+  claimed: gl_claimed,
+  adBoost: gl_adBoost,
+  streak: gl_streak,
+  navMailbox: gl_navMailbox,
+  navFriends: gl_navFriends,
+  navSettings: gl_navSettings,
+  activityLog: gl_activityLog,
 };

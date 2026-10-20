@@ -64,19 +64,6 @@ import factionOwlsImg from './game-assets/factions/night_owls.png';
 import factionDriversImg from './game-assets/factions/sunday_drivers.png';
 import amenityLodge from './game-assets/amenities/lodge.png';
 
-import bingoLuckCharmImg from './game-assets/items/bingo_luck_charm.png';
-import branMuffinImg from './game-assets/items/bran_muffin.png';
-import comfyLoafersImg from './game-assets/items/comfy_loafers.png';
-import goodLuckCharmImg from './game-assets/items/good_luck_charm.png';
-import hardCandyImg from './game-assets/items/hard_candy.png';
-import hearingAidImg from './game-assets/items/hearing_aid.png';
-import lostRetainerImg from './game-assets/items/lost_retainer.png';
-import pocketWatchImg from './game-assets/items/pocket_watch.png';
-import readingGlassesImg from './game-assets/items/reading_glasses.png';
-import sunhatImg from './game-assets/items/sunhat.png';
-import transistorRadioImg from './game-assets/items/transistor_radio.png';
-import treasureMapImg from './game-assets/items/treasure_map.png';
-import walkerTennisBallImg from './game-assets/items/walker_tennis_ball.png';
 
 import bingoBlitzHallImg from './game-assets/structures/bingo_blitz_hall.png';
 import communityGardenImg from './game-assets/structures/community_garden.png';
@@ -86,12 +73,6 @@ import mallCircuitImg from './game-assets/structures/mall_circuit.png';
 import potluckPavilionImg from './game-assets/structures/potluck_pavilion.png';
 import silverSpringsRehabImg from './game-assets/structures/silver_springs_rehab.png';
 
-import gardenPlotImg from './game-assets/parcels/garden_plot.png';
-import parkBenchSponsorImg from './game-assets/parcels/park_bench_sponsor.png';
-import bingoHallEquityImg from './game-assets/parcels/bingo_hall_equity.png';
-import shuttleVanFleetImg from './game-assets/parcels/shuttle_van_fleet.png';
-import theGoldenWingImg from './game-assets/parcels/the_golden_wing.png';
-import parkDirectorshipImg from './game-assets/parcels/park_directorship.png';
 
 import playerMarkerImg from './game-assets/player/player_marker.png';
 export const PLAYER_MARKER_IMG = playerMarkerImg;
@@ -102,6 +83,7 @@ import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
 import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
 import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
+import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
 import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
@@ -1334,21 +1316,7 @@ export const ElderAvatarImg: React.FC<{
 export const ITEM_ICON_ASSETS: Record<string, string> = {
   ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
   ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and all 60 antiques with art
-  // SHOP_ITEMS (s1-s4)
-  'High-Fiber Muffin': branMuffinImg,
-  'Tennis Ball Walker': walkerTennisBallImg,
-  'Straw Sunhat': sunhatImg,
-  'Comfy Loafers': comfyLoafersImg,
-  'Hearing Aid Plus': hearingAidImg,
-  'Reading Glasses': readingGlassesImg,
-  'Bingo Lucky Charm': bingoLuckCharmImg,
-  // ITEM_POOL (map pickups / found items)
-  'Hard Candy': hardCandyImg,
-  'Vintage Radio': transistorRadioImg,
-  'Lost Dentures': lostRetainerImg,
-  'Old Map': treasureMapImg,
-  'Garden Charm': goodLuckCharmImg,
-  'Antique Pocket Watch': pocketWatchImg,
+  ...ITEM_ART4, // N4a/N4b redo of the first-generation shop and found items + Antique Pocket Watch (replaces the older paintings)
 };
 
 export const ItemIcon: React.FC<{
@@ -1388,23 +1356,16 @@ export const STRUCTURE_ICON_ASSETS: Record<string, string> = {
 
 // Keyed by id -- INVESTMENT_TIERS items are read directly from this array
 // (unlike shop/pool items, they never get a fresh runtime id), so id is safe.
-export const PARCEL_ICON_ASSETS: Record<string, string> = {
-  i1: gardenPlotImg,
-  i2: parkBenchSponsorImg,
-  i3: bingoHallEquityImg,
-  i4: shuttleVanFleetImg,
-  i5: theGoldenWingImg,
-  i6: parkDirectorshipImg,
-};
+export const PARCEL_ICON_ASSETS: Record<string, string> = PARCEL_ART4;
 
 export const NAV_ITEMS = [
-  { id: 'map', label: 'Map', icon: <MapIcon className="w-6 h-6" /> },
-  { id: 'team', label: 'Team', icon: <UserGroupIcon className="w-6 h-6" /> },
-  { id: 'base', label: 'Park', icon: <HomeIcon className="w-6 h-6" /> },
-  { id: 'shop', label: 'Shop', icon: <ShoppingBagIcon className="w-6 h-6" /> },
-  { id: 'quests', label: 'Tasks', icon: <ClipboardDocumentListIcon className="w-6 h-6" /> },
-  { id: 'pass', label: 'Pass', icon: <TicketIcon className="w-6 h-6" /> },
-  { id: 'bank', label: 'Bank', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+  { id: 'map', label: 'Map', icon: <img src={NAV_ART.map} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'team', label: 'Team', icon: <img src={NAV_ART.team} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'base', label: 'Park', icon: <img src={NAV_ART.park} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'shop', label: 'Shop', icon: <img src={NAV_ART.shop} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'quests', label: 'Tasks', icon: <img src={NAV_ART.tasks} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'pass', label: 'Pass', icon: <img src={NAV_ART.pass} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'bank', label: 'Bank', icon: <img src={NAV_ART.bank} alt="" className="w-7 h-7 object-contain" /> },
 ];
 
 // --- Task rotation (Bundle D, 2026-09-21) -------------------------------------------------------------

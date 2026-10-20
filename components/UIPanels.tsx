@@ -300,7 +300,7 @@ export const BankPanel: React.FC<{
         </button>
         {boostActive ? (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">
-            <span className="text-[14px] font-black uppercase text-emerald-500 tracking-widest">2x Boost Active</span>
+            <span className="text-[14px] font-black uppercase text-emerald-500 tracking-widest"><img src={GLYPH_ART.adBoost} alt="" className="inline-block w-4 h-4 mr-1 object-contain align-middle" />2x Boost Active</span>
             <span className="text-[15px] font-black tabular-nums text-emerald-500">{String(boostMinutes).padStart(2, '0')}:{String(boostSeconds).padStart(2, '0')}</span>
           </div>
         ) : (
@@ -333,7 +333,7 @@ export const BankPanel: React.FC<{
                 {owned.map(({ item, count }) => (
                   <div key={item.id} className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                      {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" /> : item.icon}
+                      {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" /> : item.icon}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></p>
@@ -388,7 +388,7 @@ export const BankPanel: React.FC<{
                   >
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'} ${canAfford ? '' : 'opacity-70'}`}>
                       {PARCEL_ICON_ASSETS[item.id] ? (
-                        <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" />
+                        <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" />
                       ) : item.icon}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -600,7 +600,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
           </div>
           {isKing && (
             <div className="bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[14px] font-black uppercase animate-pulse">
-              👑 KING
+              <img src={GLYPH_ART.courtChampion} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />KING
             </div>
           )}
         </div>
@@ -647,7 +647,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? '🏆 Daily' : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Golden</> : '🆚 Friend'}
+            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? <><img src={GLYPH_ART.tournament} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Daily</> : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Golden</> : <><img src={GLYPH_ART.friendBattle} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Friend</>}
           </button>
         ))}
       </div>
@@ -838,7 +838,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
 
           <div className={`p-4 rounded-2xl mb-4 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
             <div className="flex items-center gap-4">
-              <span className="text-4xl">👴</span>
+              <img src={GLYPH_ART.mysteryRival} alt="" className="w-14 h-14 object-contain shrink-0" />
               <div className="min-w-0">
                 <p className="font-black text-base uppercase truncate">{tier.name}</p>
                 <p className={`text-[14px] ${muted}`}>Rank {tier.rank} · Power {rivalMin}–{rivalMax}</p>
@@ -955,7 +955,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'friendBattle' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🆚</div>
+            <div className="mb-3"><img src={GLYPH_ART.friendBattle} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Friend Battle</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Async PvP against a friend's Squad Power — no need for them to be online.</p>
           </div>
@@ -1109,7 +1109,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
       <span className={`text-[11px] font-black uppercase tracking-widest ${goldLane ? 'text-amber-500' : 'opacity-60'}`}>{goldLane ? '🌟 Gold' : 'Free'}</span>
       <span className="text-[13px] font-black leading-tight">{text}</span>
       <span className="mt-1 text-[12px] font-black uppercase">
-        {done ? <span className="text-emerald-500">✓ Claimed</span> : locked ? <span className="opacity-60">{goldLane && !gold ? 'Gold only' : 'Locked'}</span> : ready ? <button onClick={onClick} className="px-3 py-1 rounded-lg bg-[var(--accent-600)] text-white">Claim</button> : null}
+        {done ? <span className="text-emerald-500"><img src={GLYPH_ART.claimed} alt="" className="inline-block w-4 h-4 mr-1 object-contain align-middle" />Claimed</span> : locked ? <span className="opacity-60">{goldLane && !gold ? 'Gold only' : 'Locked'}</span> : ready ? <button onClick={onClick} className="px-3 py-1 rounded-lg bg-[var(--accent-600)] text-white">Claim</button> : null}
       </span>
     </div>
   );
@@ -1200,7 +1200,7 @@ export const QuestPanel: React.FC<{
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {tab === 'daily' ? '📅 Daily' : tab === 'weekly' ? '📆 Weekly' : tab === 'milestones' ? '🎯 Goals' : '🏅 Feats'}
+            {(() => { const k = tab === 'daily' ? 'tabDaily' : tab === 'weekly' ? 'tabWeekly' : tab === 'milestones' ? 'tabGoals' : 'tabFeats'; const label = tab === 'daily' ? 'Daily' : tab === 'weekly' ? 'Weekly' : tab === 'milestones' ? 'Goals' : 'Feats'; return <><img src={GLYPH_ART[k]} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />{label}</>; })()}
           </button>
         ))}
       </div>
@@ -1440,7 +1440,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
               {owned.map(({ item, count }) => (
                 <div key={item.id} className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-white'}`}>
-                    {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-cover" /> : item.icon}
+                    {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" /> : item.icon}
                   </div>
                   <span className={`font-black text-[14px] uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></span>
                 </div>
@@ -1455,7 +1455,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         <div className="flex justify-between items-center mb-3">
           <div>
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Check-In</h3>
-            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase font-bold`}>Streak: {streak} days 🔥</p>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase font-bold`}>Streak: {streak} days <img src={GLYPH_ART.streak} alt="" className="inline-block w-4 h-4 object-contain align-middle" /></p>
           </div>
           <CalendarDaysIcon className="w-8 h-8 text-[var(--accent-400)]" />
         </div>

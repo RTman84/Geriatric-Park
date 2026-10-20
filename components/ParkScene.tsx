@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR, UI_ART } from '../constants';
+import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR, UI_ART, PARCEL_ICON_ASSETS } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
 import trail from '../game-assets/park/cut/trail.png';
@@ -39,7 +39,7 @@ export interface Wanderer {
 }
 // ---- Decoration (Park Assets placed by the player) ----
 export interface DecorPiece { id: string; x: number; y: number } // x, y in % of the scene
-export interface DecorOption { id: string; icon: string; name: string; owned: number; placed: number }
+export interface DecorOption { id: string; icon: string; art?: string; name: string; owned: number; placed: number }
 // The path winds, so it is checked against its real centre line (measured from the backdrop art) instead of one wide band.
 // Everything else is allowed except building footprints (including the two reserved for the Tinker's Workshop and the
 // Visitors' Lodge), the pond corner, and the gate.
@@ -168,7 +168,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
             return (
               <button key={o.id} disabled={left <= 0} onClick={() => setDecorPick(decorPick === o.id ? null : o.id)}
                 style={{ flex: '0 0 auto', padding: '6px 10px', borderRadius: 12, border: decorPick === o.id ? '3px solid #fbbf24' : '2px solid rgba(255,255,255,0.4)', background: left > 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)', color: '#fff', opacity: left > 0 ? 1 : 0.45, fontSize: 13, fontWeight: 900, whiteSpace: 'nowrap' }}>
-                {o.icon} ×{Math.max(0, left)}
+                {o.art ? <img src={o.art} alt={o.name} style={{ width: 28, height: 28, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }} /> : o.icon} ×{Math.max(0, left)}
               </button>
             );
           })}
@@ -182,7 +182,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
       {decor.map((d, i) => (
         <div key={i} onClick={decorMode && onRemoveDecor ? (e) => { e.stopPropagation(); onRemoveDecor(i); } : undefined}
           style={{ position: 'absolute', left: `${d.x}%`, top: `${d.y}%`, transform: 'translate(-50%, -50%)', fontSize: 'clamp(26px, 7vw, 44px)', lineHeight: 1, zIndex: 4, filter: 'drop-shadow(0 3px 3px rgba(0,0,0,0.45))', cursor: decorMode ? 'pointer' : 'default', outline: decorMode ? '2px dashed rgba(255,255,255,0.8)' : undefined, borderRadius: 8, pointerEvents: decorMode ? 'auto' : 'none' }}>
-          {decorIcons[d.id] ?? INVESTMENT_TIERS.flatMap(t => t.items).find(x => x.id === d.id)?.icon ?? '🌳'}
+          {PARCEL_ICON_ASSETS[d.id] ? <img src={PARCEL_ICON_ASSETS[d.id]} alt="" draggable={false} style={{ width: 'clamp(34px, 9vw, 56px)', height: 'clamp(34px, 9vw, 56px)', objectFit: 'contain', display: 'block' }} /> : (decorIcons[d.id] ?? INVESTMENT_TIERS.flatMap(t => t.items).find(x => x.id === d.id)?.icon ?? '🌳')}
         </div>
       ))}
       {decorMode && (

@@ -52,7 +52,7 @@ import {
   Structure
 } from './types';
 import { 
-  NAV_ITEMS, 
+  NAV_ITEMS, PARCEL_ICON_ASSETS, 
   INITIAL_PENSION_RATE, 
   ITEM_POOL,
   INITIAL_ACHIEVEMENTS,
@@ -3162,7 +3162,7 @@ const App: React.FC = () => {
   // Nav items with shuffleboard added
   const NAV_WITH_COURT = [
     ...NAV_ITEMS,
-    { id: 'shuffleboard', label: 'Court', icon: <img src={GLYPH_ART.courtPuck} alt="" className="w-6 h-6 object-contain" /> }
+    { id: 'shuffleboard', label: 'Court', icon: <img src={GLYPH_ART.courtPuck} alt="" className="w-7 h-7 object-contain" /> }
   ];
 
   return (
@@ -3187,7 +3187,7 @@ const App: React.FC = () => {
                       {authSession?.user.displayName && (
                         <span className="text-sm font-black uppercase text-[var(--accent-500)] truncate max-w-[84px] sm:max-w-[140px]" title={authSession.user.displayName}>{authSession.user.displayName}</span>
                       )}
-                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><Cog6ToothIcon className="w-4 h-4" /></button>
+                      <button onClick={() => setShowSettings(true)} className="p-1 text-slate-300 hover:text-[var(--accent-500)] transition-colors"><img src={GLYPH_ART.navSettings} alt="" className="w-5 h-5 object-contain" /></button>
                     </div>
                     <div className={`w-24 h-1 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                       <div className="h-full bg-[var(--accent-500)]" style={{ width: `${Math.min(100, (state.xp / xpForPlayerLevel(state.level)) * 100)}%` }}></div>
@@ -3199,11 +3199,11 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={handleOpenFriends} className={`relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100`}>
-              <UserGroupIcon className="w-6 h-6" />
+              <img src={GLYPH_ART.navFriends} alt="" className="w-7 h-7 object-contain" />
               {(friendsData?.incoming.length ?? 0) > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{friendsData!.incoming.length}</div>}
             </button>
             <button onClick={() => triggerTab('mailbox')} className={`relative p-2 rounded-xl transition-all ${activeTab === 'mailbox' ? 'bg-[var(--accent-500)] text-white' : 'text-slate-300 hover:bg-slate-100'}`}>
-              <EnvelopeIcon className="w-6 h-6" />
+              <img src={GLYPH_ART.navMailbox} alt="" className="w-7 h-7 object-contain" />
               {unreadMailCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{unreadMailCount}</div>}
             </button>
           </div>
@@ -3233,7 +3233,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
+          {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, art: PARCEL_ICON_ASSETS[it.id], name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
             ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 10).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),
           ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenWorkshop={() => setShowWorkshop(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
@@ -3304,7 +3304,7 @@ const App: React.FC = () => {
         <nav className={`border-t pb-8 pt-3 px-1 flex justify-between items-center z-[60] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           {NAV_WITH_COURT.map(item => (
             <button key={item.id} onClick={() => triggerTab(item.id)} className={`flex flex-col items-center flex-1 transition-all relative ${activeTab === item.id ? 'text-[var(--accent-500)] scale-110 font-bold' : 'text-slate-300'}`}>
-              <div className="p-1">{item.icon}</div>
+              <div className={`p-1 ${activeTab === item.id ? '' : 'opacity-60 saturate-50'}`}>{item.icon}</div>
               <span className="text-[12px] font-black uppercase tracking-tighter">{item.label}</span>
             </button>
           ))}

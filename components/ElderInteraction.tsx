@@ -135,7 +135,7 @@ const ElderInteraction: React.FC<ElderInteractionProps> = ({ elder, onSuccess, o
         {step === 2 && (
           <div className="p-12 flex flex-col items-center text-center">
             <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mb-6 animate-bounce">
-              ✔️
+              <img src={GLYPH_ART.claimed} alt="" className="w-14 h-14 object-contain" />
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-2">Joined the Park!</h2>
             <p className="text-slate-600">{elder.name} is moving into your park.</p>

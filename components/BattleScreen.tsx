@@ -212,7 +212,7 @@ const BattleScreen: React.FC<BattleScreenProps> = ({ playerTeam, opponentElder, 
           </div>
           {onFlee && !battleFinished && (
             <button onClick={onFlee} className="bg-white/10 text-white px-4 py-1.5 rounded-full text-[15px] font-black uppercase flex items-center gap-2 border border-white/5">
-              🦽 Wheelchair Away
+              <img src={GLYPH_ART.wheelchair} alt="" className="w-6 h-6 object-contain" />Wheelchair Away
             </button>
           )}
         </div>
