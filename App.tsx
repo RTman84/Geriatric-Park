@@ -11,6 +11,7 @@ import ThronesPanel from './components/ThronesPanel';
 import ExchangeOverview from './components/ExchangeOverview';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
+import StartScreen from './components/StartScreen';
 import FriendsPanel from './components/FriendsPanel';
 import GroundsPanel from './components/GroundsPanel';
 import ParkScene, { isDecorSpotValid } from './components/ParkScene';
@@ -481,6 +482,7 @@ const App: React.FC = () => {
   const [accountPassword, setAccountPassword] = useState('');
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [accountBusy, setAccountBusy] = useState(false);
+  const [startDismissed, setStartDismissed] = useState(false); // start screen shows once per app launch, after the save/cloud load
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
   // Phase 2 social features: friends list state. Deliberately not part of
@@ -3151,6 +3153,24 @@ const App: React.FC = () => {
         </div>
       )}
     </div>
+  );
+
+  // Start screen: shown once per launch after loading. A returning/signed-in player's save is already loaded
+  // by this point, so they only tap Play; a new player can sign in here first (which restores their cloud save).
+  if (!startDismissed) return (
+    <StartScreen
+      hasStarted={state.hasStarted}
+      signedInEmail={authSession ? (authSession.user.email || 'your account') : null}
+      cloudEnabled={isCloudAccountsConfigured()}
+      busy={accountBusy}
+      message={accountMessage}
+      onPlay={() => setStartDismissed(true)}
+      onGoogle={() => { setAccountMessage(null); startGoogleSignIn().catch(e => setAccountMessage(e instanceof Error ? e.message : 'Google sign-in failed.')); }}
+      onEmailSignIn={(em, pw) => handleAccountAction(() => signInWithEmail(em, pw))}
+      onEmailCreate={(em, pw) => handleAccountAction(async () => (await signUpWithEmail(em, pw)).session)}
+      onMagicLink={(em) => handleAccountAction(async () => { await sendMagicLink(em); return null; })}
+      onHowToPlay={state.hasStarted ? () => { setStartDismissed(true); setShowTutorial(true); } : undefined}
+    />
   );
 
   if (!state.hasStarted) return <StarterSelection onSelect={(elder) => {
