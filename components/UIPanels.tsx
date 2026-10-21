@@ -1,3 +1,4 @@
+import { PASS_LANE_ART } from '../game-assets/art3';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
@@ -893,7 +894,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
                     isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
                   } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}`}
                 >
-                  <span className="text-lg leading-none">{isCleared ? '✓' : league.icon}</span>
+                  <span className="text-lg leading-none">{isCleared ? '✓' : (isImagePath(league.icon) ? <img src={league.icon} alt="" className="w-6 h-6 object-contain" /> : league.icon)}</span>
                   <span className={`text-[10px] font-black mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>#{i + 1}</span>
                 </button>
               );
@@ -908,7 +909,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             return (
               <div className={`p-5 rounded-2xl mb-4 border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-3xl">{league.icon}</span>
+                  <span className="text-3xl">{isImagePath(league.icon) ? <img src={league.icon} alt="" className="w-12 h-12 object-contain" /> : league.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
                       Tier {selectedLeague + 1}: {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
@@ -1147,7 +1148,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
           return (
             <div key={reward.level} className={`p-4 rounded-[2rem] border shadow-sm ${card} ${reward.level % 5 === 0 ? 'ring-2 ring-[var(--accent-500)]/40' : ''}`}>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const art = (reward.goldCosmetic ?? reward.freeCosmetic)?.icon; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })()}</div>
+                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const art = (reward.goldCosmetic ?? reward.freeCosmetic)?.icon; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : (() => { const band = reward.level < 10 ? 0 : reward.level < 20 ? 1 : 2; const key = (gold ? ['Gilded Guest', 'Gilded Veteran', 'Golden Champion'] : ['Regular', 'Veteran', 'Champion'])[band]; const bandArt = PASS_LANE_ART[key]; return bandArt ? <img src={bandArt} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })(); })()}</div>
                 <span className="text-[14px] font-black uppercase">Rank {reward.level}{reward.level % 5 === 0 ? ' · Milestone' : ''}</span>
                 {!reached && <span className="ml-auto text-[11px] font-black uppercase opacity-50">Locked</span>}
               </div>

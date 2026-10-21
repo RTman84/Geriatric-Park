@@ -6,7 +6,7 @@ import {
   ARENA_MAX_SLOTS, ARENA_MAX_PER_PLAYER, ARENA_MAX_ATTACKS_PER_DAY, ARENA_ATTACK_COOLDOWN_MIN, ARENA_FACTION_LOCK_DAYS, arenaAttackCost,
   raidBossByIndex, raidCountdownLabel, RAID_TIER_NAMES, RAID_FREE_ATTEMPTS, RAID_EXTRA_ATTEMPT_COST, RAID_MAX_ATTEMPTS_PER_PLAYER,
 } from '../constants';
-import { sortEldersByPref } from '../constants';
+import { sortEldersByPref, GLYPH_ART } from '../constants';
 import type { ArenaInfo, ArenaMe, ArenaDefender } from '../services/arenaService';
 import type { RaidHitResult } from '../services/arenaService';
 import type { ArenaSite } from '../services/worldMap';
@@ -37,7 +37,7 @@ const DefenderAvatar: React.FC<{ d: ArenaDefender }> = ({ d }) => {
   const stage = Math.min(2, Math.max(0, Math.floor(Number(d.elder?.evolutionStage) || 0)));
   return known
     ? <ElderAvatarImg type={d.elder.type as ElderType} stage={stage} size={44} />
-    : <div className="w-11 h-11 rounded-full bg-slate-500/30 flex items-center justify-center text-xl">👴</div>;
+    : <div className="w-11 h-11 rounded-full bg-slate-500/30 flex items-center justify-center p-0.5"><img src={GLYPH_ART.mysteryRival} alt="" className="w-full h-full object-contain" /></div>;
 };
 
 export const ArenaPanel: React.FC<ArenaPanelProps> = ({

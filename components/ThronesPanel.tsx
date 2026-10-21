@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { POWER_BRACKETS, COURT_PLACE_LABELS, COURT_PLACE_ICONS } from '../constants';
+import { POWER_BRACKETS, COURT_PLACE_LABELS, COURT_PLACE_ICONS, GLYPH_ART } from '../constants';
 import { BracketCrest, PlaceMedal } from './Gfx';
 import { fetchCourtState, challengeLadder, claimLadderPurse, type CourtState } from '../services/courtService';
 
@@ -41,7 +41,7 @@ const ThronesPanel: React.FC<{
     <div className="fixed inset-0 z-[1900] bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div className={`w-full max-w-md max-h-[88vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] p-5 ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-black uppercase">👑 Court Ladders</h2>
+          <h2 className="text-xl font-black uppercase"><img src={GLYPH_ART.courtLadders} alt="" className="inline-block w-7 h-7 mr-2 object-contain align-middle" />Court Ladders</h2>
           <button onClick={onClose} className="px-3 py-1 rounded-lg font-black bg-slate-200 text-slate-700">Close</button>
         </div>
         <p className="text-[12px] opacity-70 mb-3">Every power bracket has its own top-10 ladder. Challenge up to 3 ranks above you using your own squad's power. Ranks 1-3 earn a permanent bracket title and a daily Ticket purse. Spots are lost after 7 days away.</p>

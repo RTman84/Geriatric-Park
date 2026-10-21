@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ElderAvatarImg, getElderPower } from '../constants';
+import { ElderAvatarImg, getElderPower, GLYPH_ART } from '../constants';
 import type { Elder } from '../types';
 import type { ResidentExchangeRow } from '../services/residentExchangeService';
 import { exchangeSummary } from './FriendsPanel';
@@ -20,7 +20,7 @@ const ExchangeOverview: React.FC<{
     <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={onClose}>
       <div className={`rounded-[2.5rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] overflow-y-auto shadow-2xl border-4 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-black uppercase italic tracking-tighter">🏡 Away & Visiting</h2>
+          <h2 className="text-xl font-black uppercase italic tracking-tighter"><img src={GLYPH_ART.grounds} alt="" className="inline-block w-7 h-7 mr-2 object-contain align-middle" />Away & Visiting</h2>
           <button onClick={onClose} className="px-3 py-1 rounded-lg font-black bg-slate-200 text-slate-700">Close</button>
         </div>
 

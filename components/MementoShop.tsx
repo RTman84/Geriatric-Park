@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
@@ -59,7 +59,7 @@ const MementoShop: React.FC<{
 
         <h3 className="font-black uppercase text-[13px] opacity-60 mb-2">Convenience</h3>
         <div className={`${card} flex items-center gap-3 mb-5`}>
-          <div className="text-3xl">🏠</div>
+          <div><img src={GLYPH_ART.rosterRoom} alt="" className="w-10 h-10 object-contain" /></div>
           <div className="flex-1">
             <div className="font-black uppercase text-[15px]">Extra Roster Room</div>
             <div className="text-[12px] opacity-70">+1 Elder room · {rooms}/{PREMIUM_ROOM_MAX} bought · price rises with each room</div>

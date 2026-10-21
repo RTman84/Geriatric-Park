@@ -81,6 +81,7 @@ import earlyBirdImg from './game-assets/achievements/early_bird.png';
 import communityPillarImg from './game-assets/achievements/community_pillar.png';
 import debateChampionImg from './game-assets/achievements/debate_champion.png';
 import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.png';
+import trophySpare from './game-assets/spare/trophy.webp';
 import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
 import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
 import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
@@ -525,10 +526,10 @@ export interface GoldenGamesLeague {
 // purely so the data model stays bounded; in practice this is far more
 // runway than any squad will realistically climb through soon.
 const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
-  { id: 'bronze', name: 'Bronze Clubhouse', icon: '🥉', minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 5, winTicketsMax: 10, winElderXp: 25, winCommunityScore: 10, lossTickets: 2, lossElderXp: 8 },
-  { id: 'silver', name: 'Silver Sunroom', icon: '🥈', minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 12, winTicketsMax: 22, winElderXp: 45, winCommunityScore: 20, lossTickets: 3, lossElderXp: 12 },
-  { id: 'gold', name: 'Gold Lounge', icon: '🥇', minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 25, winTicketsMax: 40, winElderXp: 70, winCommunityScore: 35, lossTickets: 5, lossElderXp: 18 },
-  { id: 'legendary', name: 'Legendary Circuit', icon: '🏆', minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 50, winTicketsMax: 75, winElderXp: 100, winCommunityScore: 60, lossTickets: 6, lossElderXp: 25 },
+  { id: 'bronze', name: 'Bronze Clubhouse', icon: PLACE_ART[2], minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 5, winTicketsMax: 10, winElderXp: 25, winCommunityScore: 10, lossTickets: 2, lossElderXp: 8 },
+  { id: 'silver', name: 'Silver Sunroom', icon: PLACE_ART[1], minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 12, winTicketsMax: 22, winElderXp: 45, winCommunityScore: 20, lossTickets: 3, lossElderXp: 12 },
+  { id: 'gold', name: 'Gold Lounge', icon: PLACE_ART[0], minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 25, winTicketsMax: 40, winElderXp: 70, winCommunityScore: 35, lossTickets: 5, lossElderXp: 18 },
+  { id: 'legendary', name: 'Legendary Circuit', icon: trophySpare, minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 50, winTicketsMax: 75, winElderXp: 100, winCommunityScore: 60, lossTickets: 6, lossElderXp: 25 },
 ];
 export const GOLDEN_GAMES_MAX_TIERS = 100;
 // Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
@@ -566,7 +567,7 @@ function generateGoldenGamesTiers(): GoldenGamesLeague[] {
     tiers.push({
       id: `legendary-${step}`,
       name: `Legendary Circuit — Tier ${i + 1}`,
-      icon: '🏆',
+      icon: trophySpare,
       minSquadPower: Math.round(base.minSquadPower * mult),
       difficultyMin: Math.round(base.difficultyMin * mult),
       difficultyMax: Math.round(base.difficultyMax * mult),

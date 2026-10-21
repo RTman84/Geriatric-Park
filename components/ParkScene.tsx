@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR, UI_ART, PARCEL_ICON_ASSETS } from '../constants';
+import { AMENITIES, INVESTMENT_TIERS, producerStored, ElderAvatarImg, GEAR_RARITY_COLOR, UI_ART, PARCEL_ICON_ASSETS, GLYPH_ART } from '../constants';
 import backdrop from '../game-assets/park/park_backdrop.jpg';
 import cottage from '../game-assets/park/cut/cottage.png';
 import trail from '../game-assets/park/cut/trail.png';
@@ -144,9 +144,9 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 10px', pointerEvents: 'none' }}>
           {readOnly || !onOpenHub
             ? <div style={{ ...barBtn, pointerEvents: 'none' }}>{title ?? 'Park'}</div>
-            : <button onClick={onOpenHub} style={barBtn}>🏠 Park Hub</button>}
-          <div style={{ ...barBtn, pointerEvents: 'none' }}>👥 {rosterCount}/{capacity}</div>
-          {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}>🏡 Grounds</button> : <div style={{ width: 1 }} />}
+            : <button onClick={onOpenHub} style={barBtn}><img src={GLYPH_ART.parkHub} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />Park Hub</button>}
+          <div style={{ ...barBtn, pointerEvents: 'none' }}><img src={GLYPH_ART.friends} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />{rosterCount}/{capacity}</div>
+          {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}><img src={GLYPH_ART.grounds} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />Grounds</button> : <div style={{ width: 1 }} />}
         </div>
         {!readOnly && (onOpenExchange || onOpenWorkshop || (decorOptions && decorOptions.length > 0)) && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6, padding: '0 10px', pointerEvents: 'none', flexWrap: 'wrap' }}>

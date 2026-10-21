@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { POWER_BRACKETS, GLYPH_ART, modeGlyphArt } from '../constants';
+import { PLACE_ART } from '../game-assets/badges/badgeArt';
 import { BracketCrest } from './Gfx';
 import { fetchBoard, BoardData, BoardMode } from '../services/boardsService';
 
@@ -52,7 +53,7 @@ const BoardsPanel: React.FC<{ isDark: boolean; onClose: () => void }> = ({ isDar
             {data.top.length === 0 && <p className="text-[14px] opacity-70">No scores in this bracket yet. Be the first!</p>}
             {data.top.map((r, i) => (
               <div key={i} className={`flex items-center gap-3 p-3 rounded-2xl border ${r.me ? 'border-[var(--accent-500)]' : isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
-                <div className="w-8 text-center text-[16px] font-black">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</div>
+                <div className="w-8 text-center text-[16px] font-black">{i < 3 ? <img src={PLACE_ART[i]} alt={String(i + 1)} className="w-7 h-7 mx-auto object-contain" /> : i + 1}</div>
                 <div className="flex-1 min-w-0 text-[15px] font-black uppercase truncate">{r.display_name}{r.me ? ' (you)' : ''}</div>
                 <div className="text-[15px] font-black text-[var(--accent-500)]">{r.score.toLocaleString()}</div>
               </div>

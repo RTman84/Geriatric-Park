@@ -118,15 +118,15 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                     <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold">🏘️ Community Reserve {communityPct}%</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.communityReserve} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Community Reserve {communityPct}%</span>
                     <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold">🛠️ Development {devPct}%</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.development} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Development {devPct}%</span>
                     <span className="font-black text-slate-600 dark:text-slate-300">keeps the park growing</span>
                   </div>
                   <div className="flex justify-between pt-1">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold">⭐ Park Stars</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.parkStar} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Park Stars</span>
                     <span className="font-black text-purple-700 dark:text-purple-300">+10</span>
                   </div>
                 </div>
@@ -216,7 +216,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* ERROR */}
           {phase === 'error' && (
             <div className="text-center py-4 space-y-3">
-              <div className="text-4xl">😕</div>
+              <div><img src={GLYPH_ART.defeat} alt="" className="w-14 h-14 mx-auto object-contain" /></div>
               <p className="text-slate-700 dark:text-slate-200 font-bold text-base">
                 {errorMessage ?? 'No ads available right now. Check back soon!'}
               </p>

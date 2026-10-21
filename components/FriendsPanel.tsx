@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import { GEAR_RARITY_COLOR, ElderAvatarImg, getRankForLevel, isImagePath, AMENITIES, VISIT_COOLDOWN_MS, VISIT_MATERIALS_REWARD, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP, getBracket, getElderPower, exchangeGiftMaterials, exchangeGiftQuestPoints, exchangeGiftBoostHours, EXCHANGE_OWNER_XP_PER_HOUR } from '../constants';
-import { sortEldersByPref } from '../constants';
+import { sortEldersByPref, GLYPH_ART } from '../constants';
 import ParkScene from './ParkScene';
 import type { FriendsData, PlayerProfileSnapshot } from '../services/socialService';
 import { sendFriendRequestByUserId } from '../services/socialService';
@@ -380,13 +380,13 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                         onClick={() => setViewingParkFriendId(friend.user_id)}
                         className={`w-full mb-3 py-2 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
                       >
-                        🌳 View Park {builtAmenities.length > 0 ? `(${builtAmenities.length} built)` : '(nothing built yet)'}
+                        <img src={GLYPH_ART.grounds} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />View Park {builtAmenities.length > 0 ? `(${builtAmenities.length} built)` : '(nothing built yet)'}
                       </button>
                       <button
                         onClick={() => { setPlacingForFriendId(placingForFriendId === friend.user_id ? null : friend.user_id); setPickedElderId(null); }}
                         className={`w-full mb-3 py-2 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'} border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
                       >
-                        🏡 Leave a Folk Here
+                        <img src={GLYPH_ART.grounds} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Leave a Folk Here
                       </button>
                       {placingForFriendId === friend.user_id && (
                         <div className={`rounded-xl p-3 mb-3 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
