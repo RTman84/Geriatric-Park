@@ -1320,16 +1320,38 @@ export const ITEM_ICON_ASSETS: Record<string, string> = {
   ...ITEM_ART4, // N4a/N4b redo of the first-generation shop and found items + Antique Pocket Watch (replaces the older paintings)
 };
 
+// Universal item rarity glow (owner rule 2026-10-20): Rare = blue, Epic = purple, Legendary = gold, applied to every item icon
+// drawn through ItemIcon. Pass `rarity` when the caller knows it; otherwise it is looked up by item name (antiques, PvP gear).
+let _itemRarityByName: Record<string, GearRarity> | null = null;
+export const itemRarityByName = (name?: string): GearRarity | undefined => {
+  if (!name) return undefined;
+  if (!_itemRarityByName) {
+    _itemRarityByName = {};
+    for (const a of ANTIQUES) _itemRarityByName[a.name] = a.rarity as GearRarity;
+    for (const g of PVP_GEAR) if (g.rarity) _itemRarityByName[g.name] = g.rarity as GearRarity;
+  }
+  return _itemRarityByName[name];
+};
+export const rarityGlowFilter = (rarity?: GearRarity): string | undefined => {
+  if (!rarity || rarity === 'Common') return undefined;
+  const c = GEAR_RARITY_COLOR[rarity];
+  return rarity === 'Legendary'
+    ? `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 10px ${c}cc) drop-shadow(0 0 16px ${c}88)`
+    : `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 9px ${c}99)`;
+};
+
 export const ItemIcon: React.FC<{
   name?: string;
   icon: string;
   size?: number;
   fill?: boolean;
   className?: string;
-}> = ({ name, icon, size = 32, fill = false, className = '' }) => {
+  rarity?: GearRarity;
+}> = ({ name, icon, size = 32, fill = false, className = '', rarity }) => {
   const src = name ? ITEM_ICON_ASSETS[name] : undefined;
+  const glow = rarityGlowFilter(rarity ?? itemRarityByName(name));
   if (!src) {
-    return <span className={className} style={fill ? undefined : { fontSize: size }}>{icon}</span>;
+    return <span className={className} style={{ ...(fill ? {} : { fontSize: size }), ...(glow ? { filter: glow } : {}) }}>{icon}</span>;
   }
   return (
     <img
@@ -1337,7 +1359,7 @@ export const ItemIcon: React.FC<{
       alt={icon}
       draggable={false}
       className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className}`}
-      style={fill ? undefined : { width: size, height: size }}
+      style={{ ...(fill ? {} : { width: size, height: size }), ...(glow ? { filter: glow } : {}) }}
     />
   );
 };

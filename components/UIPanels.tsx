@@ -648,7 +648,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
             className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? <><img src={GLYPH_ART.tournament} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Daily</> : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Golden</> : <><img src={GLYPH_ART.friendBattle} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Friend</>}
+            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? <><img src={GLYPH_ART.tournament} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Daily</> : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Tower</> : <><img src={GLYPH_ART.friendBattle} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Friend</>}
           </button>
         ))}
       </div>
@@ -1541,7 +1541,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             <div className="grid grid-cols-3 gap-2">
               {sortedInventory.map(item => (
                 <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
-                  <ItemIcon name={item.name} icon={item.icon} size={52} />
+                  <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
                   <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                   {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
                 </button>
@@ -1564,7 +1564,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             {/* Compact header: icon+name+rarity all on one row, description capped to 2 lines --
                 a long description used to push the Elder list down to almost nothing. */}
             <div className="flex items-center gap-3 mb-2 flex-shrink-0">
-              <ItemIcon name={item.name} icon={item.icon} size={44} />
+              <ItemIcon name={item.name} icon={item.icon} size={44} rarity={item.rarity} />
               <div className="flex-1 min-w-0">
                 <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -1735,7 +1735,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                               className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${item ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}
                               style={{ borderColor: item ? GEAR_RARITY_COLOR[item.rarity ?? 'Common'] : undefined }}
                             >
-                              {item ? <ItemIcon name={item.name} icon={item.icon} size={32} /> : <span className="text-[18px] opacity-60">+</span>}
+                              {item ? <ItemIcon name={item.name} icon={item.icon} size={32} rarity={item.rarity} /> : <span className="text-[18px] opacity-60">+</span>}
                             </button>
                             <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
                           </div>

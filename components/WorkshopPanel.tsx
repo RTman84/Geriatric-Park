@@ -88,7 +88,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
                     return (
                       <button key={i.id} onClick={() => multi ? togglePick(i.id) : (setSel(i.id), setPicking(false))} className={`relative p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 active:scale-95 ${sub} ${on ? 'ring-4 ring-rose-500' : ''}`} style={rarityCardStyle(i.rarity)}>
                         {multi && <span className={`absolute top-1 right-1 w-5 h-5 rounded-full border-2 text-[12px] font-black flex items-center justify-center ${on ? 'bg-rose-500 border-white text-white' : 'border-slate-400'}`}>{on ? '\u2713' : ''}</span>}
-                        <ItemIcon name={i.name} icon={i.icon} size={48} />
+                        <ItemIcon name={i.name} icon={i.icon} size={48} rarity={i.rarity} />
                         <span className="text-[11px] leading-tight font-black uppercase text-center line-clamp-2">{i.name}</span>
                         <span className="text-[10px] font-black opacity-60">Lv.{i.level ?? 1}</span>
                       </button>
@@ -107,7 +107,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
           <div className="flex-1 overflow-y-auto">
             <button onClick={() => setSel(null)} className="mb-2 text-[13px] font-black uppercase opacity-70">&larr; All gear</button>
             <div className="flex items-center gap-3 mb-2">
-              <ItemIcon name={item.name} icon={item.icon} size={52} />
+              <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
               <div className="min-w-0">
                 <div className="text-[16px] font-black uppercase truncate">{item.name}</div>
                 <div className="text-[12px] font-black uppercase opacity-70">{item.rarity ?? 'Common'} - {item.slot} slot</div>
