@@ -74,8 +74,8 @@ const GroundsPanel: React.FC<GroundsPanelProps> = ({
   const disabledBtn = isDark ? 'bg-slate-700 text-slate-300 cursor-not-allowed' : 'bg-slate-200 text-slate-600 cursor-not-allowed';
 
   const renderIcon = (amenity: Amenity) => (
-    <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl">
-      {isImagePath(amenity.icon) ? <img src={amenity.icon} alt={amenity.name} className="w-full h-full object-cover" /> : amenity.icon}
+    <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center text-3xl bg-slate-900/70 p-1">
+      {isImagePath(amenity.icon) ? <img src={amenity.icon} alt={amenity.name} className="w-full h-full object-contain" /> : amenity.icon}
     </div>
   );
 

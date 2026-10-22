@@ -58,16 +58,26 @@ const RESERVED_SLOTS: { xc: number; y: number }[] = [];
 function allSlotRects() {
   return [...SLOT_ORDER.map((_, i) => slotFor(i)), ...RESERVED_SLOTS];
 }
-export function isDecorSpotValid(xPct: number, yPct: number): boolean {
+// Placement uses a FOOTPRINT (a square in backdrop pixels centred on the tap), not a single point (owner rule 2026-10-20):
+// the road is now allowed; the pond and the gate are still blocked but you may place right up against them (touching is fine);
+// a footprint may never overlap a building or another placed asset. Used by the live green/red ghost and by the placement handler.
+export const DECOR_FOOTPRINT = 84; // backdrop px (the sprite is ~92 px wide, a little forgiving)
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+const POND_RECT: Rect = { x0: 700, y0: 0, x1: BG_W, y1: 380 };
+const GATE_RECT: Rect = { x0: 350, y0: 2700, x1: 600, y1: BG_H };
+const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0; // touching edges is allowed
+const buildingRects = (): Rect[] => allSlotRects().map(({ xc, y }) => ({ x0: xc - BW / 2, y0: y, x1: xc + BW / 2, y1: y + BH }));
+export function decorRect(xPct: number, yPct: number): Rect {
+  const cx = (xPct / 100) * BG_W, cy = (yPct / 100) * BG_H, h = DECOR_FOOTPRINT / 2;
+  return { x0: cx - h, y0: cy - h, x1: cx + h, y1: cy + h };
+}
+export function isDecorSpotValid(xPct: number, yPct: number, existing: DecorPiece[] = [], ignoreIndex = -1): boolean {
   if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
-  const x = (xPct / 100) * BG_W, y = (yPct / 100) * BG_H;
-  if (x < 20 || x > BG_W - 20 || y < 60 || y > BG_H - 60) return false;
-  if (x > 700 && y < 380) return false;                          // pond corner
-  if (y > 2700 && x > 350 && x < 600) return false;              // gate
-  if (Math.abs(x - pathCenterAt(y)) < PATH_HALF_WIDTH) return false;
-  for (const { xc, y: top } of allSlotRects()) {
-    if (x > xc - BW / 2 - 4 && x < xc + BW / 2 + 4 && y > top - 4 && y < top + BH + 4) return false;
-  }
+  const r = decorRect(xPct, yPct);
+  if (r.x0 < 10 || r.x1 > BG_W - 10 || r.y0 < 40 || r.y1 > BG_H - 40) return false;
+  if (overlaps(r, POND_RECT) || overlaps(r, GATE_RECT)) return false;
+  for (const b of buildingRects()) if (overlaps(r, b)) return false;
+  for (let i = 0; i < existing.length; i++) if (i !== ignoreIndex && overlaps(r, decorRect(existing[i].x, existing[i].y))) return false;
   return true;
 }
 // Elders can walk anywhere that is not a building footprint (path included).
@@ -123,6 +133,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
   const [decorMode, setDecorMode] = useState(false);
   const [decorPick, setDecorPick] = useState<string | null>(null);
   const [decorDock, setDecorDock] = useState<'top' | 'bottom'>('bottom');
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   const sceneRef = React.useRef<HTMLDivElement>(null);
   const decorIcons = Object.fromEntries((decorOptions ?? []).map(o => [o.id, o.icon]));
   const [now, setNow] = useState(Date.now());
@@ -162,7 +173,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         // to the other edge when you want to place something underneath it.
         <div style={{ position: 'fixed', left: 8, right: 8, [decorDock === 'top' ? 'top' : 'bottom']: decorDock === 'top' ? 52 : 84, zIndex: 60, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 14, background: 'rgba(0,0,0,0.82)', overflowX: 'auto' } as React.CSSProperties}>
           <button onClick={() => setDecorDock(d => d === 'top' ? 'bottom' : 'top')} style={{ flex: '0 0 auto', padding: '6px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 900, fontSize: 14 }}>{decorDock === 'top' ? '⇩' : '⇧'}</button>
-          <span style={{ flex: '0 0 auto', color: '#fff', fontSize: 11, fontWeight: 800, maxWidth: 110, lineHeight: 1.15 }}>{decorPick ? 'Tap the grass' : 'Pick one, tap grass. Tap a placed one to remove.'}</span>
+          <span style={{ flex: '0 0 auto', color: '#fff', fontSize: 11, fontWeight: 800, maxWidth: 110, lineHeight: 1.15 }}>{decorPick ? 'Green = OK, red = blocked. Tap to place.' : 'Pick one, then tap anywhere green. Tap a placed one to remove.'}</span>
           {decorOptions.map(o => {
             const left = o.owned - o.placed;
             return (
@@ -186,14 +197,33 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         </div>
       ))}
       {decorMode && (
-        <div onClick={e => {
+        <div
+          onPointerMove={e => {
+            if (!decorPick || !sceneRef.current) return;
+            const r = sceneRef.current.getBoundingClientRect();
+            setGhost({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+          }}
+          onPointerLeave={() => setGhost(null)}
+          onClick={e => {
           if (!decorPick || !onPlaceDecor || !sceneRef.current) return;
           const r = sceneRef.current.getBoundingClientRect();
           const x = ((e.clientX - r.left) / r.width) * 100, y = ((e.clientY - r.top) / r.height) * 100;
-          if (!isDecorSpotValid(x, y)) { onDecorInvalid?.(); return; }
+          setGhost({ x, y });
+          if (!isDecorSpotValid(x, y, decor)) { onDecorInvalid?.(); return; }
           onPlaceDecor(decorPick, +x.toFixed(2), +y.toFixed(2));
-        }} style={{ position: 'absolute', inset: 0, zIndex: 3, cursor: decorPick ? 'crosshair' : 'default' }} />
+        }} style={{ position: 'absolute', inset: 0, zIndex: 3, cursor: decorPick ? 'crosshair' : 'default', touchAction: 'pan-y' }} />
       )}
+      {decorMode && decorPick && ghost && (() => {
+        const ok = isDecorSpotValid(ghost.x, ghost.y, decor);
+        const col = ok ? '#22c55e' : '#ef4444';
+        const wPct = (DECOR_FOOTPRINT / BG_W) * 100, hPct = (DECOR_FOOTPRINT / BG_H) * 100;
+        return (
+          <div style={{ position: 'absolute', left: `${ghost.x}%`, top: `${ghost.y}%`, width: `${wPct}%`, height: `${hPct}%`, transform: 'translate(-50%, -50%)',
+            border: `3px solid ${col}`, background: `${col}33`, borderRadius: 6, zIndex: 5, pointerEvents: 'none', boxShadow: `0 0 8px ${col}` }}>
+            {PARCEL_ICON_ASSETS[decorPick] && <img src={PARCEL_ICON_ASSETS[decorPick]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.55 }} />}
+          </div>
+        );
+      })()}
 
       {/* Wandering Elders: each one follows its own seeded loop of waypoints across the whole park (path and grass,
           never through a building), at its own slow pace. Everyone present is shown, up to 40. */}

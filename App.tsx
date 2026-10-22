@@ -985,7 +985,7 @@ const App: React.FC = () => {
       for (const d of (Array.isArray(next.parkDecor) ? next.parkDecor : []) as any[]) {
         if (!d || typeof d.id !== 'string' || !Number.isFinite(d.x) || !Number.isFinite(d.y) || kept.length >= 40) continue;
         if (!(d.id in left)) left[d.id] = ownedAssetCount(next.parkAssets, d.id);
-        if (left[d.id] > 0 && isDecorSpotValid(d.x, d.y)) { left[d.id]--; kept.push({ id: d.id, x: d.x, y: d.y }); }
+        if (left[d.id] > 0 && d.x >= 0 && d.x <= 100 && d.y >= 0 && d.y <= 100) { left[d.id]--; kept.push({ id: d.id, x: d.x, y: d.y }); }
       }
       next.parkDecor = kept;
     }
@@ -1392,7 +1392,7 @@ const App: React.FC = () => {
   const handlePlaceDecor = useCallback((id: string, x: number, y: number) => {
     setState(prev => {
       const placed = (prev.parkDecor ?? []).filter(d => d.id === id).length;
-      if (placed >= ownedAssetCount(prev.parkAssets, id) || (prev.parkDecor ?? []).length >= 40 || !isDecorSpotValid(x, y)) return prev;
+      if (placed >= ownedAssetCount(prev.parkAssets, id) || (prev.parkDecor ?? []).length >= 40 || !isDecorSpotValid(x, y, prev.parkDecor ?? [])) return prev;
       return { ...prev, parkDecor: [...(prev.parkDecor ?? []), { id, x, y }] };
     });
   }, []);
