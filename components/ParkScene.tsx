@@ -55,8 +55,23 @@ function pathCenterAt(y: number): number {
 // Footprints reserved for the two planned buildings (no art yet): left column below the last building, right column
 // squeezed in the last free stretch of the scene.
 const RESERVED_SLOTS: { xc: number; y: number }[] = [];
-function allSlotRects() {
-  return [...SLOT_ORDER.map((_, i) => slotFor(i)), ...RESERVED_SLOTS];
+// Player-chosen building positions (owner request 2026-10-20). Keys are 'b<index in SLOT_ORDER>' (short ids so the friend-sync
+// sanitizer keeps them); x = building centre x and y = building top, in backdrop px. No entry = the default slot, so nothing
+// moves for existing players. Friends see a layout through park_decor pieces with the same 'b<n>' ids (layoutFromDecor).
+export type ParkLayout = Record<string, { x: number; y: number }>;
+const LAYOUT_KEY = /^b\d{1,2}$/;
+function posFor(i: number, layout?: ParkLayout) {
+  const p = layout?.['b' + i];
+  return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { xc: p.x, y: p.y } : slotFor(i);
+}
+export function layoutFromDecor(decor: { id: string; x: number; y: number }[] = []): ParkLayout {
+  const out: ParkLayout = {};
+  for (const d of decor) if (d && LAYOUT_KEY.test(d.id) && Number.isFinite(d.x) && Number.isFinite(d.y)) out[d.id] = { x: Math.round((d.x / 100) * BG_W), y: Math.round((d.y / 100) * BG_H) };
+  return out;
+}
+export const isLayoutPiece = (d: { id: string }) => LAYOUT_KEY.test(d.id);
+function allSlotRects(layout?: ParkLayout) {
+  return [...SLOT_ORDER.map((_, i) => posFor(i, layout)), ...RESERVED_SLOTS];
 }
 // Placement uses a FOOTPRINT (a square in backdrop pixels centred on the tap), not a single point (owner rule 2026-10-20):
 // the road is now allowed; the pond and the gate are still blocked but you may place right up against them (touching is fine);
@@ -66,25 +81,43 @@ type Rect = { x0: number; y0: number; x1: number; y1: number };
 const POND_RECT: Rect = { x0: 700, y0: 0, x1: BG_W, y1: 380 };
 const GATE_RECT: Rect = { x0: 350, y0: 2700, x1: 600, y1: BG_H };
 const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0; // touching edges is allowed
-const buildingRects = (): Rect[] => allSlotRects().map(({ xc, y }) => ({ x0: xc - BW / 2, y0: y, x1: xc + BW / 2, y1: y + BH }));
+const buildingRects = (layout?: ParkLayout): Rect[] => allSlotRects(layout).map(({ xc, y }) => ({ x0: xc - BW / 2, y0: y, x1: xc + BW / 2, y1: y + BH }));
 export function decorRect(xPct: number, yPct: number): Rect {
   const cx = (xPct / 100) * BG_W, cy = (yPct / 100) * BG_H, h = DECOR_FOOTPRINT / 2;
   return { x0: cx - h, y0: cy - h, x1: cx + h, y1: cy + h };
 }
-export function isDecorSpotValid(xPct: number, yPct: number, existing: DecorPiece[] = [], ignoreIndex = -1): boolean {
+export function isDecorSpotValid(xPct: number, yPct: number, existing: DecorPiece[] = [], ignoreIndex = -1, layout?: ParkLayout): boolean {
   if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
   const r = decorRect(xPct, yPct);
   if (r.x0 < 10 || r.x1 > BG_W - 10 || r.y0 < 40 || r.y1 > BG_H - 40) return false;
   if (overlaps(r, POND_RECT) || overlaps(r, GATE_RECT)) return false;
-  for (const b of buildingRects()) if (overlaps(r, b)) return false;
+  for (const b of buildingRects(layout)) if (overlaps(r, b)) return false;
   for (let i = 0; i < existing.length; i++) if (i !== ignoreIndex && overlaps(r, decorRect(existing[i].x, existing[i].y))) return false;
   return true;
 }
+// A building footprint (BW x BH, top-left from its centre x / top y) must stay in the scene, off the pond and the gate, and
+// clear of every other building and every placed asset. Touching is fine. Used by the green/red ghost and by the move handler.
+export function isBuildingSpotValid(index: number, xc: number, top: number, layout?: ParkLayout, decor: DecorPiece[] = []): boolean {
+  if (!Number.isFinite(xc) || !Number.isFinite(top)) return false;
+  const r: Rect = { x0: xc - BW / 2, y0: top, x1: xc + BW / 2, y1: top + BH };
+  if (r.x0 < 0 || r.x1 > BG_W || r.y0 < 60 || r.y1 > BG_H) return false;
+  if (overlaps(r, POND_RECT) || overlaps(r, GATE_RECT)) return false;
+  const others = allSlotRects(layout);
+  for (let i = 0; i < others.length; i++) {
+    if (i === index) continue;
+    const o = others[i];
+    // The art has transparent margin top and bottom (the default Lodge/Shuffleboard slots overlap by ~38 px), so building-vs-building
+    // checks use a footprint shrunk by 20 px top and bottom; the default layout therefore always stays valid.
+    if (overlaps({ ...r, y0: r.y0 + 20, y1: r.y1 - 20 }, { x0: o.xc - BW / 2, y0: o.y + 20, x1: o.xc + BW / 2, y1: o.y + BH - 20 })) return false;
+  }
+  for (const d of decor) if (!isLayoutPiece(d) && overlaps(r, decorRect(d.x, d.y))) return false;
+  return true;
+}
 // Elders can walk anywhere that is not a building footprint (path included).
-function isWalkable(x: number, y: number): boolean {
+function isWalkable(x: number, y: number, layout?: ParkLayout): boolean {
   if (x < 30 || x > BG_W - 30 || y < 120 || y > BG_H - 110) return false;
   if (x > 700 && y < 380) return false;
-  for (const { xc, y: top } of allSlotRects()) if (x > xc - BW / 2 && x < xc + BW / 2 && y > top && y < top + BH) return false;
+  for (const { xc, y: top } of allSlotRects(layout)) if (x > xc - BW / 2 && x < xc + BW / 2 && y > top && y < top + BH) return false;
   return true;
 }
 const seeded = (seed: number) => { let t = seed >>> 0; return () => { t = (t + 0x6D2B79F5) >>> 0; let r = Math.imul(t ^ (t >>> 15), t | 1); r ^= r + Math.imul(r ^ (r >>> 7), r | 61); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
@@ -110,6 +143,9 @@ interface ParkSceneProps {
   onPlaceDecor?: (id: string, x: number, y: number) => void;
   onRemoveDecor?: (index: number) => void;
   onDecorInvalid?: () => void;
+  layout?: ParkLayout; // own park: the saved building positions (friend view derives them from decor)
+  onMoveBuilding?: (index: number, xc: number, top: number) => void;
+  onResetLayout?: () => void;
   readOnly?: boolean; // for visiting a friend's park later: no collect / hub buttons
   title?: string;
 }
@@ -128,8 +164,13 @@ const nameBar: React.CSSProperties = {
 
 const ParkScene: React.FC<ParkSceneProps> = ({
   isDark, builtAmenityIds, amenityLevels, amenityCollectedAt, comfortBonus, rosterCount, capacity, materials,
-  onOpenGrounds, onOpenExchange, onOpenWorkshop, onOpenHub, onCollect, readOnly = false, title, wanderers = [], decor = [], decorOptions, onPlaceDecor, onRemoveDecor, onDecorInvalid,
+  onOpenGrounds, onOpenExchange, onOpenWorkshop, onOpenHub, onCollect, readOnly = false, title, wanderers = [], decor: decorAll = [], decorOptions, onPlaceDecor, onRemoveDecor, onDecorInvalid, layout, onMoveBuilding, onResetLayout,
 }) => {
+  const decor = React.useMemo(() => decorAll.filter(d => !isLayoutPiece(d)), [decorAll]);
+  const lay = React.useMemo<ParkLayout>(() => ({ ...layoutFromDecor(decorAll), ...(layout ?? {}) }), [decorAll, layout]);
+  const [moveMode, setMoveMode] = useState(false);
+  const [moveIdx, setMoveIdx] = useState<number | null>(null);
+  const [bGhost, setBGhost] = useState<{ xc: number; top: number } | null>(null);
   const [decorMode, setDecorMode] = useState(false);
   const [decorPick, setDecorPick] = useState<string | null>(null);
   const [decorDock, setDecorDock] = useState<'top' | 'bottom'>('bottom');
@@ -159,11 +200,13 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           <div style={{ ...barBtn, pointerEvents: 'none' }}><img src={GLYPH_ART.friends} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />{rosterCount}/{capacity}</div>
           {!readOnly && onOpenGrounds ? <button onClick={onOpenGrounds} style={barBtn}><img src={GLYPH_ART.grounds} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />Grounds</button> : <div style={{ width: 1 }} />}
         </div>
-        {!readOnly && (onOpenExchange || onOpenWorkshop || (decorOptions && decorOptions.length > 0)) && (
+        {!readOnly && (onOpenExchange || onOpenWorkshop || onMoveBuilding || (decorOptions && decorOptions.length > 0)) && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6, padding: '0 10px', pointerEvents: 'none', flexWrap: 'wrap' }}>
             {onOpenExchange && <button onClick={onOpenExchange} style={barBtn}>Lodge</button>}
             {onOpenWorkshop && <button onClick={onOpenWorkshop} style={barBtn}><img src={UI_ART.workshop} alt="" style={{ width: 20, height: 20, objectFit: 'contain', display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }} />Workshop</button>}
-            {decorOptions && decorOptions.length > 0 && <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); }} style={barBtn}>{decorMode ? 'Done decorating' : 'Decorate'}</button>}
+            {decorOptions && decorOptions.length > 0 && <button onClick={() => { setDecorMode(m => !m); setDecorPick(null); setMoveMode(false); setMoveIdx(null); setBGhost(null); }} style={barBtn}>{decorMode ? 'Done decorating' : 'Decorate'}</button>}
+            {onMoveBuilding && <button onClick={() => { setMoveMode(m => !m); setMoveIdx(null); setBGhost(null); setDecorMode(false); setDecorPick(null); }} style={barBtn}>{moveMode ? 'Done arranging' : 'Rearrange'}</button>}
+            {moveMode && onResetLayout && Object.keys(layout ?? {}).length > 0 && <button onClick={() => { onResetLayout(); setMoveIdx(null); setBGhost(null); }} style={barBtn}>Reset layout</button>}
           </div>
         )}
       </div>
@@ -209,12 +252,12 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           const r = sceneRef.current.getBoundingClientRect();
           const x = ((e.clientX - r.left) / r.width) * 100, y = ((e.clientY - r.top) / r.height) * 100;
           setGhost({ x, y });
-          if (!isDecorSpotValid(x, y, decor)) { onDecorInvalid?.(); return; }
+          if (!isDecorSpotValid(x, y, decor, -1, lay)) { onDecorInvalid?.(); return; }
           onPlaceDecor(decorPick, +x.toFixed(2), +y.toFixed(2));
         }} style={{ position: 'absolute', inset: 0, zIndex: 3, cursor: decorPick ? 'crosshair' : 'default', touchAction: 'pan-y' }} />
       )}
       {decorMode && decorPick && ghost && (() => {
-        const ok = isDecorSpotValid(ghost.x, ghost.y, decor);
+        const ok = isDecorSpotValid(ghost.x, ghost.y, decor, -1, lay);
         const col = ok ? '#22c55e' : '#ef4444';
         const wPct = (DECOR_FOOTPRINT / BG_W) * 100, hPct = (DECOR_FOOTPRINT / BG_H) * 100;
         return (
@@ -224,6 +267,48 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           </div>
         );
       })()}
+
+      {moveMode && onMoveBuilding && (
+        <>
+          <div
+            onPointerMove={e => {
+              if (moveIdx === null || !sceneRef.current) return;
+              const r = sceneRef.current.getBoundingClientRect();
+              setBGhost({ xc: ((e.clientX - r.left) / r.width) * BG_W, top: ((e.clientY - r.top) / r.height) * BG_H - BH / 2 });
+            }}
+            onPointerLeave={() => setBGhost(null)}
+            onClick={e => {
+              if (!sceneRef.current) return;
+              const r = sceneRef.current.getBoundingClientRect();
+              const px = ((e.clientX - r.left) / r.width) * BG_W, py = ((e.clientY - r.top) / r.height) * BG_H;
+              if (moveIdx === null) {
+                const hit = SLOT_ORDER.findIndex((_, i) => { const p = posFor(i, lay); return px >= p.xc - BW / 2 && px <= p.xc + BW / 2 && py >= p.y && py <= p.y + BH; });
+                if (hit >= 0) setMoveIdx(hit);
+                return;
+              }
+              const xc = Math.round(px), top = Math.round(py - BH / 2);
+              setBGhost({ xc, top });
+              if (!isBuildingSpotValid(moveIdx, xc, top, lay, decor)) { onDecorInvalid?.(); return; }
+              onMoveBuilding(moveIdx, xc, top);
+              setMoveIdx(null); setBGhost(null);
+            }}
+            style={{ position: 'absolute', inset: 0, zIndex: 4, cursor: moveIdx === null ? 'pointer' : 'crosshair', touchAction: 'pan-y' }} />
+          <div style={{ position: 'fixed', left: 8, right: 8, bottom: 100, zIndex: 60, textAlign: 'center', padding: '8px 12px', borderRadius: 14, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 12, fontWeight: 800 }}>
+            {moveIdx === null ? 'Tap a building to pick it up.' : `Tap where ${AMENITIES.find(a => a.id === SLOT_ORDER[moveIdx])?.name ?? 'the building'} should go. Green = ok, red = blocked.`}
+            {moveIdx !== null && <button onClick={() => { setMoveIdx(null); setBGhost(null); }} style={{ marginLeft: 10, padding: '2px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', fontWeight: 900 }}>Cancel</button>}
+          </div>
+          {moveIdx !== null && bGhost && (() => {
+            const ok = isBuildingSpotValid(moveIdx, bGhost.xc, bGhost.top, lay, decor);
+            const col = ok ? '#22c55e' : '#ef4444';
+            return (
+              <div style={{ position: 'absolute', left: `${((bGhost.xc - BW / 2) / BG_W) * 100}%`, top: `${(bGhost.top / BG_H) * 100}%`, width: `${(BW / BG_W) * 100}%`, height: `${(BH / BG_H) * 100}%`,
+                border: `3px solid ${col}`, background: `${col}33`, borderRadius: 8, zIndex: 6, pointerEvents: 'none', boxShadow: `0 0 10px ${col}` }}>
+                <img src={ART[SLOT_ORDER[moveIdx]]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.55 }} />
+              </div>
+            );
+          })()}
+        </>
+      )}
 
       {/* Wandering Elders: each one follows its own seeded loop of waypoints across the whole park (path and grass,
           never through a building), at its own slow pace. Everyone present is shown, up to 40. */}
@@ -235,7 +320,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
           let guard = 0;
           while (pts.length < 6 && guard++ < 400) {
             const x = 40 + rnd() * (BG_W - 80), y = 140 + rnd() * (BG_H - 280);
-            if (isWalkable(x, y)) pts.push([x, y]);
+            if (isWalkable(x, y, lay)) pts.push([x, y]);
           }
           if (pts.length < 2) pts.push([512, 600], [512, 1400]);
           const frames = [...pts, pts[0]].map(([x, y], i, arr) => `${Math.round((i / (arr.length - 1)) * 100)}% { left: ${((x / BG_W) * 100).toFixed(2)}%; top: ${((y / BG_H) * 100).toFixed(2)}%; }`).join(' ');
@@ -273,7 +358,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
         if (!amenity) return null;
         const built = builtAmenityIds.includes(id);
         const level = amenityLevels[id] ?? 1;
-        const { xc, y } = slotFor(i);
+        const { xc, y } = posFor(i, lay);
         const openBuilding = (bid: string, isBuilt: boolean) => {
           if (isBuilt && bid === 'lodge' && onOpenExchange) return onOpenExchange();
           if (isBuilt && bid === 'workshop' && onOpenWorkshop) return onOpenWorkshop();
@@ -290,6 +375,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
               style={{
                 position: 'absolute', left: `${((xc - BW / 2) / BG_W) * 100}%`, top: `${(y / BG_H) * 100}%`,
                 width: `${(BW / BG_W) * 100}%`, padding: 0, border: 0, background: 'none', cursor: readOnly ? 'default' : 'pointer',
+                outline: moveMode ? (moveIdx === i ? '4px solid #facc15' : '2px dashed rgba(255,255,255,0.85)') : undefined, outlineOffset: -2,
               }}
             >
               <img src={ART[id]} alt="" draggable={false} style={{

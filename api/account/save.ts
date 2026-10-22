@@ -160,7 +160,9 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       favorite_elders: favoriteElders,
       park_elders: parkElders,
       built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
-      park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })),
+      park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })).concat(
+        // Moved buildings ride along as extra park_decor pieces with 'b<n>' ids (no schema change); percent of the 1024 x 2992 scene.
+        Object.entries(saveData?.parkLayout && typeof saveData.parkLayout === 'object' ? saveData.parkLayout : {}).filter(([k, v]: [string, any]) => /^b\d{1,2}$/.test(k) && v && Number.isFinite(v.x) && Number.isFinite(v.y)).slice(0, 12).map(([k, v]: [string, any]) => ({ id: k, x: +(Math.max(0, Math.min(1024, v.x)) / 1024 * 100).toFixed(2), y: +(Math.max(0, Math.min(2992, v.y)) / 2992 * 100).toFixed(2) }))),
       // Active (unfinished) quests, so friends can pick one when leaving an Elder to help. Untrusted-save rules apply.
       active_quests: (Array.isArray(saveData?.quests) ? saveData.quests : [])
         .filter((q: any) => q && typeof q.id === 'string' && typeof q.title === 'string' && !q.completed && Number.isFinite(q.target) && Number.isFinite(q.progress))

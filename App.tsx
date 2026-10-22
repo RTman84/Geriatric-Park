@@ -14,7 +14,7 @@ import StarterSelection from './components/StarterSelection';
 import StartScreen from './components/StartScreen';
 import FriendsPanel from './components/FriendsPanel';
 import GroundsPanel from './components/GroundsPanel';
-import ParkScene, { isDecorSpotValid } from './components/ParkScene';
+import ParkScene, { isDecorSpotValid, isBuildingSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
@@ -980,6 +980,11 @@ const App: React.FC = () => {
     { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
     // One-time-safe: unequipped drops that used odd base boosts follow the uniform base (equipped gear is baked into Elder stats, so it is left alone).
     if (Array.isArray(next.inventory)) next.inventory = (next.inventory as any[]).map(it => it && UNIFORM_GEAR_NAMES.includes(it.name) && typeof it.boost === 'number' ? { ...it, boost: UNIFORM_GEAR_BASE, description: String(it.description ?? '').replace(/ by \d+\./, '.') } : it);
+    { // Saved building positions: only 'b<n>' keys with finite numbers inside the scene; anything else is dropped.
+      const raw = (next.parkLayout && typeof next.parkLayout === 'object' ? next.parkLayout : {}) as Record<string, any>; const clean: Record<string, { x: number; y: number }> = {};
+      for (const [k, v] of Object.entries(raw)) if (/^b\d{1,2}$/.test(k) && v && Number.isFinite(v.x) && Number.isFinite(v.y) && v.x >= 0 && v.x <= 1024 && v.y >= 0 && v.y <= 2992) clean[k] = { x: Math.round(v.x), y: Math.round(v.y) };
+      next.parkLayout = clean;
+    }
     { // Placed decoration: only what the player owns, only valid grass spots, at most 40 pieces.
       const left: Record<string, number> = {}; const kept: { id: string; x: number; y: number }[] = [];
       for (const d of (Array.isArray(next.parkDecor) ? next.parkDecor : []) as any[]) {
@@ -1392,10 +1397,17 @@ const App: React.FC = () => {
   const handlePlaceDecor = useCallback((id: string, x: number, y: number) => {
     setState(prev => {
       const placed = (prev.parkDecor ?? []).filter(d => d.id === id).length;
-      if (placed >= ownedAssetCount(prev.parkAssets, id) || (prev.parkDecor ?? []).length >= 40 || !isDecorSpotValid(x, y, prev.parkDecor ?? [])) return prev;
+      if (placed >= ownedAssetCount(prev.parkAssets, id) || (prev.parkDecor ?? []).length >= 40 || !isDecorSpotValid(x, y, prev.parkDecor ?? [], -1, prev.parkLayout)) return prev;
       return { ...prev, parkDecor: [...(prev.parkDecor ?? []), { id, x, y }] };
     });
   }, []);
+  const handleMoveBuilding = useCallback((index: number, xc: number, top: number) => {
+    setState(prev => {
+      if (!Number.isInteger(index) || index < 0 || index >= 12 || !isBuildingSpotValid(index, xc, top, prev.parkLayout, prev.parkDecor ?? [])) return prev;
+      return { ...prev, parkLayout: { ...(prev.parkLayout ?? {}), ['b' + index]: { x: Math.round(xc), y: Math.round(top) } } };
+    });
+  }, []);
+  const handleResetLayout = useCallback(() => setState(prev => ({ ...prev, parkLayout: {} })), []);
   const handleRemoveDecor = useCallback((index: number) => {
     setState(prev => ({ ...prev, parkDecor: (prev.parkDecor ?? []).filter((_, i) => i !== index) }));
   }, []);
@@ -3253,7 +3265,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
-          {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, art: PARCEL_ICON_ASSETS[it.id], name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
+          {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, art: PARCEL_ICON_ASSETS[it.id], name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} layout={state.parkLayout} onMoveBuilding={handleMoveBuilding} onResetLayout={handleResetLayout} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
             ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 10).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),
           ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenWorkshop={() => setShowWorkshop(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
