@@ -3056,8 +3056,8 @@ const App: React.FC = () => {
     }));
     if (opponent) setWildElders(prev => prev.filter(e => e.id !== opponent.id));
     setBattleOpponent(null);
-    if (opponent) notify(`${opponent.name} lost patience and wandered off!`);
-  }, [battleOpponent, state.settings.sfxEnabled]);
+    if (opponent) { notify(`${opponent.name} lost patience and wandered off!`); logActivity(`😞 Lost a fight against ${opponent.name} (Lv ${opponent.level} ${opponent.rarity}). Your squad took damage.`, 'battle'); }
+  }, [battleOpponent, state.settings.sfxEnabled, logActivity]);
 
   // Wheelchair Away: a deliberate mid-battle retreat. No HP consequence and the resident
   // stays put on the map — the player can come back and try again later.

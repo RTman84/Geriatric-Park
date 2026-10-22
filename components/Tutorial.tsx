@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { GLYPH_ART } from '../constants';
 import {
   MapIcon, UserGroupIcon, HomeIcon, TicketIcon, SparklesIcon,
   WrenchScrewdriverIcon, TrophyIcon, EnvelopeIcon, ShoppingBagIcon,
@@ -118,6 +119,16 @@ const STEPS: TutorialStep[] = [
     title: "Goals, Badges & Titles",
     description: "The Goals tab in Tasks tracks lifetime progress in every mode. Each tier pays a one-time reward and unlocks a badge and title you can pick in your profile. You can only wear what you have earned.",
     icon: <TrophyIcon className="w-12 h-12 text-emerald-500" />
+  },
+  {
+    title: "Results & Activity Log",
+    description: "After you win a fight on the map, a results card shows the XP you earned and every squad Elder that levelled up. The scroll-and-clock button at the top opens your Activity Log: the latest 20 things that happened, with Show more for older ones.",
+    icon: <img src={GLYPH_ART.activityLog} alt="" className="w-12 h-12 object-contain" />
+  },
+  {
+    title: "Arrange Your Park",
+    description: "In the Park tab, tap Rearrange, tap a building, then tap where it should go. Green means it fits, red means it is blocked by the pond, the gate, another building or one of your Park Assets. Reset layout puts everything back. Friends see your layout when they visit.",
+    icon: <img src={GLYPH_ART.parkHub} alt="" className="w-12 h-12 object-contain" />
   },
   {
     title: "Shop & Passes",
