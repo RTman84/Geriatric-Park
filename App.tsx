@@ -12,6 +12,8 @@ import ExchangeOverview from './components/ExchangeOverview';
 import ElderInteraction from './components/ElderInteraction';
 import StarterSelection from './components/StarterSelection';
 import StartScreen from './components/StartScreen';
+import VictoryCard, { VictoryResult } from './components/VictoryCard';
+import ActivityLogPanel from './components/ActivityLogPanel';
 import FriendsPanel from './components/FriendsPanel';
 import GroundsPanel from './components/GroundsPanel';
 import ParkScene, { isDecorSpotValid, isBuildingSpotValid } from './components/ParkScene';
@@ -262,6 +264,13 @@ function isNameGenderMatched(name: string, type: ElderType): boolean {
   return known === expected;
 }
 
+// The XP that was REALLY added between two (xp, level) states, including the endgame catch-up multiplier and any level rollovers.
+function xpGained(beforeXp: number, beforeLevel: number, afterXp: number, afterLevel: number, thresholdFor: (lvl: number) => number): number {
+  let total = afterXp - beforeXp;
+  for (let l = beforeLevel; l < afterLevel; l++) total += thresholdFor(l);
+  return Math.max(0, Math.round(total));
+}
+
 // Applies an XP gain and rolls over into level-ups, so every XP source
 // uses identical leveling math (previously several handlers added XP
 // without ever checking for a level-up, so the bar could fill without
@@ -482,6 +491,8 @@ const App: React.FC = () => {
   const [accountPassword, setAccountPassword] = useState('');
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [accountBusy, setAccountBusy] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
+  const [victory, setVictory] = useState<VictoryResult | null>(null);
   const [startDismissed, setStartDismissed] = useState(false); // start screen shows once per app launch, after the save/cloud load
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
@@ -497,8 +508,21 @@ const App: React.FC = () => {
   const toastIdRef = useRef(0);
   const structureCellRef = useRef<string>('');
   const NEGATIVE_TOAST = /^(need |not enough|insufficient|invalid|failed|already|max squad|you can'?t|assign|no pending|minimum|community (reserve|pool) is|all sponsorship|this parcel|📭)|wandered off|\bneeds (to reach|\d)/i;
+  // Activity log: newest first, capped at 100, kept in the save (syncs with the cloud save). Identical lines within 3 s are merged.
+  const logActivity = useCallback((text: string, kind: string = 'info') => {
+    const clean = String(text).slice(0, 220);
+    if (!clean.trim()) return;
+    setState(prev => {
+      const log = Array.isArray(prev.activityLog) ? prev.activityLog : [];
+      const now = Date.now();
+      if (log[0] && log[0].text === clean && now - log[0].t < 3000) return prev;
+      return { ...prev, activityLog: [{ t: now, kind, text: clean }, ...log].slice(0, 100) };
+    });
+  }, []);
   const notify = useCallback((text: string, tone?: 'good' | 'bad') => {
     const resolved = tone ?? (NEGATIVE_TOAST.test(text) ? 'bad' : 'good');
+    // Good toasts are things that happened; the tap-for-info currency blurbs and bad (validation) toasts are not logged.
+    if (resolved === 'good' && !Object.values(CURRENCY_INFO).some(c => text.includes(c.blurb))) setTimeout(() => logActivity(text), 0);
     const id = ++toastIdRef.current;
     // Deferred a tick: some callers run inside another setState updater.
     setTimeout(() => {
@@ -980,6 +1004,7 @@ const App: React.FC = () => {
     { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
     // One-time-safe: unequipped drops that used odd base boosts follow the uniform base (equipped gear is baked into Elder stats, so it is left alone).
     if (Array.isArray(next.inventory)) next.inventory = (next.inventory as any[]).map(it => it && UNIFORM_GEAR_NAMES.includes(it.name) && typeof it.boost === 'number' ? { ...it, boost: UNIFORM_GEAR_BASE, description: String(it.description ?? '').replace(/ by \d+\./, '.') } : it);
+    next.activityLog = (Array.isArray(next.activityLog) ? next.activityLog : []).filter((a: any) => a && typeof a.text === 'string' && Number.isFinite(a.t)).slice(0, 100).map((a: any) => ({ t: a.t, kind: typeof a.kind === 'string' ? a.kind.slice(0, 20) : 'info', text: a.text.slice(0, 220) }));
     { // Saved building positions: only 'b<n>' keys with finite numbers inside the scene; anything else is dropped.
       const raw = (next.parkLayout && typeof next.parkLayout === 'object' ? next.parkLayout : {}) as Record<string, any>; const clean: Record<string, { x: number; y: number }> = {};
       for (const [k, v] of Object.entries(raw)) if (/^b\d{1,2}$/.test(k) && v && Number.isFinite(v.x) && Number.isFinite(v.y) && v.x >= 0 && v.x <= 1024 && v.y >= 0 && v.y <= 2992) clean[k] = { x: Math.round(v.x), y: Math.round(v.y) };
@@ -2925,6 +2950,22 @@ const App: React.FC = () => {
   const handleBattleWin = useCallback((updatedTeam: Elder[]) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
     const opponent = battleOpponent?.elder;
+    {
+      // Results card: computed from the same numbers the update below applies (state is unchanged between the two).
+      const after = applyXpGain(state.xp, state.level, 300);
+      const rows = updatedTeam.map(ut => {
+        const g = grantElderXp(ut, 40);
+        return { id: ut.id, name: ut.name, rarity: String(ut.rarity), type: String(ut.type), stage: ut.evolutionStage ?? 0, levelBefore: ut.level, levelAfter: g.level, xp: xpGained(ut.xp ?? 0, ut.level, g.xp ?? 0, g.level, xpForElderLevel) };
+      });
+      setVictory({
+        opponent: opponent ? { name: opponent.name, rarity: String(opponent.rarity), level: opponent.level } : undefined,
+        playerXp: xpGained(state.xp, state.level, after.xp, after.level, xpForPlayerLevel), playerLevelBefore: state.level, playerLevelAfter: after.level,
+        stars: 10, elders: rows,
+      });
+      rows.filter(r => r.levelAfter > r.levelBefore).forEach(r => logActivity(`🎉 ${r.name} (${r.rarity}) reached Lv ${r.levelAfter}!`, 'levelup'));
+      if (after.level > state.level) logActivity(`🎉 You reached account Lv ${after.level}!`, 'levelup');
+      logActivity(`⚔️ Won a fight${opponent ? ` against ${opponent.name} (Lv ${opponent.level} ${opponent.rarity})` : ''}: +${xpGained(state.xp, state.level, after.xp, after.level, xpForPlayerLevel)} XP.`, 'battle');
+    }
     setState(prev => {
       const { xp: nextXp, level: nextLevel } = applyXpGain(prev.xp, prev.level, 300);
       let nextAllElders = prev.allElders.map(e => {
@@ -2942,7 +2983,7 @@ const App: React.FC = () => {
     handleQuestProgress('battle');
     setState(prev => ({ ...prev, battleWins: (prev.battleWins ?? 0) + 1 }));
     if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
-  }, [battleOpponent, state.settings.sfxEnabled, handleQuestProgress]);
+  }, [battleOpponent, state.settings.sfxEnabled, state.xp, state.level, state.allElders, handleQuestProgress, logActivity]);
 
   // A guided wild Elder joins exactly as it was fought: same level, stats and rarity (full HP). Rarely it arrives
   // already wearing a piece of gear, and that gear tends to be better than a typical drop.
@@ -3230,6 +3271,9 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setShowActivityLog(true)} aria-label="Activity Log" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100">
+              <img src={GLYPH_ART.activityLog} alt="" className="w-7 h-7 object-contain" />
+            </button>
             <button onClick={handleOpenFriends} className={`relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100`}>
               <img src={GLYPH_ART.navFriends} alt="" className="w-7 h-7 object-contain" />
               {(friendsData?.incoming.length ?? 0) > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[13px] font-black text-white">{friendsData!.incoming.length}</div>}
@@ -3774,6 +3818,8 @@ const App: React.FC = () => {
           />
         )}
 
+        {showActivityLog && <ActivityLogPanel entries={Array.isArray(state.activityLog) ? state.activityLog : []} onClose={() => setShowActivityLog(false)} />}
+        {victory && <VictoryCard result={victory} onClose={() => setVictory(null)} />}
         {toasts.length > 0 && (
           <div className="fixed top-3 inset-x-0 z-[5000] flex flex-col items-center gap-2 pointer-events-none px-3">
             {toasts.map(t => (

@@ -99,10 +99,10 @@ Verdict: it belongs in this game (Arenas and factions already create the group f
 - **Android icon and splash are still placeholders** (prompts in 1.4).
 - **Display bug fixed this arc:** the PvP shop showed the raw base stat (+4) for both Epic and Legendary pieces; it now shows the real stat.
 
-## 2.6 Victory result screen after beating a map Elder - SMALL (about half a session)
+## 2.6 Victory result screen after beating a map Elder - DONE 2026-10-22 (`components/VictoryCard.tsx`, computed in `handleBattleWin`; shows real scaled XP incl. catch-up via `xpGained`, account level-up, Park Stars, every squad Elder with rarity colour and Lv before to after). Arena/Raid/Court results still use toasts; reuse the card later.
 After the battle-won notice, show a separate results card: XP gained, and if any squad Elder levelled, one line each with Elder name, rarity colour and new level (reuse `rarityCardStyle`). Needs the level-up detail from `applyXpGain` to be returned to the battle handler (compare level before/after per participating Elder). Same card style should later serve Arena/Raid/Court results.
 
-## 2.7 Activity log in the top bar - SMALL-MEDIUM (about 1 session)
+## 2.7 Activity log in the top bar - DONE 2026-10-22 (`components/ActivityLogPanel.tsx`, `logActivity()` + `activityLog` in the save, capped 100, header icon; every GOOD toast is logged automatically through `notify`, currency tap-blurbs and bad/validation toasts are skipped; battle wins and level-ups log explicitly). Not yet: Tutorial card for the log; per-kind icons; logging bad-outcome events (losses, knockouts) which currently arrive as red toasts and are skipped.
 Bell/clock button in the header opens a list: last 20 entries, "Show more" pages to 50 then 100. Entry = `{ t, kind, text }`, stored as a capped ring buffer (100) in the save (syncs with the cloud save; untrusted-save rule: tolerate wrong types). Hook a single `logActivity()` next to the existing `notify()` and mail merge so every toast-worthy event also logs: map fights, captures, level-ups, item pickups/drops, Arena/Raid/Friend/Court results, shop and Mementos purchases, Cash Out/Dividend, friend visits, Elder returns/exchange, Pass and quest rewards, Mailbox claims. Render through `EmojiText`/`Gfx`. No server work, no economy impact. Add to Tutorial.
 
 ## 2.8 Roster capacity: Cottage smaller, Mementos rooms up to 100 total - MEDIUM
