@@ -5,6 +5,7 @@ import ppImg from '../game-assets/icons/pp.png';
 import tvDinnerImg from '../game-assets/icons/tvdinner.png';
 import mementoImg from '../game-assets/icons/memento.png';
 import passImg from '../game-assets/icons/pass.png';
+import debateBattleImg from '../game-assets/glyphs/debate_battle.webp';
 import { BRACKET_ART, PLACE_ART } from '../game-assets/badges/badgeArt';
 
 // Emoji -> real art map. Drop a PNG in game-assets/icons/ and add one line here;
@@ -16,6 +17,7 @@ const ART: Record<string, string> = {
   '🍽️': tvDinnerImg,
   '💛': mementoImg,
   '🎫': passImg,
+  '⚔️': debateBattleImg, // crossed swords in a speech bubble = the game's battle icon (battles are "debates")
 };
 
 const norm = (s: string) => s.replace(/\ufe0f/g, '');

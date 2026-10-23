@@ -17,6 +17,9 @@ import gl_navMailbox from './nav/nav_mailbox.webp';
 import gl_navFriends from './nav/nav_friends.webp';
 import gl_navSettings from './nav/nav_settings.webp';
 import gl_activityLog from './nav/nav_activity_log.webp';
+import gl_debateBattle from './glyphs/debate_battle.webp';
+import gl_debateArena from './glyphs/debate_arena.webp';
+import gl_debateRaid from './glyphs/debate_raid.webp';
 import a1 from './antiques/almanac.webp';
 import a2 from './keepsakes/anniversary_locket.webp';
 import a3 from './shop/bingo_dauber_xl.webp';
@@ -272,6 +275,9 @@ export const GLYPH_ART: Record<string, string> = {
   victory: a93,
   watchAd: a94,
   challengeCanes: a124,
+  debateBattle: gl_debateBattle,
+  debateArena: gl_debateArena,
+  debateRaid: gl_debateRaid,
   goldenTower: a125,
   tournament: gl_tournament,
   friendBattle: gl_friendBattle,

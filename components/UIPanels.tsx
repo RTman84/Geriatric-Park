@@ -823,7 +823,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         return (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="mb-3"><img src={GLYPH_ART.challengeCanes} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
+            <div className="mb-3"><img src={GLYPH_ART.debateBattle} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge Ladder</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{CHALLENGE_MAX_TIERS} ranks of rivals. Beat a rank to unlock the next.</p>
           </div>

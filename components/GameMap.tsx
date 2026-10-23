@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import arenaImg from '../game-assets/map/arena.png';
+import arenaImg from '../game-assets/map/arena.webp';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
