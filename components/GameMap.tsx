@@ -42,6 +42,10 @@ interface GameMapProps {
   onBuyParcel: () => void;
 }
 
+// Half-width of the pannable window in degrees (0.07 deg is about 7.8 km north-south). Zoom-out is limited to MAP_MIN_ZOOM.
+const MAP_LIMIT_DEG = 0.07;
+const MAP_MIN_ZOOM = 13;
+
 const RecenterButton: React.FC<{ 
   center: [number, number], 
   zoom: number, 
@@ -59,6 +63,14 @@ const RecenterButton: React.FC<{
   useEffect(() => {
     map.invalidateSize();
   }, [map]);
+
+  // Keep the map near the player: panning is limited to a window of about +/-8 km around the current location (the game world
+  // only exists around you), so you can no longer scroll off to empty parts of the planet. Re-applied whenever you move.
+  useEffect(() => {
+    const d = MAP_LIMIT_DEG;
+    map.setMaxBounds(L.latLngBounds([center[0] - d, center[1] - d], [center[0] + d, center[1] + d]));
+    map.options.maxBoundsViscosity = 1;
+  }, [map, center[0], center[1]]);
 
   useEffect(() => {
     if (isFollowing) {
@@ -154,6 +166,9 @@ const GameMap: React.FC<GameMapProps> = ({
       <MapContainer 
         center={[currentLocation.lat, currentLocation.lng]} 
         zoom={zoom} 
+        minZoom={MAP_MIN_ZOOM}
+        maxZoom={20}
+        worldCopyJump={false}
         zoomControl={false}
         className="w-full h-full"
         style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}
@@ -162,6 +177,7 @@ const GameMap: React.FC<GameMapProps> = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           className={isDark ? 'map-tiles-dark' : ''}
+          noWrap
         />
         
         <RecenterButton 
@@ -316,7 +332,7 @@ const GameMap: React.FC<GameMapProps> = ({
           <ArrowPathIcon className={`w-8 h-8 ${isFollowing ? 'animate-spin-slow' : ''}`} />
         </button>
         <button onClick={() => setZoom(z => Math.min(z + 1, 20))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><PlusCircleIcon className="w-8 h-8" /></button>
-        <button onClick={() => setZoom(z => Math.max(z - 1, 10))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><MinusCircleIcon className="w-8 h-8" /></button>
+        <button onClick={() => setZoom(z => Math.max(z - 1, MAP_MIN_ZOOM))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><MinusCircleIcon className="w-8 h-8" /></button>
       </div>
       <style>{`
         @keyframes spin-slow {

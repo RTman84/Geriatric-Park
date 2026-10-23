@@ -1,4 +1,5 @@
 import { PASS_LANE_ART } from '../game-assets/art3';
+import { MODE_BADGE_ART } from '../game-assets/badges/badgeArt';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
@@ -529,7 +530,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       const score = Math.floor(teamStrength * (0.5 + Math.random()));
       onTournamentPlay(score);
       setLastResultWon(score > tournamentScore);
-      setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? '🏆 New personal best!' : ''}`);
+      setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? 'New personal best!' : ''}`);
       setIsPlaying(false);
     }, 1500);
   };
@@ -597,7 +598,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-3xl font-black uppercase italic tracking-tighter">Grand Shuffle Court</h2>
-            <p className="text-[15px] opacity-60 uppercase tracking-widest mt-1">🥏 Compete · Defend · Earn</p>
+            <p className="text-[15px] opacity-60 uppercase tracking-widest mt-1 inline-flex items-center gap-2 justify-center w-full"><img src={GLYPH_ART.courtPuck} alt="" className="w-5 h-5 object-contain" />Compete · Defend · Earn</p>
           </div>
           {isKing && (
             <div className="bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[14px] font-black uppercase animate-pulse">
@@ -718,7 +719,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'tournament' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏆</div>
+            <div className="mb-3"><img src={GLYPH_ART.tournament} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Tournament</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Leaderboard resets every 24hrs. Top scorer gets 1.5x passive income bonus all next day!</p>
           </div>
@@ -799,7 +800,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             disabled={isPlaying || team.length === 0 || tournamentThrows >= TOURNAMENT_DAILY_THROWS}
             className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${!isPlaying && team.length > 0 ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
-            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : tournamentThrows >= TOURNAMENT_DAILY_THROWS ? 'No throws left — resets with the timer' : `🥏 Throw for Score (${TOURNAMENT_DAILY_THROWS - tournamentThrows} left)`}
+            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : tournamentThrows >= TOURNAMENT_DAILY_THROWS ? 'No throws left — resets with the timer' : <span className="inline-flex items-center justify-center gap-2"><img src={GLYPH_ART.courtPuck} alt="" className="w-6 h-6 object-contain" />{`Throw for Score (${TOURNAMENT_DAILY_THROWS - tournamentThrows} left)`}</span>}
           </button>
         </div>
       )}
@@ -822,7 +823,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
         return (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">⚔️</div>
+            <div className="mb-3"><img src={GLYPH_ART.challengeCanes} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge Ladder</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{CHALLENGE_MAX_TIERS} ranks of rivals. Beat a rank to unlock the next.</p>
           </div>
@@ -874,7 +875,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'league' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏅</div>
+            <div className="mb-3"><img src={GLYPH_ART.goldenTower} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>The Golden Games Tower</h3>
             <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{GOLDEN_GAMES_LEAGUES.length} tiers and climbing — there's always a next rung.</p>
           </div>
@@ -1226,7 +1227,7 @@ export const QuestPanel: React.FC<{
                     const r = MODE_MILESTONE_REWARDS[t.tier - 1];
                     return (
                       <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'} ${!done ? 'opacity-60' : ''}`}>
-                        <span className="text-xl">{t.icon}</span>
+                        {MODE_BADGE_ART[m.mode]?.[t.tier - 1] ? <img src={MODE_BADGE_ART[m.mode][t.tier - 1]} alt="" className="w-9 h-9 object-contain shrink-0" /> : <span className="text-xl">{t.icon}</span>}
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-black uppercase">{t.name} · {t.min}</p>
                           <p className="text-[12px] opacity-70">{r.tickets} Tickets{r.materials ? ` + ${r.materials} Materials` : ''}</p>
