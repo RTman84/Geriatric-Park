@@ -43,7 +43,7 @@ import amenityTrail from './game-assets/amenities/trail.webp';
 import amenityGrocery from './game-assets/amenities/grocery.webp';
 import amenityAerobics from './game-assets/amenities/aerobics.webp';
 import amenityBirdwatch from './game-assets/amenities/birdwatch.webp';
-import amenityEarlybird from './game-assets/amenities/earlybird.png';
+import amenityEarlybird from './game-assets/amenities/earlybird.webp';
 import amenityComplaints from './game-assets/amenities/complaints.webp';
 import amenityNappod from './game-assets/amenities/nappod.webp';
 import amenityPrunebar from './game-assets/amenities/prunebar.webp';

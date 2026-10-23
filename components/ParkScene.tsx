@@ -7,7 +7,7 @@ import trail from '../game-assets/park/cut/trail.webp';
 import grocery from '../game-assets/park/cut/grocery.webp';
 import aerobics from '../game-assets/park/cut/aerobics.webp';
 import birdwatch from '../game-assets/park/cut/birdwatch.webp';
-import earlybird from '../game-assets/park/cut/earlybird.png';
+import earlybird from '../game-assets/park/cut/earlybird.webp';
 import complaints from '../game-assets/park/cut/complaints.webp';
 import nappod from '../game-assets/park/cut/nappod.webp';
 import prunebar from '../game-assets/park/cut/prunebar.webp';
