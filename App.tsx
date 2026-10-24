@@ -2982,7 +2982,6 @@ const App: React.FC = () => {
     setBattleOpponent(null);
     handleQuestProgress('battle');
     setState(prev => ({ ...prev, battleWins: (prev.battleWins ?? 0) + 1 }));
-    if (opponent) notify(`${opponent.name} had to sit down and wandered off. (Tip: use the Guide button during a fight to bring residents to the park!)`);
   }, [battleOpponent, state.settings.sfxEnabled, state.xp, state.level, state.allElders, handleQuestProgress, logActivity]);
 
   // A guided wild Elder joins exactly as it was fought: same level, stats and rarity (full HP). Rarely it arrives
