@@ -374,18 +374,19 @@ const ParkScene: React.FC<ParkSceneProps> = ({
               aria-label={amenity.name}
               style={{
                 position: 'absolute', left: `${((xc - BW / 2) / BG_W) * 100}%`, top: `${(y / BG_H) * 100}%`,
-                width: `${(BW / BG_W) * 100}%`, padding: 0, border: 0, background: 'none', cursor: readOnly ? 'default' : 'pointer',
+                width: `${(BW / BG_W) * 100}%`, aspectRatio: `${BW} / ${BH}`, padding: 0, border: 0, background: 'none', cursor: readOnly ? 'default' : 'pointer',
                 outline: moveMode ? (moveIdx === i ? '4px solid #facc15' : '2px dashed rgba(255,255,255,0.85)') : undefined, outlineOffset: -2,
               }}
             >
               <img src={ART[id]} alt="" draggable={false} style={{
-                width: '100%', display: 'block',
+                // Art sits at the BOTTOM of the building slot so each building is directly above its own name plate (the new art is wider and shorter than the old art).
+                width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center bottom', display: 'block',
                 filter: built ? 'drop-shadow(0 6px 6px rgba(0,0,0,0.35))' : 'grayscale(1) brightness(1.15) drop-shadow(0 4px 4px rgba(0,0,0,0.25))',
                 opacity: built ? 1 : 0.42,
               }} />
               {built && (
                 <span style={{
-                  position: 'absolute', top: '6%', left: '4%', background: '#f59e0b', color: '#3b2400', border: '2px solid #fff',
+                  position: 'absolute', bottom: '8%', left: '4%', background: '#f59e0b', color: '#3b2400', border: '2px solid #fff',
                   borderRadius: 999, fontSize: 10, fontWeight: 900, padding: '1px 7px', boxShadow: '0 2px 4px rgba(0,0,0,0.35)',
                 }}>Lv {level}</span>
               )}
