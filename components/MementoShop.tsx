@@ -1,14 +1,14 @@
 import React from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, EVENT_KEEPSAKES, SEASONAL_EVENTS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
 const MementoShop: React.FC<{
   packPrices?: Record<string, string>; canBuy?: boolean; buying?: boolean; onBuyPack?: (id: string) => void;
-  isDark: boolean; pp: number; onConvertPp: (amount: number) => void; mementos: number; rooms: number; owned: string[];
+  isDark: boolean; pp: number; onConvertPp: (amount: number) => void; mementos: number; rooms: number; owned: string[]; eventDone?: string[];
   onBuyRoom: () => void; onBuyItem: (id: string) => void; onClose: () => void;
-}> = ({ packPrices = {}, canBuy = false, buying = false, onBuyPack, isDark, pp, onConvertPp, mementos, rooms, owned, onBuyRoom, onBuyItem, onClose }) => {
+}> = ({ packPrices = {}, canBuy = false, buying = false, onBuyPack, isDark, pp, onConvertPp, mementos, rooms, owned, eventDone = [], onBuyRoom, onBuyItem, onClose }) => {
   const week = mementoWeekIndex();
   const thisWeek = mementoItemsForWeek(week);
   const ownedSet = new Set(owned);
@@ -95,6 +95,22 @@ const MementoShop: React.FC<{
                 <div className="text-2xl"><div className={has ? '' : isDark ? 'brightness-0 invert opacity-25' : 'brightness-0 opacity-30'}><ItemIcon name={m.name} icon={m.icon} size={40} /></div></div>
                 <div className="text-[11px] font-black uppercase leading-tight truncate">{has ? m.name : 'Keepsake'}</div>
                 <div className="text-[10px] font-bold opacity-70">{has ? 'Owned' : w === 0 ? 'On sale now' : `Back in ${w}w`}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Event keepsakes</h3>
+        <p className="text-[12px] opacity-70 mb-2">Finish every goal of a seasonal event to earn its Event Elder and Event Keepsake. Event keepsakes only come from that event.</p>
+        <div className="grid grid-cols-4 gap-2 mb-2">
+          {EVENT_KEEPSAKES.map(k => {
+            const has = eventDone.includes(k.eventId);
+            const ev = SEASONAL_EVENTS.find(x => x.id === k.eventId);
+            return (
+              <div key={k.id} className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} ${has ? '' : 'opacity-60'}`}>
+                <img src={k.art} alt="" className={`w-12 h-12 mx-auto object-contain ${has ? '' : isDark ? 'brightness-0 invert opacity-25' : 'brightness-0 opacity-30'}`} />
+                <div className="text-[10px] font-black uppercase leading-tight truncate">{has ? k.name : 'Event'}</div>
+                <div className="text-[9px] font-bold opacity-70 truncate">{has ? 'Owned' : ev?.title ?? ''}</div>
               </div>
             );
           })}

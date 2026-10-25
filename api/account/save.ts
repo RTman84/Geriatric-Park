@@ -131,6 +131,7 @@ async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displ
       .map((e: any) => ({
         type: e.type.slice(0, 40),
         evolutionStage: [0, 1, 2].includes(e.evolutionStage) ? e.evolutionStage : 0,
+        eventId: typeof e.eventId === 'string' && /^[a-z]{3,20}$/.test(e.eventId) ? e.eventId : undefined,
         name: e.name.slice(0, 40),
         level: Number.isFinite(e.level) ? Math.max(1, Math.floor(e.level)) : 1,
         rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common',

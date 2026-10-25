@@ -216,6 +216,7 @@ export interface GameState {
   selectedAccountIcon: string;
   selectedTitle: string;
   eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }; // the seasonal event in progress: baseline of modeStats when you joined, goals already paid
+  eventElders?: string[]; // SEASONAL_EVENTS ids whose Event Elder has already been granted
   eventCosmetics?: string[]; // permanent event titles/icons earned, keys like event:spooky-2026
   claimedMilestones?: string[]; // one-time milestone rewards already collected, keys like battle:3
   modeStats?: Record<string, number>; // lifetime activity counts by quest kind (drives mode badges)
@@ -244,6 +245,7 @@ export interface Elder {
   captured: boolean;
   xp: number;
   evolutionStage: 0 | 1 | 2;
+  eventId?: string; // seasonal-event Elder (SEASONAL_EVENTS id): always shows its own portrait
   lat: number;
   lng: number;
   equipment: {

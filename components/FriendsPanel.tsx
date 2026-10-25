@@ -365,7 +365,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                       <div className="flex -space-x-2 flex-shrink-0">
                         {friend.favorite_elders.map((e, i) => (
                           <div key={i} title={`${e.name}${e.rarity ? ' · ' + e.rarity : ''}${e.level ? ' · Lv.' + e.level : ''}`} className="w-10 h-10 rounded-lg overflow-hidden border-2 border-white dark:border-slate-800 relative" style={e.rarity ? { borderColor: GEAR_RARITY_COLOR[e.rarity] } : undefined}>
-                            <ElderAvatarImg type={e.type as any} stage={e.evolutionStage} fill />
+                            <ElderAvatarImg type={e.type as any} eventId={(e as any).eventId} stage={e.evolutionStage} fill />
                             {(e.level || e.rarity) && <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] font-black leading-tight text-center">{e.level ? `Lv${e.level}` : ''}{e.rarity ? ` ${e.rarity[0]}` : ''}</div>}
                           </div>
                         ))}

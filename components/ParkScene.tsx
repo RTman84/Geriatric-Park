@@ -340,7 +340,7 @@ const ParkScene: React.FC<ParkSceneProps> = ({
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: `3px solid ${color}`, boxShadow: '0 3px 6px rgba(0,0,0,0.45)', background: '#fff' }}>
-                      <ElderAvatarImg type={w.type as any} stage={w.stage as any} fill />
+                      <ElderAvatarImg type={w.type as any} eventId={(w as any).eventId} stage={w.stage as any} fill />
                     </div>
                     <div style={{ ...nameBar, fontSize: 9, padding: '1px 6px', maxWidth: 120, cursor: 'default' }}>
                       {w.name}{w.level ? ` · Lv${w.level}` : ''}<br /><span style={{ opacity: 0.85 }}>{w.label}</span>

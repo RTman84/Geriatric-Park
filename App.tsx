@@ -55,7 +55,7 @@ import {
   Structure
 } from './types';
 import { 
-  NAV_ITEMS, PARCEL_ICON_ASSETS, 
+  NAV_ITEMS, PARCEL_ICON_ASSETS, EVENT_ELDERS, EVENT_KEEPSAKES, completedEventIds, SEASONAL_EVENTS,
   INITIAL_PENSION_RATE, 
   ITEM_POOL,
   INITIAL_ACHIEVEMENTS,
@@ -1004,6 +1004,7 @@ const App: React.FC = () => {
     { const pp = (next.pvpPasses ?? {}) as { arena?: unknown; raid?: unknown }; const clean = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(PASS_HOLD_MAX, Math.floor(v)) : 0; next.pvpPasses = { arena: clean(pp.arena), raid: clean(pp.raid) }; }
     // One-time-safe: unequipped drops that used odd base boosts follow the uniform base (equipped gear is baked into Elder stats, so it is left alone).
     if (Array.isArray(next.inventory)) next.inventory = (next.inventory as any[]).map(it => it && UNIFORM_GEAR_NAMES.includes(it.name) && typeof it.boost === 'number' ? { ...it, boost: UNIFORM_GEAR_BASE, description: String(it.description ?? '').replace(/ by \d+\./, '.') } : it);
+    next.eventElders = (Array.isArray(next.eventElders) ? next.eventElders : []).filter((x: any) => typeof x === 'string' && /^[a-z]{3,20}$/.test(x)).slice(0, 20);
     next.activityLog = (Array.isArray(next.activityLog) ? next.activityLog : []).filter((a: any) => a && typeof a.text === 'string' && Number.isFinite(a.t)).slice(0, 100).map((a: any) => ({ t: a.t, kind: typeof a.kind === 'string' ? a.kind.slice(0, 20) : 'info', text: a.text.slice(0, 220) }));
     { // Saved building positions: only 'b<n>' keys with finite numbers inside the scene; anything else is dropped.
       const raw = (next.parkLayout && typeof next.parkLayout === 'object' ? next.parkLayout : {}) as Record<string, any>; const clean: Record<string, { x: number; y: number }> = {};
@@ -2000,6 +2001,34 @@ const App: React.FC = () => {
     }
   }, [isLoaded, cloudSyncSettled, state.modeStats, state.eventProgress, handleClaimEventGoal]);
 
+  // Event Elders: every fully completed seasonal event grants its Event Elder exactly once. This also runs on login, so players who
+  // finished an event before this update receive theirs right away. Level = average of the player's top 6 Elders (min 5): strong enough to
+  // matter, never above the squad it joins. Legendary, stats from canonicalElderStats, keeps its own portrait.
+  useEffect(() => {
+    if (!isLoaded || !cloudSyncSettled || !state.hasStarted) return;
+    const granted = new Set(state.eventElders ?? []);
+    const missing = completedEventIds(state.eventCosmetics).filter(id => EVENT_ELDERS[id] && !granted.has(id));
+    if (missing.length === 0) return;
+    const base = state.allElders.filter(e => e.captured && !e.eventId).map(e => e.level).sort((a, b) => b - a).slice(0, 6);
+    const level = Math.max(5, Math.min(100, Math.round(base.length ? base.reduce((s, v) => s + v, 0) / base.length : 5)));
+    setState(prev => {
+      const have = new Set(prev.eventElders ?? []);
+      const todo = missing.filter(id => !have.has(id));
+      if (todo.length === 0) return prev;
+      const std = canonicalElderStats({ level, rarity: 'Legendary', evolutionStage: 0, equipment: {} });
+      const newElders: Elder[] = todo.map(id => {
+        const def = EVENT_ELDERS[id];
+        return { id: `event_${id}_${Date.now().toString(36)}`, name: def.name, type: def.type, powerType: def.powerType, level, rarity: 'Legendary', bio: def.bio,
+          comfortGeneration: getBaseComfortGeneration('Legendary'), captured: true, xp: 0, evolutionStage: 0, eventId: id, lat: prev.currentLocation.lat, lng: prev.currentLocation.lng,
+          happiness: 100, hp: std.maxHp, maxHp: std.maxHp, strength: std.strength, wit: std.wit, agility: std.agility, tenacity: std.tenacity,
+          equipment: {}, status: 'Base', isRoaming: false, obtainedAt: Date.now(), rarityStatsV1: true, eldersCanonicalV1: true } as Elder;
+      });
+      const mails = todo.map(id => rewardMail(SEASONAL_EVENTS.find(e => e.id === id)?.name ?? 'Seasonal event', `${EVENT_ELDERS[id].name} joined your park!`, `Event reward: ${EVENT_ELDERS[id].name} (Legendary, Lv ${level}) and the ${EVENT_KEEPSAKES.find(k => k.eventId === id)?.name ?? 'Event Keepsake'} are yours.`));
+      return { ...prev, allElders: [...prev.allElders, ...newElders], eventElders: [...(prev.eventElders ?? []), ...todo], mailbox: [...mails, ...prev.mailbox] };
+    });
+    missing.forEach(id => { const m = `${EVENT_ELDERS[id].name} (Event Elder, Legendary Lv ${level}) joined your park!`; notify(m, 'good'); });
+  }, [isLoaded, cloudSyncSettled, state.hasStarted, state.eventCosmetics, state.eventElders, state.allElders, notify]);
+
   const handleCollectItem = (item: MapItem) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('collect');
     handleQuestProgress('collect');
@@ -2955,7 +2984,7 @@ const App: React.FC = () => {
       const after = applyXpGain(state.xp, state.level, 300);
       const rows = updatedTeam.map(ut => {
         const g = grantElderXp(ut, 40);
-        return { id: ut.id, name: ut.name, rarity: String(ut.rarity), type: String(ut.type), stage: ut.evolutionStage ?? 0, levelBefore: ut.level, levelAfter: g.level, xp: xpGained(ut.xp ?? 0, ut.level, g.xp ?? 0, g.level, xpForElderLevel) };
+        return { id: ut.id, name: ut.name, rarity: String(ut.rarity), type: String(ut.type), stage: ut.evolutionStage ?? 0, eventId: ut.eventId, levelBefore: ut.level, levelAfter: g.level, xp: xpGained(ut.xp ?? 0, ut.level, g.xp ?? 0, g.level, xpForElderLevel) };
       });
       setVictory({
         opponent: opponent ? { name: opponent.name, rarity: String(opponent.rarity), level: opponent.level } : undefined,
@@ -3309,7 +3338,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
           {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, art: PARCEL_ICON_ASSETS[it.id], name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} layout={state.parkLayout} onMoveBuilding={handleMoveBuilding} onResetLayout={handleResetLayout} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('Place it on the grass, not on the path, a building or the pond.', 'bad')} wanderers={[
-            ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
+            ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, eventId: e.eventId, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 10).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),
           ]} builtAmenityIds={state.builtAmenityIds} amenityLevels={state.amenityLevels ?? {}} amenityCollectedAt={state.amenityCollectedAt ?? {}} comfortBonus={comfortOutputBonus(state.allElders) + totalProducerBoost(state.builtAmenityIds, state.amenityLevels)} rosterCount={state.allElders.filter(e => e.captured).length} capacity={getHousingCapacity(state.builtAmenityIds, state.amenityLevels, state.ownedParcels.length, state.premiumRooms ?? 0)} materials={state.buildingMaterials} onOpenGrounds={(id) => { setGroundsFocusId(id ?? null); setShowGroundsPanel(true); }} onOpenExchange={() => setShowExchangeOverview(true)} onOpenWorkshop={() => setShowWorkshop(true)} onOpenHub={() => setShowParkHub(true)} onCollect={handleCollectAmenity} />}
           {activeTab === 'shop' && <ShopPanel isDark={isDark} tokens={state.legacyTokens} diners={state.tvDinners ?? 0} onOpenPvpShop={() => setShowPvpShop(true)} mementos={state.mementos ?? 0} onOpenMementoShop={() => setShowMementoShop(true)} onBuy={item => {
@@ -3592,7 +3621,7 @@ const App: React.FC = () => {
                       <div className="flex gap-2">
                         {favoriteElders.map(e => (
                           <div key={e.id} title={`${e.name} · ${e.rarity} · Lv.${e.level}`} className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 relative border-2" style={{ borderColor: GEAR_RARITY_COLOR[e.rarity as keyof typeof GEAR_RARITY_COLOR] ?? 'transparent' }}>
-                            <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                            <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill />
                             <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[10px] font-black leading-tight text-center py-[1px]">Lv.{e.level} · {e.rarity}</div>
                           </div>
                         ))}
@@ -3668,7 +3697,7 @@ const App: React.FC = () => {
                         disabled={!isFav && state.favoriteElderIds.length >= 3}
                         className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all relative ${isFav ? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]' : isDark ? 'border-slate-800' : 'border-slate-100'} disabled:opacity-30`}
                       >
-                        <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill />
+                        <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill />
                         <div className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[9px] font-black leading-tight text-center py-[1px]">Lv.{e.level} · {e.rarity}</div>
                         {isFav && <div className="absolute top-1 right-1 bg-[var(--accent-500)] rounded-full w-4 h-4 flex items-center justify-center"><CheckCircleIcon className="w-3 h-3 text-white" /></div>}
                       </button>
@@ -3710,7 +3739,7 @@ const App: React.FC = () => {
           return (
             <div className="fixed inset-0 z-[1900] bg-black/70 flex items-center justify-center p-6" onClick={() => setEncounter(null)}>
               <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`} onClick={ev => ev.stopPropagation()}>
-                <div className="w-28 h-28 mx-auto mb-3 relative"><ElderAvatarImg type={encounter.type} stage={encounter.evolutionStage ?? 0} fill className="rounded-[2rem]" /></div>
+                <div className="w-28 h-28 mx-auto mb-3 relative"><ElderAvatarImg type={encounter.type} eventId={encounter.eventId} stage={encounter.evolutionStage ?? 0} fill className="rounded-[2rem]" /></div>
                 <h3 className="text-xl font-black uppercase">{encounter.name}</h3>
                 <p className="text-[15px] font-black opacity-80">Lv {encounter.level} {encounter.rarity} · PWR {wildPower}</p>
                 <p className={`text-[17px] font-black uppercase mt-2 ${risk.color}`}>{risk.label}</p>
@@ -3835,7 +3864,7 @@ const App: React.FC = () => {
 
         {showTutorial && <TutorialOverlay isDark={isDark} onComplete={() => setShowTutorial(false)} />}
 
-        {showMementoShop && <MementoShop isDark={isDark} packPrices={packPrices} canBuy={billingAvailable() && !!authSession} buying={buyingPack} onBuyPack={handleBuyPack} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
+        {showMementoShop && <MementoShop isDark={isDark} packPrices={packPrices} canBuy={billingAvailable() && !!authSession} buying={buyingPack} onBuyPack={handleBuyPack} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} eventDone={completedEventIds(state.eventCosmetics)} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
         {showBoards && <BoardsPanel isDark={isDark} onClose={() => setShowBoards(false)} />}
         {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (

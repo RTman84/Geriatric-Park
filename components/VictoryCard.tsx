@@ -2,7 +2,7 @@ import React from 'react';
 import { ElderAvatarImg, GLYPH_ART, GEAR_RARITY_COLOR, rarityCardStyle } from '../constants';
 import { Gfx } from './Gfx';
 
-export interface VictoryElderRow { id: string; name: string; rarity: string; type: string; stage: number; levelBefore: number; levelAfter: number; xp: number }
+export interface VictoryElderRow { id: string; name: string; rarity: string; type: string; stage: number; levelBefore: number; levelAfter: number; xp: number; eventId?: string }
 export interface VictoryResult {
   opponent?: { name: string; rarity: string; level: number };
   playerXp: number; playerLevelBefore: number; playerLevelAfter: number;
@@ -46,7 +46,7 @@ const VictoryCard: React.FC<{ result: VictoryResult; onClose: () => void }> = ({
               const maxed = e.levelAfter >= 100 && e.xp === 0;
               return (
                 <div key={e.id} className="flex items-center gap-3 rounded-2xl p-2" style={rarityCardStyle(e.rarity as any)}>
-                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white/90"><ElderAvatarImg type={e.type as any} stage={e.stage as any} fill /></div>
+                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white/90"><ElderAvatarImg type={e.type as any} eventId={e.eventId} stage={e.stage as any} fill /></div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-black" style={{ color: rarityColor(e.rarity) }}>{e.name}</div>
                     <div className="text-[12px] font-bold text-slate-200">{e.rarity} · {up ? <span className="text-amber-300">Level up! Lv {e.levelBefore} → Lv {e.levelAfter}</span> : <>Lv {e.levelAfter}</>}</div>

@@ -85,6 +85,7 @@ import trophySpare from './game-assets/spare/trophy.webp';
 import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
 import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
 import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
+import { EVENT_ELDER_ART, EVENT_KEEPSAKE_ART } from './game-assets/eventElders';
 import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
@@ -1292,13 +1293,50 @@ export const ELDER_AVATARS: Record<ElderType, string[]> = {
 // behavior instead of re-implementing <img> markup 9+ times.
 // - fill=true: image fills its parent container (parent must set width/height).
 // - fill=false: image uses the explicit `size` (px) itself.
+// Seasonal-event Elders (owner request 2026-10-24): finishing every goal of a seasonal event grants that event's Elder (Legendary, level =
+// average of your top 6 Elders). They keep their own portrait at every evolution stage. Stats still follow canonicalElderStats.
+export const EVENT_ELDERS: Record<string, { name: string; type: ElderType; powerType: PowerType; bio: string }> = {
+  sweetheart: { name: 'Cupid Carl', type: ElderType.STORYTELLER, powerType: PowerType.SOCIAL, bio: 'Retired from the arrow business but never from matchmaking.' },
+  springfling: { name: 'Blossom Betty', type: ElderType.GRUMPY_GARDENER, powerType: PowerType.PHYSICAL, bio: 'Her watering can has never once run dry in spring.' },
+  summerpicnic: { name: 'Picnic Pete', type: ElderType.MALL_WALKER, powerType: PowerType.SOCIAL, bio: 'Always brings enough lemonade for the whole park.' },
+  grandparents: { name: 'Gran-Gran Gertie', type: ElderType.KNITTING_NINJA, powerType: PowerType.SOCIAL, bio: 'Cookies in one hand, family photo in the other.' },
+  spooky: { name: 'Boo Bernice', type: ElderType.BINGO_WARRIOR, powerType: PowerType.TECH, bio: 'The haunted hall is hers, and the ghosts call her Boss.' },
+  potluck: { name: 'Casserole Clarence', type: ElderType.STORYTELLER, powerType: PowerType.PHYSICAL, bio: 'Nobody has ever left his table hungry or with an empty dish.' },
+  wintergames: { name: 'Frosty Frank', type: ElderType.BINGO_WARRIOR, powerType: PowerType.PHYSICAL, bio: 'Sweeps the ice like it owes him money.' },
+};
+// Event Keepsakes (one per seasonal event): earned together with the Event Elder, shown in the Mementos Shop. Buying them during the event
+// window for Mementos is planned with the Memento rework (see ECONOMY_V5_PLAN.md).
+export const EVENT_KEEPSAKES: { id: string; eventId: string; name: string; art: string }[] = [
+  { id: 'sweetheart', eventId: 'sweetheart', name: "Cupid's Locket", art: EVENT_KEEPSAKE_ART.sweetheart },
+  { id: 'springfling', eventId: 'springfling', name: 'Blossom Vase', art: EVENT_KEEPSAKE_ART.springfling },
+  { id: 'summerpicnic', eventId: 'summerpicnic', name: 'Picnic Blanket & Hat', art: EVENT_KEEPSAKE_ART.summerpicnic },
+  { id: 'grandparents', eventId: 'grandparents', name: 'Family Tree Hoop', art: EVENT_KEEPSAKE_ART.grandparents },
+  { id: 'spooky', eventId: 'spooky', name: 'Haunted Bingo Cage', art: EVENT_KEEPSAKE_ART.spooky },
+  { id: 'potluck', eventId: 'potluck', name: 'Harvest Cornucopia', art: EVENT_KEEPSAKE_ART.potluck },
+  { id: 'wintergames', eventId: 'wintergames', name: 'Golden Curling Stone', art: EVENT_KEEPSAKE_ART.wintergames },
+];
+/** SEASONAL_EVENTS ids the player has fully completed (any year), from the permanent event titles. */
+export const completedEventIds = (eventCosmetics: string[] = []): string[] => {
+  const out = new Set<string>();
+  for (const k of eventCosmetics) { const m = /^event:([a-z]+)-\d{4}$/.exec(String(k)); if (m) out.add(m[1]); }
+  return [...out];
+};
 export const ElderAvatarImg: React.FC<{
   type: ElderType;
   stage?: number;
   size?: number;
   fill?: boolean;
   className?: string;
-}> = ({ type, stage = 0, size = 48, fill = false, className = '' }) => (
+  eventId?: string;
+}> = ({ type, stage = 0, size = 48, fill = false, className = '', eventId }) => EVENT_ELDER_ART[eventId ?? ''] ? (
+  <img
+    src={EVENT_ELDER_ART[eventId as string]}
+    alt={eventId}
+    draggable={false}
+    className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className.replace('rounded-[2rem]', '').replace('rounded-2xl', '')}`}
+    style={fill ? undefined : { width: size, height: size, minWidth: size, minHeight: size }}
+  />
+) : (
   <img
     src={ELDER_AVATARS[type][stage]}
     alt={type}

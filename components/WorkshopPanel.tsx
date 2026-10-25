@@ -143,7 +143,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
                         const occ = e.equipment?.[gearSlotKey(item.slot)];
                         return (
                           <button key={e.id} onClick={() => { onEquip(e.id, item); setSel(null); setPicking(false); }} className={`w-full p-3 rounded-2xl flex items-center gap-3 text-left active:scale-95 ${sub}`}>
-                            <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={40} />
+                            <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />
                             <div className="min-w-0 flex-1">
                               <div className="text-[14px] font-black uppercase truncate">{e.name}</div>
                               <div className="text-[11px] font-black uppercase opacity-60">{occ ? `Replaces ${occ.name}` : `Empty ${item.slot} slot`}</div>

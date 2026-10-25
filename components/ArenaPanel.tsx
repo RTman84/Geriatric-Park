@@ -287,7 +287,7 @@ export const ArenaPanel: React.FC<ArenaPanelProps> = ({
                   return (
                     <button key={e.id} disabled={busy || leavesEmpty} onClick={() => { setChoosing(false); onStation(e); }}
                       className={`w-full text-left p-3 rounded-2xl border flex items-center gap-3 ${leavesEmpty ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'} ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
-                      <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={44} />
+                      <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={44} />
                       <span className="min-w-0 flex-1">
                         <span className="block font-black text-[15px] uppercase truncate">{e.name}</span>
                         <span className={`block text-[13px] font-bold ${muted}`}>Lv {e.level} {e.rarity}{e.status === 'Team' ? ' · on squad' : ''}{leavesEmpty ? ' · keep one on your squad' : ''}</span>

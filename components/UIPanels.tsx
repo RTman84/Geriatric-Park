@@ -706,7 +706,7 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
             <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest`}>Active Lineup</p>
             {team.map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={32} />
+                <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={32} />
                 <span className="text-[15px] font-black uppercase flex-1">{e.name}</span>
                 <span className="text-[14px] text-[var(--accent-500)] font-black">PWR {getElderPower(e)}</span>
               </div>
@@ -1628,7 +1628,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                 const occupant = e.equipment?.[slotKey];
                 return (
                 <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-3 rounded-[1.5rem] border flex items-center gap-3 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
-                  <ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} size={40} />
+                  <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />
                   <div className="flex-1 text-left min-w-0">
                     <div className={`text-[14px] font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
                     {occupant ? (
@@ -1681,7 +1681,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
               return (
                 <div key={e.id} className={`p-3 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${e.awayUntil ? 'opacity-60' : ''}`}>
                   <div className="flex items-center gap-2">
-                    <div className={`w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill /></div>
+                    <div className={`w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill /></div>
                     <div className="min-w-0">
                       <p className="font-black text-[14px] uppercase truncate">{e.name} {onRenameElder && <button onClick={() => { const n = window.prompt('New name for this Elder (max 20 characters):', e.name); if (n && n.trim()) onRenameElder(e.id, n); }} title="Rename" className="text-[14px] opacity-60 active:scale-90">✏️</button>}</p>
                       <p className="text-[12px] font-black opacity-70">Lv {e.level} · <span className="text-[var(--accent-500)]">PWR {getElderPower(e)}</span></p>
@@ -1713,7 +1713,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
           {regElders.map(e => (
             <div key={e.id} className={`p-6 rounded-[3rem] border shadow-sm flex flex-col gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
