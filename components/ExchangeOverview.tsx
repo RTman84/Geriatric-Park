@@ -32,7 +32,7 @@ const ExchangeOverview: React.FC<{
             return (
               <div key={r.id} className={`p-3 rounded-2xl ${card}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0"><ElderAvatarImg type={(e?.type ?? r.elder_type) as any} stage={(e?.evolutionStage ?? r.elder_evolution_stage ?? 0) as any} fill /></div>
+                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0"><ElderAvatarImg type={(e?.type ?? r.elder_type) as any} eventId={e?.eventId} stage={(e?.evolutionStage ?? r.elder_evolution_stage ?? 0) as any} fill /></div>
                   <div className="min-w-0 flex-1">
                     <p className="font-black text-[14px] uppercase truncate">{r.elder_name} {r.mode === 'loan' ? '🤝' : '🏡'}</p>
                     <p className="text-[12px] font-bold opacity-70">{e ? `Lv ${e.level} ${e.rarity} · PWR ${getElderPower(e)}` : 'Details unavailable'}</p>

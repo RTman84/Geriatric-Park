@@ -36,7 +36,7 @@ const DefenderAvatar: React.FC<{ d: ArenaDefender }> = ({ d }) => {
   const known = d.elder && Object.prototype.hasOwnProperty.call(ELDER_AVATARS, d.elder.type);
   const stage = Math.min(2, Math.max(0, Math.floor(Number(d.elder?.evolutionStage) || 0)));
   return known
-    ? <ElderAvatarImg type={d.elder.type as ElderType} stage={stage} size={44} />
+    ? <ElderAvatarImg type={d.elder.type as ElderType} eventId={(d.elder as any).eventId} stage={stage} size={44} />
     : <div className="w-11 h-11 rounded-full bg-slate-500/30 flex items-center justify-center p-0.5"><img src={GLYPH_ART.mysteryRival} alt="" className="w-full h-full object-contain" /></div>;
 };
 

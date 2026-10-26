@@ -1822,7 +1822,7 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
           return (
           <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-[var(--accent-500-a20)]' : 'bg-white border-[var(--accent-100)]'}`}>
             <div className="flex items-center gap-6">
-              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} stage={stage} fill /></div>
+              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} eventId={e.eventId} stage={stage} fill /></div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className={`font-black text-base uppercase leading-none truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</h4>
