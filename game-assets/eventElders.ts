@@ -1,11 +1,25 @@
-// Event Elder portraits (EE1-EE7) and event Keepsakes (EK), delivered 2026-10-24. One of each per seasonal event id.
+// Event Elder portraits: stage 0 (original EE sheets), stages 1 and 2 (evolved, 1EE-7EE sheets, 2026-10-26), and event Keepsakes (EK). One per seasonal event id.
 import el_sweetheart from './events/elders/sweetheart.webp';
+import el_sweetheart_1 from './events/elders/sweetheart_1.webp';
+import el_sweetheart_2 from './events/elders/sweetheart_2.webp';
 import el_springfling from './events/elders/springfling.webp';
+import el_springfling_1 from './events/elders/springfling_1.webp';
+import el_springfling_2 from './events/elders/springfling_2.webp';
 import el_summerpicnic from './events/elders/summerpicnic.webp';
+import el_summerpicnic_1 from './events/elders/summerpicnic_1.webp';
+import el_summerpicnic_2 from './events/elders/summerpicnic_2.webp';
 import el_grandparents from './events/elders/grandparents.webp';
+import el_grandparents_1 from './events/elders/grandparents_1.webp';
+import el_grandparents_2 from './events/elders/grandparents_2.webp';
 import el_spooky from './events/elders/spooky.webp';
+import el_spooky_1 from './events/elders/spooky_1.webp';
+import el_spooky_2 from './events/elders/spooky_2.webp';
 import el_potluck from './events/elders/potluck.webp';
+import el_potluck_1 from './events/elders/potluck_1.webp';
+import el_potluck_2 from './events/elders/potluck_2.webp';
 import el_wintergames from './events/elders/wintergames.webp';
+import el_wintergames_1 from './events/elders/wintergames_1.webp';
+import el_wintergames_2 from './events/elders/wintergames_2.webp';
 import ek_sweetheart from './events/keepsakes/sweetheart.webp';
 import ek_springfling from './events/keepsakes/springfling.webp';
 import ek_summerpicnic from './events/keepsakes/summerpicnic.webp';
@@ -13,5 +27,6 @@ import ek_grandparents from './events/keepsakes/grandparents.webp';
 import ek_spooky from './events/keepsakes/spooky.webp';
 import ek_potluck from './events/keepsakes/potluck.webp';
 import ek_wintergames from './events/keepsakes/wintergames.webp';
-export const EVENT_ELDER_ART: Record<string, string> = { sweetheart: el_sweetheart, springfling: el_springfling, summerpicnic: el_summerpicnic, grandparents: el_grandparents, spooky: el_spooky, potluck: el_potluck, wintergames: el_wintergames };
+/** index = evolution stage (0, 1, 2) */
+export const EVENT_ELDER_ART: Record<string, string[]> = { sweetheart: [el_sweetheart, el_sweetheart_1, el_sweetheart_2], springfling: [el_springfling, el_springfling_1, el_springfling_2], summerpicnic: [el_summerpicnic, el_summerpicnic_1, el_summerpicnic_2], grandparents: [el_grandparents, el_grandparents_1, el_grandparents_2], spooky: [el_spooky, el_spooky_1, el_spooky_2], potluck: [el_potluck, el_potluck_1, el_potluck_2], wintergames: [el_wintergames, el_wintergames_1, el_wintergames_2] };
 export const EVENT_KEEPSAKE_ART: Record<string, string> = { sweetheart: ek_sweetheart, springfling: ek_springfling, summerpicnic: ek_summerpicnic, grandparents: ek_grandparents, spooky: ek_spooky, potluck: ek_potluck, wintergames: ek_wintergames };

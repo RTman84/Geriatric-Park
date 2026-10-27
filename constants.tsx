@@ -1328,9 +1328,9 @@ export const ElderAvatarImg: React.FC<{
   fill?: boolean;
   className?: string;
   eventId?: string;
-}> = ({ type, stage = 0, size = 48, fill = false, className = '', eventId }) => EVENT_ELDER_ART[eventId ?? ''] ? (
+}> = ({ type, stage = 0, size = 48, fill = false, className = '', eventId }) => EVENT_ELDER_ART[eventId ?? '']?.[Math.max(0, Math.min(2, stage))] ? (
   <img
-    src={EVENT_ELDER_ART[eventId as string]}
+    src={EVENT_ELDER_ART[eventId as string][Math.max(0, Math.min(2, stage))]}
     alt={eventId}
     draggable={false}
     className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className.replace('rounded-[2rem]', '').replace('rounded-2xl', '')}`}

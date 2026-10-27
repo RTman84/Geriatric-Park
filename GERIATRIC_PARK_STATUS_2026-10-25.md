@@ -21,7 +21,7 @@ Paste this whole file as the first message in a new chat (either Claude account)
 - W1.1 DONE (`7c31081`): Event Elder (Legendary, level = average of top 6, min 5, granted once on completion and on login for earlier completers) and Event Keepsake display.
 - W1.2 **Event card text:** the card in Tasks must mention the Event Elder and the Event Keepsake (names, art, what is required). Status: TODO.
 - W1.3 **Keepsake requirement:** besides the 3 goals, the Event Keepsake needs "a couple of raids" during the event (suggest 2 raid hits counted from the existing raid counters), UNLESS the player already obtained that keepsake (retroactive completers keep it free). Event keepsakes should be somewhat difficult to get, behave like other Keepsakes, and later behave like Atlas Legendary parcel upgrades/landmarks (limited, auction/bid-like; see W3 bid tokens). Status: PLAN (needs the raid-hit counter wiring; question Q6).
-- W1.4 **Evolution art for the 7 Event Elders:** stages 1 and 2 for each (14 pieces) so evolving keeps their identity; today `ElderAvatarImg` shows the single portrait at every stage. Needs prompts (matching the EE sheets: round badge portraits, same character, each stage grander), then wire `EVENT_ELDER_ART[eventId][stage]`. Status: TODO (prompts first, owner generates).
+- W1.4 **Evolution art for the 7 Event Elders:** DONE (this commit): stage 0 = the original EE portrait, stages 1 and 2 = the 1EE-7EE sheets (perfect circles, same character per stage; `EVENT_ELDER_ART[eventId][stage]` in `game-assets/eventElders.ts`, picked by `ElderAvatarImg` from the Elder's `evolutionStage`). Verified with a headless render of all three stages. Owner to check on the phone that evolving shows the new portrait.
 - W1.5 Event Antiques, buying event keepsakes with Mementos in the event window, event keepsake profile icon/title, event Elders inside Arena/Exchange snapshots (they fall back to the base type portrait there). Status: PLAN.
 
 ## W2 Park UX (owner list 2026-10-25)
@@ -89,3 +89,4 @@ Done and wired: see v7/v6 (all N/A sheets, buildings, structures, debate icon, f
 - 2026-10-25 account B (other): art touch-ups (prune bar, lane oil, rocking chair) and Atlas badge research, NOT pushed, sandbox paused until 2026-10-26 04:30. Nothing else claimed.
 - 2026-10-25 account A: W0.1 Team-screen event portrait bug fixed (commit in `git log`).
 - 2026-10-26 account B: pushed W0.3 art fixes (`0faf3d5`). Atlas badge research still unsaved.
+- 2026-10-26 account A: W1.4 event Elder evolution portraits wired (all 7 Elders x 3 stages).
