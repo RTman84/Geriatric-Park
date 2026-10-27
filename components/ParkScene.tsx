@@ -23,13 +23,13 @@ const ART: Record<string, string> = { cottage, trail, grocery, aerobics, birdwat
 // two staggered columns either side of the path (the path never swings into either column).
 // Only amenities with an entry here get a spot -- adding more buildings later means adding art
 // height (another middle section) and extending SLOT_ORDER; they stay reachable through Grounds meanwhile.
-const BG_W = 1024, BG_H = 2992, BW = 250, BH = 333;
+// Buildings are about 1.6x a Park Asset (asset footprint 84 px, building 150 x 200) so they read as the main pieces without eating the park (owner request 2026-10-26).
+const BG_W = 1024, BG_H = 2992, BW = 150, BH = 200;
 const SLOT_ORDER = ['cottage', 'trail', 'grocery', 'aerobics', 'birdwatch', 'earlybird', 'complaints', 'nappod', 'prunebar', 'shuffleboard_deco', 'workshop', 'lodge'];
 function slotFor(i: number) {
-  if (i === 10) return { xc: 190, y: 2600 };  // Tinker's Workshop (the last free stretch of the scene)
-  if (i === 11) return { xc: 835, y: 2655 };  // Visitors' Lodge
+  // Two staggered columns beside the path, packed tighter now that buildings are smaller (rows 330 px apart); the lower third of the scene stays free for Park Assets.
   const row = Math.floor(i / 2), col = i % 2;
-  return { xc: col === 0 ? 190 : 835, y: (col === 0 ? 300 : 520) + row * 460 };
+  return { xc: col === 0 ? 190 : 835, y: (col === 0 ? 300 : 430) + row * 330 };
 }
 
 export interface Wanderer {
@@ -73,13 +73,11 @@ export const isLayoutPiece = (d: { id: string }) => LAYOUT_KEY.test(d.id);
 function allSlotRects(layout?: ParkLayout) {
   return [...SLOT_ORDER.map((_, i) => posFor(i, layout)), ...RESERVED_SLOTS];
 }
-// Placement uses a FOOTPRINT (a square in backdrop pixels centred on the tap), not a single point (owner rule 2026-10-20):
-// the road is now allowed; the pond and the gate are still blocked but you may place right up against them (touching is fine);
-// a footprint may never overlap a building or another placed asset. Used by the live green/red ghost and by the placement handler.
+// Placement uses a FOOTPRINT (a square in backdrop pixels centred on the tap), not a single point. Owner rule 2026-10-26: anything may go ANYWHERE
+// in the park, including the very edges, the road, the gate and the pond. The only red is overlap: a footprint may never overlap a building or
+// another placed asset. Used by the live green/red ghost and by the placement handler.
 export const DECOR_FOOTPRINT = 84; // backdrop px (the sprite is ~92 px wide, a little forgiving)
 type Rect = { x0: number; y0: number; x1: number; y1: number };
-const POND_RECT: Rect = { x0: 700, y0: 0, x1: BG_W, y1: 380 };
-const GATE_RECT: Rect = { x0: 350, y0: 2700, x1: 600, y1: BG_H };
 const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0; // touching edges is allowed
 const buildingRects = (layout?: ParkLayout): Rect[] => allSlotRects(layout).map(({ xc, y }) => ({ x0: xc - BW / 2, y0: y, x1: xc + BW / 2, y1: y + BH }));
 export function decorRect(xPct: number, yPct: number): Rect {
@@ -89,19 +87,17 @@ export function decorRect(xPct: number, yPct: number): Rect {
 export function isDecorSpotValid(xPct: number, yPct: number, existing: DecorPiece[] = [], ignoreIndex = -1, layout?: ParkLayout): boolean {
   if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return false;
   const r = decorRect(xPct, yPct);
-  if (r.x0 < 10 || r.x1 > BG_W - 10 || r.y0 < 40 || r.y1 > BG_H - 40) return false;
-  if (overlaps(r, POND_RECT) || overlaps(r, GATE_RECT)) return false;
+  if (r.x0 < 0 || r.x1 > BG_W || r.y0 < 0 || r.y1 > BG_H) return false;
   for (const b of buildingRects(layout)) if (overlaps(r, b)) return false;
   for (let i = 0; i < existing.length; i++) if (i !== ignoreIndex && overlaps(r, decorRect(existing[i].x, existing[i].y))) return false;
   return true;
 }
-// A building footprint (BW x BH, top-left from its centre x / top y) must stay in the scene, off the pond and the gate, and
+// A building footprint (BW x BH, top-left from its centre x / top y) must stay inside the scene (edges, gate and pond are all allowed) and be
 // clear of every other building and every placed asset. Touching is fine. Used by the green/red ghost and by the move handler.
 export function isBuildingSpotValid(index: number, xc: number, top: number, layout?: ParkLayout, decor: DecorPiece[] = []): boolean {
   if (!Number.isFinite(xc) || !Number.isFinite(top)) return false;
   const r: Rect = { x0: xc - BW / 2, y0: top, x1: xc + BW / 2, y1: top + BH };
-  if (r.x0 < 0 || r.x1 > BG_W || r.y0 < 60 || r.y1 > BG_H) return false;
-  if (overlaps(r, POND_RECT) || overlaps(r, GATE_RECT)) return false;
+  if (r.x0 < 0 || r.x1 > BG_W || r.y0 < 0 || r.y1 > BG_H) return false;
   const others = allSlotRects(layout);
   for (let i = 0; i < others.length; i++) {
     if (i === index) continue;
@@ -157,9 +153,9 @@ const pillBase: React.CSSProperties = {
 };
 // Name plate drawn in the app's own type instead of relying on the (angled, sometimes unreadable) signs baked into the art.
 const nameBar: React.CSSProperties = {
-  fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.4, color: '#fff', textAlign: 'center',
+  fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.3, color: '#fff', textAlign: 'center',
   background: 'rgba(45,30,15,0.88)', border: '2px solid rgba(255,255,255,0.85)', borderRadius: 10, padding: '3px 8px',
-  lineHeight: 1.15, maxWidth: 124, boxShadow: '0 2px 6px rgba(0,0,0,0.35)', cursor: 'pointer',
+  lineHeight: 1.15, maxWidth: 100, boxShadow: '0 2px 6px rgba(0,0,0,0.35)', cursor: 'pointer',
 };
 
 const ParkScene: React.FC<ParkSceneProps> = ({
