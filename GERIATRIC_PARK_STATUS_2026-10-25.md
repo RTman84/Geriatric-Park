@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-10-26: edit `GERIATRIC_PARK_STATUS_2026-10-26.md` instead. Do NOT update this file (two trackers caused duplicate work).**
+
 # Geriatric Park - CARRY-OVER + TRACKER (2026-10-25, v8: supersedes `GERIATRIC_PARK_STATUS_2026-10-24.md` v7 and the 10-20 v6 doc)
 Paste this whole file as the first message in a new chat (either Claude account). Repo `RTman84/Geriatric-Park`, branch `phase2/account-backend-foundation-clean` (only active branch). Companion docs in the repo: `ECONOMY_V5_PLAN.md` (economy design), `ATLAS_COMPARISON.md`, `ECONOMY.md`, and the 10-20 doc (F1-F8 history, long ideas list: training 2.2, chat 2.3, Posse 2.4, roster cap 2.8, producer repurpose 2.10).
 
