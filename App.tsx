@@ -3357,7 +3357,7 @@ const App: React.FC = () => {
               notify(`${item.name} activated!`);
             }
           }} />}
-          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
+          {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} eventCosmetics={state.eventCosmetics} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
           {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onRespondFriendRequest={handleRespondMailRequest} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} mementos={state.mementos ?? 0} signedIn={!!authSession} onClaim={handleClaimSeasonReward} onBuyGold={handleBuyGoldPass} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {

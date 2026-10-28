@@ -1,4 +1,6 @@
 import { PASS_LANE_ART } from '../game-assets/art3';
+import { EVENT_ELDERS, EVENT_KEEPSAKES, completedEventIds } from '../constants';
+import { EVENT_ELDER_ART } from '../game-assets/eventElders';
 import { MODE_BADGE_ART } from '../game-assets/badges/badgeArt';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
@@ -1172,7 +1174,8 @@ export const QuestPanel: React.FC<{
   onClaim: (id: string) => void, isDark: boolean,
   modeStats?: Record<string, number>, claimedMilestones?: string[], onClaimMilestone?: (mode: string, tier: number) => void,
   eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }
-}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone, eventProgress }) => {
+  eventCosmetics?: string[]
+}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone, eventProgress, eventCosmetics }) => {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements' | 'milestones'>('daily');
   const daily = quests.filter(q => q.type === 'Daily');
   const weekly = quests.filter(q => q.type === 'Weekly');
@@ -1192,7 +1195,7 @@ export const QuestPanel: React.FC<{
         </div>
       </div>
 
-      <EventsCard isDark={isDark} modeStats={modeStats} eventProgress={eventProgress} />
+      <EventsCard isDark={isDark} modeStats={modeStats} eventProgress={eventProgress} earnedEventIds={completedEventIds(eventCosmetics)} />
 
       {/* Tab selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
@@ -1865,7 +1868,32 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
     </div>
   );
 };// Seasonal event card: the running event with live goal progress, or a countdown to the next one.
-const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>; eventProgress?: { id: string; base: Record<string, number>; claimed: string[] } }> = ({ isDark, modeStats, eventProgress }) => {
+// What finishing every goal of a seasonal event gives besides the title: the Event Elder (Legendary) and the Event Keepsake.
+const EventRewards: React.FC<{ eventId: string; owned: boolean; isDark: boolean }> = ({ eventId, owned, isDark }) => {
+  const elder = EVENT_ELDERS[eventId]; const keep = EVENT_KEEPSAKES.find(k => k.eventId === eventId);
+  if (!elder || !keep) return null;
+  const tile = `flex-1 min-w-0 rounded-2xl p-2 text-center ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`;
+  return (
+    <div className="mt-3">
+      <div className="text-[12px] font-black uppercase tracking-widest text-slate-400 mb-1">Event rewards {owned && <span className="text-emerald-500">- owned</span>}</div>
+      <div className="flex gap-2">
+        <div className={tile} style={{ border: '2px solid #f59e0b' }}>
+          <img src={EVENT_ELDER_ART[eventId][0]} alt="" className="mx-auto h-16 w-16 object-contain" />
+          <div className="text-[13px] font-black leading-tight" style={{ color: '#f59e0b' }}>{elder.name}</div>
+          <div className="text-[11px] font-bold text-slate-400">Legendary Event Elder</div>
+        </div>
+        <div className={tile} style={{ border: '2px solid #a855f7' }}>
+          <img src={keep.art} alt="" className="mx-auto h-16 w-16 object-contain" />
+          <div className="text-[13px] font-black leading-tight" style={{ color: '#a855f7' }}>{keep.name}</div>
+          <div className="text-[11px] font-bold text-slate-400">Event Keepsake</div>
+        </div>
+      </div>
+      <div className="text-[12px] font-bold text-slate-400 mt-1">Finish every goal to earn both. {owned ? 'You already have them (see the Mementos Shop and your Team).' : 'The Elder joins at the average level of your top 6 Elders and evolves like any other Elder.'}</div>
+    </div>
+  );
+};
+
+const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>; eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }; earnedEventIds?: string[] }> = ({ isDark, modeStats, eventProgress, earnedEventIds = [] }) => {
   const act = activeSeasonalEvent();
   const card = `p-5 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`;
   const daysLeft = (t: number) => Math.max(0, Math.ceil((t - Date.now()) / 86400000));
@@ -1876,6 +1904,7 @@ const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>
         <div className="text-[13px] font-black uppercase tracking-widest text-slate-400 mb-1">Seasonal Events</div>
         <div className={`text-[16px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}><span className="inline-flex items-center gap-2">{eventArt(nx.event.id) ? <img src={eventArt(nx.event.id)} alt="" className="w-14 h-14 object-contain" /> : nx.event.icon} {nx.event.name} starts in {daysLeft(nx.startsAt)} days</span></div>
         <div className="text-[13px] font-bold text-slate-400 mt-1">{nx.event.blurb} Finish every goal for a permanent event title and icon.</div>
+        <EventRewards eventId={nx.event.id} owned={earnedEventIds.includes(nx.event.id)} isDark={isDark} />
       </div>
     );
   }
@@ -1908,6 +1937,7 @@ const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>
           );
         })}
       </div>
+      <EventRewards eventId={act.event.id} owned={earnedEventIds.includes(act.event.id)} isDark={isDark} />
       <div className="text-[13px] font-black mt-3 text-center" style={{ color: done ? '#22c55e' : undefined }}>{done ? `Complete! You earned "${act.event.title} ${act.year}".` : `Finish every goal to earn the title "${act.event.title} ${act.year}" and its icon.`}</div>
     </div>
   );
