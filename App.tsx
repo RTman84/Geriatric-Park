@@ -2850,7 +2850,15 @@ const App: React.FC = () => {
 
   const handleUpgradeGear = useCallback((itemId: string) => {
     setState(prev => {
-      const item = prev.inventory.find(i => i.id === itemId);
+      let item = prev.inventory.find(i => i.id === itemId);
+      let wornBy: string | null = null; let wornSlot: 'head' | 'body' | 'accessory' | 'charm' | null = null;
+      if (!item) {
+        // Not in the bag: it may be equipped on an Elder (upgrade in place, no need to unequip first).
+        for (const e of prev.allElders) for (const sk of ['head', 'body', 'accessory', 'charm'] as const) {
+          const w = (e.equipment as any)?.[sk];
+          if (w && w.id === itemId) { item = w; wornBy = e.id; wornSlot = sk; }
+        }
+      }
       if (!item) return prev;
       const level = item.level ?? 1;
       if (level >= getGearMaxLevel(item)) { notify('Already at max level for its rarity.'); return prev; }
@@ -2858,6 +2866,12 @@ const App: React.FC = () => {
       if (prev.legacyTokens < cost.tickets || prev.buildingMaterials < cost.materials) {
         notify(`Need ${cost.tickets} Tickets + ${cost.materials} Materials to upgrade.`);
         return prev;
+      }
+      if (wornBy && wornSlot) {
+        const slot = wornSlot;
+        // Stats refresh from the equipment signature (evolvedSig effect), so only the item level changes here.
+        const nextElders = prev.allElders.map(e => e.id === wornBy ? { ...e, equipment: { ...e.equipment, [slot]: { ...(e.equipment as any)[slot], level: level + 1 } } } : e);
+        return { ...prev, legacyTokens: prev.legacyTokens - cost.tickets, buildingMaterials: prev.buildingMaterials - cost.materials, allElders: nextElders as any };
       }
       const nextInventory = prev.inventory.map(i => i.id === itemId ? { ...i, level: level + 1 } : i);
       return { ...prev, legacyTokens: prev.legacyTokens - cost.tickets, buildingMaterials: prev.buildingMaterials - cost.materials, inventory: nextInventory };
@@ -3336,7 +3350,7 @@ const App: React.FC = () => {
               onPlayerClick={() => triggerTab('base')} onMailClick={() => triggerTab('mailbox')}
             />
           )}
-          {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} />}
+          {activeTab === 'team' && <TeamPanel isDark={isDark} onReorderTeam={handleReorderTeam} borrowed={borrowedElders} elders={state.allElders} onMoveToStandby={handleMoveToStandby} onMoveToTeam={handleMoveToTeam} onSetRoamer={id => setState(p => ({...p, allElders: p.allElders.map(e => ({...e, isRoaming: e.id === id}))}))} onEvolve={handleEvolveElder} legacyTokens={state.legacyTokens} gearActions={{ inventory: state.inventory, tokens: state.legacyTokens, materials: state.buildingMaterials, upgradeDiscountPct: workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels), onUpgrade: handleUpgradeGear, onUnequip: handleUnequipElder, onEquip: handleEquipElder }} />}
           {activeTab === 'base' && <ParkScene isDark={isDark} decor={state.parkDecor ?? []} decorOptions={INVESTMENT_TIERS.flatMap(t => t.items).map(it => ({ id: it.id, icon: it.icon, art: PARCEL_ICON_ASSETS[it.id], name: it.name, owned: ownedAssetCount(state.parkAssets, it.id), placed: (state.parkDecor ?? []).filter(d => d.id === it.id).length })).filter(o => o.owned > 0)} layout={state.parkLayout} onMoveBuilding={handleMoveBuilding} onResetLayout={handleResetLayout} onPlaceDecor={handlePlaceDecor} onRemoveDecor={handleRemoveDecor} onDecorInvalid={() => notify('That spot is taken: it overlaps a building or another asset. Anywhere else in the park is fine.', 'bad')} wanderers={[
             ...state.allElders.filter(e => e.captured && !(e.awayUntil && e.awayUntil > Date.now())).slice(0, 30).map(e => ({ key: 'own_' + e.id, type: e.type, eventId: e.eventId, stage: e.evolutionStage ?? 0, name: e.name, label: 'Yours', level: e.level, rarity: e.rarity })),
             ...residentExchangeHosting.filter(r => (r.mode ?? 'visit') === 'visit').slice(0, 10).map(r => ({ key: 'vis_' + r.id, type: r.elder_type, stage: r.elder_evolution_stage ?? 0, name: r.elder_name, label: `Visiting from ${r.owner?.display_name || 'a friend'}`, level: r.snapshot?.level, rarity: r.snapshot?.rarity })),

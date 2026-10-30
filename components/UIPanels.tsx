@@ -4,6 +4,7 @@ import { EVENT_ELDER_ART } from '../game-assets/eventElders';
 import { MODE_BADGE_ART } from '../game-assets/badges/badgeArt';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
+import { EquippedGearSlot, GearActions } from './GearInspector';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
@@ -70,23 +71,23 @@ const HealthBar: React.FC<{ hp: number; maxHp: number; isDark: boolean }> = ({ h
 };
 
 // The four gear slots of an Elder at a glance (used on the Team screen): item art, rarity border, level and the stat it adds.
-const GearRow: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => (
+const GearRow: React.FC<{ elder: Elder, isDark: boolean, actions?: GearActions }> = ({ elder, isDark, actions }) => (
   <div className="grid grid-cols-4 gap-2 mt-3">
-    {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => {
-      const item: any = (elder.equipment as any)?.[slotKey];
-      return (
-        <div key={slotKey} title={item ? `${item.name} · ${item.rarity ?? 'Common'} · Lv.${item.level ?? 1} · +${getEffectiveGearBoost(item)} ${GEAR_SLOT_STAT_SHORT[slotKey]}` : `Empty ${slotKey} slot (boosts ${GEAR_SLOT_STAT_SHORT[slotKey]})`}
-          className={`rounded-xl p-1.5 flex flex-col items-center border-2 ${isDark ? 'bg-slate-900/60' : 'bg-white'}`}
-          style={{ borderColor: item ? GEAR_RARITY_COLOR[(item.rarity ?? 'Common') as keyof typeof GEAR_RARITY_COLOR] : (isDark ? '#334155' : '#e2e8f0') }}>
-          <span className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
-          {item ? <>
-            <ItemIcon name={item.name} icon={item.icon} size={34} />
-            <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{getEffectiveGearBoost(item)}</span>
-            <span className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Lv.{item.level ?? 1}</span>
-          </> : <span className={`text-[20px] leading-[48px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>＋</span>}
-        </div>
-      );
-    })}
+    {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => (
+      <EquippedGearSlot key={slotKey} elder={elder} slotKey={slotKey} isDark={isDark} actions={actions}
+        className={`rounded-xl p-1.5 flex flex-col items-center border-2 active:scale-95 ${isDark ? 'bg-slate-900/60' : 'bg-white'}`}>
+        {(item: any) => (
+          <div className="flex flex-col items-center w-full" style={{ borderColor: item ? GEAR_RARITY_COLOR[(item.rarity ?? 'Common') as keyof typeof GEAR_RARITY_COLOR] : undefined }}>
+            <span className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
+            {item ? <>
+              <ItemIcon name={item.name} icon={item.icon} size={34} rarity={item.rarity} />
+              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{getEffectiveGearBoost(item)}</span>
+              <span className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Lv.{item.level ?? 1}</span>
+            </> : <span className={`text-[20px] leading-[48px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>＋</span>}
+          </div>
+        )}
+      </EquippedGearSlot>
+    ))}
   </div>
 );
 
@@ -1729,23 +1730,16 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                   <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {(e.xp ?? 0)}/{xpForElderLevel(e.level)}</p>
                   {onUnequipElder && (
                     <div className="flex gap-2 mt-2">
-                      {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => {
-                        const item = e.equipment?.[slotKey];
-                        return (
-                          <div key={slotKey} className="flex flex-col items-center gap-0.5">
-                            <button
-                              disabled={!item}
-                              onClick={() => item && onUnequipElder(e.id, slotKey)}
-                              title={item ? `${item.name} (tap to unequip)` : `Empty ${slotKey} slot (boosts ${GEAR_SLOT_STAT_SHORT[slotKey]})`}
-                              className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${item ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}
-                              style={{ borderColor: item ? GEAR_RARITY_COLOR[item.rarity ?? 'Common'] : undefined }}
-                            >
-                              {item ? <ItemIcon name={item.name} icon={item.icon} size={32} rarity={item.rarity} /> : <span className="text-[18px] opacity-60">+</span>}
-                            </button>
-                            <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
-                          </div>
-                        );
-                      })}
+                      {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => (
+                        <div key={slotKey} className="flex flex-col items-center gap-0.5">
+                          <EquippedGearSlot elder={e} slotKey={slotKey} isDark={isDark}
+                            actions={{ inventory, tokens, materials, upgradeDiscountPct, onUpgrade: onUpgradeGear, onUnequip: onUnequipElder, onEquip: onEquipElder }}
+                            className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${e.equipment?.[slotKey] ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                            {(item: any) => item ? <ItemIcon name={item.name} icon={item.icon} size={32} rarity={item.rarity} /> : <span className="text-[18px] opacity-60">+</span>}
+                          </EquippedGearSlot>
+                          <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {e.awayUntil && (
@@ -1786,7 +1780,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
 
 // ─── Team Panel ───────────────────────────────────────────────────────────────
 
-export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, onReorderTeam?: (orderedIds: string[]) => void, legacyTokens?: number }> = ({ borrowed = [], onReorderTeam, elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0 }) => {
+export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, onReorderTeam?: (orderedIds: string[]) => void, legacyTokens?: number, gearActions?: GearActions }> = ({ borrowed = [], onReorderTeam, elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0, gearActions }) => {
   const team = elders.filter(e => e.status === 'Team');
   const squadPower = getSquadPower(team);
   return (
@@ -1861,7 +1855,7 @@ export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveTo
             </div>
             <HealthBar hp={e.hp} maxHp={e.maxHp} isDark={isDark} />
             <StatsGrid elder={e} isDark={isDark} />
-            <GearRow elder={e} isDark={isDark} />
+            <GearRow elder={e} isDark={isDark} actions={gearActions} />
           </div>
         );})}
         {team.length === 0 && <div className={`text-center py-20 italic text-sm uppercase font-black tracking-widest leading-relaxed ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>Squad is empty. Assign elders in the Park Hub.</div>}
