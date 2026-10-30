@@ -1563,8 +1563,8 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         // (e.g. it was just sold or equipped from another tab).
         const item = inventory.find(i => i.id === selectedItem.id) ?? selectedItem;
         return (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[3rem] p-6 flex flex-col border shadow-2xl h-[90vh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }} onClick={() => setSelectedItem(null)}>
+          <div onClick={ev => ev.stopPropagation()} className={`w-full max-w-sm rounded-[3rem] p-6 flex flex-col border shadow-2xl max-h-full h-[90dvh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
             {/* Compact header: icon+name+rarity all on one row, description capped to 2 lines --
                 a long description used to push the Elder list down to almost nothing. */}
             <div className="flex items-center gap-3 mb-2 flex-shrink-0">
@@ -1576,6 +1576,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
                   <span className={`text-[14px] font-black uppercase tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.slot} slot</span>
                 </div>
               </div>
+              <button onClick={() => setSelectedItem(null)} aria-label="Close" className="flex-shrink-0 w-11 h-11 rounded-full bg-slate-200 text-slate-700 text-[20px] font-black active:scale-90">&#10005;</button>
             </div>
             <p className={`text-[14px] font-semibold mb-2 flex-shrink-0 line-clamp-3 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.description}</p>
             {(() => {

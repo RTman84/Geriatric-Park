@@ -49,11 +49,11 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
   const card = isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800';
   const sub = isDark ? 'bg-slate-800' : 'bg-slate-100';
   return (
-    <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3">
-      <div className={`w-full max-w-md h-[92vh] rounded-[2.5rem] border shadow-2xl p-5 flex flex-col ${card}`}>
+    <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }} onClick={() => (item ? setSel(null) : onClose())}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-full h-[92dvh] rounded-[2.5rem] border shadow-2xl p-5 flex flex-col ${card}`}>
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <h2 className="flex items-center gap-2 text-[20px] font-black uppercase italic"><img src={UI_ART.workshop} alt="" className="w-9 h-9 object-contain not-italic" />Tinker's Workshop</h2>
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-black uppercase text-[13px] active:scale-95">Close</button>
+          <button onClick={() => (item ? setSel(null) : onClose())} className="px-4 py-3 rounded-xl bg-slate-200 text-slate-700 font-black uppercase text-[14px] active:scale-95">{item ? 'Close item' : 'Close'}</button>
         </div>
         <div className={`p-3 rounded-2xl mb-3 text-[13px] font-bold flex-shrink-0 ${sub}`}>
           {built
@@ -105,7 +105,7 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
           </>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <button onClick={() => setSel(null)} className="mb-2 text-[13px] font-black uppercase opacity-70">&larr; All gear</button>
+            <button onClick={() => setSel(null)} className="mb-2 px-3 py-2 rounded-xl text-[14px] font-black uppercase bg-slate-200 text-slate-700 active:scale-95">&larr; Back to Workshop</button>
             <div className="flex items-center gap-3 mb-2">
               <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
               <div className="min-w-0">
