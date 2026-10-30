@@ -127,7 +127,12 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: "Arrange Your Park",
-    description: "In the Park tab, tap Rearrange, tap a building, then tap where it should go. Green means it fits, red means it is blocked by the pond, the gate, another building or one of your Park Assets. Reset layout puts everything back. Friends see your layout when they visit.",
+    description: "In the Park tab, tap Rearrange, tap a building, then tap where it should go. Green means it fits, red means it overlaps another building or Park Asset. Edges, the road, the gate and the pond are all fine. Reset layout puts everything back. Friends see your layout when they visit.",
+    icon: <img src={GLYPH_ART.parkHub} alt="" className="w-12 h-12 object-contain" />
+  },
+  {
+    title: "Gear: Compare, Upgrade, Salvage",
+    description: "Tap any gear an Elder is wearing (Team screen or Park Hub) to see its level, rarity and real value, compared with the best piece in your bag. You can upgrade it, swap it or remove it right there. When you give an item to an Elder, each row shows what they wear now and the gain or loss. The Park Hub inventory sorts high to low, filters by slot and rarity, and has Multi-salvage.",
     icon: <img src={GLYPH_ART.parkHub} alt="" className="w-12 h-12 object-contain" />
   },
   {

@@ -4,7 +4,7 @@ import { EVENT_ELDER_ART } from '../game-assets/eventElders';
 import { MODE_BADGE_ART } from '../game-assets/badges/badgeArt';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
-import { EquippedGearSlot, GearActions } from './GearInspector';
+import { EquippedGearSlot, ElderEquipRow, GearActions } from './GearInspector';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
@@ -1660,26 +1660,10 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             {/* min-h guarantees at least ~2 Elder rows are always visible no matter how much
                 room the header/description/buttons above end up taking. */}
             <div className="flex-1 min-h-[220px] overflow-y-auto custom-scrollbar space-y-2 px-1 -mx-1">
-              {sortEldersByPref<Elder>(elders).map(e => {
-                const slotKey = gearSlotKey(item.slot);
-                const occupant = e.equipment?.[slotKey];
-                return (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, item); setSelectedItem(null); }} className={`w-full p-3 rounded-[1.5rem] border flex items-center gap-3 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-[var(--accent-500)]`}>
-                  <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />
-                  <div className="flex-1 text-left min-w-0">
-                    <div className={`text-[14px] font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
-                    {occupant ? (
-                      <div className="flex items-center gap-1 text-[10px] font-black uppercase text-amber-500 truncate">
-                        <ItemIcon name={occupant.name} icon={occupant.icon} size={14} />
-                        Replaces {occupant.name} (+{getEffectiveGearBoost(occupant)})
-                      </div>
-                    ) : (
-                      <div className="text-[10px] font-black uppercase opacity-40">Empty {item.slot} slot</div>
-                    )}
-                  </div>
-                </button>
-                );
-              })}
+              {sortEldersByPref<Elder>(elders.filter(e => !e.awayUntil || e.awayUntil < Date.now())).map(e => (
+                <ElderEquipRow key={e.id} elder={e} item={item} isDark={isDark} onPick={() => { onEquipElder(e.id, item); setSelectedItem(null); }}
+                  avatar={<ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />} />
+              ))}
             </div>
             <button onClick={() => setSelectedItem(null)} className="mt-4 bg-slate-100 text-slate-600 font-black py-3 rounded-2xl uppercase text-[14px] active:scale-95 transition-transform flex-shrink-0">Cancel</button>
           </div>

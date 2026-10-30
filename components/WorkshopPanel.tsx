@@ -6,6 +6,7 @@ import {
 } from '../constants';
 import { sortEldersByPref, UI_ART } from '../constants';
 import { Gfx } from './Gfx';
+import { ElderEquipRow } from './GearInspector';
 
 // Tinker's Workshop window: everything to do with gear in one place (upgrade, salvage, equip).
 // The building is optional -- without it the same actions work at the base prices; its level discounts upgrades
@@ -139,18 +140,10 @@ const WorkshopPanel: React.FC<Props> = ({ isDark, inventory, elders, tokens, mat
                   <button onClick={() => setPicking(p => !p)} className="w-full py-3 rounded-2xl font-black uppercase text-[13px] bg-emerald-600 text-white active:scale-95 mb-2">{picking ? 'Hide Elders' : 'Give to an Elder'}</button>
                   {picking && (
                     <div className="space-y-2">
-                      {sortEldersByPref<Elder>(elders.filter(e => !e.awayUntil || e.awayUntil < Date.now())).map(e => {
-                        const occ = e.equipment?.[gearSlotKey(item.slot)];
-                        return (
-                          <button key={e.id} onClick={() => { onEquip(e.id, item); setSel(null); setPicking(false); }} className={`w-full p-3 rounded-2xl flex items-center gap-3 text-left active:scale-95 ${sub}`}>
-                            <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[14px] font-black uppercase truncate">{e.name}</div>
-                              <div className="text-[11px] font-black uppercase opacity-60">{occ ? `Replaces ${occ.name}` : `Empty ${item.slot} slot`}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {sortEldersByPref<Elder>(elders.filter(e => !e.awayUntil || e.awayUntil < Date.now())).map(e => (
+                        <ElderEquipRow key={e.id} elder={e} item={item} isDark={isDark} onPick={() => { onEquip(e.id, item); setSel(null); setPicking(false); }}
+                          avatar={<ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />} />
+                      ))}
                     </div>
                   )}
                 </>

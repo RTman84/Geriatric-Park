@@ -133,3 +133,4 @@ Done and wired: see v7/v6 (all N/A sheets, buildings, structures, debate icon, f
 - 2026-10-30 account A (GP app 2): W2.7 and W2.8 done; W7.1 was already done by B; Q17 answered (compare view on every tap/hover of equipped gear).
 - 2026-10-30 account A: GearInspector shared card (Team + Park Hub equipped gear), upgrade equipped gear in place; remaining: W2.3 Park Hub sort/filter/multi-salvage, compare on non-equipped item lists.
 - 2026-10-30 account A: W2.3 Park Hub inventory sort/filter/multi-salvage built (commit pending push).
+- 2026-10-30 account A: ElderEquipRow compare (current piece vs new, real gain) in Park Hub item window and Workshop; Tutorial card for gear compare/sort/salvage; Arrange tutorial text corrected (commit pending push).

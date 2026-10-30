@@ -114,3 +114,30 @@ export const EquippedGearSlot: React.FC<{ elder: Elder; slotKey: SlotKey; isDark
     </>
   );
 };
+
+// Row used wherever you choose WHICH Elder gets an item (Park Hub item window, Workshop): shows what that Elder wears in the slot
+// now next to the new piece, with the real gain or loss at the Elder's level, so the comparison is the same on every screen.
+export const ElderEquipRow: React.FC<{ elder: Elder; item: Gear; isDark: boolean; onPick: () => void; avatar: React.ReactNode }> = ({ elder, item, isDark, onPick, avatar }) => {
+  const slotKey = gearSlotKey(item.slot) as SlotKey;
+  const worn: Gear | undefined = (elder.equipment as any)?.[slotKey];
+  const newV = real(item, elder), oldV = worn ? real(worn, elder) : 0;
+  const diff = newV - oldV;
+  return (
+    <button onClick={onPick} className={`w-full p-3 rounded-2xl border flex items-center gap-3 text-left active:scale-95 transition-all hover:border-[var(--accent-500)] ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
+      {avatar}
+      <div className="flex-1 min-w-0">
+        <div className="text-[14px] font-black uppercase truncate">{elder.name} <span className="opacity-60 text-[12px]">Lv.{elder.level}</span></div>
+        {worn ? (
+          <div className="flex items-center gap-1 text-[11px] font-bold opacity-80 truncate">
+            <ItemIcon name={worn.name} icon={worn.icon} size={16} rarity={worn.rarity} />
+            <span className="truncate">{worn.name} · {worn.rarity ?? 'Common'} Lv.{worn.level ?? 1} · +{oldV}</span>
+          </div>
+        ) : <div className="text-[11px] font-bold opacity-60">Empty {item.slot} slot</div>}
+      </div>
+      <div className="text-right flex-shrink-0">
+        <div className="text-[14px] font-black">+{newV}</div>
+        <div className={`text-[12px] font-black ${diff > 0 ? 'text-green-500' : diff < 0 ? 'text-rose-500' : 'opacity-60'}`}>{diff > 0 ? `▲ ${diff}` : diff < 0 ? `▼ ${-diff}` : '='}</div>
+      </div>
+    </button>
+  );
+};
