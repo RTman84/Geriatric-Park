@@ -1331,7 +1331,7 @@ const evolveInfo = (e: Elder, tokens: number) => {
 
 export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   elders: Elder[], inventory: Gear[], tokens: number, materials: number,
-  upgradeDiscountPct?: number, salvageBonusPct?: number, onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void,
+  upgradeDiscountPct?: number, salvageBonusPct?: number, onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void, onSellManyGear?: (ids: string[]) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
   onMoveToStandby: (id: string) => void, lastCheckIn?: number, 
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
@@ -1343,22 +1343,34 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
   parkScore?: number,
   parkAssets?: Record<string, number>,
   healPrice?: { cost: number; soldOut: boolean }
-}> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
+}> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onSellManyGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
   const [regSort, setRegSort] = React.useState<ElderSortMode>(() => readElderSortPref().sort);
   const [gearSort, setGearSort] = React.useState<'newest' | 'rarity' | 'slot' | 'level' | 'boost' | 'name'>('rarity');
+  const [gearDesc, setGearDesc] = React.useState(true);
+  const [gearSlotF, setGearSlotF] = React.useState<'All' | 'Head' | 'Body' | 'Accessory' | 'Charm'>('All');
+  const [gearRarityF, setGearRarityF] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
+  const [gearMulti, setGearMulti] = React.useState(false);
+  const [gearPicked, setGearPicked] = React.useState<string[]>([]);
   const sortedInventory = React.useMemo(() => {
     const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
     const slotOrder: Record<string, number> = { Head: 0, Body: 1, Accessory: 2, Charm: 3 };
     const idx = new Map<string, number>(inventory.map((g, i): [string, number] => [g.id, i]));
-    return [...inventory].sort((a, b) => {
-      if (gearSort === 'newest') return (idx.get(b.id) ?? 0) - (idx.get(a.id) ?? 0);
-      if (gearSort === 'name') return a.name.localeCompare(b.name);
-      if (gearSort === 'slot') return ((slotOrder[a.slot] ?? 0) - (slotOrder[b.slot] ?? 0)) || ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0)) || (b.level - a.level);
-      if (gearSort === 'level') return (b.level - a.level) || ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0));
-      if (gearSort === 'boost') return (b.boost - a.boost) || (b.level - a.level);
-      return ((rr[b.rarity ?? 'Common'] ?? 0) - (rr[a.rarity ?? 'Common'] ?? 0)) || (b.level - a.level) || (b.boost - a.boost);
-    });
-  }, [inventory, gearSort]);
+    const R = (g: Gear) => rr[g.rarity ?? 'Common'] ?? 0;
+    // d > 0 means "a is higher than b"; the High/Low toggle flips it for every sort key.
+    const key = (a: Gear, b: Gear): number => {
+      if (gearSort === 'newest') return (idx.get(a.id) ?? 0) - (idx.get(b.id) ?? 0);
+      if (gearSort === 'name') return b.name.localeCompare(a.name);
+      if (gearSort === 'slot') return (slotOrder[b.slot] ?? 0) - (slotOrder[a.slot] ?? 0) || (R(a) - R(b)) || ((a.level ?? 1) - (b.level ?? 1));
+      if (gearSort === 'level') return ((a.level ?? 1) - (b.level ?? 1)) || (R(a) - R(b));
+      if (gearSort === 'boost') return (getEffectiveGearBoost(a) - getEffectiveGearBoost(b)) || ((a.level ?? 1) - (b.level ?? 1));
+      return (R(a) - R(b)) || ((a.level ?? 1) - (b.level ?? 1)) || (a.boost - b.boost);
+    };
+    return inventory
+      .filter(i => (gearSlotF === 'All' || i.slot === gearSlotF) && (gearRarityF === 'All' || (i.rarity ?? 'Common') === gearRarityF))
+      .sort((a, b) => gearDesc ? key(b, a) : key(a, b));
+  }, [inventory, gearSort, gearDesc, gearSlotF, gearRarityF]);
+  const gearPickedItems = inventory.filter(i => gearPicked.includes(i.id));
+  const gearPickedTotal = gearPickedItems.reduce((t, i) => { const v = applySalvageBonus(getGearSellValue(i), salvageBonusPct ?? 0); return { tickets: t.tickets + v.tickets, materials: t.materials + v.materials }; }, { tickets: 0, materials: 0 });
   const [regDesc, setRegDesc] = React.useState(() => readElderSortPref().desc);
   React.useEffect(() => { writeElderSortPref(regSort, regDesc); }, [regSort, regDesc]);
   const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
@@ -1535,17 +1547,32 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
         <div className="flex items-center justify-between gap-3 px-4 mb-4">
           <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Inventory</h3>
           {inventory.length > 1 && (
-            <select value={gearSort} onChange={ev => setGearSort(ev.target.value as typeof gearSort)} className={`rounded-xl px-3 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>
-              <option value="rarity">Sort: Rarity</option><option value="slot">Sort: Slot</option><option value="level">Sort: Level</option>
-              <option value="boost">Sort: Boost</option><option value="newest">Sort: Newest</option><option value="name">Sort: Name</option>
-            </select>
+            <div className="flex gap-2">
+              <select value={gearSort} onChange={ev => setGearSort(ev.target.value as typeof gearSort)} className={`rounded-xl px-3 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                <option value="rarity">Sort: Rarity</option><option value="slot">Sort: Slot</option><option value="level">Sort: Level</option>
+                <option value="boost">Sort: Boost</option><option value="newest">Sort: Date obtained</option><option value="name">Sort: Name</option>
+              </select>
+              <button onClick={() => setGearDesc(d => !d)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>{gearDesc ? '↓ High' : '↑ Low'}</button>
+            </div>
           )}
         </div>
+        {inventory.length > 1 && (
+          <div className="flex gap-2 flex-wrap px-2 mb-3">
+            <select value={gearSlotF} onChange={ev => setGearSlotF(ev.target.value as typeof gearSlotF)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>
+              {['All', 'Head', 'Body', 'Accessory', 'Charm'].map(x => <option key={x} value={x}>{x === 'All' ? 'All slots' : x}</option>)}
+            </select>
+            <select value={gearRarityF} onChange={ev => setGearRarityF(ev.target.value as typeof gearRarityF)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>
+              {['All', 'Common', 'Rare', 'Epic', 'Legendary'].map(x => <option key={x} value={x}>{x === 'All' ? 'All rarities' : x}</option>)}
+            </select>
+            {onSellManyGear && <button onClick={() => { setGearMulti(m => !m); setGearPicked([]); }} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] active:scale-95 ${gearMulti ? 'bg-rose-600 text-white' : isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>{gearMulti ? 'Cancel' : 'Multi-salvage'}</button>}
+            {gearMulti && <button onClick={() => setGearPicked(sortedInventory.map(i => i.id))} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>Select all shown</button>}
+          </div>
+        )}
         <div className={`p-4 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {sortedInventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
+                <button key={item.id} onClick={() => gearMulti ? setGearPicked(p => p.includes(item.id) ? p.filter(x => x !== item.id) : [...p, item.id]) : setSelectedItem(item)} className={`relative ${gearPicked.includes(item.id) ? 'ring-4 ring-rose-500 ' : ''}p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
                   <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
                   <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                   {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
@@ -1553,6 +1580,11 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
               ))}
             </div>
           ) : <div className="text-center py-10 opacity-30 text-sm font-black uppercase">Storage is empty</div>}
+          {gearMulti && onSellManyGear && (
+            <button disabled={!gearPicked.length} onClick={() => { if (gearPickedItems.some(i => (i.rarity ?? 'Common') === 'Epic' || (i.rarity ?? 'Common') === 'Legendary') && !window.confirm('Your selection includes Epic or Legendary gear. Salvage it anyway?')) return; onSellManyGear(gearPickedItems.map(i => i.id)); setGearPicked([]); setGearMulti(false); }} className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[13px] active:scale-95 ${gearPicked.length ? 'bg-rose-600 text-white' : 'opacity-40 border-2 border-slate-400'}`}>
+              {gearPicked.length ? <>Salvage {gearPicked.length} items: +{gearPickedTotal.tickets} <Gfx e="🎟️" size={16} /> +{gearPickedTotal.materials} <Gfx e="🧱" size={16} /></> : 'Tap gear to select it'}
+            </button>
+          )}
         </div>
       </div>
 
