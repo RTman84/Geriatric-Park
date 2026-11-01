@@ -36,6 +36,24 @@ export default async function handler(req: Request): Promise<Response> {
   if (!body || body.confirm !== 'DELETE') return json({ error: 'Confirmation required' }, 400);
 
   const deleted: string[] = [], anonymized: string[] = [];
+
+  // Posse: if this player owns a Posse, hand it to the next co-lead/oldest member first (the posses.owner_id FK cascades,
+  // so deleting the owner without a handoff would dissolve the whole Posse). Membership/invite rows cascade from auth.users.
+  try {
+    const { data: mine } = await supabase.from('posse_members').select('posse_id, role').eq('user_id', userId).maybeSingle();
+    if (mine && (mine as any).role === 'owner') {
+      const posseId = (mine as any).posse_id;
+      const { data: others } = await supabase.from('posse_members').select('user_id, role, joined_at').eq('posse_id', posseId).neq('user_id', userId);
+      const list = ((others ?? []) as any[]).sort((a, b) => (a.role === 'co' ? 0 : 1) - (b.role === 'co' ? 0 : 1) || String(a.joined_at).localeCompare(String(b.joined_at)));
+      if (list.length > 0) {
+        await supabase.from('posse_members').update({ role: 'owner' }).eq('posse_id', posseId).eq('user_id', list[0].user_id);
+        await supabase.from('posses').update({ owner_id: list[0].user_id, member_count: list.length }).eq('id', posseId);
+      }
+    } else if (mine) {
+      const { data: rest } = await supabase.from('posse_members').select('user_id').eq('posse_id', (mine as any).posse_id).neq('user_id', userId);
+      await supabase.from('posses').update({ member_count: (rest ?? []).length }).eq('id', (mine as any).posse_id);
+    }
+  } catch (e) { console.error('posse handoff on delete failed', e); }
   for (const table of DELETE_TABLES) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId);
     if (error && error.code !== MISSING_TABLE) return json({ error: `Could not delete ${table}`, detail: error.message }, 500);
