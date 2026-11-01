@@ -138,3 +138,4 @@ Done and wired: see v7/v6 (all N/A sheets, buildings, structures, debate icon, f
 - 2026-11-01 account B: Posse size raised to 100 (owner request); roster profile lookup batched. Co-leads still max 2 (open question: raise to 5 for 100-member Posses?).
 - 2026-10-30 account A: W7-A/B/C/D art cut and added (Posse emblems, header, Quick Chat stickers, 8 Park Assets); not wired to screens.
 - 2026-10-30 account A: PvP shop gear now shows 'Best fit: <Elder> gains +N' (real scaled gain vs what each Elder wears); regular Shop gear category is not Gear objects so no compare there. Commits 306c7d5 + next pending push (token rejected once).
+- 2026-10-30 account A: W7-E (8 new gear pieces: Wool Beret, Bifocal Chain Glasses, Knitted Shawl, Elbow Patch Cardigan, Pearl Necklace, Garden Gloves, Lucky Horseshoe, Brass Bell Keychain) cut to game-assets/gear2/, listed in NEW_GEAR_ART_W7; no game objects/drops yet.

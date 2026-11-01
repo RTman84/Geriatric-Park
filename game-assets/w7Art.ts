@@ -24,6 +24,14 @@ import pa_fountain from './parkassets/fountain.webp';
 import pa_flagpole from './parkassets/flagpole.webp';
 import pa_bingostatue from './parkassets/bingostatue.webp';
 import pa_gazebo from './parkassets/gazebo.webp';
+import ge_beret from './gear2/beret.webp';
+import ge_bifocals from './gear2/bifocals.webp';
+import ge_shawl from './gear2/shawl.webp';
+import ge_cardigan from './gear2/cardigan.webp';
+import ge_pearls from './gear2/pearls.webp';
+import ge_gloves from './gear2/gloves.webp';
+import ge_horseshoe from './gear2/horseshoe.webp';
+import ge_bell from './gear2/bell.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
@@ -38,4 +46,15 @@ export const NEW_PARK_ASSET_ART: Record<string, { name: string; rarity: 'Common'
   flagpole: { name: 'Clubhouse Flagpole', rarity: 'Common', art: pa_flagpole },
   bingostatue: { name: 'Bingo Ball Statue', rarity: 'Epic', art: pa_bingostatue },
   gazebo: { name: 'Golden Gazebo', rarity: 'Legendary', art: pa_gazebo },
+};
+// W7-E gear art (no game objects yet: boosts, rarity and drop sources are set when the pieces are added to the drop tables / shops).
+export const NEW_GEAR_ART_W7: Record<string, { slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; art: string }> = {
+  'Wool Beret': { slot: 'Head', art: ge_beret },
+  'Bifocal Chain Glasses': { slot: 'Head', art: ge_bifocals },
+  'Knitted Shawl': { slot: 'Body', art: ge_shawl },
+  'Elbow Patch Cardigan': { slot: 'Body', art: ge_cardigan },
+  'Pearl Necklace': { slot: 'Accessory', art: ge_pearls },
+  'Garden Gloves': { slot: 'Accessory', art: ge_gloves },
+  'Lucky Horseshoe': { slot: 'Charm', art: ge_horseshoe },
+  'Brass Bell Keychain': { slot: 'Charm', art: ge_bell },
 };
