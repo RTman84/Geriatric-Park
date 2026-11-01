@@ -1,4 +1,5 @@
 import { createClient, type Session, type User } from '@supabase/supabase-js';
+import { checkText, wordCheckMessage } from './wordFilter';
 import { accountConfig } from './accountConfig';
 import { isNativeApp, NATIVE_AUTH_REDIRECT, parseAuthCallback } from './nativeAuth';
 import { apiUrl } from './api';
@@ -194,6 +195,9 @@ export async function updateDisplayName(name: string): Promise<AccountUser | nul
   if (!supabase) return null;
   const clean = sanitizeDisplayName(name);
   if (!clean) throw new Error('Please enter a display name.');
+  const verdict = checkText(name, { min: 2, max: DISPLAY_NAME_MAX_LENGTH, reserved: true });
+  const verdictClean = checkText(clean, { min: 2, max: DISPLAY_NAME_MAX_LENGTH, reserved: true });
+  if (!verdict.ok || !verdictClean.ok) throw new Error(wordCheckMessage(verdict.ok ? verdictClean : verdict));
   const { data, error } = await supabase.auth.updateUser({ data: { display_name: clean } });
   if (error) throw error;
   return data.user ? normalizeUser(data.user) : null;
