@@ -3895,7 +3895,7 @@ const App: React.FC = () => {
 
         {showMementoShop && <MementoShop isDark={isDark} packPrices={packPrices} canBuy={billingAvailable() && !!authSession} buying={buyingPack} onBuyPack={handleBuyPack} pp={state.pensionBalance} onConvertPp={handleConvertPp} mementos={state.mementos ?? 0} rooms={state.premiumRooms ?? 0} owned={state.mementoItemsOwned ?? []} eventDone={completedEventIds(state.eventCosmetics)} onBuyRoom={handleBuyPremiumRoom} onBuyItem={handleBuyMementoItem} onClose={() => setShowMementoShop(false)} />}
         {showBoards && <BoardsPanel isDark={isDark} onClose={() => setShowBoards(false)} />}
-        {showPvpShop && <PvpShop isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
+        {showPvpShop && <PvpShop elders={state.allElders} isDark={isDark} diners={state.tvDinners ?? 0} earnedToday={state.dinersDay === new Date().toDateString() ? (state.dinersToday ?? 0) : 0} owned={state.antiquesOwned ?? []} onBuyAntique={handleBuyAntique} onBuyGear={handleBuyPvpGear} passes={state.pvpPasses ?? { arena: 0, raid: 0 }} onBuyPass={handleBuyPass} onClose={() => setShowPvpShop(false)} />}
         {showParkHub && (
           <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/70">
             <div className={`max-w-lg mx-auto min-h-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>

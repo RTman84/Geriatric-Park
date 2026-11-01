@@ -1,14 +1,25 @@
 import React, { useMemo, useState } from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey, GEAR_SET_INFO, getEffectiveGearBoost, getGearMaxLevel, ItemIcon, PASS_ART } from '../constants';
+import { PASS_PRICE, PASS_HOLD_MAX, ANTIQUES, ANTIQUE_CYCLE_DAYS, PVP_GEAR, DINERS_DAILY_CAP, antiqueDayIndex, antiquesForDay, daysUntilAntique, GEAR_RARITY_COLOR, GEAR_SLOT_STAT_SHORT, gearSlotKey, GEAR_SET_INFO, getEffectiveGearBoost, gearLevelScale, getGearMaxLevel, ItemIcon, PASS_ART } from '../constants';
 
 // PvP Shop: TV Dinners (earned only from Friend Battles, Arena, Raids and Court Ladder wins) buy antiques that
 // rotate daily and gear that is only sold here. Never PP, never passive income.
 const PvpShop: React.FC<{
   isDark: boolean; diners: number; earnedToday: number; owned: string[];
   onBuyAntique: (id: string) => void; onBuyGear: (id: string) => void; onClose: () => void;
-  passes: { arena: number; raid: number }; onBuyPass: (kind: 'arena' | 'raid') => void;
-}> = ({ isDark, diners, earnedToday, owned, onBuyAntique, onBuyGear, onClose, passes, onBuyPass }) => {
+  passes: { arena: number; raid: number }; onBuyPass: (kind: 'arena' | 'raid') => void; elders?: any[];
+}> = ({ isDark, diners, earnedToday, owned, onBuyAntique, onBuyGear, onClose, passes, onBuyPass, elders = [] }) => {
+  // Best real gain this piece would give any of your Elders over what they wear in that slot now (same maths as the gear card).
+  const bestGain = (g: any) => {
+    const sk = gearSlotKey(g.slot); let best: { name: string; gain: number } | null = null;
+    for (const e of elders) {
+      if (e.awayUntil && e.awayUntil > Date.now()) continue;
+      const sc = gearLevelScale(e.level), worn = e.equipment?.[sk];
+      const gain = Math.round(getEffectiveGearBoost(g) * sc) - (worn ? Math.round(getEffectiveGearBoost(worn) * sc) : 0);
+      if (!best || gain > best.gain) best = { name: e.name, gain };
+    }
+    return best;
+  };
   const [tab, setTab] = useState<'antiques' | 'gear' | 'boosts' | 'collection'>('antiques');
   const day = antiqueDayIndex();
   const today = useMemo(() => antiquesForDay(day), [day]);
@@ -73,6 +84,7 @@ const PvpShop: React.FC<{
                       <div className="flex-1 min-w-0">
                         <div className="font-black uppercase text-[15px] leading-tight">{g.name}</div>
                         <div className="text-[12px] font-black" style={{ color: GEAR_RARITY_COLOR[g.rarity] }}>{g.rarity} · {g.slot} slot · +{getEffectiveGearBoost(g)} {GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]} (up to +{getEffectiveGearBoost({ ...g, level: getGearMaxLevel(g) })} fully upgraded)</div>
+                        {(() => { const b = bestGain(g); return b ? <div className={`text-[12px] font-black ${b.gain > 0 ? 'text-green-500' : 'opacity-60'}`}>{b.gain > 0 ? `Best fit: ${b.name} gains +${b.gain} ${GEAR_SLOT_STAT_SHORT[gearSlotKey(g.slot)]}` : 'No Elder of yours would gain from this piece'}</div> : null; })()}
                       </div>
                       <button disabled={diners < g.price} onClick={() => onBuyGear(g.id)} className={`px-3 py-2 rounded-xl font-black uppercase text-[13px] ${diners >= g.price ? 'bg-[var(--accent-600)] text-white active:scale-95' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>{g.price} <Gfx e="🍽" /></button>
                     </div>
