@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { checkText, wordCheckMessage } from '../services/wordFilter';
+import { POSSE_EMBLEM_ART } from '../game-assets/w7Art';
 import {
   fetchPosse, createPosse, searchPosseByTag, requestToJoinPosse, invitePlayerToPosse, respondToPosseInvite, leavePosse, posseMemberAction,
   type PosseInfo, type PosseSearchResult, type PosseRosterEntry,
@@ -12,8 +13,14 @@ const EMBLEMS: { id: string; icon: string; label: string }[] = [
   { id: 'sunrise', icon: '\u{1F305}', label: 'Sunrise' }, { id: 'owl', icon: '\u{1F989}', label: 'Owl' }, { id: 'sedan', icon: '\u{1F697}', label: 'Sedan' },
   { id: 'bingo', icon: '\u{1F3B1}', label: 'Bingo' }, { id: 'cane', icon: '\u{1F9AF}', label: 'Cane' }, { id: 'teapot', icon: '\u{1FAD6}', label: 'Teapot' },
   { id: 'trophy', icon: '\u{1F3C6}', label: 'Trophy' }, { id: 'star', icon: '\u2B50', label: 'Star' }, { id: 'shield', icon: '\u{1F6E1}\uFE0F', label: 'Shield' },
+  { id: 'skirmish', icon: '', label: 'Shuffleboard' }, { id: 'porch', icon: '', label: 'Rocking Chair' }, { id: 'knit', icon: '', label: 'Knitting' },
+  { id: 'casserole', icon: '', label: 'Casserole' }, { id: 'gnome', icon: '', label: 'Garden Gnome' }, { id: 'swing', icon: '', label: 'Porch Swing' },
 ];
-export const emblemIcon = (id: string) => EMBLEMS.find(e => e.id === id)?.icon ?? '\u{1F305}';
+// Art emblems (W7-A). 'bingo' and 'cane' keep their old ids but now show art too; the other old ids stay emoji so existing Posses are unchanged.
+const EMBLEM_ART: Record<string, string> = { skirmish: POSSE_EMBLEM_ART[0], bingo: POSSE_EMBLEM_ART[1], porch: POSSE_EMBLEM_ART[2], knit: POSSE_EMBLEM_ART[3], casserole: POSSE_EMBLEM_ART[4], gnome: POSSE_EMBLEM_ART[5], cane: POSSE_EMBLEM_ART[6], swing: POSSE_EMBLEM_ART[7] };
+export const emblemIcon = (id: string): React.ReactNode => EMBLEM_ART[id]
+  ? <img src={EMBLEM_ART[id]} alt="" className="inline-block w-[1.4em] h-[1.4em] object-contain align-middle" />
+  : (EMBLEMS.find(e => e.id === id)?.icon ?? '\u{1F305}');
 const ROLE_LABEL = { owner: 'Owner', co: 'Co-lead', member: 'Member' } as const;
 
 const PossePanel: React.FC<{
@@ -170,7 +177,7 @@ const PossePanel: React.FC<{
                   <p className="text-[12px] font-black uppercase mb-1">Emblem</p>
                   <div className="grid grid-cols-9 gap-1 mb-3">
                     {EMBLEMS.map(e => (
-                      <button key={e.id} title={e.label} onClick={() => setEmblem(e.id)} className={`aspect-square rounded-lg text-xl flex items-center justify-center ${emblem === e.id ? 'bg-[var(--accent-600)]' : isDark ? 'bg-slate-900' : 'bg-white'}`}>{e.icon}</button>
+                      <button key={e.id} title={e.label} onClick={() => setEmblem(e.id)} className={`aspect-square rounded-lg text-xl flex items-center justify-center ${emblem === e.id ? 'bg-[var(--accent-600)]' : isDark ? 'bg-slate-900' : 'bg-white'}`}>{emblemIcon(e.id)}</button>
                     ))}
                   </div>
                   <button className={`${primary} w-full`} disabled={busy || !canCreate} onClick={() => run(() => createPosse(name.trim(), tag, emblem), 'Your Posse is open!')}>Create Posse</button>

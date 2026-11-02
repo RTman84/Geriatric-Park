@@ -68,7 +68,7 @@ async function requireAccount(req: Request): Promise<Ctx | Response> {
 }
 
 const FACTIONS = ['early_birds', 'night_owls', 'sunday_drivers'];
-const EMBLEMS = ['sunrise', 'owl', 'sedan', 'bingo', 'cane', 'teapot', 'trophy', 'star', 'shield'];
+const EMBLEMS = ['sunrise', 'owl', 'sedan', 'bingo', 'cane', 'teapot', 'trophy', 'star', 'shield', 'skirmish', 'porch', 'knit', 'casserole', 'gnome', 'swing']; // first 9 are the original emoji ids (kept valid); the rest have W7-A art
 const POSSE_MAX = 100;
 const MAX_CO = 2;
 const CREATES_PER_DAY = 3;
