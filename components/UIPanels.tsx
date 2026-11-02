@@ -117,7 +117,7 @@ const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark 
 
 // ─── Mailbox Panel ────────────────────────────────────────────────────────────
 
-export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onRespondFriendRequest?: (msgId: string, requestId: string, accept: boolean) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onRespondFriendRequest, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
+export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onRespondFriendRequest?: (msgId: string, requestId: string, accept: boolean) => void, onRespondPosseInvite?: (msgId: string, inviteId: string, accept: boolean) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onRespondFriendRequest, onRespondPosseInvite, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
   const [giftOpenId, setGiftOpenId] = React.useState<string | null>(null);
   return (
   <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
@@ -173,18 +173,24 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
               ].filter(Boolean).join(' + ')} />}
             </button>
           )}
+          {msg.posseInvite && !msg.claimed && onRespondPosseInvite && (
+            <div className="flex gap-2">
+              <button onClick={() => onRespondPosseInvite(msg.id, msg.posseInvite!.inviteId, true)} className="flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 bg-emerald-600 text-white">Accept</button>
+              <button onClick={() => onRespondPosseInvite(msg.id, msg.posseInvite!.inviteId, false)} className={`flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>Decline</button>
+            </div>
+          )}
           {msg.friendRequest && !msg.claimed && onRespondFriendRequest && (
             <div className="flex gap-2">
               <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, true)} className="flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 bg-emerald-600 text-white">Accept</button>
               <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, false)} className={`flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>Decline</button>
             </div>
           )}
-          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && !msg.friendRequest && (
+          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && !msg.friendRequest && !msg.posseInvite && (
             <button onClick={() => onClaim(msg.id)} className={`w-full font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
               Mark as Read
             </button>
           )}
-          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{msg.friendRequest ? 'Answered' : (msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
+          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.friendRequest || msg.posseInvite) ? 'Answered' : (msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
         </div>
       )) : <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black tracking-widest">Inbox is empty</div>}
     </div>

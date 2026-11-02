@@ -7,7 +7,7 @@ import type { MailMessage } from '../types';
 export interface InboxRow {
   id: string;
   sender_name: string;
-  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host' | 'court_displaced' | 'board_reward' | 'friend_request';
+  kind: 'friend_battle' | 'arena_knockout' | 'arena_dues' | 'raid_result' | 'resident_exchange_host' | 'court_displaced' | 'board_reward' | 'friend_request' | 'posse_invite' | 'posse_reward' | 'quick_chat';
   day: string;
   attacker_wins: number;
   defender_wins: number;
@@ -71,6 +71,21 @@ function rowToMessage(row: InboxRow): MailMessage {
     const place = Math.max(1, Math.min(3, Math.floor(Number(bits[3]) || 1)));
     const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
     return { ...base, sender: 'Weekly Boards', subject: `${medal} Weekly ${label} board: #${place} in ${POWER_BRACKETS[bracket - 1].name}`, body: `You finished #${place} in the ${POWER_BRACKETS[bracket - 1].name} bracket on the weekly ${label} board (${bits[4] ?? 'last week'}). Your reward was paid automatically and the title is yours to equip in the profile picker.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true, honor: `board:${bits[1]}:${bracket}:${place}` };
+  }
+  if (row.kind === 'posse_invite') {
+    // note (written by api/posse.ts): <inviteId>|<Posse name>|<invite or request>
+    const bits = typeof row.note === 'string' ? row.note.split('|') : [];
+    const inviteId = (bits[0] || '').slice(0, 60);
+    const posseName = (bits[1] || 'a Posse').slice(0, 24);
+    const isRequest = bits[2] === 'request';
+    return {
+      ...base, sender: row.sender_name,
+      subject: isRequest ? `\u{1F46A} ${row.sender_name} wants to join ${posseName}` : `\u{1F46A} ${row.sender_name} invited you to ${posseName}`,
+      body: isRequest
+        ? `${row.sender_name} asked to join your Posse, ${posseName}. Accept to add them to the roster, or decline.`
+        : `${row.sender_name} invited you to join the Posse ${posseName}. A Posse is a group of players in the same faction. Accept to join, or decline \u2014 nothing changes unless you accept.`,
+      posseInvite: inviteId ? { inviteId, kind: isRequest ? 'request' : 'invite' } : undefined,
+    };
   }
   if (row.kind === 'friend_request') {
     // note (written by api/friends.ts): the friend request id

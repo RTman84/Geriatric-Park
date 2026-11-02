@@ -15,6 +15,8 @@ import StartScreen from './components/StartScreen';
 import VictoryCard, { VictoryResult } from './components/VictoryCard';
 import ActivityLogPanel from './components/ActivityLogPanel';
 import FriendsPanel from './components/FriendsPanel';
+import PossePanel from './components/PossePanel';
+import { respondToPosseInvite } from './services/posseService';
 import GroundsPanel from './components/GroundsPanel';
 import ParkScene, { isDecorSpotValid, isBuildingSpotValid } from './components/ParkScene';
 import { TutorialOverlay } from './components/Tutorial';
@@ -500,6 +502,7 @@ const App: React.FC = () => {
   // GameState/the save blob -- friend relationships live server-side in
   // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  const [showPosse, setShowPosse] = useState(false);
   // Non-blocking toasts (replaces every native notify(), which froze the game and
   // won't exist on Steam/Electron/Capacitor the same way). Styled like the Court
   // result banner: green for good news, red for "can't do that" / problems.
@@ -691,6 +694,14 @@ const App: React.FC = () => {
     } catch (e) { notify((e as Error).message || 'That request is no longer available.', 'bad'); }
     setState(prev => ({ ...prev, mailbox: prev.mailbox.map(m => m.id === msgId ? { ...m, claimed: true } : m) }));
   }, [refreshFriends, notify]);
+
+  const handleRespondPosseMail = useCallback(async (msgId: string, inviteId: string, accept: boolean) => {
+    try {
+      await respondToPosseInvite(inviteId, accept);
+      notify(accept ? '\u{1F46A} Posse updated!' : 'Declined.', 'good');
+    } catch (e) { notify((e as Error).message || 'That invitation is no longer available.', 'bad'); }
+    setState(prev => ({ ...prev, mailbox: prev.mailbox.map(m => m.id === msgId ? { ...m, claimed: true } : m) }));
+  }, [notify]);
 
   const handleRemoveFriend = useCallback(async (friendUserId: string) => {
     await removeFriend(friendUserId);
@@ -1768,6 +1779,7 @@ const App: React.FC = () => {
     if (showBoards) { setShowBoards(false); return true; }
     if (showThrones) { setShowThrones(false); return true; }
     if (activeArenaId) { setActiveArenaId(null); return true; }
+    if (showPosse) { setShowPosse(false); return true; }
     if (showFriendsPanel) { setShowFriendsPanel(false); return true; }
     if (showWorkshop) { setShowWorkshop(false); return true; }
     if (showExchangeOverview) { setShowExchangeOverview(false); return true; }
@@ -3372,7 +3384,7 @@ const App: React.FC = () => {
             }
           }} />}
           {activeTab === 'quests' && <QuestPanel isDark={isDark} quests={state.quests} achievements={state.achievements} parkScore={state.parkCommunityScore} onClaim={handleClaimQuest} modeStats={state.modeStats} eventProgress={state.eventProgress} eventCosmetics={state.eventCosmetics} claimedMilestones={state.claimedMilestones ?? []} onClaimMilestone={handleClaimMilestone} />}
-          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onRespondFriendRequest={handleRespondMailRequest} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
+          {activeTab === 'mailbox' && <MailboxPanel isDark={isDark} messages={state.mailbox} onClaim={handleClaimMail} onRespondFriendRequest={handleRespondMailRequest} onRespondPosseInvite={handleRespondPosseMail} onClaimGift={handleClaimGift} quests={state.quests} workingBuildings={state.builtAmenityIds.map(id => AMENITIES.find(a => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a && !!a.producer).map(a => ({ id: a.id, name: a.name }))} />}
           {activeTab === 'pass' && <ElderPassPanel isDark={isDark} season={state.season} mementos={state.mementos ?? 0} signedIn={!!authSession} onClaim={handleClaimSeasonReward} onBuyGold={handleBuyGoldPass} />}
           {activeTab === 'bank' && <BankPanel isDark={isDark} balance={state.pensionBalance} reserve={state.communityReserve} breakdown={state.earningsBreakdown} rate={passiveBreakdown.base + passiveBreakdown.assets} onWithdraw={() => {
             if (state.pensionBalance < WITHDRAWAL_MINIMUM) return notify(`Minimum redemption is ${WITHDRAWAL_MINIMUM.toFixed(2)} 💰 PP`);
@@ -3726,7 +3738,7 @@ const App: React.FC = () => {
           );
         })()}
 
-        {(showWorkshop || showGroundsPanel || showExchangeOverview || showParkHub || showPvpShop || showMementoShop || showBoards || showFriendsPanel || showThrones) && (
+        {(showWorkshop || showGroundsPanel || showExchangeOverview || showParkHub || showPvpShop || showMementoShop || showBoards || showFriendsPanel || showPosse || showThrones) && (
           <div className="fixed top-0 inset-x-0 z-[400] pointer-events-none flex justify-center">
             <div className="flex items-center gap-x-3 gap-y-0 flex-wrap justify-center px-3 py-[3px] rounded-b-2xl bg-black/80 text-[12px] font-black uppercase leading-tight max-w-full">
               <span className="text-emerald-400" title={CURRENCY_INFO["💰"].name} onClick={() => notify(`💰 ${CURRENCY_INFO["💰"].name}: ${CURRENCY_INFO["💰"].blurb}`, 'good')} style={{cursor:"pointer"}}>{state.pensionBalance.toFixed(4)} <Gfx e="💰" size={14} /></span>
@@ -3742,6 +3754,8 @@ const App: React.FC = () => {
           upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)}
           onUpgrade={handleUpgradeGear} onSell={handleSellGear} onSellMany={handleSellGearMany} onEquip={handleEquipElder} onClose={() => setShowWorkshop(false)} />}
         {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
+
+        {showPosse && <PossePanel isDark={isDark} notify={notify} onClose={() => setShowPosse(false)} />}
 
         {showThrones && <ThronesPanel isDark={isDark} onWin={() => earnDiners(DINERS_COURT_WIN, 'Court Ladder win')} onClose={() => setShowThrones(false)} onPurse={t => setState(p => ({ ...p, legacyTokens: p.legacyTokens + t }))} onHonor={key => setState(p => (p.courtHonors ?? []).includes(key) ? p : { ...p, courtHonors: [...(p.courtHonors ?? []), key].slice(-60) })} notify={notify} />}
 
@@ -3828,6 +3842,7 @@ const App: React.FC = () => {
 
         {showFriendsPanel && (
           <FriendsPanel
+            onOpenPosse={() => setShowPosse(true)}
             notify={notify}
             isDark={isDark}
             stationedIds={Object.keys(state.stationedAt ?? {})}
