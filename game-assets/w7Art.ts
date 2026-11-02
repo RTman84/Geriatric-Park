@@ -32,6 +32,18 @@ import ge_pearls from './gear2/pearls.webp';
 import ge_gloves from './gear2/gloves.webp';
 import ge_horseshoe from './gear2/horseshoe.webp';
 import ge_bell from './gear2/bell.webp';
+import kk_weddingalbum from './keepsakes2/weddingalbum.webp';
+import kk_harmonica from './keepsakes2/harmonica.webp';
+import kk_sewingbasket from './keepsakes2/sewingbasket.webp';
+import kk_musicbox from './keepsakes2/musicbox.webp';
+import kk_seedjar from './keepsakes2/seedjar.webp';
+import kk_teapot from './keepsakes2/teapot.webp';
+import aq_brassbell from './antiques2/brassbell.webp';
+import aq_doorstop from './antiques2/doorstop.webp';
+import aq_coffeegrinder from './antiques2/coffeegrinder.webp';
+import aq_goldcompass from './antiques2/goldcompass.webp';
+import aq_footstool from './antiques2/footstool.webp';
+import aq_trophyspoon from './antiques2/trophyspoon.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
@@ -57,4 +69,21 @@ export const NEW_GEAR_ART_W7: Record<string, { slot: 'Head' | 'Body' | 'Accessor
   'Garden Gloves': { slot: 'Accessory', art: ge_gloves },
   'Lucky Horseshoe': { slot: 'Charm', art: ge_horseshoe },
   'Brass Bell Keychain': { slot: 'Charm', art: ge_bell },
+};
+// W7-F new Keepsakes and W7-G new Antiques (art only; rarity, price, perks and where they drop are set when added to the shops/collections).
+export const NEW_KEEPSAKE_ART_W7: Record<string, string> = {
+  "Wedding Album": kk_weddingalbum,
+  "Grandpa's Harmonica": kk_harmonica,
+  "Sewing Basket Heirloom": kk_sewingbasket,
+  "Porch Music Box": kk_musicbox,
+  "Victory Garden Seed Jar": kk_seedjar,
+  "Hand-Painted Teapot": kk_teapot,
+};
+export const NEW_ANTIQUE_ART_W7: Record<string, string> = {
+  "Brass Bingo Bell": aq_brassbell,
+  "Cast-Iron Doorstop": aq_doorstop,
+  "Crank Coffee Grinder": aq_coffeegrinder,
+  "Gold Pocket Compass": aq_goldcompass,
+  "Embroidered Footstool": aq_footstool,
+  "Silver Trophy Spoon": aq_trophyspoon,
 };
