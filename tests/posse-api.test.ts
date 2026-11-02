@@ -60,7 +60,7 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok((await call('A', { action: 'promote', userId: uid('D') })).status === 200, 'promote D');
   await call('E', { action: 'request', posseId: DB.tables.posses[0].id });
   await call('A', { action: 'respond', inviteId: DB.tables.posse_invites.find((i: any) => i.from_user_id === uid('E')).id, accept: true });
-  ok((await call('A', { action: 'promote', userId: uid('E') })).status === 409, 'max 2 co-leads');
+  ok((await call('A', { action: 'promote', userId: uid('E') })).status === 409, 'max co-leads');
   ok((await call('B', { action: 'kick', userId: uid('D') })).status === 403, 'co cannot kick co');
   ok((await call('B', { action: 'kick', userId: uid('A') })).status === 403, 'cannot kick owner');
   ok((await call('B', { action: 'kick', userId: uid('E') })).status === 200, 'co kicks member');
@@ -85,7 +85,7 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok(r.status === 200, 'name reusable after close');
   // full Posse
   seed({}); await call('A', { action: 'create', name: 'Big Gang', tag: 'BIG' });
-  for (let i = 0; i < 19; i++) DB.tables.posse_members.push({ posse_id: DB.tables.posses[0].id, user_id: '00000000-0000-4000-a000-' + String(i).padStart(12, '0'), role: 'member', joined_at: new Date().toISOString() });
+  for (let i = 0; i < 99; i++) DB.tables.posse_members.push({ posse_id: DB.tables.posses[0].id, user_id: '00000000-0000-4000-a000-' + String(i).padStart(12, '0'), role: 'member', joined_at: new Date().toISOString() });
   ok((await call('A', { action: 'invite', code: 'CODE000B' })).status === 409 || DB.tables.posses[0].member_count < 20, 'full Posse guard (invite)');
   const rq = DB.tables.posse_invites; rq.push({ id: '11111111-1111-4111-8111-111111111111', posse_id: DB.tables.posses[0].id, kind: 'invite', from_user_id: uid('A'), to_user_id: uid('B'), status: 'pending', expires_at: new Date(Date.now() + 1e9).toISOString() });
   ok((await call('B', { action: 'respond', inviteId: '11111111-1111-4111-8111-111111111111', accept: true })).status === 409, 'cannot join a full Posse');

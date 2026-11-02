@@ -69,7 +69,7 @@ async function requireAccount(req: Request): Promise<Ctx | Response> {
 
 const FACTIONS = ['early_birds', 'night_owls', 'sunday_drivers'];
 const EMBLEMS = ['sunrise', 'owl', 'sedan', 'bingo', 'cane', 'teapot', 'trophy', 'star', 'shield'];
-const POSSE_MAX = 20;
+const POSSE_MAX = 100;
 const MAX_CO = 2;
 const CREATES_PER_DAY = 3;
 const INVITES_PER_DAY = 20;
@@ -163,8 +163,11 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
   const ws = weekStartKey();
   const roster: any[] = [];
   let weekTotal = 0;
+  const ids = ((rows ?? []) as any[]).map(m => m.user_id);
+  const { data: profs } = await supabase.from('player_profiles').select(PROFILE_COLS).in('user_id', ids);
+  const byId = new Map<string, Profile>(((profs ?? []) as Profile[]).map(p => [p.user_id, p]));
   for (const m of (rows ?? []) as any[]) {
-    const p = await getProfile(supabase, m.user_id);
+    const p = byId.get(m.user_id);
     const pts = m.week_start === ws ? m.week_points : 0;
     weekTotal += pts;
     roster.push({ userId: m.user_id, role: m.role, name: nameOf(p), level: p?.level ?? 1, squadPower: p?.squad_power ?? 0, title: p?.selected_title ?? null, weekPoints: pts, joinedAt: m.joined_at });

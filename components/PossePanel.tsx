@@ -126,7 +126,7 @@ const PossePanel: React.FC<{
 
         {info && !info.posse && (
           <>
-            <p className="text-[12px] opacity-70 mb-3">A Posse is a group of up to 20 players, all in the same faction. {info.faction ? <>Your faction: <b>{FACTION_ICON[info.faction]} {FACTION_LABEL[info.faction]}</b>.</> : <b>Pick a faction at an Arena first &mdash; a Posse belongs to one faction.</b>}</p>
+            <p className="text-[12px] opacity-70 mb-3">A Posse is a group of up to 100 players, all in the same faction. {info.faction ? <>Your faction: <b>{FACTION_ICON[info.faction]} {FACTION_LABEL[info.faction]}</b>.</> : <b>Pick a faction at an Arena first &mdash; a Posse belongs to one faction.</b>}</p>
 
             {info.pendingInvites.length > 0 && (
               <div className="mb-3">
@@ -134,7 +134,7 @@ const PossePanel: React.FC<{
                 {info.pendingInvites.map(i => (
                   <div key={i.id} className={`p-3 rounded-2xl mb-2 ${card}`}>
                     <p className="font-black text-[14px] uppercase">{emblemIcon(i.posse.emblem)} {i.posse.name} [{i.posse.tag}]</p>
-                    <p className="text-[12px] opacity-70">{i.kind === 'invite' ? `${i.fromName} invited you` : `${i.fromName} wants to join`} &middot; {i.posse.member_count}/20 members</p>
+                    <p className="text-[12px] opacity-70">{i.kind === 'invite' ? `${i.fromName} invited you` : `${i.fromName} wants to join`} &middot; {i.posse.member_count}/100 members</p>
                     <div className="flex gap-2 mt-2">
                       <button className={`${btn} bg-emerald-600 text-white`} disabled={busy} onClick={() => run(() => respondToPosseInvite(i.id, true), 'Accepted!')}>Accept</button>
                       <button className={quiet} disabled={busy} onClick={() => run(() => respondToPosseInvite(i.id, false))}>Decline</button>
@@ -155,7 +155,7 @@ const PossePanel: React.FC<{
                   {results && results.length === 0 && <p className="text-[12px] opacity-70 mt-2">No open Posse in your faction has that tag.</p>}
                   {results?.map(r => (
                     <div key={r.id} className="flex items-center justify-between gap-2 mt-2">
-                      <p className="font-black text-[13px] uppercase truncate">{emblemIcon(r.emblem)} {r.name} [{r.tag}] <span className="opacity-60">{r.member_count}/20</span></p>
+                      <p className="font-black text-[13px] uppercase truncate">{emblemIcon(r.emblem)} {r.name} [{r.tag}] <span className="opacity-60">{r.member_count}/100</span></p>
                       <button className={primary} disabled={busy} onClick={() => run(async () => { await requestToJoinPosse(r.id); }, 'Request sent. The owner will see it in their Mailbox.')}>Ask to join</button>
                     </div>
                   ))}

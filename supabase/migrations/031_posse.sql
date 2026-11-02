@@ -9,7 +9,7 @@ create table if not exists public.posses (
   faction text not null check (faction in ('early_birds', 'night_owls', 'sunday_drivers')),
   emblem text not null default 'sunrise',
   owner_id uuid not null references auth.users(id) on delete cascade,
-  member_count integer not null default 1 check (member_count between 0 and 20),
+  member_count integer not null default 1 check (member_count between 0 and 100),
   created_at timestamptz not null default now(),
   deleted_at timestamptz
 );
