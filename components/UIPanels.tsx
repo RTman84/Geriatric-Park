@@ -21,7 +21,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  POWER_BRACKETS, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, gearLevelScale, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -81,7 +81,7 @@ const GearRow: React.FC<{ elder: Elder, isDark: boolean, actions?: GearActions }
             <span className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
             {item ? <>
               <ItemIcon name={item.name} icon={item.icon} size={34} rarity={item.rarity} />
-              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{getEffectiveGearBoost(item)}</span>
+              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{Math.round(getEffectiveGearBoost(item) * gearLevelScale(elder.level))}</span>
               <span className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Lv.{item.level ?? 1}</span>
             </> : <span className={`text-[20px] leading-[48px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>＋</span>}
           </div>
@@ -1626,12 +1626,13 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
               return (
                 <div className={`mb-3 p-3 rounded-2xl flex-shrink-0 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                   <div className="flex items-baseline justify-between">
-                    <span className={`text-[22px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>+{now} {slotStat}</span>
+                    <span className={`text-[22px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Base +{now} {slotStat}</span>
                     <span className={`text-[15px] font-black ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Level {lvl} / {maxLvl}</span>
                   </div>
                   <div className={`text-[13px] font-bold mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                     {next !== null ? <>Next level: <span className="text-green-500">+{next} {slotStat}</span> (+{next - now})</> : <>Maximum level reached</>}
                     {' · '}Base +{item.boost} × {item.rarity ?? 'Common'} {GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common']}
+                    <div className="mt-1 opacity-80">The real bonus grows with the Elder wearing it: x1 up to level 30, x2 at 50, x3 at 70, x4.5 at 100. Pick an Elder in Compare to see the exact number.</div>
                   </div>
                 </div>
               );
