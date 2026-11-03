@@ -44,6 +44,14 @@ import aq_coffeegrinder from './antiques2/coffeegrinder.webp';
 import aq_goldcompass from './antiques2/goldcompass.webp';
 import aq_footstool from './antiques2/footstool.webp';
 import aq_trophyspoon from './antiques2/trophyspoon.webp';
+import pb_picnictable from './parkassets/picnictable.webp';
+import pb_pinwheel from './parkassets/pinwheel.webp';
+import pb_mailbox from './parkassets/mailbox.webp';
+import pb_wishingwell from './parkassets/wishingwell.webp';
+import pb_bandstand from './parkassets/bandstand.webp';
+import pb_vegbed from './parkassets/vegbed.webp';
+import pb_elderstatue from './parkassets/elderstatue.webp';
+import pb_lamppost from './parkassets/lamppost.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
@@ -86,4 +94,15 @@ export const NEW_ANTIQUE_ART_W7: Record<string, string> = {
   "Gold Pocket Compass": aq_goldcompass,
   "Embroidered Footstool": aq_footstool,
   "Silver Trophy Spoon": aq_trophyspoon,
+};
+// W7-H Park Assets set 2 (suggested rarity looks; economy owner sets names/prices/points).
+export const NEW_PARK_ASSET_ART2: Record<string, { name: string; rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'; art: string }> = {
+  picnictable: { name: 'Picnic Table', rarity: 'Common', art: pb_picnictable },
+  pinwheel: { name: 'Garden Pinwheel', rarity: 'Common', art: pb_pinwheel },
+  mailbox: { name: 'Porch Mailbox', rarity: 'Common', art: pb_mailbox },
+  wishingwell: { name: 'Wishing Well', rarity: 'Rare', art: pb_wishingwell },
+  bandstand: { name: 'Bandstand', rarity: 'Epic', art: pb_bandstand },
+  vegbed: { name: 'Vegetable Bed', rarity: 'Rare', art: pb_vegbed },
+  elderstatue: { name: 'Founder Statue', rarity: 'Epic', art: pb_elderstatue },
+  lamppost: { name: 'Brass Lamp Post', rarity: 'Rare', art: pb_lamppost },
 };
