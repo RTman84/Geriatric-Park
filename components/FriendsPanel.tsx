@@ -10,7 +10,6 @@ import type { ResidentExchangeRow } from '../services/residentExchangeService';
 import type { Elder } from '../types';
 
 interface FriendsPanelProps {
-  onOpenPosse?: () => void;
   notify?: (text: string, tone?: 'good' | 'bad') => void;
   isDark: boolean;
   data: FriendsData | null;
@@ -69,7 +68,7 @@ export const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'
   return side === 'mine' ? `Visit: ${owner}. Host receives ${gift}. Rewards scale down if recalled early.` : `Visit: you receive ${gift} when ${r.elder_name} heads home. ${r.owner?.display_name || 'Your friend'} earns up to ${hrs * EXCHANGE_OWNER_XP_PER_HOUR} Elder XP.`;
 };
 
-const FriendsPanel: React.FC<FriendsPanelProps> = ({ onOpenPosse, isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident, notify }) => {
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident, notify }) => {
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -180,7 +179,6 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ onOpenPosse, isDark, data, 
       <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black uppercase italic tracking-tighter">Friends</h2>
-          {onOpenPosse && <button onClick={onOpenPosse} className="ml-auto mr-2 px-3 py-2 rounded-xl bg-[var(--accent-600)] text-white font-black uppercase text-[12px] active:scale-95">{'\u{1F46A}'} Posse</button>}
           <button onClick={onClose} className="text-slate-300 p-2"><XMarkIcon className="w-6 h-6" /></button>
         </div>
 

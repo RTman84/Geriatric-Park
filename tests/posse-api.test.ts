@@ -60,7 +60,10 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok((await call('A', { action: 'promote', userId: uid('D') })).status === 200, 'promote D');
   await call('E', { action: 'request', posseId: DB.tables.posses[0].id });
   await call('A', { action: 'respond', inviteId: DB.tables.posse_invites.find((i: any) => i.from_user_id === uid('E')).id, accept: true });
-  ok((await call('A', { action: 'promote', userId: uid('E') })).status === 409, 'max co-leads');
+  const fakeCos = [1, 2, 3].map(i => ({ posse_id: DB.tables.posses[0].id, user_id: '00000000-0000-4000-b000-00000000000' + i, role: 'co', joined_at: new Date().toISOString() }));
+  DB.tables.posse_members.push(...fakeCos);
+  ok((await call('A', { action: 'promote', userId: uid('E') })).status === 409, 'max 5 co-leads');
+  DB.tables.posse_members = DB.tables.posse_members.filter((m: any) => !fakeCos.includes(m));
   ok((await call('B', { action: 'kick', userId: uid('D') })).status === 403, 'co cannot kick co');
   ok((await call('B', { action: 'kick', userId: uid('A') })).status === 403, 'cannot kick owner');
   ok((await call('B', { action: 'kick', userId: uid('E') })).status === 200, 'co kicks member');
@@ -89,5 +92,22 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok((await call('A', { action: 'invite', code: 'CODE000B' })).status === 409 || DB.tables.posses[0].member_count < 20, 'full Posse guard (invite)');
   const rq = DB.tables.posse_invites; rq.push({ id: '11111111-1111-4111-8111-111111111111', posse_id: DB.tables.posses[0].id, kind: 'invite', from_user_id: uid('A'), to_user_id: uid('B'), status: 'pending', expires_at: new Date(Date.now() + 1e9).toISOString() });
   ok((await call('B', { action: 'respond', inviteId: '11111111-1111-4111-8111-111111111111', accept: true })).status === 409, 'cannot join a full Posse');
+  // cosmetics: emblem / style unlock by Posse level
+  seed({}); await call('A', { action: 'create', name: 'Style Gang', tag: 'SG' }); await call('A', { action: 'invite', code: 'CODE000B' });
+  await call('B', { action: 'respond', inviteId: DB.tables.posse_invites[0].id, accept: true });
+  r = await call('A', { action: 'set_emblem', emblem: 'yarn' });
+  ok(r.status === 200 && r.body.posse.emblem === 'yarn' && r.body.posse.level === 1, 'owner changes free emblem');
+  ok((await call('A', { action: 'set_emblem', emblem: 'cat' })).status === 403, 'locked emblem refused');
+  ok((await call('A', { action: 'set_emblem', emblem: 'nope' })).status === 400, 'unknown emblem refused');
+  ok((await call('B', { action: 'set_emblem', emblem: 'owl' })).status === 403, 'non-owner cannot change emblem');
+  ok((await call('A', { action: 'set_style', color: 'gold', font: 'default' })).status === 403, 'locked colour refused');
+  DB.tables.posse_week_points = [{ posse_id: DB.tables.posses[0].id, week_start: '2026-10-26', points: 150, settled: false }];
+  r = await call('A', { action: 'set_emblem', emblem: 'cat' });
+  ok(r.status === 200 && r.body.posse.level === 2 && r.body.posse.nextLevelAt === 400, 'level 2 unlocks emblem');
+  r = await call('A', { action: 'set_style', color: 'gold', font: 'serif' });
+  ok(r.status === 200 && r.body.posse.nameColor === 'gold' && r.body.posse.nameFont === 'serif', 'style saved');
+  ok((await call('A', { action: 'set_style', color: 'rainbow', font: 'serif' })).status === 403, 'rainbow needs level 5');
+  r = await call('A', { action: 'set_style', color: 'default', font: 'default' });
+  ok(r.status === 200 && r.body.posse.nameColor === null, 'style reset');
   console.log(fails ? fails + ' FAILED of ' + n : 'all ' + n + ' Posse checks pass');
 })();

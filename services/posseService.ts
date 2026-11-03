@@ -3,7 +3,7 @@ import { apiUrl } from './api';
 
 export type PosseRole = 'owner' | 'co' | 'member';
 export interface PosseRosterEntry { userId: string; role: PosseRole; name: string; level: number; squadPower: number; title: string | null; weekPoints: number; joinedAt: string }
-export interface PosseSummary { id: string; name: string; tag: string; faction: string; emblem: string; memberCount: number; maxMembers: number; createdAt: string }
+export interface PosseSummary { id: string; name: string; tag: string; faction: string; emblem: string; memberCount: number; maxMembers: number; createdAt: string; level: number; totalPoints: number; nextLevelAt: number | null; nameColor: string | null; nameFont: string | null }
 export interface PosseInvite { id: string; kind: 'invite' | 'request'; fromName: string; posse: { id: string; name: string; tag: string; faction: string; emblem: string; member_count: number } }
 export interface PosseInfo { posse: PosseSummary | null; myRole?: PosseRole; roster?: PosseRosterEntry[]; weekPoints?: number; weekGoal?: number; faction: string | null; pendingInvites: PosseInvite[]; notice: string | null }
 export interface PosseSearchResult { id: string; name: string; tag: string; faction: string; emblem: string; member_count: number }
@@ -29,3 +29,5 @@ export const invitePlayerToPosse = (code: string) => call<{ result: string; to: 
 export const respondToPosseInvite = (inviteId: string, accept: boolean) => call<PosseInfo>({ action: 'respond', inviteId, accept });
 export const leavePosse = () => call<PosseInfo>({ action: 'leave' });
 export const posseMemberAction = (action: 'kick' | 'promote' | 'demote' | 'transfer_owner', userId: string) => call<PosseInfo>({ action, userId });
+export const setPosseEmblem = (emblem: string) => call<PosseInfo>({ action: 'set_emblem', emblem });
+export const setPosseStyle = (color: string, font: string) => call<PosseInfo>({ action: 'set_style', color, font });

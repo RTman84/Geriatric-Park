@@ -68,9 +68,20 @@ async function requireAccount(req: Request): Promise<Ctx | Response> {
 }
 
 const FACTIONS = ['early_birds', 'night_owls', 'sunday_drivers'];
-const EMBLEMS = ['sunrise', 'owl', 'sedan', 'bingo', 'cane', 'teapot', 'trophy', 'star', 'shield', 'skirmish', 'porch', 'knit', 'casserole', 'gnome', 'swing']; // first 9 are the original emoji ids (kept valid); the rest have W7-A art
+// Cosmetic catalogs: id -> Posse level needed. (Keep in sync with components/PossePanel.tsx.)
+const EMBLEM_LEVEL: Record<string, number> = {
+  sunrise: 1, owl: 1, sedan: 1, bingo: 1, cane: 1, teapot: 1, trophy: 1, star: 1, shield: 1, yarn: 1, sunflower: 1, fishing: 1,
+  cat: 2, dog: 2, pie: 2, glasses: 2, bell: 2, key: 2, anchor: 3, rose: 3, clover: 3, compass: 3, crown: 4, dragon: 4, rocket: 4, diamond: 4, flame: 5, lightning: 5, unicorn: 5,
+  // art emblems (W7-A, GP app 2): ids kept stable
+  skirmish: 1, porch: 1, knit: 1, casserole: 2, gnome: 2, swing: 3,
+};
+const COLOR_LEVEL: Record<string, number> = { default: 1, gold: 2, red: 2, green: 3, sky: 3, purple: 4, pink: 4, rainbow: 5 };
+const FONT_LEVEL: Record<string, number> = { default: 1, rounded: 1, serif: 2, mono: 3, script: 4, display: 5 };
+// Lifetime Posse Points needed for each Posse level (index 0 = level 1).
+const LEVEL_AT = [0, 100, 400, 1000, 2500, 6000];
+const levelFor = (points: number) => { let l = 1; LEVEL_AT.forEach((t, i) => { if (points >= t) l = i + 1; }); return l; };
 const POSSE_MAX = 100;
-const MAX_CO = 2;
+const MAX_CO = 5;
 const CREATES_PER_DAY = 3;
 const INVITES_PER_DAY = 20;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -160,6 +171,10 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
   }
   if (!ms) return { posse: null, faction: prof?.faction ?? null, pendingInvites, notice };
   const { data: rows } = await supabase.from('posse_members').select('user_id, role, joined_at, week_start, week_points').eq('posse_id', ms.posse.id);
+  const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', ms.posse.id);
+  const totalPoints = ((wp ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0);
+  const level = levelFor(totalPoints);
+  const { data: styleRow } = await supabase.from('posses').select('name_color, name_font').eq('id', ms.posse.id).maybeSingle();
   const ws = weekStartKey();
   const roster: any[] = [];
   let weekTotal = 0;
@@ -175,7 +190,7 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
   const rank = (r: string) => (r === 'owner' ? 0 : r === 'co' ? 1 : 2);
   roster.sort((a, b) => rank(a.role) - rank(b.role) || b.weekPoints - a.weekPoints || a.name.localeCompare(b.name));
   return {
-    posse: { id: ms.posse.id, name: ms.posse.name, tag: ms.posse.tag, faction: ms.posse.faction, emblem: ms.posse.emblem, memberCount: roster.length, maxMembers: POSSE_MAX, createdAt: ms.posse.created_at },
+    posse: { id: ms.posse.id, name: ms.posse.name, tag: ms.posse.tag, faction: ms.posse.faction, emblem: ms.posse.emblem, memberCount: roster.length, maxMembers: POSSE_MAX, createdAt: ms.posse.created_at, level, totalPoints, nextLevelAt: LEVEL_AT[level] ?? null, nameColor: (styleRow as any)?.name_color ?? null, nameFont: (styleRow as any)?.name_font ?? null },
     myRole: ms.member.role, roster, weekStart: ws, weekPoints: weekTotal, weekGoal: roster.length * WEEKLY_GOAL_PER_MEMBER, faction: prof?.faction ?? null, pendingInvites, notice,
   };
 }
@@ -200,7 +215,7 @@ export default async function handler(req: Request): Promise<Response> {
       if (await getMembership(supabase, userId)) return serverJson({ error: 'You are already in a Posse.' }, 409);
       const name = String(body?.name ?? '').replace(/\s+/g, ' ').trim();
       const tag = String(body?.tag ?? '').toUpperCase().trim();
-      const emblem = EMBLEMS.includes(String(body?.emblem)) ? String(body.emblem) : 'sunrise';
+      const emblem = (EMBLEM_LEVEL[String(body?.emblem)] ?? 99) <= 1 ? String(body.emblem) : 'sunrise';
       if (!NAME_RE.test(name)) return serverJson({ error: 'Use letters, numbers, spaces, - and _ in the name.' }, 400);
       const nameCheck = checkText(name, { min: 3, max: 20, reserved: true });
       if (!nameCheck.ok) return serverJson({ error: wordCheckMessage(nameCheck) }, 400);
@@ -289,6 +304,24 @@ export default async function handler(req: Request): Promise<Response> {
       if (error || !row) return serverJson({ error: 'Could not send the invitation.' }, 500);
       await sendMail(supabase, t.user_id, userId, nameOf(me), 'posse_invite', (row as any).id, `${(row as any).id}|${ms.posse.name}|invite`);
       return serverJson({ result: 'sent', to: nameOf(t) });
+    }
+
+    if (action === 'set_emblem' || action === 'set_style') {
+      if (role !== 'owner') return serverJson({ error: 'Only the Posse owner can change this.' }, 403);
+      const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', ms.posse.id);
+      const level = levelFor(((wp ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0));
+      if (action === 'set_emblem') {
+        const e = String(body?.emblem || '');
+        if (!(e in EMBLEM_LEVEL)) return serverJson({ error: 'Unknown emblem.' }, 400);
+        if (EMBLEM_LEVEL[e] > level) return serverJson({ error: `That emblem unlocks at Posse level ${EMBLEM_LEVEL[e]}.` }, 403);
+        await supabase.from('posses').update({ emblem: e }).eq('id', ms.posse.id);
+      } else {
+        const c = String(body?.color || 'default'); const f = String(body?.font || 'default');
+        if (!(c in COLOR_LEVEL) || !(f in FONT_LEVEL)) return serverJson({ error: 'Unknown style.' }, 400);
+        if (COLOR_LEVEL[c] > level || FONT_LEVEL[f] > level) return serverJson({ error: 'That style is not unlocked yet.' }, 403);
+        await supabase.from('posses').update({ name_color: c === 'default' ? null : c, name_font: f === 'default' ? null : f }).eq('id', ms.posse.id);
+      }
+      return serverJson(await buildInfo(supabase, userId));
     }
 
     if (action === 'leave') {
