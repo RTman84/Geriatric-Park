@@ -92,7 +92,7 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok((await call('A', { action: 'invite', code: 'CODE000B' })).status === 409 || DB.tables.posses[0].member_count < 20, 'full Posse guard (invite)');
   const rq = DB.tables.posse_invites; rq.push({ id: '11111111-1111-4111-8111-111111111111', posse_id: DB.tables.posses[0].id, kind: 'invite', from_user_id: uid('A'), to_user_id: uid('B'), status: 'pending', expires_at: new Date(Date.now() + 1e9).toISOString() });
   ok((await call('B', { action: 'respond', inviteId: '11111111-1111-4111-8111-111111111111', accept: true })).status === 409, 'cannot join a full Posse');
-  // cosmetics: emblem / style unlock by Posse level
+  // cosmetics: emblem (owner) and personal name style (everyone), unlocked by Posse level
   seed({}); await call('A', { action: 'create', name: 'Style Gang', tag: 'SG' }); await call('A', { action: 'invite', code: 'CODE000B' });
   await call('B', { action: 'respond', inviteId: DB.tables.posse_invites[0].id, accept: true });
   r = await call('A', { action: 'set_emblem', emblem: 'yarn' });
@@ -100,14 +100,48 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok((await call('A', { action: 'set_emblem', emblem: 'cat' })).status === 403, 'locked emblem refused');
   ok((await call('A', { action: 'set_emblem', emblem: 'nope' })).status === 400, 'unknown emblem refused');
   ok((await call('B', { action: 'set_emblem', emblem: 'owl' })).status === 403, 'non-owner cannot change emblem');
-  ok((await call('A', { action: 'set_style', color: 'gold', font: 'default' })).status === 403, 'locked colour refused');
+  ok((await call('B', { action: 'set_my_style', color: 'gold', font: 'default' })).status === 403, 'locked colour refused');
   DB.tables.posse_week_points = [{ posse_id: DB.tables.posses[0].id, week_start: '2026-10-26', points: 150, settled: false }];
   r = await call('A', { action: 'set_emblem', emblem: 'cat' });
   ok(r.status === 200 && r.body.posse.level === 2 && r.body.posse.nextLevelAt === 400, 'level 2 unlocks emblem');
-  r = await call('A', { action: 'set_style', color: 'gold', font: 'serif' });
-  ok(r.status === 200 && r.body.posse.nameColor === 'gold' && r.body.posse.nameFont === 'serif', 'style saved');
-  ok((await call('A', { action: 'set_style', color: 'rainbow', font: 'serif' })).status === 403, 'rainbow needs level 5');
-  r = await call('A', { action: 'set_style', color: 'default', font: 'default' });
-  ok(r.status === 200 && r.body.posse.nameColor === null, 'style reset');
+  r = await call('B', { action: 'set_my_style', color: 'gold', font: 'serif' });
+  const meB = r.body.roster.find((m: any) => m.userId === uid('B')); const meA = r.body.roster.find((m: any) => m.userId === uid('A'));
+  ok(r.status === 200 && meB.nameColor === 'gold' && meB.nameFont === 'serif' && meA.nameColor === null, 'a member sets only their own style');
+  ok((await call('B', { action: 'set_my_style', color: 'rainbow', font: 'serif' })).status === 403, 'rainbow needs level 5');
+  r = await call('B', { action: 'set_my_style', color: 'default', font: 'default' });
+  ok(r.status === 200 && r.body.roster.find((m: any) => m.userId === uid('B')).nameColor === null, 'style reset');
+
+  // recruiting without friend codes
+  seed({ C: 'night_owls' }); await call('A', { action: 'create', name: 'Recruit Crew', tag: 'RC' });
+  ok((await call('B', { action: 'browse_posses' })).body.posses.some((p: any) => p.name === 'Recruit Crew'), 'browse Posses (same faction)');
+  ok((await call('C', { action: 'browse_posses' })).body.posses.length === 0, 'browse hides other factions');
+  ok((await call('B', { action: 'set_lfp', on: true })).body.lfp === true, 'B lists as looking for a Posse');
+  ok((await call('B', { action: 'info' })).body.lfp === true, 'info reports lfp');
+  ok((await call('B', { action: 'browse_lfp' })).status === 404, 'non-member cannot browse recruits');
+  r = await call('A', { action: 'browse_lfp' });
+  ok(r.status === 200 && r.body.players.length === 1 && r.body.players[0].name === 'PlayerB', 'officer sees LFP list');
+  r = await call('A', { action: 'search_players', query: 'layerD' });
+  ok(r.status === 200 && r.body.players.length === 1 && r.body.players[0].name === 'PlayerD', 'search players by name');
+  ok((await call('A', { action: 'search_players', query: 'layerC' })).body.players.length === 0, 'search excludes other factions');
+  ok((await call('A', { action: 'search_players', query: 'a' })).status === 400, 'short search refused');
+  r = await call('A', { action: 'invite', userId: uid('B') });
+  ok(r.status === 200 && DB.tables.mail_inbox.length === 1, 'invite by player id');
+  ok((await call('A', { action: 'browse_lfp' })).body.players[0].invited === true, 'pending invite flagged');
+  await call('B', { action: 'respond', inviteId: DB.tables.posse_invites[0].id, accept: true });
+  ok(DB.tables.posse_lfp.length === 0, 'joining clears LFP listing');
+
+  // preset chat
+  ok((await call('C', { action: 'chat_list' })).status === 404, 'non-member cannot read chat');
+  ok((await call('A', { action: 'chat_send', preset: 'free text here' })).status === 400, 'only presets accepted');
+  r = await call('A', { action: 'chat_send', preset: 'raid_on' });
+  ok(r.status === 200 && r.body.messages.length === 1 && r.body.messages[0].preset === 'raid_on' && r.body.messages[0].name === 'PlayerA', 'send preset');
+  const lastId = r.body.messages[0].id;
+  await call('B', { action: 'chat_send', preset: 'raid_hit' });
+  r = await call('A', { action: 'chat_list', after: lastId });
+  ok(r.body.messages.length === 1 && r.body.messages[0].preset === 'raid_hit', 'poll returns only newer messages');
+  r = await call('A', { action: 'chat_list' });
+  ok(r.body.messages.length === 2 && r.body.messages[0].id < r.body.messages[1].id, 'full list is oldest to newest');
+  for (let i = 0; i < 3; i++) await call('A', { action: 'chat_send', preset: 'yes' });
+  ok((await call('A', { action: 'chat_send', preset: 'yes' })).status === 429, 'burst rate limit');
   console.log(fails ? fails + ' FAILED of ' + n : 'all ' + n + ' Posse checks pass');
 })();

@@ -79,7 +79,16 @@ const COLOR_LEVEL: Record<string, number> = { default: 1, gold: 2, red: 2, green
 const FONT_LEVEL: Record<string, number> = { default: 1, rounded: 1, serif: 2, mono: 3, script: 4, display: 5 };
 // Lifetime Posse Points needed for each Posse level (index 0 = level 1).
 const LEVEL_AT = [0, 100, 400, 1000, 2500, 6000];
+// Preset chat ids accepted by chat_send (keep in sync with services/posseChat.ts).
+const PRESET_IDS = new Set(['hello', 'morning', 'night', 'welcome', 'brb', 'back', 'thanks', 'gg', 'raid_on', 'raid_soon', 'raid_hit', 'raid_need', 'raid_low', 'raid_won', 'raid_done', 'arena_hold', 'arena_lost', 'arena_atk', 'arena_help', 'arena_dues', 'loan', 'visit', 'visited', 'exchange', 'battle', 'help', 'mission', 'mission_need', 'mission_done', 'nice', 'wow', 'haha', 'oops', 'yes', 'no', 'ok', 'wait', 'congrats', 'luck']);
+const CHAT_PER_10S = 4;
+const CHAT_PER_HOUR = 120;
+const LFP_DAYS = 14;
 const levelFor = (points: number) => { let l = 1; LEVEL_AT.forEach((t, i) => { if (points >= t) l = i + 1; }); return l; };
+async function posseLevel(supabase: SupabaseClient, posseId: string): Promise<number> {
+  const { data } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId);
+  return levelFor(((data ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0));
+}
 const POSSE_MAX = 100;
 const MAX_CO = 5;
 const CREATES_PER_DAY = 3;
@@ -146,6 +155,7 @@ async function addMember(supabase: SupabaseClient, posseId: string, userId: stri
   if ((current ?? []).length >= POSSE_MAX) return { ok: false, error: 'That Posse is full.', status: 409 };
   const { error } = await supabase.from('posse_members').insert({ posse_id: posseId, user_id: userId, role: 'member', week_start: weekStartKey(), week_points: 0 });
   if (error) return { ok: false, error: String(error.code) === '23505' ? 'You are already in a Posse.' : 'Could not join.', status: 409 };
+  await supabase.from('posse_lfp').delete().eq('user_id', userId);
   await recount(supabase, posseId);
   return { ok: true };
 }
@@ -169,12 +179,11 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
     const fromProf = await getProfile(supabase, i.from_user_id);
     pendingInvites.push({ id: i.id, kind: i.kind, posse: p, fromName: nameOf(fromProf) });
   }
-  if (!ms) return { posse: null, faction: prof?.faction ?? null, pendingInvites, notice };
-  const { data: rows } = await supabase.from('posse_members').select('user_id, role, joined_at, week_start, week_points').eq('posse_id', ms.posse.id);
+  if (!ms) { const { data: l } = await supabase.from('posse_lfp').select('user_id').eq('user_id', userId).maybeSingle(); return { posse: null, faction: prof?.faction ?? null, pendingInvites, notice, lfp: !!l }; }
+  const { data: rows } = await supabase.from('posse_members').select('user_id, role, joined_at, week_start, week_points, name_color, name_font').eq('posse_id', ms.posse.id);
   const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', ms.posse.id);
   const totalPoints = ((wp ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0);
   const level = levelFor(totalPoints);
-  const { data: styleRow } = await supabase.from('posses').select('name_color, name_font').eq('id', ms.posse.id).maybeSingle();
   const ws = weekStartKey();
   const roster: any[] = [];
   let weekTotal = 0;
@@ -185,13 +194,13 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
     const p = byId.get(m.user_id);
     const pts = m.week_start === ws ? m.week_points : 0;
     weekTotal += pts;
-    roster.push({ userId: m.user_id, role: m.role, name: nameOf(p), level: p?.level ?? 1, squadPower: p?.squad_power ?? 0, title: p?.selected_title ?? null, weekPoints: pts, joinedAt: m.joined_at });
+    roster.push({ userId: m.user_id, role: m.role, name: nameOf(p), level: p?.level ?? 1, squadPower: p?.squad_power ?? 0, title: p?.selected_title ?? null, weekPoints: pts, joinedAt: m.joined_at, nameColor: m.name_color ?? null, nameFont: m.name_font ?? null });
   }
   const rank = (r: string) => (r === 'owner' ? 0 : r === 'co' ? 1 : 2);
   roster.sort((a, b) => rank(a.role) - rank(b.role) || b.weekPoints - a.weekPoints || a.name.localeCompare(b.name));
   return {
-    posse: { id: ms.posse.id, name: ms.posse.name, tag: ms.posse.tag, faction: ms.posse.faction, emblem: ms.posse.emblem, memberCount: roster.length, maxMembers: POSSE_MAX, createdAt: ms.posse.created_at, level, totalPoints, nextLevelAt: LEVEL_AT[level] ?? null, nameColor: (styleRow as any)?.name_color ?? null, nameFont: (styleRow as any)?.name_font ?? null },
-    myRole: ms.member.role, roster, weekStart: ws, weekPoints: weekTotal, weekGoal: roster.length * WEEKLY_GOAL_PER_MEMBER, faction: prof?.faction ?? null, pendingInvites, notice,
+    posse: { id: ms.posse.id, name: ms.posse.name, tag: ms.posse.tag, faction: ms.posse.faction, emblem: ms.posse.emblem, memberCount: roster.length, maxMembers: POSSE_MAX, createdAt: ms.posse.created_at, level, totalPoints, nextLevelAt: LEVEL_AT[level] ?? null },
+    myRole: ms.member.role, myUserId: userId, roster, weekStart: ws, weekPoints: weekTotal, weekGoal: roster.length * WEEKLY_GOAL_PER_MEMBER, faction: prof?.faction ?? null, pendingInvites, notice,
   };
 }
 
@@ -238,6 +247,21 @@ export default async function handler(req: Request): Promise<Response> {
       if (!me.faction) return serverJson({ results: [] });
       const { data } = await supabase.from('posses').select('id, name, tag, faction, emblem, member_count').eq('tag', tag).eq('faction', me.faction).is('deleted_at', null).limit(5);
       return serverJson({ results: (data ?? []).filter((p: any) => p.member_count < POSSE_MAX) });
+    }
+
+    if (action === 'browse_posses') {
+      if (!me.faction) return serverJson({ posses: [] });
+      const { data } = await supabase.from('posses').select('id, name, tag, faction, emblem, member_count').eq('faction', me.faction).is('deleted_at', null).limit(60);
+      const list = ((data ?? []) as any[]).filter(p => p.member_count < POSSE_MAX).sort((a, b) => b.member_count - a.member_count).slice(0, 25);
+      return serverJson({ posses: list });
+    }
+
+    if (action === 'set_lfp') {
+      if (!me.faction) return serverJson({ error: 'Pick a faction first.' }, 403);
+      if (await getMembership(supabase, userId)) return serverJson({ error: 'You are already in a Posse.' }, 409);
+      await supabase.from('posse_lfp').delete().eq('user_id', userId);
+      if (body?.on === true) await supabase.from('posse_lfp').insert({ user_id: userId, faction: me.faction });
+      return serverJson({ lfp: body?.on === true });
     }
 
     if (action === 'respond') {
@@ -288,10 +312,18 @@ export default async function handler(req: Request): Promise<Response> {
     if (action === 'invite') {
       if (!isOfficer) return serverJson({ error: 'Only the owner or a co-lead can invite.' }, 403);
       const code = String(body?.code || '').toUpperCase().trim();
-      if (code.length !== 8) return serverJson({ error: 'Enter an 8-character friend code.' }, 400);
-      const { data: target } = await supabase.from('player_profiles').select(PROFILE_COLS).eq('friend_code', code).maybeSingle();
-      const t = target as Profile | null;
-      if (!t) return serverJson({ error: 'No player has that friend code.' }, 404);
+      const wantId = String(body?.userId || '');
+      let t: Profile | null = null;
+      if (UUID_RE.test(wantId)) {
+        const { data: target } = await supabase.from('player_profiles').select(PROFILE_COLS).eq('user_id', wantId).maybeSingle();
+        t = (target as Profile | null) ?? null;
+        if (!t) return serverJson({ error: 'That player could not be found.' }, 404);
+      } else {
+        if (code.length !== 8) return serverJson({ error: 'Pick a player or enter an 8-character friend code.' }, 400);
+        const { data: target } = await supabase.from('player_profiles').select(PROFILE_COLS).eq('friend_code', code).maybeSingle();
+        t = (target as Profile | null) ?? null;
+        if (!t) return serverJson({ error: 'No player has that friend code.' }, 404);
+      }
       if (t.user_id === userId) return serverJson({ error: 'That is your own code.' }, 400);
       if (t.faction !== ms.posse.faction) return serverJson({ error: 'That player is in a different faction. A Posse is one faction only.' }, 403);
       if (await getMembership(supabase, t.user_id)) return serverJson({ error: 'That player is already in a Posse.' }, 409);
@@ -306,22 +338,72 @@ export default async function handler(req: Request): Promise<Response> {
       return serverJson({ result: 'sent', to: nameOf(t) });
     }
 
-    if (action === 'set_emblem' || action === 'set_style') {
-      if (role !== 'owner') return serverJson({ error: 'Only the Posse owner can change this.' }, 403);
-      const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', ms.posse.id);
-      const level = levelFor(((wp ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0));
-      if (action === 'set_emblem') {
-        const e = String(body?.emblem || '');
-        if (!(e in EMBLEM_LEVEL)) return serverJson({ error: 'Unknown emblem.' }, 400);
-        if (EMBLEM_LEVEL[e] > level) return serverJson({ error: `That emblem unlocks at Posse level ${EMBLEM_LEVEL[e]}.` }, 403);
-        await supabase.from('posses').update({ emblem: e }).eq('id', ms.posse.id);
-      } else {
-        const c = String(body?.color || 'default'); const f = String(body?.font || 'default');
-        if (!(c in COLOR_LEVEL) || !(f in FONT_LEVEL)) return serverJson({ error: 'Unknown style.' }, 400);
-        if (COLOR_LEVEL[c] > level || FONT_LEVEL[f] > level) return serverJson({ error: 'That style is not unlocked yet.' }, 403);
-        await supabase.from('posses').update({ name_color: c === 'default' ? null : c, name_font: f === 'default' ? null : f }).eq('id', ms.posse.id);
-      }
+    if (action === 'set_emblem') {
+      if (role !== 'owner') return serverJson({ error: 'Only the Posse owner can change the emblem.' }, 403);
+      const e = String(body?.emblem || '');
+      if (!(e in EMBLEM_LEVEL)) return serverJson({ error: 'Unknown emblem.' }, 400);
+      if (EMBLEM_LEVEL[e] > await posseLevel(supabase, ms.posse.id)) return serverJson({ error: `That emblem unlocks at Posse level ${EMBLEM_LEVEL[e]}.` }, 403);
+      await supabase.from('posses').update({ emblem: e }).eq('id', ms.posse.id);
       return serverJson(await buildInfo(supabase, userId));
+    }
+
+    // Every member picks their own name colour and font (unlocked by Posse level).
+    if (action === 'set_my_style') {
+      const c = String(body?.color || 'default'); const f = String(body?.font || 'default');
+      if (!(c in COLOR_LEVEL) || !(f in FONT_LEVEL)) return serverJson({ error: 'Unknown style.' }, 400);
+      const level = await posseLevel(supabase, ms.posse.id);
+      if (COLOR_LEVEL[c] > level || FONT_LEVEL[f] > level) return serverJson({ error: 'That style is not unlocked yet.' }, 403);
+      await supabase.from('posse_members').update({ name_color: c === 'default' ? null : c, name_font: f === 'default' ? null : f }).eq('posse_id', ms.posse.id).eq('user_id', userId);
+      return serverJson(await buildInfo(supabase, userId));
+    }
+
+    // Preset-only chat. Near-real-time: clients poll chat_list every few seconds while the chat is open.
+    if (action === 'chat_send' || action === 'chat_list') {
+      if (action === 'chat_send') {
+        const preset = String(body?.preset || '');
+        if (!PRESET_IDS.has(preset)) return serverJson({ error: 'Unknown message.' }, 400);
+        const { data: recent } = await supabase.from('posse_chat').select('id, created_at').eq('user_id', userId).gte('created_at', new Date(Date.now() - 3600000).toISOString());
+        const list = (recent ?? []) as any[];
+        if (list.length >= CHAT_PER_HOUR) return serverJson({ error: 'You have sent a lot of messages. Take a short break.' }, 429);
+        if (list.filter(r => r.created_at >= new Date(Date.now() - 10000).toISOString()).length >= CHAT_PER_10S) return serverJson({ error: 'Slow down a little.' }, 429);
+        const { error } = await supabase.from('posse_chat').insert({ posse_id: ms.posse.id, user_id: userId, preset });
+        if (error) return serverJson({ error: 'Could not send.' }, 500);
+        await supabase.from('posse_chat').delete().eq('posse_id', ms.posse.id).lt('created_at', new Date(Date.now() - 3 * 86400000).toISOString());
+      }
+      const after = Number(body?.after);
+      let q = supabase.from('posse_chat').select('id, user_id, preset, created_at').eq('posse_id', ms.posse.id);
+      if (Number.isFinite(after) && after > 0) q = q.gt('id', after);
+      const { data: msgs } = await q.order('id', { ascending: false }).limit(60);
+      const rowsC = ((msgs ?? []) as any[]).reverse();
+      const ids = [...new Set(rowsC.map(m => m.user_id))];
+      const { data: profs } = ids.length ? await supabase.from('player_profiles').select('user_id, display_name').in('user_id', ids) : { data: [] as any[] };
+      const names = new Map<string, string>(((profs ?? []) as any[]).map(pr => [pr.user_id, nameOf(pr)]));
+      const { data: styles } = ids.length ? await supabase.from('posse_members').select('user_id, name_color, name_font').eq('posse_id', ms.posse.id).in('user_id', ids) : { data: [] as any[] };
+      const st = new Map<string, any>(((styles ?? []) as any[]).map(x => [x.user_id, x]));
+      return serverJson({ messages: rowsC.map(m => ({ id: m.id, userId: m.user_id, name: names.get(m.user_id) ?? 'A player', preset: m.preset, createdAt: m.created_at, nameColor: st.get(m.user_id)?.name_color ?? null, nameFont: st.get(m.user_id)?.name_font ?? null })) });
+    }
+
+    // Officers: find recruits without a friend code.
+    if (action === 'browse_lfp' || action === 'search_players') {
+      if (!isOfficer) return serverJson({ error: 'Only the owner or a co-lead can recruit.' }, 403);
+      let candidates: Profile[] = [];
+      if (action === 'browse_lfp') {
+        const { data: lfp } = await supabase.from('posse_lfp').select('user_id, faction, created_at').eq('faction', ms.posse.faction).gte('created_at', new Date(Date.now() - LFP_DAYS * 86400000).toISOString()).limit(60);
+        const ids = ((lfp ?? []) as any[]).map(r => r.user_id);
+        if (ids.length) { const { data } = await supabase.from('player_profiles').select(PROFILE_COLS).in('user_id', ids); candidates = (data ?? []) as Profile[]; }
+      } else {
+        const qText = String(body?.query ?? '').replace(/[^A-Za-z0-9 ]/g, '').trim().slice(0, 20);
+        if (qText.length < 2) return serverJson({ error: 'Type at least 2 letters of the player name.' }, 400);
+        const { data } = await supabase.from('player_profiles').select(PROFILE_COLS).eq('faction', ms.posse.faction).ilike('display_name', `%${qText}%`).limit(25);
+        candidates = (data ?? []) as Profile[];
+      }
+      candidates = candidates.filter(c => c.user_id !== userId);
+      const ids = candidates.map(c => c.user_id);
+      const { data: taken } = ids.length ? await supabase.from('posse_members').select('user_id').in('user_id', ids) : { data: [] as any[] };
+      const takenSet = new Set(((taken ?? []) as any[]).map(t => t.user_id));
+      const { data: pend } = ids.length ? await supabase.from('posse_invites').select('to_user_id').eq('posse_id', ms.posse.id).eq('status', 'pending').in('to_user_id', ids) : { data: [] as any[] };
+      const pendSet = new Set(((pend ?? []) as any[]).map(t => t.to_user_id));
+      return serverJson({ players: candidates.filter(c => !takenSet.has(c.user_id)).slice(0, 20).map(c => ({ userId: c.user_id, name: nameOf(c), level: c.level ?? 1, squadPower: c.squad_power ?? 0, invited: pendSet.has(c.user_id) })) });
     }
 
     if (action === 'leave') {
