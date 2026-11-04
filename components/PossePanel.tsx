@@ -7,7 +7,9 @@ import {
   browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
   type PosseInfo, type PosseSearchResult, type PosseRosterEntry, type RecruitPlayer, type PosseChatMessage,
 } from '../services/posseService';
-import { POSSE_CHAT_CATEGORIES, POSSE_CHAT_TEXT } from '../services/posseChat';
+import { ChatBody, ChatPicker } from './ChatParts';
+import { factionById } from '../constants';
+import { POSSE_HEADER_ART } from '../game-assets/w7Art';
 
 const FACTION_LABEL: Record<string, string> = { early_birds: 'Early Birds', night_owls: 'Night Owls', sunday_drivers: 'Sunday Drivers' };
 const FACTION_ICON: Record<string, string> = { early_birds: '\u{1F305}', night_owls: '\u{1F989}', sunday_drivers: '\u{1F697}' };
@@ -47,6 +49,7 @@ export const posseNameStyle = (color?: string | null, font?: string | null): Rea
   else if (c?.css) style.color = c.css;
   return style;
 };
+const FactionBadge: React.FC<{ id: string }> = ({ id }) => { const f = factionById(id); return f?.art ? <img src={f.art} alt="" className="inline-block w-[1.3em] h-[1.3em] object-contain align-middle" /> : <>{FACTION_ICON[id]}</>; };
 const ROLE_LABEL = { owner: 'Owner', co: 'Co-lead', member: 'Member' } as const;
 
 const PossePanel: React.FC<{
@@ -69,7 +72,6 @@ const PossePanel: React.FC<{
   const [showEmblems, setShowEmblems] = useState(false);
   const [showMyStyle, setShowMyStyle] = useState(false);
   const [msgs, setMsgs] = useState<PosseChatMessage[]>([]);
-  const [chatCat, setChatCat] = useState('greet');
   const [chatCooling, setChatCooling] = useState(false);
   const lastChatId = useRef(0);
   const chatEnd = useRef<HTMLDivElement | null>(null);
@@ -161,9 +163,11 @@ const PossePanel: React.FC<{
   return (
     <div className="fixed inset-0 z-[3500] flex items-center justify-center p-2 bg-black/60 backdrop-blur-md" onClick={onClose}>
       <div className={`rounded-[2rem] p-5 w-full max-w-lg h-[96dvh] max-h-[96dvh] flex flex-col shadow-2xl border-4 overflow-y-auto ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'}`} onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-2xl font-black uppercase italic tracking-tighter">The Old Gang</h2>
-          <button onClick={onClose} className="text-slate-300 p-2" aria-label="Close"><XMarkIcon className="w-6 h-6" /></button>
+        <div className="relative rounded-2xl overflow-hidden mb-3 h-24 shrink-0">
+          <img src={POSSE_HEADER_ART} alt="" className="absolute inset-0 w-full h-full object-cover object-right" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
+          <h2 className="absolute left-4 top-3 text-2xl font-black uppercase italic tracking-tighter text-white drop-shadow">The Old Gang</h2>
+          <button onClick={onClose} className="absolute right-2 top-2 p-2 rounded-full bg-black/40 text-white" aria-label="Close"><XMarkIcon className="w-6 h-6" /></button>
         </div>
         {error && <p className="text-[13px] font-bold text-red-500 mb-3">{error}</p>}
         {!info && !error && <p className="opacity-60 italic">Loading...</p>}
@@ -175,7 +179,7 @@ const PossePanel: React.FC<{
                 <span className="text-4xl">{emblemIcon(info.posse.emblem)}</span>
                 <div className="min-w-0">
                   <p className="text-xl font-black uppercase truncate">{info.posse.name} <span className="opacity-60">[{info.posse.tag}]</span></p>
-                  <p className="text-[12px] font-bold opacity-70">{FACTION_ICON[info.posse.faction]} {FACTION_LABEL[info.posse.faction]} &middot; Level {info.posse.level} &middot; {info.posse.memberCount}/{info.posse.maxMembers} members &middot; You: {ROLE_LABEL[info.myRole!]}</p>
+                  <p className="text-[12px] font-bold opacity-70"><FactionBadge id={info.posse.faction} /> {FACTION_LABEL[info.posse.faction]} &middot; Level {info.posse.level} &middot; {info.posse.memberCount}/{info.posse.maxMembers} members &middot; You: {ROLE_LABEL[info.myRole!]}</p>
                 </div>
               </div>
               <div className="mt-3">
@@ -255,19 +259,12 @@ const PossePanel: React.FC<{
                   {msgs.map(m => (
                     <div key={m.id} className="mb-2">
                       <p className="text-[12px] font-black"><span style={styleOf(m)}>{m.name}</span> <span className="opacity-50 font-bold">{new Date(m.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></p>
-                      <p className="text-[14px] font-semibold">{POSSE_CHAT_TEXT[m.preset] ?? '...'}</p>
+                      <ChatBody preset={m.preset} />
                     </div>
                   ))}
                   <div ref={chatEnd} />
                 </div>
-                <div className="flex gap-1 mb-2 overflow-x-auto">
-                  {POSSE_CHAT_CATEGORIES.map(c => <button key={c.id} onClick={() => setChatCat(c.id)} className={`px-3 py-1.5 rounded-lg font-black uppercase text-[11px] whitespace-nowrap ${chatCat === c.id ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{c.label}</button>)}
-                </div>
-                <div className="flex flex-wrap gap-2 pb-2">
-                  {POSSE_CHAT_CATEGORIES.find(c => c.id === chatCat)?.presets.map(p => (
-                    <button key={p.id} disabled={chatCooling} onClick={() => sendPreset(p.id)} className={`px-3 py-2 rounded-xl text-[13px] font-bold text-left active:scale-95 disabled:opacity-50 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>{p.text}</button>
-                  ))}
-                </div>
+                <ChatPicker isDark={isDark} disabled={chatCooling} onSend={sendPreset} />
               </div>
             )}
 
@@ -304,7 +301,7 @@ const PossePanel: React.FC<{
 
         {info && !info.posse && (
           <>
-            <p className="text-[12px] opacity-70 mb-3">A Posse is a group of up to 100 players, all in the same faction. {info.faction ? <>Your faction: <b>{FACTION_ICON[info.faction]} {FACTION_LABEL[info.faction]}</b>.</> : <b>Pick a faction at an Arena first &mdash; a Posse belongs to one faction.</b>}</p>
+            <p className="text-[12px] opacity-70 mb-3">A Posse is a group of up to 100 players, all in the same faction. {info.faction ? <>Your faction: <b><FactionBadge id={info.faction} /> {FACTION_LABEL[info.faction]}</b>.</> : <b>Pick a faction at an Arena first &mdash; a Posse belongs to one faction.</b>}</p>
 
             {info.pendingInvites.length > 0 && (
               <div className="mb-3">

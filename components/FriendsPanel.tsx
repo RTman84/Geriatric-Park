@@ -1,3 +1,5 @@
+import FriendChatPanel from './FriendChatPanel';
+import { fetchFriendChatSummary, readSeen } from '../services/friendChatService';
 import React, { useState, useEffect } from 'react';
 import { Gfx, EmojiText, BracketCrest } from './Gfx';
 import { XMarkIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon, UserMinusIcon, ClipboardDocumentIcon, SparklesIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
@@ -69,6 +71,16 @@ export const exchangeSummary = (r: ResidentExchangeRow, side: 'mine' | 'hosting'
 };
 
 const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, error, lastVisitedFriends, onClose, onRefresh, onSendRequest, onRespond, onRemove, onRandomMatch, onToggleOpenToRandom, onVisit, onBattle, nearby, nearbyBusy, nearbyError, nearbyReadyAt, onRefreshNearby, mySquadPower, friendBattle, hasSquad, elders, stationedIds = [], residentExchangeMine, residentExchangeHosting, onPlaceResident, onRecallResident, notify }) => {
+  const [chatFriend, setChatFriend] = React.useState<{ id: string; name: string } | null>(null);
+  const [chatLatest, setChatLatest] = React.useState<Record<string, number>>({});
+  const [chatSeen, setChatSeen] = React.useState<Record<string, number>>(() => readSeen());
+  React.useEffect(() => {
+    let stop = false;
+    const tick = () => fetchFriendChatSummary().then(r => { if (!stop) setChatLatest(r.latest); }).catch(() => undefined);
+    tick(); const t = window.setInterval(tick, 15000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, []);
+
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -493,6 +505,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
                         >
                           {<EmojiText text={onCooldown ? 'Visited today' : `Visit (+${VISIT_MATERIALS_REWARD} 🧱)`} />}
                         </button>
+                        <button onClick={() => setChatFriend({ id: friend.user_id, name: friend.display_name || 'Friend' })} className={`relative px-3 py-2 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-slate-200 text-slate-700'}`}>Chat{(chatLatest[friend.user_id] ?? 0) > (chatSeen[friend.user_id] ?? 0) && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500" />}</button>
                         <button onClick={() => onRemove(friend.user_id)} className="px-3 rounded-xl text-slate-300 hover:text-rose-400"><UserMinusIcon className="w-4 h-4" /></button>
                       </div>
                       {isExpanded && visitFeedback && !notify && (
@@ -506,6 +519,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isDark, data, loading, erro
           </div>
         </div>
       </div>
+      {chatFriend && <FriendChatPanel isDark={isDark} friendId={chatFriend.id} friendName={chatFriend.name} onClose={() => setChatFriend(null)} onSeen={() => setChatSeen(readSeen())} notify={notify} />}
       {viewingParkFriendId && (() => {
         const friend = data?.friends.find(f => f.user_id === viewingParkFriendId);
         if (!friend) return null;

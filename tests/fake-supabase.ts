@@ -32,7 +32,7 @@ class Q {
     if (this.op === 'insert') {
       const list = Array.isArray(this.ins) ? this.ins : [this.ins]; const out: any[] = [];
       for (const r0 of list) {
-        const r = { ...r0 }; if (this.t === 'posse_chat') { DB.chatSeq = (DB.chatSeq || 0) + 1; r.id = DB.chatSeq; } else if (!r.id && !['posse_members', 'player_profiles', 'posse_lfp'].includes(this.t)) r.id = uuid(); if (!r.created_at) r.created_at = new Date().toISOString();
+        const r = { ...r0 }; if (this.t === 'posse_chat' || this.t === 'friend_chat') { DB.chatSeq = (DB.chatSeq || 0) + 1; r.id = DB.chatSeq; } else if (!r.id && !['posse_members', 'player_profiles', 'posse_lfp'].includes(this.t)) r.id = uuid(); if (!r.created_at) r.created_at = new Date().toISOString();
         if (this.t === 'posse_invites') { r.status = r.status ?? 'pending'; r.expires_at = r.expires_at ?? new Date(Date.now() + 7 * 86400000).toISOString(); }
         if (uniques[this.t]?.(rows, r)) return { data: null, error: { code: '23505', message: 'duplicate key' } };
         rows.push(r); out.push(r);
