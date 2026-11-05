@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, EVENT_KEEPSAKES, SEASONAL_EVENTS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, EVENT_KEEPSAKES, MEMENTO_COMING_SOON, ITEM_ICON_ASSETS, SEASONAL_EVENTS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
@@ -100,6 +100,17 @@ const MementoShop: React.FC<{
           })}
         </div>
 
+        <h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Coming soon</h3>
+        <p className="text-[12px] opacity-70 mb-2">New keepsakes are on the way. Prices are announced when they join the weekly rotation.</p>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {MEMENTO_COMING_SOON.map(k => (
+            <div key={k.name} className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+              <img src={ITEM_ICON_ASSETS[k.name]} alt="" className="w-14 h-14 mx-auto object-contain" />
+              <div className="text-[11px] font-black uppercase leading-tight">{k.name}</div>
+              <div className="text-[10px] font-bold opacity-60">Coming soon</div>
+            </div>
+          ))}
+        </div>
         <h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Event keepsakes</h3>
         <p className="text-[12px] opacity-70 mb-2">Finish every goal of a seasonal event to earn its Event Elder and Event Keepsake. Event keepsakes only come from that event.</p>
         <div className="grid grid-cols-4 gap-2 mb-2">

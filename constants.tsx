@@ -86,6 +86,7 @@ import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from '
 import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
 import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
 import { EVENT_ELDER_ART, EVENT_KEEPSAKE_ART } from './game-assets/eventElders';
+import { NEW_GEAR_ART_W7, NEW_KEEPSAKE_ART_W7, NEW_ANTIQUE_ART_W7 } from './game-assets/w7Art';
 import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
@@ -1356,6 +1357,9 @@ export const ITEM_ICON_ASSETS: Record<string, string> = {
   ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
   ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and all 60 antiques with art
   ...ITEM_ART4, // N4a/N4b redo of the first-generation shop and found items + Antique Pocket Watch (replaces the older paintings)
+  ...Object.fromEntries(Object.entries(NEW_GEAR_ART_W7).map(([k, v]) => [k, v.art])), // W7-E: 8 new drop gear pieces
+  ...NEW_KEEPSAKE_ART_W7, // W7-F: 6 new Keepsakes (art by name; shown 'coming soon' until prices are approved)
+  ...NEW_ANTIQUE_ART_W7, // W7-G: 6 new Antiques
 };
 
 // Universal item rarity glow (owner rule 2026-10-20): Rare = blue, Epic = purple, Legendary = gold, applied to every item icon
@@ -1664,7 +1668,16 @@ export const ITEM_POOL = [
   { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
   { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
-  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' }
+  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  // W7-E (2026-11-03): same uniform base as the pieces above (rarity + level curve decides the bonus, nothing custom).
+  { name: 'Wool Beret', icon: '🎩', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Bifocal Chain Glasses', icon: '👓', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Knitted Shawl', icon: '🧣', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Elbow Patch Cardigan', icon: '🧥', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Pearl Necklace', icon: '📿', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
+  { name: 'Garden Gloves', icon: '🧤', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
+  { name: 'Lucky Horseshoe', icon: '🧲', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  { name: 'Brass Bell Keychain', icon: '🔔', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' }
 ];
 
 export const SHOP_ITEMS = [
@@ -1814,7 +1827,7 @@ export const DINERS_COURT_WIN = 6;
 export type AntiqueRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 export interface Antique { id: string; name: string; icon: string; rarity: AntiqueRarity; price: number; title: string }
 export const ANTIQUE_PRICE: Record<AntiqueRarity, number> = { Common: 20, Rare: 45, Epic: 90, Legendary: 180 };
-// [name, icon, rarity] -- 60 items: 30 Common, 18 Rare, 9 Epic, 3 Legendary.
+// [name, icon, rarity] -- 66 items: 32 Common, 21 Rare, 10 Epic, 3 Legendary.
 const ANTIQUE_SOURCE: [string, string, AntiqueRarity][] = [
   ['Brass Bugle', '📯', 'Common'], ['Doily Set', '🧶', 'Common'], ['Hard Candy Dish', '🍬', 'Common'], ['Rotary Phone', '☎️', 'Common'],
   ['Cuckoo Clock', '🕰️', 'Common'], ['Plaid Thermos', '🫖', 'Common'], ['Seed Packet Tin', '🌱', 'Common'], ['Crossword Book', '📰', 'Common'],
@@ -1832,13 +1845,15 @@ const ANTIQUE_SOURCE: [string, string, AntiqueRarity][] = [
   ['Golden Bingo Cage', '🎰', 'Epic'], ['Crystal Chandelier', '🪔', 'Epic'], ['Velvet Armchair', '🛋️', 'Epic'], ['Jeweled Hearing Horn', '👂', 'Epic'],
   ['Mahogany Radio Cabinet', '📺', 'Epic'], ['Opera Glasses', '🎭', 'Epic'], ['Ballroom Trophy', '🏆', 'Epic'], ['Stained-Glass Lamp', '🏺', 'Epic'],
   ['Ivory Chess Set', '♞', 'Epic'],
-  ['The First Casserole Dish', '🥘', 'Legendary'], ['Founder\'s Shuffleboard Cue', '🥏', 'Legendary'], ['Gilded TV Dinner Tray', '🍽️', 'Legendary'],
+  ['The First Casserole Dish', '🥘', 'Legendary'], ['Founder\'s Shuffleboard Cue', '🥏', 'Legendary'], ['Gilded TV Dinner Tray', '🍽️', 'Legendary'],  // W7-G (2026-11-03): appended so existing antique ids a01-a60 never change; rarities follow the existing ladder, price is the existing per-rarity price.
+  ['Brass Bingo Bell', '🔔', 'Common'], ['Cast-Iron Doorstop', '🐈', 'Common'], ['Crank Coffee Grinder', '☕', 'Rare'], ['Gold Pocket Compass', '🧭', 'Rare'],
+  ['Embroidered Footstool', '🪑', 'Rare'], ['Silver Trophy Spoon', '🥄', 'Epic'],
 ];
 export const ANTIQUES: Antique[] = ANTIQUE_SOURCE.map(([name, icon, rarity], i) => ({
   id: `a${String(i + 1).padStart(2, '0')}`, name, icon, rarity, price: ANTIQUE_PRICE[rarity], title: `${name} Collector`,
 }));
 export const ANTIQUES_PER_DAY = 4;
-export const ANTIQUE_CYCLE_DAYS = ANTIQUES.length / ANTIQUES_PER_DAY; // 15: every antique shows up once per cycle
+export const ANTIQUE_CYCLE_DAYS = Math.ceil(ANTIQUES.length / ANTIQUES_PER_DAY); // 17 for 66 antiques: every antique shows up once per cycle (the last day of a cycle shows the 2 left over)
 export const antiqueDayIndex = (now = Date.now()): number => Math.floor(now / 86400000);
 const antiqueSeedRand = (seed: number) => { let s = (seed * 2654435761) >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 // Deterministic for everyone, no server needed: each cycle uses its own shuffle, so the order differs every 15 days
@@ -1893,6 +1908,12 @@ const MEMENTO_SOURCE: [string, string, number][] = [
   ['Golden Retirement Watch', '⌚', 150], ['Hand-Knit Baby Booties', '🧦', 70], ['County Fair Blue Ribbon', '🎗️', 90], ['Porch Swing Plaque', '🪑', 120],
 ];
 export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, title: `Keeper of the ${name}` }));
+// W7-F: art for 6 more Keepsakes. DISPLAY ONLY until the owner approves prices: they are NOT in MEMENTO_ITEMS (so not in the weekly
+// rotation and not purchasable); api/mementos.ts has no entry for them. Shown as 'coming soon' in the Mementos Shop.
+export const MEMENTO_COMING_SOON: { name: string; icon: string }[] = [
+  { name: 'Wedding Album', icon: '📖' }, { name: "Grandpa's Harmonica", icon: '🎵' }, { name: 'Sewing Basket Heirloom', icon: '🧺' },
+  { name: 'Porch Music Box', icon: '🎶' }, { name: 'Victory Garden Seed Jar', icon: '🫙' }, { name: 'Hand-Painted Teapot', icon: '🫖' },
+];
 export const MEMENTO_ITEMS_PER_WEEK = 2;
 export const MEMENTO_CYCLE_WEEKS = MEMENTO_ITEMS.length / MEMENTO_ITEMS_PER_WEEK; // 6
 export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 3) / 7); // weeks roll over on Mondays UTC (epoch day 0 was a Thursday)
@@ -1922,7 +1943,7 @@ export const PASS_HOLD_MAX = 10;
 // Drops and the Commissary now follow one rule: every piece has the same base boost (3) and the rarity + level curve
 // does the rest, so the same rarity and level always gives the same bonus. Names of the pieces that used other bases:
 export const UNIFORM_GEAR_BASE = 3;
-export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid Plus', 'Vintage Radio', 'Garden Charm', 'Antique Pocket Watch'];
+export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid Plus', 'Vintage Radio', 'Garden Charm', 'Antique Pocket Watch', 'Wool Beret', 'Bifocal Chain Glasses', 'Knitted Shawl', 'Elbow Patch Cardigan', 'Pearl Necklace', 'Garden Gloves', 'Lucky Horseshoe', 'Brass Bell Keychain'];
 
 // PP -> Mementos (one direction only, never back): spending earned PP on premium goods. Owner-tunable rate.
 export const MEMENTOS_PER_PP = 100;
