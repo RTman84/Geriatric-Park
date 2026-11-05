@@ -1570,7 +1570,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             <select value={gearRarityF} onChange={ev => setGearRarityF(ev.target.value as typeof gearRarityF)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>
               {['All', 'Common', 'Rare', 'Epic', 'Legendary'].map(x => <option key={x} value={x}>{x === 'All' ? 'All rarities' : x}</option>)}
             </select>
-            {onSellManyGear && <button onClick={() => { setGearMulti(m => !m); setGearPicked([]); }} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] active:scale-95 ${gearMulti ? 'bg-rose-600 text-white' : isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>{gearMulti ? 'Cancel' : 'Multi-salvage'}</button>}
+            {onSellManyGear && <button onClick={() => { setGearMulti(m => !m); setGearPicked([]); }} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] active:scale-95 ${gearMulti ? 'bg-rose-600 text-white' : isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>{gearMulti ? `Cancel (${gearPicked.length})` : 'Multi-salvage'}</button>}
             {gearMulti && <button onClick={() => setGearPicked(sortedInventory.map(i => i.id))} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>Select all shown</button>}
           </div>
         )}
@@ -1578,7 +1578,8 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
           {inventory.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {sortedInventory.map(item => (
-                <button key={item.id} onClick={() => gearMulti ? setGearPicked(p => p.includes(item.id) ? p.filter(x => x !== item.id) : [...p, item.id]) : setSelectedItem(item)} className={`relative ${gearPicked.includes(item.id) ? 'ring-4 ring-rose-500 ' : ''}p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
+                <button key={item.id} onClick={() => gearMulti ? setGearPicked(p => p.includes(item.id) ? p.filter(x => x !== item.id) : [...p, item.id]) : setSelectedItem(item)} className={`relative ${gearPicked.includes(item.id) ? 'ring-4 ring-rose-500 ' : ''}p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={gearPicked.includes(item.id) ? { ...rarityCardStyle(item.rarity), borderColor: '#f43f5e', boxShadow: '0 0 0 4px #f43f5e, 0 0 18px #f43f5e', transform: 'scale(0.94)' } : selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
+                  {gearPicked.includes(item.id) && <span className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white text-[14px] font-black flex items-center justify-center z-10">{'\u2713'}</span>}
                   <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
                   <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
                   {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
@@ -1587,7 +1588,7 @@ export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
             </div>
           ) : <div className="text-center py-10 opacity-30 text-sm font-black uppercase">Storage is empty</div>}
           {gearMulti && onSellManyGear && (
-            <button disabled={!gearPicked.length} onClick={() => { if (gearPickedItems.some(i => (i.rarity ?? 'Common') === 'Epic' || (i.rarity ?? 'Common') === 'Legendary') && !window.confirm('Your selection includes Epic or Legendary gear. Salvage it anyway?')) return; onSellManyGear(gearPickedItems.map(i => i.id)); setGearPicked([]); setGearMulti(false); }} className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[13px] active:scale-95 ${gearPicked.length ? 'bg-rose-600 text-white' : 'opacity-40 border-2 border-slate-400'}`}>
+            <button disabled={!gearPicked.length} style={{ position: 'sticky', bottom: '5.5rem', zIndex: 20 }} onClick={() => { if (gearPickedItems.some(i => (i.rarity ?? 'Common') === 'Epic' || (i.rarity ?? 'Common') === 'Legendary') && !window.confirm('Your selection includes Epic or Legendary gear. Salvage it anyway?')) return; onSellManyGear(gearPickedItems.map(i => i.id)); setGearPicked([]); setGearMulti(false); }} className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[13px] active:scale-95 shadow-xl ${gearPicked.length ? 'bg-rose-600 text-white' : 'opacity-40 border-2 border-slate-400'}`}>
               {gearPicked.length ? <>Salvage {gearPicked.length} items: +{gearPickedTotal.tickets} <Gfx e="🎟️" size={16} /> +{gearPickedTotal.materials} <Gfx e="🧱" size={16} /></> : 'Tap gear to select it'}
             </button>
           )}
