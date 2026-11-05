@@ -81,6 +81,19 @@ const FONT_LEVEL: Record<string, number> = { default: 1, rounded: 1, serif: 2, m
 const LEVEL_AT = [0, 100, 400, 1000, 2500, 6000];
 // Preset chat ids accepted by chat_send (keep in sync with services/posseChat.ts).
 const PRESET_IDS = new Set(['hello', 'hi', 'morning', 'afternoon', 'evening', 'night', 'welcome', 'brb', 'back', 'busy', 'thanks', 'welcome_back', 'bye', 'howdy', 'great', 'gg', 'raid_on', 'raid_soon', 'raid_hit', 'raid_need', 'raid_low', 'raid_won', 'raid_lost', 'raid_done', 'raid_where', 'raid_join', 'raid_hard', 'raid_tier', 'raid_ready', 'raid_thanks', 'arena_hold', 'arena_lost', 'arena_atk', 'arena_help', 'arena_dues', 'arena_won', 'arena_full', 'arena_open', 'arena_shield', 'arena_strong', 'arena_swap', 'arena_thanks', 'loan', 'loan_offer', 'visit', 'visited', 'visit_back', 'exchange', 'exchange_sent', 'battle', 'battle_yes', 'help', 'help_ok', 'heal', 'materials', 'tip', 'guide', 'daily', 'mission', 'mission_need', 'mission_done', 'mission_pick', 'mission_raid', 'mission_arena', 'mission_pvp', 'mission_close', 'mission_time', 'points', 'pvp_gl', 'pvp_won', 'pvp_lost', 'pvp_rematch', 'pvp_nice', 'pvp_ladder', 'pvp_tower', 'pvp_squad', 'pvp_gear', 'pvp_rest', 'nice', 'wow', 'haha', 'oops', 'yes', 'no', 'ok', 'wait', 'congrats', 'luck', 'sorry', 'please', 'maybe', 'sure', 'awesome', 'love', 'st_wave', 'st_thumbs', 'st_rematch', 'st_bingo', 'st_morning', 'st_night', 'st_thanks', 'st_goodfight']);
+// Weekly Posse missions. goal = max(3, active members) x perMember (active = earned at least 1 point this week).
+// stat: which posse_week_stats counter feeds it; 'show_up' counts members with 10+ points.
+const MISSION_POOL: { id: string; title: string; desc: string; stat: string; perMember: number; per?: 'ten' | 'half' }[] = [
+  { id: 'raid_party', title: 'Raid Party', desc: 'Land raid hits together.', stat: 'raid_hit', perMember: 4 },
+  { id: 'hold_line', title: 'Hold the Line', desc: 'Win Arena fights.', stat: 'arena_win', perMember: 3 },
+  { id: 'rivals', title: 'Friendly Rivals', desc: 'Win PvP battles (friends, ladder, Court).', stat: 'pvp_win', perMember: 5 },
+  { id: 'boss_down', title: 'Boss Down', desc: 'Defeat raid bosses as a Posse.', stat: 'boss_down', perMember: 1, per: 'ten' },
+  { id: 'dues_run', title: 'Dues Day', desc: 'Members claim their daily Arena Dues.', stat: 'dues', perMember: 1, per: 'half' },
+  { id: 'show_up', title: 'Show Up', desc: 'Members who earn 10+ points this week.', stat: 'show_up', perMember: 1, per: 'half' },
+];
+const MISSION_REWARD_DINERS = 20;
+const MISSION_REWARD_MATERIALS = 8;
+const MISSION_MIN_POINTS = 10;
 const CHAT_PER_10S = 4;
 const CHAT_PER_HOUR = 120;
 const LFP_DAYS = 14;
@@ -160,6 +173,63 @@ async function addMember(supabase: SupabaseClient, posseId: string, userId: stri
   return { ok: true };
 }
 
+function missionGoal(m: typeof MISSION_POOL[number], active: number, roster: number): number {
+  if (m.id === 'show_up') return Math.max(2, Math.ceil(roster / 2));
+  const base = Math.max(3, active);
+  if (m.per === 'ten') return Math.max(1, Math.ceil(base / 10));
+  if (m.per === 'half') return Math.max(2, Math.ceil(base / 2));
+  return base * m.perMember;
+}
+// Same default set for every Posse in a given week.
+function defaultMissionIds(ws: string): string[] {
+  let h = 0; for (const ch of ws) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const start = h % MISSION_POOL.length;
+  return [0, 1, 2].map(i => MISSION_POOL[(start + i * 2) % MISSION_POOL.length].id).filter((v, i, a) => a.indexOf(v) === i);
+}
+
+async function buildMissions(supabase: SupabaseClient, posseId: string, ws: string, rosterRows: any[], userId: string) {
+  const roster = rosterRows.length;
+  const pts = (m: any) => (m.week_start === ws ? Number(m.week_points) || 0 : 0);
+  const active = rosterRows.filter(m => pts(m) >= 1).length;
+  const showUp = rosterRows.filter(m => pts(m) >= MISSION_MIN_POINTS).length;
+  const { data: statRows } = await supabase.from('posse_week_stats').select('kind, count').eq('posse_id', posseId).eq('week_start', ws);
+  const stats = new Map<string, number>(((statRows ?? []) as any[]).map(r => [String(r.kind), Number(r.count) || 0]));
+  const { data: feat } = await supabase.from('posse_featured').select('mission_ids').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
+  let ids = String((feat as any)?.mission_ids ?? '').split(',').filter(id => MISSION_POOL.some(m => m.id === id));
+  if (ids.length !== 3) ids = defaultMissionIds(ws);
+  const { data: votes } = await supabase.from('posse_mission_votes').select('user_id, mission_id').eq('posse_id', posseId).eq('week_start', ws);
+  const voteCount = new Map<string, number>(); let myVote: string | null = null;
+  for (const v of (votes ?? []) as any[]) { voteCount.set(v.mission_id, (voteCount.get(v.mission_id) ?? 0) + 1); if (v.user_id === userId) myVote = v.mission_id; }
+  const mine = rosterRows.find(m => m.user_id === userId);
+  const myPoints = mine ? pts(mine) : 0;
+  const { data: paidRows } = await supabase.from('posse_mission_paid').select('mission_id').eq('posse_id', posseId).eq('week_start', ws).eq('user_id', userId);
+  const paid = new Set(((paidRows ?? []) as any[]).map(r => r.mission_id));
+  const featured: any[] = [];
+  let paidNow = 0;
+  for (const id of ids) {
+    const m = MISSION_POOL.find(x => x.id === id)!;
+    const goal = missionGoal(m, active, roster);
+    const progressLive = m.stat === 'show_up' ? showUp : (stats.get(m.stat) ?? 0);
+    let done = (stats.get(`done_${id}`) ?? 0) > 0;
+    if (!done && progressLive >= goal) { // freeze completion so a growing roster cannot undo it
+      done = true;
+      await supabase.from('posse_week_stats').insert({ posse_id: posseId, week_start: ws, kind: `done_${id}`, count: 1 });
+    }
+    const progress = done ? Math.max(goal, Math.min(progressLive, goal * 10)) : progressLive;
+    const eligible = done && myPoints >= MISSION_MIN_POINTS;
+    if (eligible && !paid.has(id) && mine) {
+      const { error } = await supabase.from('posse_mission_paid').insert({ posse_id: posseId, week_start: ws, mission_id: id, user_id: userId });
+      if (!error) {
+        await supabase.from('mail_inbox').insert({ recipient_id: userId, sender_id: userId, sender_name: 'Posse Missions', kind: 'posse_reward', day: todayKey(), ref: `mission:${ws}:${id}`, reward_diners: MISSION_REWARD_DINERS, reward_materials: MISSION_REWARD_MATERIALS, note: `mission:${m.title}:${ws}`, updated_at: new Date().toISOString() });
+        paid.add(id); paidNow++;
+      }
+    }
+    featured.push({ id, title: m.title, desc: m.desc, progress: Math.min(progress, goal), goal, done, paid: paid.has(id), eligible });
+  }
+  const pool = MISSION_POOL.map(m => ({ id: m.id, title: m.title, desc: m.desc, votes: voteCount.get(m.id) ?? 0, featured: ids.includes(m.id) }));
+  return { weekStart: ws, featured, pool, myVote, minPoints: MISSION_MIN_POINTS, rewardDiners: MISSION_REWARD_DINERS, rewardMaterials: MISSION_REWARD_MATERIALS, paidNow };
+}
+
 async function buildInfo(supabase: SupabaseClient, userId: string) {
   let ms = await getMembership(supabase, userId);
   const prof = await getProfile(supabase, userId);
@@ -200,7 +270,7 @@ async function buildInfo(supabase: SupabaseClient, userId: string) {
   roster.sort((a, b) => rank(a.role) - rank(b.role) || b.weekPoints - a.weekPoints || a.name.localeCompare(b.name));
   return {
     posse: { id: ms.posse.id, name: ms.posse.name, tag: ms.posse.tag, faction: ms.posse.faction, emblem: ms.posse.emblem, memberCount: roster.length, maxMembers: POSSE_MAX, createdAt: ms.posse.created_at, level, totalPoints, nextLevelAt: LEVEL_AT[level] ?? null },
-    myRole: ms.member.role, myUserId: userId, roster, weekStart: ws, weekPoints: weekTotal, weekGoal: roster.length * WEEKLY_GOAL_PER_MEMBER, faction: prof?.faction ?? null, pendingInvites, notice,
+    myRole: ms.member.role, myUserId: userId, missions: await buildMissions(supabase, ms.posse.id, ws, (rows ?? []) as any[], userId), roster, weekStart: ws, weekPoints: weekTotal, weekGoal: roster.length * WEEKLY_GOAL_PER_MEMBER, faction: prof?.faction ?? null, pendingInvites, notice,
   };
 }
 
@@ -354,6 +424,28 @@ export default async function handler(req: Request): Promise<Response> {
       const level = await posseLevel(supabase, ms.posse.id);
       if (COLOR_LEVEL[c] > level || FONT_LEVEL[f] > level) return serverJson({ error: 'That style is not unlocked yet.' }, 403);
       await supabase.from('posse_members').update({ name_color: c === 'default' ? null : c, name_font: f === 'default' ? null : f }).eq('posse_id', ms.posse.id).eq('user_id', userId);
+      return serverJson(await buildInfo(supabase, userId));
+    }
+
+    if (action === 'set_featured') {
+      if (!isOfficer) return serverJson({ error: 'Only the owner or a co-lead can pick the featured missions.' }, 403);
+      const ids = Array.isArray(body?.ids) ? body.ids.map(String) : [];
+      if (ids.length !== 3 || new Set(ids).size !== 3 || ids.some((id: string) => !MISSION_POOL.some(m => m.id === id))) return serverJson({ error: 'Pick exactly 3 different missions.' }, 400);
+      const ws = weekStartKey();
+      const { data: stats } = await supabase.from('posse_week_stats').select('kind, count').eq('posse_id', ms.posse.id).eq('week_start', ws);
+      const hasProgress = ((stats ?? []) as any[]).some(r => String(r.kind).startsWith('done_') || Number(r.count) > 0);
+      if (hasProgress) return serverJson({ error: 'Missions can only be changed before the Posse earns progress this week.' }, 409);
+      await supabase.from('posse_featured').delete().eq('posse_id', ms.posse.id).eq('week_start', ws);
+      await supabase.from('posse_featured').insert({ posse_id: ms.posse.id, week_start: ws, mission_ids: ids.join(',') });
+      return serverJson(await buildInfo(supabase, userId));
+    }
+
+    if (action === 'request_mission') {
+      const id = String(body?.missionId || '');
+      if (!MISSION_POOL.some(m => m.id === id)) return serverJson({ error: 'Unknown mission.' }, 400);
+      const ws = weekStartKey();
+      await supabase.from('posse_mission_votes').delete().eq('posse_id', ms.posse.id).eq('week_start', ws).eq('user_id', userId);
+      await supabase.from('posse_mission_votes').insert({ posse_id: ms.posse.id, week_start: ws, user_id: userId, mission_id: id });
       return serverJson(await buildInfo(supabase, userId));
     }
 

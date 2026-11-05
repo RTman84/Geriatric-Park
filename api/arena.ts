@@ -5,6 +5,41 @@ export const config = { runtime: 'edge' };
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// --- POSSE POINTS START (identical copy in api/arena.ts, api/mail.ts and api/court.ts; scripts/check-posse-points.mjs verifies) ---
+// Posse Points are counted here, on the server, where the win is resolved. Never PP: points only feed Posse level,
+// weekly missions and the weekly race. Per-member daily cap stops alt/spam farming.
+const POSSE_POINTS_PER: Record<string, number> = { raid_hit: 3, boss_down: 2, arena_win: 2, dues: 1, pvp_win: 1 };
+const POSSE_DAILY_POINT_CAP = 30;
+async function awardPosse(supabase: SupabaseClient, userId: string, kind: 'raid_hit' | 'boss_down' | 'arena_win' | 'dues' | 'pvp_win', n = 1): Promise<void> {
+  try {
+    const count = Math.max(1, Math.floor(n));
+    const { data: m } = await supabase.from('posse_members').select('posse_id, week_start, week_points').eq('user_id', userId).maybeSingle();
+    if (!m) return;
+    const posseId = (m as any).posse_id as string;
+    const nowD = new Date();
+    const dow = (nowD.getUTCDay() + 6) % 7;
+    const ws = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth(), nowD.getUTCDate() - dow)).toISOString().slice(0, 10);
+    const day = nowD.toISOString().slice(0, 10);
+    // Mission counters (uncapped: the underlying actions already have their own daily limits).
+    const { data: st } = await supabase.from('posse_week_stats').select('count').eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind).maybeSingle();
+    if (st) await supabase.from('posse_week_stats').update({ count: Number((st as any).count) + count }).eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind);
+    else await supabase.from('posse_week_stats').insert({ posse_id: posseId, week_start: ws, kind, count });
+    // Points (capped per member per day).
+    const { data: d } = await supabase.from('posse_daily').select('points_added').eq('user_id', userId).eq('day', day).maybeSingle();
+    const used = Number((d as any)?.points_added ?? 0);
+    const grant = Math.min((POSSE_POINTS_PER[kind] ?? 0) * count, POSSE_DAILY_POINT_CAP - used);
+    if (grant <= 0) return;
+    if (d) await supabase.from('posse_daily').update({ points_added: used + grant }).eq('user_id', userId).eq('day', day);
+    else await supabase.from('posse_daily').insert({ user_id: userId, day, points_added: grant });
+    const memberPts = (m as any).week_start === ws ? Number((m as any).week_points) : 0;
+    await supabase.from('posse_members').update({ week_start: ws, week_points: memberPts + grant }).eq('user_id', userId);
+    const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
+    if (wp) await supabase.from('posse_week_points').update({ points: Number((wp as any).points) + grant }).eq('posse_id', posseId).eq('week_start', ws);
+    else await supabase.from('posse_week_points').insert({ posse_id: posseId, week_start: ws, points: grant });
+  } catch (e) { console.error('posse award failed', e); }
+}
+// --- POSSE POINTS END ---
+
 type AccountContext = { userId: string; supabase: SupabaseClient };
 
 function serverJson(body: unknown, status = 200): Response {
@@ -509,6 +544,7 @@ export default async function handler(req: Request): Promise<Response> {
         tickets: dues.tickets, materials: dues.materials,
         note: `Your stationed Elders earned Dues over ${dues.hours} hours.`,
       });
+      await awardPosse(supabase, userId, 'dues');
       return serverJson({ tickets: dues.tickets, materials: dues.materials, hours: dues.hours });
     }
 
@@ -556,6 +592,8 @@ export default async function handler(req: Request): Promise<Response> {
         if (err) return err;
         settled = true; defeated = true;
       }
+      await awardPosse(supabase, userId, 'raid_hit');
+      if (defeated) await awardPosse(supabase, userId, 'boss_down');
       return serverJson({
         result: {
           bossName: RAID_BOSS_NAMES[slot.bossIndex] ?? 'the Raid boss', damage, damageTotal: Math.min(newTotal, row.max_hp),
@@ -686,6 +724,7 @@ export default async function handler(req: Request): Promise<Response> {
       const materials = rewardedWins * WIN_MATERIALS;
 
       await bumpBoard(supabase, userId, 'arena', knockedOut);
+      if (knockedOut > 0) await awardPosse(supabase, userId, 'arena_win', knockedOut);
       const { error: dErr } = await upsertDaily(supabase, userId, { attacks: me.attacksToday + 1, wins: me.winsToday + knockedOut }, daily);
       if (dErr) console.error('Arena daily write failed', dErr.message);
       const { error: cErr } = await supabase.from('arena_player_arena').upsert({ user_id: userId, arena_id: arenaId, last_attack_at: new Date().toISOString() }, { onConflict: 'user_id,arena_id' });

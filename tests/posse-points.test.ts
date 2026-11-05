@@ -1,0 +1,30 @@
+// Tests the shared awardPosse block (extracted from api/arena.ts) against the in-memory fake Supabase.
+import fs from 'node:fs';
+import { transformSync } from 'esbuild';
+import { createClient } from './fake-supabase';
+const DB = (globalThis as any).__DB;
+const src = fs.readFileSync('api/arena.ts', 'utf8');
+const block = src.slice(src.indexOf('// --- POSSE POINTS START'), src.indexOf('// --- POSSE POINTS END ---'));
+const js = transformSync(block + '\nreturn awardPosse;', { loader: 'ts' }).code.replace(/^\s*return awardPosse;/m, '');
+const awardPosse: any = new Function(js + '\nreturn awardPosse;')();
+const supabase: any = createClient();
+const dow = (new Date().getUTCDay() + 6) % 7; const nd = new Date(); const ws = new Date(Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), nd.getUTCDate() - dow)).toISOString().slice(0, 10);
+let fails = 0, n = 0; const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:', m); } };
+(async () => {
+  DB.tables = { posse_members: [{ posse_id: 'P1', user_id: 'U1', role: 'owner', week_start: '2000-01-03', week_points: 99 }], posse_daily: [], posse_week_points: [], posse_week_stats: [] };
+  await awardPosse(supabase, 'NOPE', 'raid_hit');
+  ok(DB.tables.posse_week_stats.length === 0 && DB.tables.posse_daily.length === 0, 'non-member earns nothing');
+  await awardPosse(supabase, 'U1', 'raid_hit');
+  const m = DB.tables.posse_members[0];
+  ok(m.week_points === 3 && m.week_start === ws, 'raid hit = 3 points, stale week resets');
+  ok(DB.tables.posse_week_points[0].points === 3 && DB.tables.posse_week_points[0].week_start === ws, 'Posse weekly total updated');
+  ok(DB.tables.posse_week_stats.find((r: any) => r.kind === 'raid_hit').count === 1, 'mission counter bumped');
+  await awardPosse(supabase, 'U1', 'boss_down'); ok(m.week_points === 5, 'boss defeated = +2');
+  await awardPosse(supabase, 'U1', 'arena_win', 3); ok(m.week_points === 11, 'arena wins 2 each');
+  await awardPosse(supabase, 'U1', 'dues'); await awardPosse(supabase, 'U1', 'pvp_win'); ok(m.week_points === 13, 'dues 1 and pvp win 1');
+  for (let i = 0; i < 12; i++) await awardPosse(supabase, 'U1', 'raid_hit');
+  ok(m.week_points === 30 && DB.tables.posse_daily[0].points_added === 30, 'daily cap of 30 points');
+  ok(DB.tables.posse_week_stats.find((r: any) => r.kind === 'raid_hit').count === 13, 'mission counters keep counting past the point cap');
+  ok(DB.tables.posse_week_points[0].points === 30, 'Posse total respects the cap');
+  console.log(fails ? fails + ' FAILED of ' + n : 'all ' + n + ' posse points checks pass');
+})();

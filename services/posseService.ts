@@ -4,8 +4,11 @@ import { apiUrl } from './api';
 export type PosseRole = 'owner' | 'co' | 'member';
 export interface PosseRosterEntry { userId: string; role: PosseRole; name: string; level: number; squadPower: number; title: string | null; weekPoints: number; joinedAt: string; nameColor: string | null; nameFont: string | null }
 export interface PosseSummary { id: string; name: string; tag: string; faction: string; emblem: string; memberCount: number; maxMembers: number; createdAt: string; level: number; totalPoints: number; nextLevelAt: number | null }
+export interface PosseMission { id: string; title: string; desc: string; progress: number; goal: number; done: boolean; paid: boolean; eligible: boolean }
+export interface PosseMissionPoolEntry { id: string; title: string; desc: string; votes: number; featured: boolean }
+export interface PosseMissions { weekStart: string; featured: PosseMission[]; pool: PosseMissionPoolEntry[]; myVote: string | null; minPoints: number; rewardDiners: number; rewardMaterials: number }
 export interface PosseInvite { id: string; kind: 'invite' | 'request'; fromName: string; posse: { id: string; name: string; tag: string; faction: string; emblem: string; member_count: number } }
-export interface PosseInfo { posse: PosseSummary | null; myRole?: PosseRole; myUserId?: string; roster?: PosseRosterEntry[]; weekPoints?: number; weekGoal?: number; faction: string | null; pendingInvites: PosseInvite[]; notice: string | null; lfp?: boolean }
+export interface PosseInfo { posse: PosseSummary | null; myRole?: PosseRole; myUserId?: string; missions?: PosseMissions; roster?: PosseRosterEntry[]; weekPoints?: number; weekGoal?: number; faction: string | null; pendingInvites: PosseInvite[]; notice: string | null; lfp?: boolean }
 export interface PosseSearchResult { id: string; name: string; tag: string; faction: string; emblem: string; member_count: number }
 
 async function call<T>(body?: object): Promise<T> {
@@ -39,3 +42,5 @@ export const browseRecruits = () => call<{ players: RecruitPlayer[] }>({ action:
 export const searchPlayers = (query: string) => call<{ players: RecruitPlayer[] }>({ action: 'search_players', query });
 export const sendPosseChat = (preset: string, after?: number) => call<{ messages: PosseChatMessage[] }>({ action: 'chat_send', preset, after });
 export const fetchPosseChat = (after?: number) => call<{ messages: PosseChatMessage[] }>({ action: 'chat_list', after });
+export const setFeaturedMissions = (ids: string[]) => call<PosseInfo>({ action: 'set_featured', ids });
+export const requestPosseMission = (missionId: string) => call<PosseInfo>({ action: 'request_mission', missionId });

@@ -4,7 +4,7 @@ import { checkText, wordCheckMessage } from '../services/wordFilter';
 import { POSSE_EMBLEM_ART } from '../game-assets/w7Art';
 import {
   fetchPosse, createPosse, setPosseEmblem, setMyPosseStyle, searchPosseByTag, requestToJoinPosse, invitePlayerToPosse, respondToPosseInvite, leavePosse, posseMemberAction,
-  browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
+  setFeaturedMissions, requestPosseMission, browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
   type PosseInfo, type PosseSearchResult, type PosseRosterEntry, type RecruitPlayer, type PosseChatMessage,
 } from '../services/posseService';
 import { ChatBody, ChatPicker } from './ChatParts';
@@ -70,6 +70,8 @@ const PossePanel: React.FC<{
   const [recruits, setRecruits] = useState<RecruitPlayer[] | null>(null);
   const [openMember, setOpenMember] = useState<string | null>(null);
   const [showEmblems, setShowEmblems] = useState(false);
+  const [editMissions, setEditMissions] = useState(false);
+  const [pick, setPick] = useState<string[]>([]);
   const [showMyStyle, setShowMyStyle] = useState(false);
   const [msgs, setMsgs] = useState<PosseChatMessage[]>([]);
   const [chatCooling, setChatCooling] = useState(false);
@@ -185,7 +187,7 @@ const PossePanel: React.FC<{
               <div className="mt-3">
                 <div className="flex justify-between text-[12px] font-black uppercase"><span>Weekly goal</span><span>{info.weekPoints ?? 0} / {info.weekGoal ?? 0}</span></div>
                 <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}><div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, ((info.weekPoints ?? 0) / Math.max(1, info.weekGoal ?? 1)) * 100)}%` }} /></div>
-                <p className="text-[11px] opacity-60 mt-1">Posse Points from Arena, Raid and battle wins are coming in the next update.</p>
+                <p className="text-[11px] opacity-60 mt-1">Raid hits, Arena wins and PvP wins earn Posse Points (up to 30 a day each). Total so far: {info.posse.totalPoints}{info.posse.nextLevelAt ? ` / ${info.posse.nextLevelAt} for level ${info.posse.level + 1}` : ' (max level)'}.</p>
               </div>
             </div>
 
@@ -193,6 +195,38 @@ const PossePanel: React.FC<{
 
             {tab === 'overview' && (
               <>
+                {info.missions && (
+                  <div className={`p-3 rounded-2xl mb-3 ${card}`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-[13px] font-black uppercase">Weekly missions</p>
+                      <p className="text-[11px] font-bold opacity-60">Resets Monday (UTC)</p>
+                    </div>
+                    <p className="text-[11px] opacity-60 mb-2">Finish a mission together and every member with {info.missions.minPoints}+ points this week gets {info.missions.rewardDiners} TV Dinners + {info.missions.rewardMaterials} Materials by Mailbox.</p>
+                    {info.missions.featured.map(m => (
+                      <div key={m.id} className="mb-3">
+                        <div className="flex justify-between text-[12px] font-black uppercase"><span>{m.title}</span><span>{m.done ? '\u2713 Done' : `${m.progress} / ${m.goal}`}</span></div>
+                        <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}><div className={`h-full ${m.done ? 'bg-emerald-500' : 'bg-[var(--accent-600)]'}`} style={{ width: `${Math.min(100, (m.progress / Math.max(1, m.goal)) * 100)}%` }} /></div>
+                        <p className="text-[11px] opacity-60">{m.desc}{m.done ? (m.paid ? ' Your reward was sent to your Mailbox.' : ` Earn ${info.missions!.minPoints} points this week to collect.`) : ''}</p>
+                      </div>
+                    ))}
+                    <button className="text-[12px] font-black uppercase underline opacity-70" onClick={() => { setEditMissions(v => !v); setPick(info.missions!.featured.map(f => f.id)); }}>{editMissions ? 'Hide mission list' : (isOfficer ? 'Pick or request missions' : 'Request a mission')}</button>
+                    {editMissions && (
+                      <div className="mt-2">
+                        <p className="text-[11px] opacity-60 mb-2">{isOfficer ? 'Tap three missions to feature, then Save (only before the Posse has progress this week). Everyone can request the one they want; the numbers show requests.' : 'Request the mission you want. The owner and co-leads choose the featured three.'}</p>
+                        {info.missions.pool.map(p => (
+                          <div key={p.id} className="flex items-center justify-between gap-2 mb-2">
+                            {isOfficer
+                              ? <button className={`flex-1 text-left px-3 py-2 rounded-xl text-[12px] font-black uppercase ${pick.includes(p.id) ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-900' : 'bg-white'}`} onClick={() => setPick(cur => cur.includes(p.id) ? cur.filter(x => x !== p.id) : cur.length < 3 ? [...cur, p.id] : cur)}>{pick.includes(p.id) ? '\u2713 ' : ''}{p.title} <span className="normal-case opacity-70">&middot; {p.votes} request{p.votes === 1 ? '' : 's'}</span></button>
+                              : <p className="flex-1 text-[12px] font-black uppercase">{p.title}{p.featured ? ' (featured)' : ''} <span className="normal-case opacity-60">&middot; {p.votes} request{p.votes === 1 ? '' : 's'}</span></p>}
+                            <button className={info.missions!.myVote === p.id ? `${btn} bg-emerald-600 text-white` : quiet} disabled={busy} onClick={() => run(() => requestPosseMission(p.id))}>{info.missions!.myVote === p.id ? 'Requested' : 'Request'}</button>
+                          </div>
+                        ))}
+                        {isOfficer && <button className={`${primary} w-full mt-1`} disabled={busy || pick.length !== 3} onClick={() => run(() => setFeaturedMissions(pick), 'Featured missions saved.')}>Save featured missions ({pick.length}/3)</button>}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className={`p-3 rounded-2xl mb-3 ${card}`}>
                   <button className="w-full flex justify-between items-center" onClick={() => setShowMyStyle(v => !v)}>
                     <span className="text-[13px] font-black uppercase">My name style</span><span className="text-[12px] font-bold opacity-60">{showMyStyle ? 'Hide' : 'Colour and font, just for you'}</span>

@@ -143,5 +143,41 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   ok(r.body.messages.length === 2 && r.body.messages[0].id < r.body.messages[1].id, 'full list is oldest to newest');
   for (let i = 0; i < 3; i++) await call('A', { action: 'chat_send', preset: 'yes' });
   ok((await call('A', { action: 'chat_send', preset: 'yes' })).status === 429, 'burst rate limit');
+
+  // weekly missions
+  seed({}); await call('A', { action: 'create', name: 'Mission Crew', tag: 'MC' });
+  for (const code of ['B', 'D']) { await call('A', { action: 'invite', code: 'CODE000' + code }); await call(code, { action: 'respond', inviteId: DB.tables.posse_invites.slice(-1)[0].id, accept: true }); }
+  const P = DB.tables.posses[0].id;
+  r = await call('A', { action: 'info' });
+  ok(r.body.missions.featured.length === 3 && r.body.missions.pool.length === 6, 'three featured missions from a pool of six');
+  ok(r.body.missions.featured.every((f: any) => f.goal >= 2 && f.progress === 0 && !f.done), 'goals start unmet');
+  const wk = r.body.missions.weekStart;
+  ok((await call('B', { action: 'set_featured', ids: ['raid_party', 'hold_line', 'rivals'] })).status === 403, 'member cannot pick featured missions');
+  ok((await call('A', { action: 'set_featured', ids: ['raid_party', 'raid_party', 'rivals'] })).status === 400, 'needs 3 different missions');
+  r = await call('A', { action: 'set_featured', ids: ['raid_party', 'hold_line', 'rivals'] });
+  ok(r.status === 200 && r.body.missions.featured.map((f: any) => f.id).join() === 'raid_party,hold_line,rivals', 'officer picks featured missions');
+  r = await call('B', { action: 'request_mission', missionId: 'show_up' });
+  ok(r.body.missions.myVote === 'show_up' && r.body.missions.pool.find((x: any) => x.id === 'show_up').votes === 1, 'member requests a mission');
+  r = await call('B', { action: 'request_mission', missionId: 'dues_run' });
+  ok(r.body.missions.pool.find((x: any) => x.id === 'show_up').votes === 0 && r.body.missions.pool.find((x: any) => x.id === 'dues_run').votes === 1, 'changing the request moves the vote');
+  // progress: goal for raid_party with 3 members (min 3 active) = 3 x 4 = 12
+  DB.tables.posse_week_stats.push({ posse_id: P, week_start: wk, kind: 'raid_hit', count: 12 });
+  DB.tables.posse_members.forEach((m: any) => { m.week_start = wk; m.week_points = m.user_id === uid('D') ? 4 : 15; });
+  r = await call('A', { action: 'info' });
+  const rp = r.body.missions.featured.find((f: any) => f.id === 'raid_party');
+  ok(rp.done && rp.progress === rp.goal && rp.paid && DB.tables.mail_inbox.filter((m: any) => m.kind === 'posse_reward').length === 1, 'completed mission pays an eligible member once');
+  const rew = DB.tables.mail_inbox.find((m: any) => m.kind === 'posse_reward');
+  ok(rew.reward_diners === 20 && rew.reward_materials === 8 && rew.recipient_id === uid('A'), 'reward is 20 TV Dinners + 8 Materials by Mailbox');
+  await call('A', { action: 'info' });
+  ok(DB.tables.mail_inbox.filter((m: any) => m.kind === 'posse_reward').length === 1, 'no double payout');
+  r = await call('D', { action: 'info' });
+  ok(r.body.missions.featured.find((f: any) => f.id === 'raid_party').eligible === false && DB.tables.mail_inbox.filter((m: any) => m.kind === 'posse_reward' && m.recipient_id === uid('D')).length === 0, 'member under 10 points is not paid');
+  DB.tables.posse_members.find((m: any) => m.user_id === uid('D')).week_points = 12;
+  await call('D', { action: 'info' });
+  ok(DB.tables.mail_inbox.filter((m: any) => m.kind === 'posse_reward' && m.recipient_id === uid('D')).length === 1, 'pays once they reach 10 points');
+  ok((await call('A', { action: 'set_featured', ids: ['show_up', 'hold_line', 'rivals'] })).status === 409, 'cannot change featured after progress');
+  DB.tables.posse_members.push(...Array.from({ length: 20 }, (_, i) => ({ posse_id: P, user_id: '00000000-0000-4000-c000-' + String(i).padStart(12, '0'), role: 'member', joined_at: new Date().toISOString(), week_start: wk, week_points: 1 })));
+  r = await call('A', { action: 'info' });
+  ok(r.body.missions.featured.find((f: any) => f.id === 'raid_party').done === true, 'completion stays frozen when the roster grows');
   console.log(fails ? fails + ' FAILED of ' + n : 'all ' + n + ' Posse checks pass');
 })();

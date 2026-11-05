@@ -5,6 +5,41 @@ export const config = { runtime: 'edge' };
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// --- POSSE POINTS START (identical copy in api/arena.ts, api/mail.ts and api/court.ts; scripts/check-posse-points.mjs verifies) ---
+// Posse Points are counted here, on the server, where the win is resolved. Never PP: points only feed Posse level,
+// weekly missions and the weekly race. Per-member daily cap stops alt/spam farming.
+const POSSE_POINTS_PER: Record<string, number> = { raid_hit: 3, boss_down: 2, arena_win: 2, dues: 1, pvp_win: 1 };
+const POSSE_DAILY_POINT_CAP = 30;
+async function awardPosse(supabase: SupabaseClient, userId: string, kind: 'raid_hit' | 'boss_down' | 'arena_win' | 'dues' | 'pvp_win', n = 1): Promise<void> {
+  try {
+    const count = Math.max(1, Math.floor(n));
+    const { data: m } = await supabase.from('posse_members').select('posse_id, week_start, week_points').eq('user_id', userId).maybeSingle();
+    if (!m) return;
+    const posseId = (m as any).posse_id as string;
+    const nowD = new Date();
+    const dow = (nowD.getUTCDay() + 6) % 7;
+    const ws = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth(), nowD.getUTCDate() - dow)).toISOString().slice(0, 10);
+    const day = nowD.toISOString().slice(0, 10);
+    // Mission counters (uncapped: the underlying actions already have their own daily limits).
+    const { data: st } = await supabase.from('posse_week_stats').select('count').eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind).maybeSingle();
+    if (st) await supabase.from('posse_week_stats').update({ count: Number((st as any).count) + count }).eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind);
+    else await supabase.from('posse_week_stats').insert({ posse_id: posseId, week_start: ws, kind, count });
+    // Points (capped per member per day).
+    const { data: d } = await supabase.from('posse_daily').select('points_added').eq('user_id', userId).eq('day', day).maybeSingle();
+    const used = Number((d as any)?.points_added ?? 0);
+    const grant = Math.min((POSSE_POINTS_PER[kind] ?? 0) * count, POSSE_DAILY_POINT_CAP - used);
+    if (grant <= 0) return;
+    if (d) await supabase.from('posse_daily').update({ points_added: used + grant }).eq('user_id', userId).eq('day', day);
+    else await supabase.from('posse_daily').insert({ user_id: userId, day, points_added: grant });
+    const memberPts = (m as any).week_start === ws ? Number((m as any).week_points) : 0;
+    await supabase.from('posse_members').update({ week_start: ws, week_points: memberPts + grant }).eq('user_id', userId);
+    const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
+    if (wp) await supabase.from('posse_week_points').update({ points: Number((wp as any).points) + grant }).eq('posse_id', posseId).eq('week_start', ws);
+    else await supabase.from('posse_week_points').insert({ posse_id: posseId, week_start: ws, points: grant });
+  } catch (e) { console.error('posse award failed', e); }
+}
+// --- POSSE POINTS END ---
+
 type AccountContext = { userId: string; supabase: SupabaseClient };
 
 function serverJson(body: unknown, status = 200): Response {
@@ -185,7 +220,7 @@ export default async function handler(req: Request): Promise<Response> {
             updated_at: now,
           }).eq('id', existing.id);
           if (updateErr) { console.error('Mail update failed', updateErr.message); return serverJson({ error: 'Mail unavailable', detail: updateErr.message }, 500); }
-          if (attackerWon) await bumpBoard(supabase, userId, 'friend', 1); // counted only after the per-pair daily cap passed
+          if (attackerWon) { await bumpBoard(supabase, userId, 'friend', 1); await awardPosse(supabase, userId, 'pvp_win'); } // counted only after the per-pair daily cap passed
           return serverJson({ result: 'updated' });
         }
 
@@ -201,7 +236,7 @@ export default async function handler(req: Request): Promise<Response> {
           reward_materials: rewardMaterials,
           updated_at: now,
         });
-        if (!insertErr) { if (attackerWon) await bumpBoard(supabase, userId, 'friend', 1); return serverJson({ result: 'created' }); }
+        if (!insertErr) { if (attackerWon) { await bumpBoard(supabase, userId, 'friend', 1); await awardPosse(supabase, userId, 'pvp_win'); } return serverJson({ result: 'created' }); }
         if (!(String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique'))) {
           console.error('Mail insert failed', insertErr.message);
           return serverJson({ error: 'Mail unavailable', detail: insertErr.message }, 500);

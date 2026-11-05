@@ -72,6 +72,12 @@ function rowToMessage(row: InboxRow): MailMessage {
     const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
     return { ...base, sender: 'Weekly Boards', subject: `${medal} Weekly ${label} board: #${place} in ${POWER_BRACKETS[bracket - 1].name}`, body: `You finished #${place} in the ${POWER_BRACKETS[bracket - 1].name} bracket on the weekly ${label} board (${bits[4] ?? 'last week'}). Your reward was paid automatically and the title is yours to equip in the profile picker.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true, honor: `board:${bits[1]}:${bracket}:${place}` };
   }
+  if (row.kind === 'posse_reward') {
+    // note (written by api/posse.ts): mission:<title>:<week>
+    const bits = typeof row.note === 'string' ? row.note.split(':') : [];
+    const title = (bits[1] || 'a weekly mission').slice(0, 40);
+    return { ...base, sender: 'Posse Missions', subject: `\u{1F3C6} Posse mission complete: ${title}`, body: `Your Posse completed "${title}" this week and you did your part. Your reward was paid automatically.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true };
+  }
   if (row.kind === 'posse_invite') {
     // note (written by api/posse.ts): <inviteId>|<Posse name>|<invite or request>
     const bits = typeof row.note === 'string' ? row.note.split('|') : [];
