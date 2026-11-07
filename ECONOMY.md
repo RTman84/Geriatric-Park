@@ -583,3 +583,6 @@ All paid by Mailbox, server-side, idempotent (`posse_settlements` week lock, `po
 - **Posse Standing** (personal, per Cup season, 12 ranks at 15/40/75/120/175/240/315/400/495/600/710/800 points; the 30/day cap makes 840 the maximum): each rank pays 50 Tickets + 12 TV Dinners + 3 Materials, so at most 600 Tickets + 144 TV Dinners + 36 Materials per 4 weeks.
 Rough weekly ceiling per member for TV Dinners from Posse systems: missions 60 + Race 40 + Standing about 36 + Cup about 25 = about 160 a week, well under the existing PvP TV Dinner daily cap. Watch against PvP Shop prices with real data. Standings queries scan all Posses for the week (fine at launch scale; precompute into a table if Posse counts grow into the thousands).
 Not built yet: permanent titles for Cup/Faction winners (needs new honor key types and cosmetic definitions) and winner banners on the Posse screen.
+
+## Item drop pool change (2026-11-07, from GP app 2's gear wiring)
+`ITEM_POOL` grew from 9 to 17 entries (8 new Equipment pieces, uniform base 3, standard rarity roll). The share of Hard Candy / Lost Dentures (25 Tickets) / Old Map in map and daily drops fell from about 33% to about 18%, so the Ticket faucet from found items is slightly lower. No other sink or faucet changed. Re-check against section 6 if Ticket supply feels tight.

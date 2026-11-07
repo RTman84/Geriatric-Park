@@ -114,6 +114,6 @@ export const POSSE_CHAT_CATEGORIES: ChatCategory[] = [
     { id: 'love', text: "Love this Posse!" },
   ] },
 ];
-export const STICKER_IDS: string[] = ["st_wave", "st_thumbs", "st_rematch", "st_bingo", "st_morning", "st_night", "st_thanks", "st_goodfight"];
+export const STICKER_IDS: string[] = ["st_wave", "st_thumbs", "st_rematch", "st_bingo", "st_morning", "st_night", "st_thanks", "st_goodfight", "st_horn", "st_flag", "st_hands", "st_tea", "st_scroll", "st_cheer", "st_laugh", "st_sorry", "st_okay", "st_highfive", "st_surprised", "st_sleepy", "st_casserole", "st_puck", "st_heart", "st_confetti"];
 export const POSSE_CHAT_TEXT: Record<string, string> = Object.fromEntries(POSSE_CHAT_CATEGORIES.flatMap(c => c.presets.map(p => [p.id, p.text])));
-export const CHAT_PRESET_COUNT = 102;
+export const CHAT_PRESET_COUNT = 118;
