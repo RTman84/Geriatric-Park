@@ -230,6 +230,202 @@ async function buildMissions(supabase: SupabaseClient, posseId: string, ws: stri
   return { weekStart: ws, featured, pool, myVote, minPoints: MISSION_MIN_POINTS, rewardDiners: MISSION_REWARD_DINERS, rewardMaterials: MISSION_REWARD_MATERIALS, paidNow };
 }
 
+// ---------------- Competitions: weekly Race, 4-week Cup, Faction War, personal Standing ----------------
+const BRACKET_MAX = [5, 12, 25, 45, 70, 100]; // roster-size brackets (small gaps so matches stay close)
+const bracketIdx = (n: number) => { const i = BRACKET_MAX.findIndex(b => n <= b); return i < 0 ? BRACKET_MAX.length - 1 : i; };
+const bracketLabel = (i: number) => `${i === 0 ? 1 : BRACKET_MAX[i - 1] + 1}-${BRACKET_MAX[i]} members`;
+const COMPETE_ANCHOR = '2026-11-02'; // first week of Cup 1 (a Monday, UTC)
+const DAY_MS = 86400000;
+const addDaysKey = (ws: string, n: number) => new Date(Date.parse(ws) + n * DAY_MS).toISOString().slice(0, 10);
+const weekIndexOf = (ws: string) => Math.round((Date.parse(ws) - Date.parse(COMPETE_ANCHOR)) / (7 * DAY_MS));
+const seasonOfWeek = (ws: string) => Math.floor(weekIndexOf(ws) / 4);
+const RACE_REWARDS = [{ d: 40, m: 10 }, { d: 25, m: 6 }, { d: 15, m: 4 }];
+const CUP_REWARDS = [{ d: 100, m: 25 }, { d: 60, m: 15 }, { d: 40, m: 10 }];
+const FACTION_WAR_TICKETS = 50;
+const RACE_MIN_POINTS = 30, CUP_MIN_POINTS = 60, FACTION_MIN_POINTS = 10, ACTIVE_MIN_POINTS = 10, RACE_WINNER_BONUS = 50;
+const STANDING_AT = [15, 40, 75, 120, 175, 240, 315, 400, 495, 600, 710, 800];
+const STANDING_REWARD = { tickets: 50, diners: 12, materials: 3 };
+const FACTION_NAMES: Record<string, string> = { early_birds: 'Early Birds', night_owls: 'Night Owls', sunday_drivers: 'Sunday Drivers' };
+
+type Entry = { posseId: string; name: string; tag: string; emblem: string; faction: string; members: number; points: number; active: number; score: number; group: number };
+
+// Points per member for a given week: archived history plus live counters that still carry that week.
+async function weekMemberPoints(supabase: SupabaseClient, ws: string): Promise<Map<string, { userId: string; points: number }[]>> {
+  const out = new Map<string, { userId: string; points: number }[]>();
+  const seen = new Set<string>();
+  const push = (posseId: string, userId: string, points: number) => { if (!posseId || seen.has(userId)) return; seen.add(userId); if (!out.has(posseId)) out.set(posseId, []); out.get(posseId)!.push({ userId, points }); };
+  const { data: live } = await supabase.from('posse_members').select('posse_id, user_id, week_start, week_points').eq('week_start', ws);
+  for (const r of (live ?? []) as any[]) push(r.posse_id, r.user_id, Number(r.week_points) || 0);
+  const { data: hist } = await supabase.from('posse_member_weeks').select('posse_id, user_id, points').eq('week_start', ws);
+  for (const r of (hist ?? []) as any[]) push(r.posse_id, r.user_id, Number(r.points) || 0);
+  return out;
+}
+async function weekEntries(supabase: SupabaseClient, ws: string): Promise<Entry[]> {
+  const { data: wp } = await supabase.from('posse_week_points').select('posse_id, points').eq('week_start', ws);
+  const rows = ((wp ?? []) as any[]).filter(r => Number(r.points) > 0);
+  if (!rows.length) return [];
+  const ids = rows.map(r => r.posse_id);
+  const { data: ps } = await supabase.from('posses').select('id, name, tag, faction, emblem, member_count, deleted_at').in('id', ids);
+  const members = await weekMemberPoints(supabase, ws);
+  const entries: Entry[] = [];
+  for (const p of (ps ?? []) as any[]) {
+    if (p.deleted_at) continue;
+    const points = Number(rows.find(r => r.posse_id === p.id)?.points) || 0;
+    const active = (members.get(p.id) ?? []).filter(m => m.points >= ACTIVE_MIN_POINTS).length;
+    if (active < 1) continue; // needs at least one active member to qualify
+    entries.push({ posseId: p.id, name: p.name, tag: p.tag, emblem: p.emblem, faction: p.faction, members: p.member_count, points, active, score: Math.round((points / active) * 100) / 100, group: bracketIdx(p.member_count) });
+  }
+  return entries;
+}
+// Small brackets merge into the next one so every group has at least 3 Posses (the last group absorbs any remainder).
+function assignGroups(entries: Entry[]): Map<number, Entry[]> {
+  const groups = new Map<number, Entry[]>();
+  let carry: Entry[] = [];
+  for (let i = 0; i < BRACKET_MAX.length; i++) {
+    const cur = [...carry, ...entries.filter(e => bracketIdx(e.members) === i)];
+    if (cur.length < 3 && i < BRACKET_MAX.length - 1) { carry = cur; continue; }
+    carry = [];
+    if (cur.length) { cur.forEach(e => { e.group = i; }); groups.set(i, cur); }
+  }
+  return groups;
+}
+const rankSort = (a: Entry, b: Entry) => b.score - a.score || b.points - a.points || a.name.localeCompare(b.name);
+
+async function payMail(supabase: SupabaseClient, userId: string, ref: string, note: string, r: { tickets?: number; diners?: number; materials?: number }) {
+  const { error } = await supabase.from('mail_inbox').insert({ recipient_id: userId, sender_id: userId, sender_name: 'Posse Competitions', kind: 'posse_reward', day: todayKey(), ref, note, reward_tickets: r.tickets ?? 0, reward_diners: r.diners ?? 0, reward_materials: r.materials ?? 0, updated_at: new Date().toISOString() });
+  if (error && String((error as any).code) !== '23505') console.error('posse pay mail failed', error.message);
+}
+
+async function settleWeek(supabase: SupabaseClient, W: string): Promise<void> {
+  const { error: lockErr } = await supabase.from('posse_settlements').insert({ week_start: W });
+  if (lockErr) return; // already settled (or being settled) elsewhere
+  const entries = await weekEntries(supabase, W);
+  const members = await weekMemberPoints(supabase, W);
+  for (const e of entries) {
+    await supabase.from('posse_race_scores').delete().eq('posse_id', e.posseId).eq('week_start', W);
+    await supabase.from('posse_race_scores').insert({ posse_id: e.posseId, week_start: W, points: e.points, active: e.active, score: e.score });
+  }
+  // Weekly Race
+  for (const [bracket, list] of assignGroups(entries)) {
+    const ranked = [...list].sort(rankSort).slice(0, 3);
+    for (let i = 0; i < ranked.length; i++) {
+      const e = ranked[i];
+      await supabase.from('posse_results').insert({ kind: 'race', period: W, bracket, place: i + 1, posse_id: e.posseId, score: e.score });
+      for (const m of members.get(e.posseId) ?? []) if (m.points >= RACE_MIN_POINTS) await payMail(supabase, m.userId, `race:${W}`, `race:${i + 1}:${bracketLabel(bracket)}:${W}`, { diners: RACE_REWARDS[i].d, materials: RACE_REWARDS[i].m });
+      if (i === 0) await supabase.from('posse_week_points').update({ points: e.points + RACE_WINNER_BONUS }).eq('posse_id', e.posseId).eq('week_start', W);
+    }
+  }
+  // Faction War
+  const totals: Record<string, number> = {};
+  for (const e of entries) totals[e.faction] = (totals[e.faction] ?? 0) + e.points;
+  const winner = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
+  if (winner && winner[1] > 0 && (Object.values(totals).filter(v => v === winner[1]).length === 1)) {
+    await supabase.from('posse_results').insert({ kind: 'faction', period: W, bracket: 0, place: 1, posse_id: null, score: winner[1], note: winner[0] });
+    for (const e of entries.filter(x => x.faction === winner[0])) for (const m of members.get(e.posseId) ?? []) if (m.points >= FACTION_MIN_POINTS) await payMail(supabase, m.userId, `faction:${W}`, `faction:${FACTION_NAMES[winner[0]] ?? winner[0]}:${W}`, { tickets: FACTION_WAR_TICKETS });
+  }
+  // Cup: closes on the last week of each 4-week season.
+  if (weekIndexOf(W) >= 3 && weekIndexOf(W) % 4 === 3) {
+    const weeks = [0, 1, 2, 3].map(i => addDaysKey(W, -7 * (3 - i)));
+    const { data: sc } = await supabase.from('posse_race_scores').select('posse_id, week_start, score, points').in('week_start', weeks);
+    const sums = new Map<string, { score: number; points: number }>();
+    for (const r of (sc ?? []) as any[]) { const c = sums.get(r.posse_id) ?? { score: 0, points: 0 }; c.score += Number(r.score) || 0; c.points += Number(r.points) || 0; sums.set(r.posse_id, c); }
+    const ids = [...sums.keys()];
+    const { data: ps } = ids.length ? await supabase.from('posses').select('id, name, tag, faction, emblem, member_count, deleted_at').in('id', ids) : { data: [] as any[] };
+    const cupEntries: Entry[] = ((ps ?? []) as any[]).filter(p => !p.deleted_at).map(p => ({ posseId: p.id, name: p.name, tag: p.tag, emblem: p.emblem, faction: p.faction, members: p.member_count, points: sums.get(p.id)!.points, active: 1, score: Math.round(sums.get(p.id)!.score * 100) / 100, group: bracketIdx(p.member_count) }));
+    const season = seasonOfWeek(W);
+    const { data: hist } = await supabase.from('posse_member_weeks').select('posse_id, user_id, week_start, points').in('week_start', weeks);
+    const { data: live } = await supabase.from('posse_members').select('posse_id, user_id, week_start, week_points').in('week_start', weeks);
+    const memberTotals = new Map<string, Map<string, number>>(); // posse -> user -> points over the cup
+    const addPts = (posseId: string, userId: string, pts: number) => { if (!memberTotals.has(posseId)) memberTotals.set(posseId, new Map()); const mm = memberTotals.get(posseId)!; mm.set(userId, (mm.get(userId) ?? 0) + pts); };
+    for (const r of (hist ?? []) as any[]) if (r.posse_id) addPts(r.posse_id, r.user_id, Number(r.points) || 0);
+    const histKeys = new Set(((hist ?? []) as any[]).map(r => `${r.user_id}:${r.week_start}`));
+    for (const r of (live ?? []) as any[]) if (!histKeys.has(`${r.user_id}:${r.week_start}`)) addPts(r.posse_id, r.user_id, Number(r.week_points) || 0);
+    for (const [bracket, list] of assignGroups(cupEntries.filter(e => e.score > 0))) {
+      const ranked = [...list].sort(rankSort).slice(0, 3);
+      for (let i = 0; i < ranked.length; i++) {
+        const e = ranked[i];
+        await supabase.from('posse_results').insert({ kind: 'cup', period: `s${season}`, bracket, place: i + 1, posse_id: e.posseId, score: e.score });
+        for (const [uid, pts] of memberTotals.get(e.posseId) ?? []) if (pts >= CUP_MIN_POINTS) await payMail(supabase, uid, `cup:${season}`, `cup:${i + 1}:${bracketLabel(bracket)}:${season + 1}`, { diners: CUP_REWARDS[i].d, materials: CUP_REWARDS[i].m });
+      }
+    }
+  }
+}
+// Settles every finished week (never earlier than the first competition week) that has not been settled yet.
+async function settleDue(supabase: SupabaseClient): Promise<void> {
+  try {
+    const cur = weekStartKey();
+    const due: string[] = [];
+    for (let i = 3; i >= 1; i--) { const w = addDaysKey(cur, -7 * i); if (w >= COMPETE_ANCHOR) due.push(w); }
+    if (!due.length) return;
+    const { data: done } = await supabase.from('posse_settlements').select('week_start').in('week_start', due);
+    const doneSet = new Set(((done ?? []) as any[]).map(r => String(r.week_start)));
+    for (const w of due) if (!doneSet.has(w)) await settleWeek(supabase, w);
+  } catch (e) { console.error('posse settle failed', e); }
+}
+
+async function standingFor(supabase: SupabaseClient, userId: string, ws: string) {
+  const season = seasonOfWeek(ws);
+  const first = addDaysKey(COMPETE_ANCHOR, season * 28);
+  const weeks = [0, 1, 2, 3].map(i => addDaysKey(first, i * 7));
+  const { data: hist } = await supabase.from('posse_member_weeks').select('week_start, points').eq('user_id', userId).in('week_start', weeks);
+  const histWeeks = new Set(((hist ?? []) as any[]).map(r => String(r.week_start)));
+  let points = ((hist ?? []) as any[]).reduce((a, r) => a + (Number(r.points) || 0), 0);
+  const { data: live } = await supabase.from('posse_members').select('week_start, week_points').eq('user_id', userId).maybeSingle();
+  if (live && weeks.includes(String((live as any).week_start)) && !histWeeks.has(String((live as any).week_start))) points += Number((live as any).week_points) || 0;
+  const reached = STANDING_AT.filter(t => points >= t).length;
+  const { data: paidRows } = await supabase.from('posse_standing_paid').select('rank').eq('user_id', userId).eq('season', season);
+  const paid = new Set(((paidRows ?? []) as any[]).map(r => Number(r.rank)));
+  for (let r = 1; r <= reached; r++) {
+    if (paid.has(r)) continue;
+    const { error } = await supabase.from('posse_standing_paid').insert({ user_id: userId, season, rank: r });
+    if (!error) { await payMail(supabase, userId, `standing:${season}:${r}`, `standing:${r}:${season + 1}`, STANDING_REWARD); paid.add(r); }
+  }
+  return { season: season + 1, points, rank: reached, thresholds: STANDING_AT, reward: STANDING_REWARD, weeksLeft: Math.max(0, 4 - weeks.findIndex(w => w === ws) - 1), paid: [...paid].sort((a, b) => a - b) };
+}
+
+async function buildCompete(supabase: SupabaseClient, userId: string, ms: { posse: any; member: any } | null) {
+  await settleDue(supabase);
+  const ws = weekStartKey();
+  const standing = await standingFor(supabase, userId, ws);
+  const entries = await weekEntries(supabase, ws);
+  const groups = assignGroups(entries);
+  let mine: Entry | undefined; let myGroup: number | null = null; let standings: any[] = [];
+  if (ms) {
+    mine = entries.find(e => e.posseId === ms.posse.id);
+    myGroup = mine ? mine.group : bracketIdx(ms.posse.member_count);
+    const list = [...(groups.get(myGroup) ?? [])].sort(rankSort);
+    standings = list.slice(0, 10).map((e, i) => ({ rank: i + 1, posseId: e.posseId, name: e.name, tag: e.tag, emblem: e.emblem, members: e.members, score: e.score, points: e.points, active: e.active, mine: e.posseId === ms.posse.id }));
+    if (mine && !standings.some(s => s.mine)) { const r = list.findIndex(e => e.posseId === mine!.posseId); standings.push({ rank: r + 1, posseId: mine.posseId, name: mine.name, tag: mine.tag, emblem: mine.emblem, members: mine.members, score: mine.score, points: mine.points, active: mine.active, mine: true }); }
+  }
+  const factionTotals: Record<string, number> = { early_birds: 0, night_owls: 0, sunday_drivers: 0 };
+  for (const e of entries) factionTotals[e.faction] = (factionTotals[e.faction] ?? 0) + e.points;
+  const prevWeek = addDaysKey(ws, -7);
+  const { data: lastRace } = await supabase.from('posse_results').select('bracket, place, posse_id, score').eq('kind', 'race').eq('period', prevWeek);
+  const { data: lastFaction } = await supabase.from('posse_results').select('note, score').eq('kind', 'faction').eq('period', prevWeek).maybeSingle();
+  const raceRows = ((lastRace ?? []) as any[]).filter(r => myGroup === null || r.bracket === myGroup);
+  const { data: rps } = raceRows.length ? await supabase.from('posses').select('id, name, tag, emblem').in('id', raceRows.map(r => r.posse_id)) : { data: [] as any[] };
+  const lastRaceTop = raceRows.sort((a, b) => a.place - b.place).map(r => { const p = ((rps ?? []) as any[]).find(x => x.id === r.posse_id); return { place: r.place, name: p?.name ?? 'A Posse', tag: p?.tag ?? '', emblem: p?.emblem ?? 'sunrise', score: Number(r.score) }; });
+  // Cup standing for my group: settled weeks of this season plus the live week.
+  const season = seasonOfWeek(ws); const first = addDaysKey(COMPETE_ANCHOR, season * 28);
+  const cupWeeks = [0, 1, 2, 3].map(i => addDaysKey(first, i * 7)).filter(w => w < ws);
+  const { data: sc } = cupWeeks.length ? await supabase.from('posse_race_scores').select('posse_id, score').in('week_start', cupWeeks) : { data: [] as any[] };
+  const cupScore = new Map<string, number>(); for (const r of (sc ?? []) as any[]) cupScore.set(r.posse_id, (cupScore.get(r.posse_id) ?? 0) + Number(r.score));
+  for (const e of entries) cupScore.set(e.posseId, (cupScore.get(e.posseId) ?? 0) + e.score);
+  let cup: any[] = [];
+  if (ms && myGroup !== null) {
+    const ids = [...cupScore.keys()];
+    const { data: cps } = ids.length ? await supabase.from('posses').select('id, name, tag, emblem, member_count, deleted_at').in('id', ids) : { data: [] as any[] };
+    cup = ((cps ?? []) as any[]).filter(p => !p.deleted_at && bracketIdx(p.member_count) === myGroup).map(p => ({ posseId: p.id, name: p.name, tag: p.tag, emblem: p.emblem, score: Math.round((cupScore.get(p.id) ?? 0) * 100) / 100, mine: ms.posse.id === p.id })).sort((a, b) => b.score - a.score).slice(0, 10).map((r, i) => ({ ...r, rank: i + 1 }));
+  }
+  return {
+    weekStart: ws, bracket: myGroup === null ? null : bracketLabel(myGroup), myScore: mine?.score ?? 0, myActive: mine?.active ?? 0, qualifies: !!mine, standings, lastRaceTop,
+    minPointsForReward: RACE_MIN_POINTS, raceRewards: RACE_REWARDS,
+    faction: { totals: factionTotals, lastWinner: (lastFaction as any)?.note ?? null, names: FACTION_NAMES, reward: FACTION_WAR_TICKETS, minPoints: FACTION_MIN_POINTS },
+    cup: { season: season + 1, standings: cup, weeksLeft: Math.max(0, 4 - [0, 1, 2, 3].map(i => addDaysKey(first, i * 7)).findIndex(w => w === ws) - 1), rewards: CUP_REWARDS, minPoints: CUP_MIN_POINTS },
+    standing,
+  };
+}
+
 async function buildInfo(supabase: SupabaseClient, userId: string) {
   let ms = await getMembership(supabase, userId);
   const prof = await getProfile(supabase, userId);
@@ -332,6 +528,11 @@ export default async function handler(req: Request): Promise<Response> {
       await supabase.from('posse_lfp').delete().eq('user_id', userId);
       if (body?.on === true) await supabase.from('posse_lfp').insert({ user_id: userId, faction: me.faction });
       return serverJson({ lfp: body?.on === true });
+    }
+
+    if (action === 'compete') {
+      const msC = await getMembership(supabase, userId);
+      return serverJson(await buildCompete(supabase, userId, msC));
     }
 
     if (action === 'respond') {

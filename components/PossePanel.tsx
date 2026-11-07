@@ -4,8 +4,8 @@ import { checkText, wordCheckMessage } from '../services/wordFilter';
 import { POSSE_EMBLEM_ART } from '../game-assets/w7Art';
 import {
   fetchPosse, createPosse, setPosseEmblem, setMyPosseStyle, searchPosseByTag, requestToJoinPosse, invitePlayerToPosse, respondToPosseInvite, leavePosse, posseMemberAction,
-  setFeaturedMissions, requestPosseMission, browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
-  type PosseInfo, type PosseSearchResult, type PosseRosterEntry, type RecruitPlayer, type PosseChatMessage,
+  fetchCompete, setFeaturedMissions, requestPosseMission, browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
+  type PosseInfo, type PosseCompete, type CompeteRow, type PosseSearchResult, type PosseRosterEntry, type RecruitPlayer, type PosseChatMessage,
 } from '../services/posseService';
 import { ChatBody, ChatPicker } from './ChatParts';
 import { factionById } from '../constants';
@@ -58,7 +58,9 @@ const PossePanel: React.FC<{
   const [info, setInfo] = useState<PosseInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'overview' | 'chat' | 'recruit'>('overview');
+  const [tab, setTab] = useState<'overview' | 'compete' | 'chat' | 'recruit'>('overview');
+  const [compete, setCompete] = useState<PosseCompete | null>(null);
+  const [competeErr, setCompeteErr] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [tag, setTag] = useState('');
   const [emblem, setEmblem] = useState('sunrise');
@@ -88,6 +90,9 @@ const PossePanel: React.FC<{
   useEffect(() => {
     if (info && !info.posse && info.faction && browse === null) { browsePosses().then(r => setBrowse(r.posses)).catch(() => setBrowse([])); }
   }, [info, browse]);
+  // Competition standings load when the Compete tab opens.
+  const loadCompete = useCallback(() => { setCompeteErr(null); fetchCompete().then(setCompete).catch(e => setCompeteErr(e instanceof Error ? e.message : 'Could not load standings.')); }, []);
+  useEffect(() => { if (tab === 'compete' && !compete) loadCompete(); }, [tab, compete, loadCompete]);
   // Recruit list for officers.
   useEffect(() => {
     if (tab === 'recruit' && recruits === null) { browseRecruits().then(r => setRecruits(r.players)).catch(() => setRecruits([])); }
@@ -191,7 +196,7 @@ const PossePanel: React.FC<{
               </div>
             </div>
 
-            <div className="flex gap-2 mb-3">{tabBtn('overview', 'Overview')}{tabBtn('chat', 'Chat')}{isOfficer && tabBtn('recruit', 'Recruit')}</div>
+            <div className="flex gap-2 mb-3">{tabBtn('overview', 'Overview')}{tabBtn('compete', 'Compete')}{tabBtn('chat', 'Chat')}{isOfficer && tabBtn('recruit', 'Recruit')}</div>
 
             {tab === 'overview' && (
               <>
@@ -283,6 +288,65 @@ const PossePanel: React.FC<{
                   ))}
                 </div>
                 <button className={`${btn} bg-red-600 text-white w-full`} disabled={busy} onClick={() => { if (confirm(info.myRole === 'owner' && (info.roster?.length ?? 0) > 1 ? 'Leave the Posse? Ownership passes to the next co-lead or longest-standing member.' : 'Leave the Posse?')) void run(() => leavePosse(), 'You left the Posse.'); }}>Leave Posse</button>
+              </>
+            )}
+
+            {tab === 'compete' && (
+              <>
+                {competeErr && <p className="text-[13px] font-bold text-red-500 mb-3">{competeErr}</p>}
+                {!compete && !competeErr && <p className="opacity-60 italic mb-3">Loading standings...</p>}
+                {compete && (() => {
+                  const row = (r: CompeteRow, unit: string) => (
+                    <div key={r.posseId} className={`flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg ${r.mine ? 'bg-[var(--accent-600)] text-white' : ''}`}>
+                      <p className="text-[13px] font-black uppercase truncate">{r.rank}. {emblemIcon(r.emblem)} {r.name} <span className="opacity-60">[{r.tag}]</span></p>
+                      <p className="text-[12px] font-bold whitespace-nowrap">{r.score}{unit}</p>
+                    </div>
+                  );
+                  const st = compete.standing;
+                  const facts = (Object.entries(compete.faction.totals) as [string, number][]).sort((a, b) => b[1] - a[1]);
+                  const maxFaction = Math.max(1, ...facts.map(f => f[1]));
+                  return (
+                    <>
+                      <div className={`p-3 rounded-2xl mb-3 ${card}`}>
+                        <div className="flex justify-between items-center"><p className="text-[13px] font-black uppercase">Weekly Race</p><button className="text-[12px] font-black uppercase underline opacity-70" onClick={() => { setCompete(null); loadCompete(); }}>Refresh</button></div>
+                        <p className="text-[11px] opacity-60 mb-2">Posses race in size brackets, scored by points per active member (10+ points). Your bracket: <b>{compete.bracket ?? 'n/a'}</b>. Top 3 earn {compete.raceRewards.map(r => `${r.d} TV Dinners + ${r.m} Materials`).join(' / ')} for each member with {compete.minPointsForReward}+ points. Week of {compete.weekStart}.</p>
+                        {!compete.qualifies && <p className="text-[12px] font-bold mb-2">Your Posse needs at least one member with 10+ points this week to enter the race.</p>}
+                        {compete.qualifies && <p className="text-[12px] font-bold mb-2">Your score: {compete.myScore} ({compete.myActive} active member{compete.myActive === 1 ? '' : 's'})</p>}
+                        {compete.standings.length === 0 ? <p className="text-[12px] opacity-70">No Posse in your bracket has scored yet this week.</p> : compete.standings.map(r => row(r, ' pts/member'))}
+                        {compete.lastRaceTop.length > 0 && (<div className="mt-3"><p className="text-[12px] font-black uppercase mb-1">Last week's winners</p>{compete.lastRaceTop.map(w => <p key={w.place} className="text-[12px] font-bold">{w.place}. {emblemIcon(w.emblem)} {w.name} [{w.tag}] &middot; {w.score}</p>)}</div>)}
+                      </div>
+
+                      <div className={`p-3 rounded-2xl mb-3 ${card}`}>
+                        <p className="text-[13px] font-black uppercase">Faction War</p>
+                        <p className="text-[11px] opacity-60 mb-2">All Posse Points this week, by faction. The winning faction's members with {compete.faction.minPoints}+ points get {compete.faction.reward} Tickets.{compete.faction.lastWinner ? ` Last week: ${compete.faction.names[compete.faction.lastWinner] ?? compete.faction.lastWinner} won.` : ''}</p>
+                        {facts.map(([f, total]) => (
+                          <div key={f} className="mb-2">
+                            <div className="flex justify-between text-[12px] font-black uppercase"><span><FactionBadge id={f} /> {compete.faction.names[f] ?? f}</span><span>{total}</span></div>
+                            <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}><div className="h-full bg-[var(--accent-600)]" style={{ width: `${(total / maxFaction) * 100}%` }} /></div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className={`p-3 rounded-2xl mb-3 ${card}`}>
+                        <p className="text-[13px] font-black uppercase">Posse Cup &middot; Season {compete.cup.season}</p>
+                        <p className="text-[11px] opacity-60 mb-2">Four weeks of Race scores added together ({compete.cup.weeksLeft} week{compete.cup.weeksLeft === 1 ? '' : 's'} left after this one). Top 3 per bracket earn {compete.cup.rewards.map(r => `${r.d} TV Dinners + ${r.m} Materials`).join(' / ')} for members with {compete.cup.minPoints}+ points over the Cup.</p>
+                        {compete.cup.standings.length === 0 ? <p className="text-[12px] opacity-70">No scores in your bracket yet.</p> : compete.cup.standings.map(r => row(r, ' total'))}
+                      </div>
+
+                      <div className={`p-3 rounded-2xl mb-3 ${card}`}>
+                        <p className="text-[13px] font-black uppercase">My Posse Standing &middot; Season {st.season}</p>
+                        <p className="text-[11px] opacity-60 mb-2">Your own points this 4-week season. Every rank pays {st.reward.tickets} Tickets + {st.reward.diners} TV Dinners + {st.reward.materials} Materials by Mailbox. Rank {st.rank} of {st.thresholds.length} &middot; {st.points} points.</p>
+                        <div className="grid grid-cols-6 gap-1">
+                          {st.thresholds.map((t, i) => (
+                            <div key={t} className={`rounded-lg py-2 text-center ${st.rank > i ? 'bg-emerald-600 text-white' : isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                              <p className="text-[12px] font-black">{st.rank > i ? '\u2713' : i + 1}</p><p className="text-[9px] font-bold opacity-70">{t}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
 

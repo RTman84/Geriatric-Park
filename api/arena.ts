@@ -31,7 +31,12 @@ async function awardPosse(supabase: SupabaseClient, userId: string, kind: 'raid_
     if (grant <= 0) return;
     if (d) await supabase.from('posse_daily').update({ points_added: used + grant }).eq('user_id', userId).eq('day', day);
     else await supabase.from('posse_daily').insert({ user_id: userId, day, points_added: grant });
-    const memberPts = (m as any).week_start === ws ? Number((m as any).week_points) : 0;
+    const oldWeek = (m as any).week_start as string | null;
+    if (oldWeek && oldWeek !== ws && Number((m as any).week_points) > 0) { // archive the finished week before the counter rolls over
+      await supabase.from('posse_member_weeks').delete().eq('user_id', userId).eq('week_start', oldWeek);
+      await supabase.from('posse_member_weeks').insert({ user_id: userId, week_start: oldWeek, posse_id: posseId, points: Number((m as any).week_points) });
+    }
+    const memberPts = oldWeek === ws ? Number((m as any).week_points) : 0;
     await supabase.from('posse_members').update({ week_start: ws, week_points: memberPts + grant }).eq('user_id', userId);
     const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
     if (wp) await supabase.from('posse_week_points').update({ points: Number((wp as any).points) + grant }).eq('posse_id', posseId).eq('week_start', ws);

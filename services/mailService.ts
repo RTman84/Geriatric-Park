@@ -74,9 +74,17 @@ function rowToMessage(row: InboxRow): MailMessage {
   }
   if (row.kind === 'posse_reward') {
     // note (written by api/posse.ts): mission:<title>:<week>
+    // note formats (api/posse.ts): mission:<title>:<week> | race:<place>:<bracket>:<week> | cup:<place>:<bracket>:<season> | faction:<name>:<week> | standing:<rank>:<season>
     const bits = typeof row.note === 'string' ? row.note.split(':') : [];
-    const title = (bits[1] || 'a weekly mission').slice(0, 40);
-    return { ...base, sender: 'Posse Missions', subject: `\u{1F3C6} Posse mission complete: ${title}`, body: `Your Posse completed "${title}" this week and you did your part. Your reward was paid automatically.`, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true };
+    const kindTag = bits[0];
+    const ord = (n: string) => ({ '1': '1st', '2': '2nd', '3': '3rd' } as Record<string, string>)[n] ?? `${n}th`;
+    let sender = 'Posse Missions', subject = '', body = '';
+    if (kindTag === 'race') { sender = 'Posse Race'; subject = `\u{1F3C1} Posse Race: your Posse finished ${ord(bits[1])}`; body = `Your Posse placed ${ord(bits[1])} in its size bracket (${bits[2] || 'your bracket'}) in last week's Posse Race, and you earned enough points to share the prize. Paid automatically.`; }
+    else if (kindTag === 'cup') { sender = 'Posse Cup'; subject = `\u{1F3C6} Posse Cup season ${bits[3] || ''}: ${ord(bits[1])} place`; body = `Your Posse placed ${ord(bits[1])} in the Posse Cup (${bits[2] || 'your bracket'}). Thank you for carrying your share. Paid automatically.`; }
+    else if (kindTag === 'faction') { sender = 'Faction War'; subject = `\u2694\uFE0F Faction War: ${bits[1] || 'your faction'} won the week`; body = `${bits[1] || 'Your faction'} earned the most Posse Points last week. Here is a thank-you gift. Paid automatically.`; }
+    else if (kindTag === 'standing') { sender = 'Posse Standing'; subject = `\u2B50 Posse Standing rank ${bits[1]} reached`; body = `You reached rank ${bits[1]} on your Posse Standing track for season ${bits[2] || ''}. Reward paid automatically.`; }
+    else { const title = (bits[1] || 'a weekly mission').slice(0, 40); subject = `\u{1F3C6} Posse mission complete: ${title}`; body = `Your Posse completed "${title}" this week and you did your part. Your reward was paid automatically.`; }
+    return { ...base, sender, subject, body, materials, diners: row.reward_diners && row.reward_diners > 0 ? row.reward_diners : undefined, auto: true };
   }
   if (row.kind === 'posse_invite') {
     // note (written by api/posse.ts): <inviteId>|<Posse name>|<invite or request>

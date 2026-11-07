@@ -44,3 +44,13 @@ export const sendPosseChat = (preset: string, after?: number) => call<{ messages
 export const fetchPosseChat = (after?: number) => call<{ messages: PosseChatMessage[] }>({ action: 'chat_list', after });
 export const setFeaturedMissions = (ids: string[]) => call<PosseInfo>({ action: 'set_featured', ids });
 export const requestPosseMission = (missionId: string) => call<PosseInfo>({ action: 'request_mission', missionId });
+
+export interface CompeteRow { rank: number; posseId: string; name: string; tag: string; emblem: string; members?: number; score: number; points?: number; active?: number; mine: boolean }
+export interface PosseCompete {
+  weekStart: string; bracket: string | null; myScore: number; myActive: number; qualifies: boolean; standings: CompeteRow[];
+  lastRaceTop: { place: number; name: string; tag: string; emblem: string; score: number }[]; minPointsForReward: number; raceRewards: { d: number; m: number }[];
+  faction: { totals: Record<string, number>; lastWinner: string | null; names: Record<string, string>; reward: number; minPoints: number };
+  cup: { season: number; standings: CompeteRow[]; weeksLeft: number; rewards: { d: number; m: number }[]; minPoints: number };
+  standing: { season: number; points: number; rank: number; thresholds: number[]; reward: { tickets: number; diners: number; materials: number }; weeksLeft: number; paid: number[] };
+}
+export const fetchCompete = () => call<PosseCompete>({ action: 'compete' });
