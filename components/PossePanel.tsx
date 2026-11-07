@@ -134,7 +134,7 @@ const PossePanel: React.FC<{
   const primary = `${btn} bg-[var(--accent-600)] text-white`;
   const quiet = `${btn} ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700'}`;
   const tabBtn = (id: typeof tab, label: string) => (
-    <button onClick={() => setTab(id)} className={`flex-1 py-2 rounded-xl font-black uppercase text-[12px] ${tab === id ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}><span className="inline-flex items-center justify-center gap-1"><img src={POSSE_UI_ART[id === 'overview' ? 'posse' : id === 'chat' ? 'chat' : 'recruit']} alt="" className="w-5 h-5 object-contain" />{label}</span></button>
+    <button onClick={() => setTab(id)} className={`flex-1 py-2 rounded-xl font-black uppercase text-[12px] ${tab === id ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}><span className="inline-flex items-center justify-center gap-1"><img src={POSSE_UI_ART[id === 'overview' ? 'posse' : id === 'chat' ? 'chat' : id === 'compete' ? 'trophy' : 'recruit']} alt="" className="w-5 h-5 object-contain" />{label}</span></button>
   );
 
   const nameVerdict = name ? checkText(name, { min: 3, max: 20, reserved: true }) : null;
