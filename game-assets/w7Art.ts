@@ -52,10 +52,62 @@ import pb_bandstand from './parkassets/bandstand.webp';
 import pb_vegbed from './parkassets/vegbed.webp';
 import pb_elderstatue from './parkassets/elderstatue.webp';
 import pb_lamppost from './parkassets/lamppost.webp';
+import pz_anchor from './posse2/anchor.webp';
+import pz_bell from './posse2/bell.webp';
+import pz_cat from './posse2/cat.webp';
+import pz_clover from './posse2/clover.webp';
+import pz_compass from './posse2/compass.webp';
+import pz_crown from './posse2/crown.webp';
+import pz_diamond from './posse2/diamond.webp';
+import pz_dog from './posse2/dog.webp';
+import pz_dragon from './posse2/dragon.webp';
+import pz_fishing from './posse2/fishing.webp';
+import pz_flame from './posse2/flame.webp';
+import pz_glasses from './posse2/glasses.webp';
+import pz_key from './posse2/key.webp';
+import pz_lightning from './posse2/lightning.webp';
+import pz_oldgang from './posse2/oldgang.webp';
+import pz_owl from './posse2/owl.webp';
+import pz_pie from './posse2/pie.webp';
+import pz_rocket from './posse2/rocket.webp';
+import pz_rose from './posse2/rose.webp';
+import pz_sedan from './posse2/sedan.webp';
+import pz_shield from './posse2/shield.webp';
+import pz_star from './posse2/star.webp';
+import pz_sunflower from './posse2/sunflower.webp';
+import pz_sunrise from './posse2/sunrise.webp';
+import pz_teapot from './posse2/teapot.webp';
+import pz_trophy from './posse2/trophy.webp';
+import pz_unicorn from './posse2/unicorn.webp';
+import pz_yarn from './posse2/yarn.webp';
+import pu_posse from './posseui/posse.webp';
+import pu_chat from './posseui/chat.webp';
+import pu_recruit from './posseui/recruit.webp';
+import pu_missions from './posseui/missions.webp';
+import pu_points from './posseui/points.webp';
+import pu_level from './posseui/level.webp';
+import pu_reward from './posseui/reward.webp';
+import pu_trophy from './posseui/trophy.webp';
+import st_horn from './chat/horn.webp';
+import st_flag from './chat/flag.webp';
+import st_hands from './chat/hands.webp';
+import st_tea from './chat/tea.webp';
+import st_scroll from './chat/scroll.webp';
+import st_cheer from './chat/cheer.webp';
+import st_laugh from './chat/laugh.webp';
+import st_sorry from './chat/sorry.webp';
+import st_okay from './chat/okay.webp';
+import st_highfive from './chat/highfive.webp';
+import st_surprised from './chat/surprised.webp';
+import st_sleepy from './chat/sleepy.webp';
+import st_casserole from './chat/casserole.webp';
+import st_puck from './chat/puck.webp';
+import st_heart from './chat/heart.webp';
+import st_confetti from './chat/confetti.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
-export const CHAT_STICKER_ART: Record<string, string> = { wave: cs_wave, thumbs: cs_thumbs, rematch: cs_rematch, bingo: cs_bingo, morning: cs_morning, night: cs_night, thanks: cs_thanks, goodfight: cs_goodfight };
+export const CHAT_STICKER_ART: Record<string, string> = { horn: st_horn, flag: st_flag, hands: st_hands, tea: st_tea, scroll: st_scroll, cheer: st_cheer, laugh: st_laugh, sorry: st_sorry, okay: st_okay, highfive: st_highfive, surprised: st_surprised, sleepy: st_sleepy, casserole: st_casserole, puck: st_puck, heart: st_heart, confetti: st_confetti, wave: cs_wave, thumbs: cs_thumbs, rematch: cs_rematch, bingo: cs_bingo, morning: cs_morning, night: cs_night, thanks: cs_thanks, goodfight: cs_goodfight };
 // Suggested names and rarity looks (Common x3, Rare x2, Epic x2, Legendary x1); the economy owner may rename.
 export const NEW_PARK_ASSET_ART: Record<string, { name: string; rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'; art: string }> = {
   birdbath: { name: 'Bird Bath', rarity: 'Common', art: pa_birdbath },
@@ -106,3 +158,8 @@ export const NEW_PARK_ASSET_ART2: Record<string, { name: string; rarity: 'Common
   elderstatue: { name: 'Founder Statue', rarity: 'Epic', art: pb_elderstatue },
   lamppost: { name: 'Brass Lamp Post', rarity: 'Rare', art: pb_lamppost },
 };
+
+// E1-E3 (2026-11-03): art for every Posse emblem id that was still emoji, plus the new 'oldgang' seal (level 5). Keys are Posse emblem ids.
+export const POSSE_EMBLEM_BY_ID: Record<string, string> = { anchor: pz_anchor, bell: pz_bell, cat: pz_cat, clover: pz_clover, compass: pz_compass, crown: pz_crown, diamond: pz_diamond, dog: pz_dog, dragon: pz_dragon, fishing: pz_fishing, flame: pz_flame, glasses: pz_glasses, key: pz_key, lightning: pz_lightning, oldgang: pz_oldgang, owl: pz_owl, pie: pz_pie, rocket: pz_rocket, rose: pz_rose, sedan: pz_sedan, shield: pz_shield, star: pz_star, sunflower: pz_sunflower, sunrise: pz_sunrise, teapot: pz_teapot, trophy: pz_trophy, unicorn: pz_unicorn, yarn: pz_yarn };
+// I1: Posse UI icons.
+export const POSSE_UI_ART: Record<string, string> = { posse: pu_posse, chat: pu_chat, recruit: pu_recruit, missions: pu_missions, points: pu_points, level: pu_level, reward: pu_reward, trophy: pu_trophy };

@@ -1,3 +1,4 @@
+import { POSSE_UI_ART } from './game-assets/w7Art';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { registerBackButton } from './services/backButton';
 import { getWorldStructures, getWorldArenas, worldCellKey } from './services/worldMap';
@@ -3325,7 +3326,7 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setShowPosse(true)} aria-label="Posse" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100 text-[22px] leading-none">{'\u{1F46A}'}</button>
+            <button onClick={() => setShowPosse(true)} aria-label="Posse" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100 leading-none"><img src={POSSE_UI_ART.posse} alt="" className="w-7 h-7 object-contain" /></button>
             <button onClick={() => setShowActivityLog(true)} aria-label="Activity Log" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100">
               <img src={GLYPH_ART.activityLog} alt="" className="w-7 h-7 object-contain" />
             </button>

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { checkText, wordCheckMessage } from '../services/wordFilter';
-import { POSSE_EMBLEM_ART } from '../game-assets/w7Art';
+import { POSSE_EMBLEM_ART, POSSE_EMBLEM_BY_ID, POSSE_UI_ART } from '../game-assets/w7Art';
 import {
   fetchPosse, createPosse, setPosseEmblem, setMyPosseStyle, searchPosseByTag, requestToJoinPosse, invitePlayerToPosse, respondToPosseInvite, leavePosse, posseMemberAction,
   fetchCompete, setFeaturedMissions, requestPosseMission, browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
@@ -25,10 +25,10 @@ export const EMBLEMS: { id: string; icon: string; label: string; level: number }
   { id: 'crown', icon: '\u{1F451}', label: 'Crown', level: 4 }, { id: 'dragon', icon: '\u{1F409}', label: 'Dragon', level: 4 }, { id: 'rocket', icon: '\u{1F680}', label: 'Rocket', level: 4 }, { id: 'diamond', icon: '\u{1F48E}', label: 'Diamond', level: 4 },
   { id: 'skirmish', icon: '', label: 'Shuffleboard', level: 1 }, { id: 'porch', icon: '', label: 'Rocking Chair', level: 1 }, { id: 'knit', icon: '', label: 'Knitting', level: 1 },
   { id: 'casserole', icon: '', label: 'Casserole', level: 2 }, { id: 'gnome', icon: '', label: 'Garden Gnome', level: 2 }, { id: 'swing', icon: '', label: 'Porch Swing', level: 3 },
-  { id: 'flame', icon: '\u{1F525}', label: 'Flame', level: 5 }, { id: 'lightning', icon: '\u26A1', label: 'Lightning', level: 5 }, { id: 'unicorn', icon: '\u{1F984}', label: 'Unicorn', level: 5 },
+  { id: 'oldgang', icon: '\u{1F396}\uFE0F', label: 'Old Gang Seal', level: 5 }, { id: 'flame', icon: '\u{1F525}', label: 'Flame', level: 5 }, { id: 'lightning', icon: '\u26A1', label: 'Lightning', level: 5 }, { id: 'unicorn', icon: '\u{1F984}', label: 'Unicorn', level: 5 },
 ];
 // Art emblems (W7-A). 'bingo' and 'cane' keep their old ids but show art too; the other original ids stay emoji.
-const EMBLEM_ART: Record<string, string> = { skirmish: POSSE_EMBLEM_ART[0], bingo: POSSE_EMBLEM_ART[1], porch: POSSE_EMBLEM_ART[2], knit: POSSE_EMBLEM_ART[3], casserole: POSSE_EMBLEM_ART[4], gnome: POSSE_EMBLEM_ART[5], cane: POSSE_EMBLEM_ART[6], swing: POSSE_EMBLEM_ART[7] };
+const EMBLEM_ART: Record<string, string> = { skirmish: POSSE_EMBLEM_ART[0], bingo: POSSE_EMBLEM_ART[1], porch: POSSE_EMBLEM_ART[2], knit: POSSE_EMBLEM_ART[3], casserole: POSSE_EMBLEM_ART[4], gnome: POSSE_EMBLEM_ART[5], cane: POSSE_EMBLEM_ART[6], swing: POSSE_EMBLEM_ART[7], ...POSSE_EMBLEM_BY_ID };
 export const emblemIcon = (id: string): React.ReactNode => EMBLEM_ART[id]
   ? <img src={EMBLEM_ART[id]} alt="" className="inline-block w-[1.4em] h-[1.4em] object-contain align-middle" />
   : (EMBLEMS.find(e => e.id === id)?.icon ?? '\u{1F305}');
@@ -134,7 +134,7 @@ const PossePanel: React.FC<{
   const primary = `${btn} bg-[var(--accent-600)] text-white`;
   const quiet = `${btn} ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700'}`;
   const tabBtn = (id: typeof tab, label: string) => (
-    <button onClick={() => setTab(id)} className={`flex-1 py-2 rounded-xl font-black uppercase text-[12px] ${tab === id ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{label}</button>
+    <button onClick={() => setTab(id)} className={`flex-1 py-2 rounded-xl font-black uppercase text-[12px] ${tab === id ? 'bg-[var(--accent-600)] text-white' : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}><span className="inline-flex items-center justify-center gap-1"><img src={POSSE_UI_ART[id === 'overview' ? 'posse' : id === 'chat' ? 'chat' : 'recruit']} alt="" className="w-5 h-5 object-contain" />{label}</span></button>
   );
 
   const nameVerdict = name ? checkText(name, { min: 3, max: 20, reserved: true }) : null;
@@ -186,11 +186,11 @@ const PossePanel: React.FC<{
                 <span className="text-4xl">{emblemIcon(info.posse.emblem)}</span>
                 <div className="min-w-0">
                   <p className="text-xl font-black uppercase truncate">{info.posse.name} <span className="opacity-60">[{info.posse.tag}]</span></p>
-                  <p className="text-[12px] font-bold opacity-70"><FactionBadge id={info.posse.faction} /> {FACTION_LABEL[info.posse.faction]} &middot; Level {info.posse.level} &middot; {info.posse.memberCount}/{info.posse.maxMembers} members &middot; You: {ROLE_LABEL[info.myRole!]}</p>
+                  <p className="text-[12px] font-bold opacity-70"><FactionBadge id={info.posse.faction} /> {FACTION_LABEL[info.posse.faction]} &middot; <img src={POSSE_UI_ART.level} alt="" className="inline-block w-4 h-4 object-contain align-middle" /> Level {info.posse.level} &middot; {info.posse.memberCount}/{info.posse.maxMembers} members &middot; You: {ROLE_LABEL[info.myRole!]}</p>
                 </div>
               </div>
               <div className="mt-3">
-                <div className="flex justify-between text-[12px] font-black uppercase"><span>Weekly goal</span><span>{info.weekPoints ?? 0} / {info.weekGoal ?? 0}</span></div>
+                <div className="flex justify-between text-[12px] font-black uppercase"><span>Weekly goal</span><span><img src={POSSE_UI_ART.points} alt="" className="inline-block w-4 h-4 object-contain align-middle mr-1" />{info.weekPoints ?? 0} / {info.weekGoal ?? 0}</span></div>
                 <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}><div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, ((info.weekPoints ?? 0) / Math.max(1, info.weekGoal ?? 1)) * 100)}%` }} /></div>
                 <p className="text-[11px] opacity-60 mt-1">Raid hits, Arena wins and PvP wins earn Posse Points (up to 30 a day each). Total so far: {info.posse.totalPoints}{info.posse.nextLevelAt ? ` / ${info.posse.nextLevelAt} for level ${info.posse.level + 1}` : ' (max level)'}.</p>
               </div>

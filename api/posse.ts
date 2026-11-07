@@ -74,6 +74,8 @@ const EMBLEM_LEVEL: Record<string, number> = {
   cat: 2, dog: 2, pie: 2, glasses: 2, bell: 2, key: 2, anchor: 3, rose: 3, clover: 3, compass: 3, crown: 4, dragon: 4, rocket: 4, diamond: 4, flame: 5, lightning: 5, unicorn: 5,
   // art emblems (W7-A, GP app 2): ids kept stable
   skirmish: 1, porch: 1, knit: 1, casserole: 2, gnome: 2, swing: 3,
+  // E3 (GP app 2, 2026-11-03): the Old Gang seal, top level
+  oldgang: 5,
 };
 const COLOR_LEVEL: Record<string, number> = { default: 1, gold: 2, red: 2, green: 3, sky: 3, purple: 4, pink: 4, rainbow: 5 };
 const FONT_LEVEL: Record<string, number> = { default: 1, rounded: 1, serif: 2, mono: 3, script: 4, display: 5 };
