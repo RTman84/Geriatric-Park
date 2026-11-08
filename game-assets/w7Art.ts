@@ -104,6 +104,36 @@ import st_casserole from './chat/casserole.webp';
 import st_puck from './chat/puck.webp';
 import st_heart from './chat/heart.webp';
 import st_confetti from './chat/confetti.webp';
+import p3_frame3 from './posse3/frame3.webp';
+import p3_frame6 from './posse3/frame6.webp';
+import p3_frame9 from './posse3/frame9.webp';
+import p3_racewinner from './posse3/racewinner.webp';
+import p3_champbirds from './posse3/champbirds.webp';
+import p3_champowls from './posse3/champowls.webp';
+import p3_champdrivers from './posse3/champdrivers.webp';
+import p3_cup from './posse3/cup.webp';
+import p3_raidparty from './posse3/raidparty.webp';
+import p3_holdline from './posse3/holdline.webp';
+import p3_rivals from './posse3/rivals.webp';
+import p3_bossdown from './posse3/bossdown.webp';
+import p3_duesrun from './posse3/duesrun.webp';
+import p3_showup from './posse3/showup.webp';
+import ev_cornucopia from './events2/cornucopia.webp';
+import ev_platter from './events2/platter.webp';
+import ev_redjar from './events2/redjar.webp';
+import ev_gravypot from './events2/gravypot.webp';
+import ev_haybales from './events2/haybales.webp';
+import ev_pumpkins from './events2/pumpkins.webp';
+import ev_potlucktable from './events2/potlucktable.webp';
+import ev_ciderpress from './events2/ciderpress.webp';
+import ev_skates from './events2/skates.webp';
+import ev_sleighbells from './events2/sleighbells.webp';
+import ev_sled from './events2/sled.webp';
+import ev_snowglobe from './events2/snowglobe.webp';
+import ev_snowman from './events2/snowman.webp';
+import ev_cocoastand from './events2/cocoastand.webp';
+import ev_pinetree from './events2/pinetree.webp';
+import ev_iceswan from './events2/iceswan.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
@@ -163,3 +193,17 @@ export const NEW_PARK_ASSET_ART2: Record<string, { name: string; rarity: 'Common
 export const POSSE_EMBLEM_BY_ID: Record<string, string> = { anchor: pz_anchor, bell: pz_bell, cat: pz_cat, clover: pz_clover, compass: pz_compass, crown: pz_crown, diamond: pz_diamond, dog: pz_dog, dragon: pz_dragon, fishing: pz_fishing, flame: pz_flame, glasses: pz_glasses, key: pz_key, lightning: pz_lightning, oldgang: pz_oldgang, owl: pz_owl, pie: pz_pie, rocket: pz_rocket, rose: pz_rose, sedan: pz_sedan, shield: pz_shield, star: pz_star, sunflower: pz_sunflower, sunrise: pz_sunrise, teapot: pz_teapot, trophy: pz_trophy, unicorn: pz_unicorn, yarn: pz_yarn };
 // I1: Posse UI icons.
 export const POSSE_UI_ART: Record<string, string> = { posse: pu_posse, chat: pu_chat, recruit: pu_recruit, missions: pu_missions, points: pu_points, level: pu_level, reward: pu_reward, trophy: pu_trophy };
+
+// P1-P3 (2026-11-07): Posse banner frames (transparent centre; Posse levels 3, 6, 9), competition banners and Cup, mission icons keyed by server mission id.
+export const POSSE_BANNER_FRAME_ART: Record<number, string> = { 3: p3_frame3, 6: p3_frame6, 9: p3_frame9 };
+export const POSSE_COMPETE_ART = { raceWinner: p3_racewinner, factionChampion: { birds: p3_champbirds, owls: p3_champowls, drivers: p3_champdrivers }, cup: p3_cup };
+export const POSSE_MISSION_ICON_ART: Record<string, string> = { raid_party: p3_raidparty, hold_line: p3_holdline, rivals: p3_rivals, boss_down: p3_bossdown, dues_run: p3_duesrun, show_up: p3_showup };
+// TG / WG event art (art only; how event antiques are earned is still a design decision, see tracker W1.5). 4 antiques + 4 Park Assets each.
+export const THANKSGIVING_ART = {
+  antiques: { 'Harvest Cornucopia': ev_cornucopia, 'Gilded Serving Platter': ev_platter, 'Cranberry Glass Jar': ev_redjar, 'Cast-Iron Gravy Pot': ev_gravypot },
+  parkAssets: { 'Hay Bale Stack': ev_haybales, 'Pumpkin Patch': ev_pumpkins, 'Potluck Table': ev_potlucktable, 'Cider Press': ev_ciderpress },
+};
+export const WINTER_GAMES_ART = {
+  antiques: { 'Antique Ice Skates': ev_skates, 'Brass Sleigh Bells': ev_sleighbells, 'Wooden Toboggan': ev_sled, 'Winter Snow Globe': ev_snowglobe },
+  parkAssets: { 'Snowman': ev_snowman, 'Hot Cocoa Stand': ev_cocoastand, 'Lit Pine Tree': ev_pinetree, 'Ice Swan Sculpture': ev_iceswan },
+};
