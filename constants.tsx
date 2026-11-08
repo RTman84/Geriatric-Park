@@ -134,10 +134,14 @@ export const CASHOUT_MAX_RESERVE_SHARE = 0.25;       // one Cash Out can never d
 // with a high cap so long-term players always have somewhere to go.
 export const XP_FOR_LEVEL_UP = 1000;   // base cost, level 1 -> 2
 export const PLAYER_XP_GROWTH = 1.06;
-export const MAX_PLAYER_LEVEL = 100;
+export const MAX_PLAYER_LEVEL = 300;      // raised from 100 (2026-11-07). Raising this later is always safe; lowering it would not be.
+export const PLAYER_CURVE_BREAK_LEVEL = 100;
+export const PLAYER_POST_BREAK_STEP = 0.02; // past level 100 each level costs 2% more than level 100 did (linear), so level 300 costs 5x level 100
 export function xpForPlayerLevel(level: number): number {
   const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, MAX_PLAYER_LEVEL));
-  return Math.round(XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, lvl - 1));
+  if (lvl <= PLAYER_CURVE_BREAK_LEVEL) return Math.round(XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, lvl - 1));
+  const atBreak = XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, PLAYER_CURVE_BREAK_LEVEL - 1);
+  return Math.round(atBreak * (1 + PLAYER_POST_BREAK_STEP * (lvl - PLAYER_CURVE_BREAK_LEVEL)));
 }
 export const SEASON_XP_PER_LEVEL = 800; // was 1000 with 10 ranks; the Pass now has 30 ranks (24,000 XP a season)
 // Seasons are GLOBAL 30-day windows from this epoch (so the server can sell a per-season Gold Pass and everyone's ranks line up).
