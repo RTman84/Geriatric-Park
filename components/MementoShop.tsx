@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gfx, EmojiText } from './Gfx';
-import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, EVENT_KEEPSAKES, MEMENTO_COMING_SOON, ITEM_ICON_ASSETS, SEASONAL_EVENTS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
+import { MEMENTO_PACKS, MEMENTOS_PER_PP, PP_TO_MEMENTOS_MIN, MEMENTO_ITEMS, EVENT_KEEPSAKES, MEMENTO_COMING_SOON, GEAR_RARITY_COLOR, ITEM_ICON_ASSETS, SEASONAL_EVENTS, MEMENTO_CYCLE_WEEKS, PREMIUM_ROOM_MAX, premiumRoomPrice, mementoItemsForWeek, mementoWeekIndex, weeksUntilMemento, ItemIcon, PASS_ART, GLYPH_ART } from '../constants';
 
 // Mementos Shop: the premium currency. Convenience and cosmetics only, nothing that raises PP, passive income or
 // PvP/Arena/Raid power. Mementos are bought with real money in the store build (not available yet).
@@ -74,9 +74,10 @@ const MementoShop: React.FC<{
             const has = ownedSet.has(m.id);
             return (
               <div key={m.id} className={`${card} flex items-center gap-3`}>
-                <div className="text-4xl"><ItemIcon name={m.name} icon={m.icon} size={44} /></div>
+                <div className="text-4xl"><ItemIcon name={m.name} icon={m.icon} size={44} rarity={m.rarity} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-black uppercase text-[15px] truncate">{m.name}</div>
+                  <div className="text-[12px] font-black uppercase" style={{ color: GEAR_RARITY_COLOR[m.rarity] }}>{m.rarity}</div>
                   <div className="text-[12px] opacity-70">Title: {m.title}</div>
                 </div>
                 <button disabled={has || mementos < m.price} onClick={() => onBuyItem(m.id)} className={has ? 'px-3 py-2 rounded-xl font-black uppercase text-[13px] bg-emerald-600 text-white' : btn(mementos >= m.price)}>{<EmojiText text={has ? 'Owned' : `${m.price} 💛`} />}</button>
@@ -94,13 +95,14 @@ const MementoShop: React.FC<{
               <div key={m.id} className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} ${has ? '' : 'opacity-60'}`}>
                 <div className="text-2xl"><div className={has ? '' : isDark ? 'brightness-0 invert opacity-25' : 'brightness-0 opacity-30'}><ItemIcon name={m.name} icon={m.icon} size={40} /></div></div>
                 <div className="text-[11px] font-black uppercase leading-tight truncate">{has ? m.name : 'Keepsake'}</div>
+                <div className="text-[10px] font-black uppercase" style={{ color: GEAR_RARITY_COLOR[m.rarity] }}>{m.rarity} &middot; {m.price}</div>
                 <div className="text-[10px] font-bold opacity-70">{has ? 'Owned' : w === 0 ? 'On sale now' : `Back in ${w}w`}</div>
               </div>
             );
           })}
         </div>
 
-        <h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Coming soon</h3>
+        {MEMENTO_COMING_SOON.length > 0 && <><h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Coming soon</h3>
         <p className="text-[12px] opacity-70 mb-2">New keepsakes are on the way. Prices are announced when they join the weekly rotation.</p>
         <div className="grid grid-cols-3 gap-2 mb-2">
           {MEMENTO_COMING_SOON.map(k => (
@@ -110,7 +112,7 @@ const MementoShop: React.FC<{
               <div className="text-[10px] font-bold opacity-60">Coming soon</div>
             </div>
           ))}
-        </div>
+        </div></>}
         <h3 className="font-black uppercase text-[13px] opacity-60 mt-5 mb-1">Event keepsakes</h3>
         <p className="text-[12px] opacity-70 mb-2">Finish every goal of a seasonal event to earn its Event Elder and Event Keepsake. Event keepsakes only come from that event.</p>
         <div className="grid grid-cols-4 gap-2 mb-2">

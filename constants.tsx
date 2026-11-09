@@ -1375,6 +1375,7 @@ export const itemRarityByName = (name?: string): GearRarity | undefined => {
     _itemRarityByName = {};
     for (const a of ANTIQUES) _itemRarityByName[a.name] = a.rarity as GearRarity;
     for (const g of PVP_GEAR) if (g.rarity) _itemRarityByName[g.name] = g.rarity as GearRarity;
+    for (const k of MEMENTO_ITEMS) _itemRarityByName[k.name] = k.rarity;
   }
   return _itemRarityByName[name];
 };
@@ -1905,19 +1906,20 @@ export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 
 // and cosmetics. Never PP, never passive income, never PvP/Arena/Raid power.
 export const PREMIUM_ROOM_MAX = 10;
 export const premiumRoomPrice = (owned: number): number => 15 + 5 * Math.max(0, Math.floor(owned)); // 15, 20, ... 60 (375 for all 10)
-export interface MementoItem { id: string; name: string; icon: string; price: number; title: string }
-const MEMENTO_SOURCE: [string, string, number][] = [
-  ['Anniversary Locket', '💛', 60], ['Silver Wedding Bells', '🔔', 80], ['Pressed Prom Corsage', '🌸', 60], ['Grandkid Crayon Portrait', '🖍️', 70],
-  ['Postcard from the Coast', '🏖️', 60], ['Wartime Love Letters', '💌', 90], ['Family Reunion Photo', '📸', 80], ['First Car Hood Ornament', '🚘', 100],
-  ['Golden Retirement Watch', '⌚', 150], ['Hand-Knit Baby Booties', '🧦', 70], ['County Fair Blue Ribbon', '🎗️', 90], ['Porch Swing Plaque', '🪑', 120],
+export interface MementoItem { id: string; name: string; icon: string; price: number; title: string; rarity: GearRarity }
+// Keepsake prices follow rarity bands (owner decision 2026-11-07): Common 60-70, Rare 80-90, Epic 100-120, Legendary 150 Mementos.
+// Existing keepsakes keep their prices (they already sat in these bands); new ones use the band's usual price. Keep in sync with
+// ITEM_PRICES in api/mementos.ts (scripts/check-keepsakes.mjs verifies). Event keepsakes get discounts only during their event.
+const MEMENTO_SOURCE: [string, string, number, GearRarity][] = [
+  ['Anniversary Locket', '\u{1F49B}', 60, 'Common'], ['Silver Wedding Bells', '\u{1F514}', 80, 'Rare'], ['Pressed Prom Corsage', '\u{1F338}', 60, 'Common'], ['Grandkid Crayon Portrait', '\u{1F58D}\uFE0F', 70, 'Common'],
+  ['Postcard from the Coast', '\u{1F3D6}\uFE0F', 60, 'Common'], ['Wartime Love Letters', '\u{1F48C}', 90, 'Rare'], ['Family Reunion Photo', '\u{1F4F8}', 80, 'Rare'], ['First Car Hood Ornament', '\u{1F698}', 100, 'Epic'],
+  ['Golden Retirement Watch', '\u231A', 150, 'Legendary'], ['Hand-Knit Baby Booties', '\u{1F9E6}', 70, 'Common'], ['County Fair Blue Ribbon', '\u{1F397}\uFE0F', 90, 'Rare'], ['Porch Swing Plaque', '\u{1FA91}', 120, 'Epic'],
+  ['Wedding Album', '\u{1F4D6}', 85, 'Rare'], ["Grandpa's Harmonica", '\u{1F3B5}', 85, 'Rare'], ['Sewing Basket Heirloom', '\u{1F9FA}', 60, 'Common'],
+  ['Porch Music Box', '\u{1F3B6}', 110, 'Epic'], ['Victory Garden Seed Jar', '\u{1FAD9}', 60, 'Common'], ['Hand-Painted Teapot', '\u{1FAD6}', 85, 'Rare'],
 ];
-export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, title: `Keeper of the ${name}` }));
-// W7-F: art for 6 more Keepsakes. DISPLAY ONLY until the owner approves prices: they are NOT in MEMENTO_ITEMS (so not in the weekly
-// rotation and not purchasable); api/mementos.ts has no entry for them. Shown as 'coming soon' in the Mementos Shop.
-export const MEMENTO_COMING_SOON: { name: string; icon: string }[] = [
-  { name: 'Wedding Album', icon: '📖' }, { name: "Grandpa's Harmonica", icon: '🎵' }, { name: 'Sewing Basket Heirloom', icon: '🧺' },
-  { name: 'Porch Music Box', icon: '🎶' }, { name: 'Victory Garden Seed Jar', icon: '🫙' }, { name: 'Hand-Painted Teapot', icon: '🫖' },
-];
+export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price, rarity], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, rarity, title: `Keeper of the ${name}` }));
+// All keepsakes are on sale in the weekly rotation now; nothing is "coming soon".
+export const MEMENTO_COMING_SOON: { name: string; icon: string }[] = [];
 export const MEMENTO_ITEMS_PER_WEEK = 2;
 export const MEMENTO_CYCLE_WEEKS = MEMENTO_ITEMS.length / MEMENTO_ITEMS_PER_WEEK; // 6
 export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 3) / 7); // weeks roll over on Mondays UTC (epoch day 0 was a Thursday)

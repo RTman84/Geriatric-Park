@@ -31,7 +31,7 @@ const GOLD_PASS_PRICE = 550; // about $5 of Mementos; keep in sync with GOLD_PAS
 const SEASON_EPOCH = Date.UTC(2026, 9, 1), SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000; // global seasons, same as currentSeasonWindow() in constants.tsx
 const currentSeasonId = (now = Date.now()) => Math.max(0, Math.floor((now - SEASON_EPOCH) / SEASON_LENGTH_MS)) + 1;
 const MEMENTOS_PER_PP = 100, PP_MIN = 0.01, PP_CONVERT_PER_DAY = 2;
-const ITEM_PRICES: Record<string, number> = { m01: 60, m02: 80, m03: 60, m04: 70, m05: 60, m06: 90, m07: 80, m08: 100, m09: 150, m10: 70, m11: 90, m12: 120 };
+const ITEM_PRICES: Record<string, number> = { m01: 60, m02: 80, m03: 60, m04: 70, m05: 60, m06: 90, m07: 80, m08: 100, m09: 150, m10: 70, m11: 90, m12: 120, m13: 85, m14: 85, m15: 60, m16: 110, m17: 60, m18: 85 };
 const ITEM_IDS = Object.keys(ITEM_PRICES); // same order as MEMENTO_ITEMS
 const ITEMS_PER_WEEK = 2, CYCLE_WEEKS = ITEM_IDS.length / ITEMS_PER_WEEK;
 const weekIndex = (now = Date.now()) => Math.floor((now / 86400000 + 3) / 7);
