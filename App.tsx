@@ -23,7 +23,8 @@ import ParkScene, { isDecorSpotValid, isBuildingSpotValid } from './components/P
 import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
-import { fetchMementos, buyRoom, buyKeepsake, buyGoldPass, convertPpToMementos, MementosError, type MementosState } from './services/mementosService';
+import DailyRewardsPanel from './components/DailyRewardsPanel';
+import { fetchMementos, buyRoom, buyKeepsake, buyGoldPass, convertPpToMementos, MementosError, type MementosState, type Faucets } from './services/mementosService';
 import { buyPack, retryPendingPurchases, loadPackPrices, billingAvailable, type VerifiedPurchase } from './services/billing';
 import BoardsPanel from './components/BoardsPanel';
 import { submitBoardScore, fetchBoard, BoardMode } from './services/boardsService';
@@ -504,6 +505,9 @@ const App: React.FC = () => {
   // Supabase (see api/friends.ts), fetched fresh like the leaderboard.
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
   const [showPosse, setShowPosse] = useState(false);
+  const [showDaily, setShowDaily] = useState(false);
+  const [faucets, setFaucets] = useState<Faucets | null>(null);
+  const dailyShownRef = useRef(false);
   // Non-blocking toasts (replaces every native notify(), which froze the game and
   // won't exist on Steam/Electron/Capacitor the same way). Styled like the Court
   // result banner: green for good news, red for "can't do that" / problems.
@@ -1377,7 +1381,7 @@ const App: React.FC = () => {
     });
     mementosSynced.current = true;
   }, [notify]);
-  const refreshMementos = useCallback(async () => { try { applyServerMementos(await fetchMementos(), true); } catch { /* offline or signed out: keep the last known copy */ } }, [applyServerMementos]);
+  const refreshMementos = useCallback(async () => { try { const m = await fetchMementos(); applyServerMementos(m, true); if (m.faucets) { setFaucets(m.faucets); if (!dailyShownRef.current && (m.faucets.canClaim || m.faucets.canSpin || m.faucets.milestones.some(x => x.claimable))) { dailyShownRef.current = true; setShowDaily(true); } } } catch { /* offline or signed out: keep the last known copy */ } }, [applyServerMementos]);
   useEffect(() => {
     if (!isLoaded || !cloudSyncSettled || !authSession) return;
     void refreshMementos();
@@ -1780,6 +1784,7 @@ const App: React.FC = () => {
     if (showBoards) { setShowBoards(false); return true; }
     if (showThrones) { setShowThrones(false); return true; }
     if (activeArenaId) { setActiveArenaId(null); return true; }
+    if (showDaily) { setShowDaily(false); return true; }
     if (showPosse) { setShowPosse(false); return true; }
     if (showFriendsPanel) { setShowFriendsPanel(false); return true; }
     if (showWorkshop) { setShowWorkshop(false); return true; }
@@ -3326,6 +3331,7 @@ const App: React.FC = () => {
             })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {faucets && <button onClick={() => setShowDaily(true)} aria-label="Free Mementos" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100 leading-none"><img src={GLYPH_ART.mysteryItem} alt="" className="w-7 h-7 object-contain" />{(faucets.canClaim || faucets.canSpin || faucets.milestones.some(x => x.claimable)) && <span className="absolute top-1 right-1 w-3 h-3 rounded-full bg-rose-500" />}</button>}
             <button onClick={() => setShowPosse(true)} aria-label="Posse" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100 leading-none"><img src={POSSE_UI_ART.posse} alt="" className="w-7 h-7 object-contain" /></button>
             <button onClick={() => setShowActivityLog(true)} aria-label="Activity Log" className="relative p-2 rounded-xl transition-all text-slate-300 hover:bg-slate-100">
               <img src={GLYPH_ART.activityLog} alt="" className="w-7 h-7 object-contain" />
@@ -3756,6 +3762,8 @@ const App: React.FC = () => {
           upgradeDiscountPct={workshopUpgradeDiscountPct(state.builtAmenityIds, state.amenityLevels)} salvageBonusPct={workshopSalvageBonusPct(state.builtAmenityIds, state.amenityLevels)}
           onUpgrade={handleUpgradeGear} onSell={handleSellGear} onSellMany={handleSellGearMany} onEquip={handleEquipElder} onClose={() => setShowWorkshop(false)} />}
         {showExchangeOverview && <ExchangeOverview isDark={isDark} elders={state.allElders} mine={residentExchangeMine} hosting={residentExchangeHosting} onRecall={handleRecallResident} onClose={() => setShowExchangeOverview(false)} />}
+
+        {showDaily && faucets && <DailyRewardsPanel isDark={isDark} faucets={faucets} notify={notify} onClose={() => setShowDaily(false)} onState={(m) => { applyServerMementos(m); if (m.faucets) setFaucets(m.faucets); }} />}
 
         {showPosse && <PossePanel isDark={isDark} notify={notify} onClose={() => setShowPosse(false)} />}
 

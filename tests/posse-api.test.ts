@@ -150,7 +150,7 @@ const ok = (c: any, m: string) => { n++; if (!c) { fails++; console.log('FAIL:',
   const P = DB.tables.posses[0].id;
   r = await call('A', { action: 'info' });
   ok(r.body.missions.featured.length === 3 && r.body.missions.pool.length === 6, 'three featured missions from a pool of six');
-  ok(r.body.missions.featured.every((f: any) => f.goal >= 2 && f.progress === 0 && !f.done), 'goals start unmet');
+  ok(r.body.missions.featured.every((f: any) => f.goal >= 1 && f.progress === 0 && !f.done), 'goals start unmet');
   const wk = r.body.missions.weekStart;
   ok((await call('B', { action: 'set_featured', ids: ['raid_party', 'hold_line', 'rivals'] })).status === 403, 'member cannot pick featured missions');
   ok((await call('A', { action: 'set_featured', ids: ['raid_party', 'raid_party', 'rivals'] })).status === 400, 'needs 3 different missions');

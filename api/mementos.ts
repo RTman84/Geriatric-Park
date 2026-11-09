@@ -43,6 +43,38 @@ function itemsForWeek(week: number): string[] {
   return order.slice(pos * ITEMS_PER_WEEK, pos * ITEMS_PER_WEEK + ITEMS_PER_WEEK).map(i => ITEM_IDS[i]);
 }
 
+// ---- Free faucets (daily login, free spin, level milestones). All small, once-only per ref, server-rolled. ------------
+const DAILY_BASE = 2, DAILY_STREAK_BONUS = 5; // day 7 of a streak pays 2 + 5
+const SPIN_TABLE: { amount: number; weight: number }[] = [{ amount: 1, weight: 50 }, { amount: 2, weight: 25 }, { amount: 3, weight: 15 }, { amount: 5, weight: 8 }, { amount: 10, weight: 2 }]; // expected about 1.95 per spin
+const MILESTONE_FIRST = 100, MILESTONE_STEP = 10, MILESTONE_LAST = 300;
+const milestoneAmount = (level: number) => (level === 300 ? 100 : level === 200 ? 25 : 10);
+const MILESTONE_LEVELS: number[] = []; for (let l = MILESTONE_FIRST; l <= MILESTONE_LAST; l += MILESTONE_STEP) MILESTONE_LEVELS.push(l);
+const utcDay = (offset = 0) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+function faucetState(events: { kind: string; ref: string }[], level: number) {
+  const has = (ref: string) => events.some(e => e.ref === ref);
+  const today = utcDay();
+  const canClaim = !has(`daily:${today}`);
+  let run = 0; for (let d = canClaim ? 1 : 0; has(`daily:${utcDay(-d)}`); d++) run++; // consecutive claimed days (ending yesterday, or today if already claimed)
+  const streakDay = canClaim ? (run % 7) + 1 : (((run - 1) % 7) + 1);
+  const rewardToday = DAILY_BASE + (streakDay === 7 ? DAILY_STREAK_BONUS : 0);
+  return {
+    today, canClaim, streakDay, rewardToday, streakBonus: DAILY_STREAK_BONUS, base: DAILY_BASE,
+    canSpin: !has(`spin:${today}`), spinTable: SPIN_TABLE,
+    level, milestones: MILESTONE_LEVELS.map(l => ({ level: l, amount: milestoneAmount(l), claimed: has(`milestone:${l}`), claimable: level >= l && !has(`milestone:${l}`) })),
+  };
+}
+async function playerLevel(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { data } = await supabase.from('player_profiles').select('level').eq('user_id', userId).maybeSingle();
+  const n = Math.floor(Number((data as any)?.level)); return Number.isFinite(n) && n > 0 ? Math.min(n, MILESTONE_LAST) : 1;
+}
+function rollSpin(): number {
+  const total = SPIN_TABLE.reduce((t, e) => t + e.weight, 0);
+  const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+  let r = (buf[0] / 4294967296) * total;
+  for (const e of SPIN_TABLE) { if (r < e.weight) return e.amount; r -= e.weight; }
+  return SPIN_TABLE[0].amount;
+}
+
 // ---- State derived from events ----------------------------------------------------------------------------------------
 type Ev = { id: number; kind: string; amount: number; ref: string; meta: any; created_at: string };
 async function loadEvents(supabase: SupabaseClient, userId: string): Promise<Ev[]> {
@@ -61,8 +93,9 @@ async function addEvent(supabase: SupabaseClient, userId: string, kind: string, 
   return error.code === '23505' ? 'duplicate' : 'error';
 }
 async function snapshot(supabase: SupabaseClient, userId: string) {
-  const s = deriveState(await loadEvents(supabase, userId));
-  return { balance: s.balance, premiumRooms: s.rooms, items: s.items, passes: s.passes };
+  const events = await loadEvents(supabase, userId);
+  const s = deriveState(events);
+  return { balance: s.balance, premiumRooms: s.rooms, items: s.items, passes: s.passes, faucets: faucetState(events, await playerLevel(supabase, userId)) };
 }
 
 // ---- Refunds ------------------------------------------------------------------------------------------------------------
@@ -166,6 +199,23 @@ export default async function handler(req: Request): Promise<Response> {
       if (st.items.includes(id)) return fail('You already own that keepsake.', 409);
       if (!itemsForWeek(weekIndex()).includes(id)) return fail('That keepsake is not on sale this week.', 409);
       return spend('item', ITEM_PRICES[id], `item:${id}`, { id });
+    }
+    if (action === 'daily' || action === 'spin' || action === 'milestone') {
+      const level = await playerLevel(supabase, userId);
+      const f = faucetState(events, level);
+      let amount = 0, ref = '', meta: object = {};
+      if (action === 'daily') { if (!f.canClaim) return fail('You already claimed today.', 409); amount = f.rewardToday; ref = `daily:${f.today}`; meta = { streakDay: f.streakDay }; }
+      else if (action === 'spin') { if (!f.canSpin) return fail('You already spun today.', 409); amount = rollSpin(); ref = `spin:${f.today}`; }
+      else {
+        const lv = Math.floor(Number(body?.level));
+        const m = f.milestones.find(x => x.level === lv);
+        if (!m) return fail('Unknown milestone.'); if (m.claimed) return fail('Already claimed.', 409); if (!m.claimable) return fail(`Reach level ${lv} first.`, 403);
+        amount = m.amount; ref = `milestone:${lv}`; meta = { level: lv };
+      }
+      const r = await addEvent(supabase, userId, action, amount, ref, meta);
+      if (r === 'duplicate') return fail('Already claimed.', 409);
+      if (r === 'error') return fail('Mementos are unavailable right now.', 500);
+      return json({ ok: true, gained: amount, ...(await snapshot(supabase, userId)) });
     }
     if (action === 'convert') {
       const pp = Math.round(Number(body?.pp) * 100) / 100, nonce = String(body?.nonce || '').slice(0, 60);

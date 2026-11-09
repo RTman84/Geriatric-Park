@@ -4,6 +4,7 @@ const DB = G.__DB;
 const uuid = () => { DB.uid++; return '00000000-0000-4000-8000-' + String(DB.uid).padStart(12, '0'); };
 const uniques: Record<string, (rows: any[], row: any) => boolean> = {
   posse_members: (rows, r) => rows.some(x => x.user_id === r.user_id || (x.posse_id === r.posse_id && x.user_id === r.user_id)),
+  memento_events: (rows, r) => rows.some(x => x.user_id === r.user_id && x.ref === r.ref),
   posse_settlements: (rows, r) => rows.some(x => x.week_start === r.week_start),
   posse_standing_paid: (rows, r) => rows.some(x => x.user_id === r.user_id && x.season === r.season && x.rank === r.rank),
   posse_mission_paid: (rows, r) => rows.some(x => x.posse_id === r.posse_id && x.week_start === r.week_start && x.mission_id === r.mission_id && x.user_id === r.user_id),
@@ -35,7 +36,7 @@ class Q {
     if (this.op === 'insert') {
       const list = Array.isArray(this.ins) ? this.ins : [this.ins]; const out: any[] = [];
       for (const r0 of list) {
-        const r = { ...r0 }; if (this.t === 'posse_chat' || this.t === 'friend_chat') { DB.chatSeq = (DB.chatSeq || 0) + 1; r.id = DB.chatSeq; } else if (!r.id && !['posse_members', 'player_profiles', 'posse_lfp', 'posse_settlements', 'posse_race_scores', 'posse_results', 'posse_member_weeks', 'posse_standing_paid', 'posse_week_points', 'posse_week_stats', 'posse_featured', 'posse_mission_votes', 'posse_mission_paid'].includes(this.t)) r.id = uuid(); if (!r.created_at) r.created_at = new Date().toISOString();
+        const r = { ...r0 }; if (this.t === 'posse_chat' || this.t === 'friend_chat') { DB.chatSeq = (DB.chatSeq || 0) + 1; r.id = DB.chatSeq; } else if (!r.id && !['posse_members', 'player_profiles', 'posse_lfp', 'posse_settlements', 'posse_race_scores', 'posse_results', 'posse_member_weeks', 'posse_standing_paid', 'posse_week_points', 'posse_week_stats', 'posse_featured', 'posse_mission_votes', 'posse_mission_paid', 'memento_events'].includes(this.t)) r.id = uuid(); if (!r.created_at) r.created_at = new Date().toISOString();
         if (this.t === 'posse_invites') { r.status = r.status ?? 'pending'; r.expires_at = r.expires_at ?? new Date(Date.now() + 7 * 86400000).toISOString(); }
         if (uniques[this.t]?.(rows, r)) return { data: null, error: { code: '23505', message: 'duplicate key' } };
         rows.push(r); out.push(r);
