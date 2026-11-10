@@ -134,6 +134,15 @@ import ev_snowman from './events2/snowman.webp';
 import ev_cocoastand from './events2/cocoastand.webp';
 import ev_pinetree from './events2/pinetree.webp';
 import ev_iceswan from './events2/iceswan.webp';
+import pa_regular from './pass/autumn/regular.webp';
+import pa_veteran from './pass/autumn/veteran.webp';
+import pa_champion from './pass/autumn/champion.webp';
+import pa_gilded_guest from './pass/autumn/gilded_guest.webp';
+import pa_golden_regular from './pass/autumn/golden_regular.webp';
+import pa_gilded_veteran from './pass/autumn/gilded_veteran.webp';
+import pa_golden_champion from './pass/autumn/golden_champion.webp';
+import pa_gold_legend from './pass/autumn/gold_legend.webp';
+import pa_golden_icon from './pass/autumn/golden_icon.webp';
 
 export const POSSE_EMBLEM_ART: string[] = [pe_skirmish, pe_bingo, pe_porch, pe_knit, pe_casserole, pe_gnome, pe_cane, pe_swing];
 export const POSSE_HEADER_ART: string = posseHeader;
@@ -206,4 +215,10 @@ export const THANKSGIVING_ART = {
 export const WINTER_GAMES_ART = {
   antiques: { 'Antique Ice Skates': ev_skates, 'Brass Sleigh Bells': ev_sleighbells, 'Wooden Toboggan': ev_sled, 'Winter Snow Globe': ev_snowglobe },
   parkAssets: { 'Snowman': ev_snowman, 'Hot Cocoa Stand': ev_cocoastand, 'Lit Pine Tree': ev_pinetree, 'Ice Swan Sculpture': ev_iceswan },
+};
+
+// Themed Elder Pass lane icons per season, keyed by SEASON NAME then lane label. A season without an entry falls back to the default
+// S09 art (`passLaneArtFor` in constants.tsx). GP app: when season names are re-keyed to the 12 calendar themes, add one entry per theme here.
+export const PASS_THEME_ART: Record<string, Record<string, string>> = {
+  'Autumn Gathering': { 'Regular': pa_regular, 'Veteran': pa_veteran, 'Champion': pa_champion, 'Gilded Guest': pa_gilded_guest, 'Golden Regular': pa_golden_regular, 'Gilded Veteran': pa_gilded_veteran, 'Golden Champion': pa_golden_champion, 'Gold Legend': pa_gold_legend, 'Golden Icon': pa_golden_icon },
 };

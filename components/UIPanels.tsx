@@ -21,7 +21,7 @@ import {
   GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
   TOURNAMENT_DAILY_THROWS, dailyCountToday,
   rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
-  POWER_BRACKETS, gearLevelScale, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT,
+  POWER_BRACKETS, gearLevelScale, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT, passLaneArtFor,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -1158,7 +1158,7 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, memento
           return (
             <div key={reward.level} className={`p-4 rounded-[2rem] border shadow-sm ${card} ${reward.level % 5 === 0 ? 'ring-2 ring-[var(--accent-500)]/40' : ''}`}>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const art = (reward.goldCosmetic ?? reward.freeCosmetic)?.icon; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : (() => { const band = reward.level < 10 ? 0 : reward.level < 20 ? 1 : 2; const key = (gold ? ['Gilded Guest', 'Gilded Veteran', 'Golden Champion'] : ['Regular', 'Veteran', 'Champion'])[band]; const bandArt = PASS_LANE_ART[key]; return bandArt ? <img src={bandArt} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })(); })()}</div>
+                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const cos = (reward.goldCosmetic ?? reward.freeCosmetic); const art = cos ? (passLaneArtFor(cos.label, season.name) ?? cos.icon) : undefined; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : (() => { const band = reward.level < 10 ? 0 : reward.level < 20 ? 1 : 2; const key = (gold ? ['Gilded Guest', 'Gilded Veteran', 'Golden Champion'] : ['Regular', 'Veteran', 'Champion'])[band]; const bandArt = passLaneArtFor(key, season.name); return bandArt ? <img src={bandArt} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })(); })()}</div>
                 <span className="text-[14px] font-black uppercase">Rank {reward.level}{reward.level % 5 === 0 ? ' · Milestone' : ''}</span>
                 {!reached && <span className="ml-auto text-[11px] font-black uppercase opacity-50">Locked</span>}
               </div>

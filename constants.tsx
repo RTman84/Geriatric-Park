@@ -86,7 +86,7 @@ import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from '
 import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
 import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
 import { EVENT_ELDER_ART, EVENT_KEEPSAKE_ART } from './game-assets/eventElders';
-import { NEW_GEAR_ART_W7, NEW_KEEPSAKE_ART_W7, NEW_ANTIQUE_ART_W7 } from './game-assets/w7Art';
+import { NEW_GEAR_ART_W7, NEW_KEEPSAKE_ART_W7, NEW_ANTIQUE_ART_W7, PASS_THEME_ART } from './game-assets/w7Art';
 import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
 
 // Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
@@ -1798,6 +1798,8 @@ export const PASS_COSMETICS: PassCosmeticDef[] = [
   { rank: 20, lane: 'gold', icon: '\u{1F947}', label: 'Golden Champion' }, { rank: 25, lane: 'gold', icon: '\u{1F451}', label: 'Gold Legend' }, { rank: 30, lane: 'gold', icon: '\u{1F31F}', label: 'Golden Icon' },
 ];
 PASS_COSMETICS.forEach(d => { const art = PASS_LANE_ART[d.label]; if (art) d.icon = art; }); // lane titles/icons use the sheet S09 art
+// Lane icon for a label in a season: the season's themed art if it has one, else the default sheet S09 art (never throws).
+export const passLaneArtFor = (label: string, seasonName?: string): string | undefined => (seasonName ? PASS_THEME_ART[seasonName]?.[label] : undefined) ?? PASS_LANE_ART[label];
 export const passCosmeticKey = (seasonId: number, rank: number, lane: 'free' | 'gold') => `pass:${seasonId}:${rank}:${lane}`;
 export function passCosmetic(key: string): UnlockedCosmetic | null {
   const m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key || '');
@@ -1805,7 +1807,7 @@ export function passCosmetic(key: string): UnlockedCosmetic | null {
   const def = PASS_COSMETICS.find(d => d.rank === Number(m[2]) && d.lane === m[3]);
   if (!def) return null;
   const season = SEASON_NAMES[(Number(m[1]) - 1) % SEASON_NAMES.length];
-  return { key, icon: def.icon, title: `${season} ${def.label}` };
+  return { key, icon: passLaneArtFor(def.label, season) ?? def.icon, title: `${season} ${def.label}` };
 }
 // 30 ranks. Ranks 1-10 keep the original Ticket payouts; every 3rd rank also pays Materials; ranks 15/20/25/30 are big milestones.
 const PASS_FREE_TICKETS = [100, 15, 20, 25, 500, 20, 30, 40, 35, 1000, 40, 45, 50, 55, 400, 60, 65, 70, 75, 500, 80, 85, 90, 95, 400, 100, 110, 120, 130, 800];
