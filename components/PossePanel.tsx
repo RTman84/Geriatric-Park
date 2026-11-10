@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { checkText, wordCheckMessage } from '../services/wordFilter';
-import { POSSE_EMBLEM_ART, POSSE_EMBLEM_BY_ID, POSSE_UI_ART } from '../game-assets/w7Art';
+import { POSSE_EMBLEM_ART, POSSE_EMBLEM_BY_ID, POSSE_UI_ART, POSSE_BANNER_FRAME_ART, POSSE_COMPETE_ART, POSSE_MISSION_ICON_ART } from '../game-assets/w7Art';
 import {
   fetchPosse, createPosse, setPosseEmblem, setMyPosseStyle, searchPosseByTag, requestToJoinPosse, invitePlayerToPosse, respondToPosseInvite, leavePosse, posseMemberAction,
   fetchCompete, setFeaturedMissions, requestPosseMission, browsePosses, setLookingForPosse, browseRecruits, searchPlayers, sendPosseChat, fetchPosseChat,
@@ -181,6 +181,19 @@ const PossePanel: React.FC<{
 
         {info && info.posse && (
           <>
+            {(() => {
+              const lv = info.posse.level; const band = lv >= 9 ? 9 : lv >= 6 ? 6 : lv >= 3 ? 3 : 0;
+              const frame = band ? POSSE_BANNER_FRAME_ART[band] : undefined;
+              return frame ? (
+                <div className="relative mb-3 w-full" style={{ aspectRatio: '640 / 178' }}>
+                  <img src={frame} alt="" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 px-[14%] min-w-0">
+                    <span className="text-[26px] leading-none flex-shrink-0">{emblemIcon(info.posse.emblem)}</span>
+                    <span className="text-[16px] font-black uppercase truncate">{info.posse.name}</span>
+                  </div>
+                </div>
+              ) : null;
+            })()}
             <div className={`p-4 rounded-2xl mb-3 ${card}`}>
               <div className="flex items-center gap-3">
                 <span className="text-4xl">{emblemIcon(info.posse.emblem)}</span>
@@ -203,13 +216,13 @@ const PossePanel: React.FC<{
                 {info.missions && (
                   <div className={`p-3 rounded-2xl mb-3 ${card}`}>
                     <div className="flex justify-between items-center mb-2">
-                      <p className="text-[13px] font-black uppercase">Weekly missions</p>
+                      <p className="text-[13px] font-black uppercase"><img src={POSSE_UI_ART.missions} alt="" className="inline-block w-5 h-5 object-contain align-middle mr-1" />Weekly missions</p>
                       <p className="text-[11px] font-bold opacity-60">Resets Monday (UTC)</p>
                     </div>
-                    <p className="text-[11px] opacity-60 mb-2">Finish a mission together and every member with {info.missions.minPoints}+ points this week gets {info.missions.rewardDiners} TV Dinners + {info.missions.rewardMaterials} Materials by Mailbox.</p>
+                    <p className="text-[11px] opacity-60 mb-2">Finish a mission together and every member with {info.missions.minPoints}+ points this week gets <img src={POSSE_UI_ART.reward} alt="" className="inline-block w-4 h-4 object-contain align-middle" /> {info.missions.rewardDiners} TV Dinners + {info.missions.rewardMaterials} Materials by Mailbox.</p>
                     {info.missions.featured.map(m => (
                       <div key={m.id} className="mb-3">
-                        <div className="flex justify-between text-[12px] font-black uppercase"><span>{m.title}</span><span>{m.done ? '\u2713 Done' : `${m.progress} / ${m.goal}`}</span></div>
+                        <div className="flex justify-between text-[12px] font-black uppercase"><span>{POSSE_MISSION_ICON_ART[m.id] && <img src={POSSE_MISSION_ICON_ART[m.id]} alt="" className="inline-block w-6 h-6 object-contain align-middle mr-1" />}{m.title}</span><span>{m.done ? '\u2713 Done' : `${m.progress} / ${m.goal}`}</span></div>
                         <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}><div className={`h-full ${m.done ? 'bg-emerald-500' : 'bg-[var(--accent-600)]'}`} style={{ width: `${Math.min(100, (m.progress / Math.max(1, m.goal)) * 100)}%` }} /></div>
                         <p className="text-[11px] opacity-60">{m.desc}{m.done ? (m.paid ? ' Your reward was sent to your Mailbox.' : ` Earn ${info.missions!.minPoints} points this week to collect.`) : ''}</p>
                       </div>
@@ -308,16 +321,17 @@ const PossePanel: React.FC<{
                   return (
                     <>
                       <div className={`p-3 rounded-2xl mb-3 ${card}`}>
-                        <div className="flex justify-between items-center"><p className="text-[13px] font-black uppercase">Weekly Race</p><button className="text-[12px] font-black uppercase underline opacity-70" onClick={() => { setCompete(null); loadCompete(); }}>Refresh</button></div>
+                        <div className="flex justify-between items-center"><p className="text-[13px] font-black uppercase"><img src={POSSE_COMPETE_ART.raceWinner} alt="" className="inline-block w-7 h-7 object-contain align-middle mr-1" />Weekly Race</p><button className="text-[12px] font-black uppercase underline opacity-70" onClick={() => { setCompete(null); loadCompete(); }}>Refresh</button></div>
                         <p className="text-[11px] opacity-60 mb-2">Posses race in size brackets, scored by points per active member (10+ points). Your bracket: <b>{compete.bracket ?? 'n/a'}</b>. Top 3 earn {compete.raceRewards.map(r => `${r.d} TV Dinners + ${r.m} Materials`).join(' / ')} for each member with {compete.minPointsForReward}+ points. Week of {compete.weekStart}.</p>
                         {!compete.qualifies && <p className="text-[12px] font-bold mb-2">Your Posse needs at least one member with 10+ points this week to enter the race.</p>}
                         {compete.qualifies && <p className="text-[12px] font-bold mb-2">Your score: {compete.myScore} ({compete.myActive} active member{compete.myActive === 1 ? '' : 's'})</p>}
                         {compete.standings.length === 0 ? <p className="text-[12px] opacity-70">No Posse in your bracket has scored yet this week.</p> : compete.standings.map(r => row(r, ' pts/member'))}
-                        {compete.lastRaceTop.length > 0 && (<div className="mt-3"><p className="text-[12px] font-black uppercase mb-1">Last week's winners</p>{compete.lastRaceTop.map(w => <p key={w.place} className="text-[12px] font-bold">{w.place}. {emblemIcon(w.emblem)} {w.name} [{w.tag}] &middot; {w.score}</p>)}</div>)}
+                        {compete.lastRaceTop.length > 0 && (<div className="mt-3"><p className="text-[12px] font-black uppercase mb-1"><img src={POSSE_UI_ART.trophy} alt="" className="inline-block w-5 h-5 object-contain align-middle mr-1" />Last week's winners</p>{compete.lastRaceTop.map(w => <p key={w.place} className="text-[12px] font-bold">{w.place}. {emblemIcon(w.emblem)} {w.name} [{w.tag}] &middot; {w.score}</p>)}</div>)}
                       </div>
 
                       <div className={`p-3 rounded-2xl mb-3 ${card}`}>
                         <p className="text-[13px] font-black uppercase">Faction War</p>
+                        {compete.faction.lastWinner && ((): React.ReactNode => { const b = ({ early_birds: POSSE_COMPETE_ART.factionChampion.birds, night_owls: POSSE_COMPETE_ART.factionChampion.owls, sunday_drivers: POSSE_COMPETE_ART.factionChampion.drivers } as Record<string, string>)[compete.faction.lastWinner as string]; return b ? <img src={b} alt="" className="w-16 h-16 object-contain float-right ml-2" /> : null; })()}
                         <p className="text-[11px] opacity-60 mb-2">All Posse Points this week, by faction. The winning faction's members with {compete.faction.minPoints}+ points get {compete.faction.reward} Tickets.{compete.faction.lastWinner ? ` Last week: ${compete.faction.names[compete.faction.lastWinner] ?? compete.faction.lastWinner} won.` : ''}</p>
                         {facts.map(([f, total]) => (
                           <div key={f} className="mb-2">
@@ -328,7 +342,7 @@ const PossePanel: React.FC<{
                       </div>
 
                       <div className={`p-3 rounded-2xl mb-3 ${card}`}>
-                        <p className="text-[13px] font-black uppercase">Posse Cup &middot; Season {compete.cup.season}</p>
+                        <p className="text-[13px] font-black uppercase"><img src={POSSE_COMPETE_ART.cup} alt="" className="inline-block w-8 h-8 object-contain align-middle mr-1" />Posse Cup &middot; Season {compete.cup.season}</p>
                         <p className="text-[11px] opacity-60 mb-2">Four weeks of Race scores added together ({compete.cup.weeksLeft} week{compete.cup.weeksLeft === 1 ? '' : 's'} left after this one). Top 3 per bracket earn {compete.cup.rewards.map(r => `${r.d} TV Dinners + ${r.m} Materials`).join(' / ')} for members with {compete.cup.minPoints}+ points over the Cup.</p>
                         {compete.cup.standings.length === 0 ? <p className="text-[12px] opacity-70">No scores in your bracket yet.</p> : compete.cup.standings.map(r => row(r, ' total'))}
                       </div>
@@ -369,7 +383,7 @@ const PossePanel: React.FC<{
             {tab === 'recruit' && isOfficer && (
               <>
                 <div className={`p-3 rounded-2xl mb-3 ${card}`}>
-                  <p className="text-[13px] font-black uppercase mb-2">Find a player by name</p>
+                  <p className="text-[13px] font-black uppercase mb-2"><img src={POSSE_UI_ART.recruit} alt="" className="inline-block w-6 h-6 object-contain align-middle mr-1" />Find a player by name</p>
                   <div className="flex gap-2">
                     <input className={input} placeholder="Part of a player name" value={playerQuery} maxLength={20} onChange={e => setPlayerQuery(e.target.value)} />
                     <button className={primary} disabled={busy || playerQuery.trim().length < 2} onClick={() => run(async () => { const r = await searchPlayers(playerQuery.trim()); setRecruits(r.players); })}>Search</button>
