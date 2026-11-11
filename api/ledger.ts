@@ -8,6 +8,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const ASSUMED_AD_REVENUE_PER_VIEW_USD = 0.008; // ASSUMPTION until real AdMob revenue is reconciled (see ECONOMY.md)
 const PLAYER_SHARE = 0.7, RESERVE_SHARE = 0.2, DEV_SHARE = 0.1;
 const MAX_ADS_PER_DAY = 15;
+const AD_MEMENTOS_PER_VIEW = 1; // a server-verified rewarded view pays 1 Memento (never PP); the daily cap above limits it to 15 a day
 const PENDING_TTL_MS = 30 * 60 * 1000;
 const KEYS_URL = 'https://www.gstatic.com/admob/reward/verifier-keys.json';
 
@@ -65,6 +66,12 @@ async function verifyAdMobSignature(rawQuery: string, signature: string, keyId: 
   return crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(b64ToBytes(signature)), content);
 }
 
+// Pays the Memento for one verified view. Idempotent through the unique (user_id, ref) rule on memento_events.
+async function grantAdMemento(supabase: SupabaseClient, userId: string, transactionId: string): Promise<void> {
+  const { error } = await supabase.from('memento_events').insert({ user_id: userId, kind: 'ad', amount: AD_MEMENTOS_PER_VIEW, ref: `ad:${transactionId}`, meta: {} });
+  if (error && error.code !== '23505') console.error('ledger: memento grant failed', error.message);
+}
+
 // Books one verified reward. Idempotent: the unique transaction_id and the (source, ref, account) constraint make a
 // replay of the same Google callback a no-op.
 async function bookVerifiedView(supabase: SupabaseClient, nonce: string, userId: string, transactionId: string): Promise<'booked' | 'duplicate' | 'unknown' | 'error'> {
@@ -83,10 +90,11 @@ async function bookVerifiedView(supabase: SupabaseClient, nonce: string, userId:
   ].map(r => ({ ...r, user_id: userId, source: 'ad_view', ref: transactionId, assumed_revenue_usd: rev }));
   const { error: insErr } = await supabase.from('ledger_entries').insert(rows);
   if (insErr) { console.error('ledger: entries insert failed', insErr.message); return insErr.code === '23505' ? 'duplicate' : 'error'; }
+  await grantAdMemento(supabase, userId, transactionId);
   return 'booked';
 }
 
-export const __test = { derToRaw, verifyAdMobSignature, bookVerifiedView };
+export const __test = { derToRaw, verifyAdMobSignature, bookVerifiedView, grantAdMemento };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -98,10 +106,12 @@ export default async function handler(req: Request): Promise<Response> {
     const raw = url.search.slice(1);
     const signature = url.searchParams.get('signature') || '', keyId = url.searchParams.get('key_id') || '';
     const nonce = url.searchParams.get('custom_data') || '', userId = url.searchParams.get('user_id') || '', tx = url.searchParams.get('transaction_id') || '';
-    if (!signature || !keyId || !nonce || !userId || !tx) return serverJson({ error: 'Bad callback' }, 400);
+    if (!signature || !keyId) return serverJson({ error: 'Bad callback' }, 400);
     let ok = false;
     try { ok = await verifyAdMobSignature(raw, signature, keyId); } catch (e) { console.error('ledger: signature check failed', (e as Error).message); return serverJson({ error: 'Verification unavailable' }, 503); }
     if (!ok) return serverJson({ error: 'Invalid signature' }, 403);
+    // AdMob's "Verify URL" button sends a correctly signed test request that has no player or nonce: answer 200 and book nothing.
+    if (!nonce || !userId || !tx) return serverJson({ result: 'test' });
     const supabase = adminClient(); if (!supabase) return serverJson({ error: 'Not configured' }, 503);
     const result = await bookVerifiedView(supabase, nonce, userId, tx);
     // Google only needs a 2xx to stop retrying; unknown/duplicate are final answers, errors should be retried.
@@ -112,6 +122,19 @@ export default async function handler(req: Request): Promise<Response> {
   if (account instanceof Response) return account;
   const { userId, supabase } = account;
   const today = new Date().toISOString().slice(0, 10);
+
+  // Preview/testing only: the web simulated ad has no AdMob callback. With ALLOW_SIMULATED_AD_REWARD=true (set it on PREVIEW only,
+  // never Production) a simulated view can pay its Memento once. Without the variable this always refuses.
+  if (req.method === 'POST' && url.searchParams.get('simulate') === '1') {
+    if (process.env.ALLOW_SIMULATED_AD_REWARD !== 'true') return serverJson({ error: 'Simulated ad rewards are disabled' }, 403);
+    let sim: any; try { sim = await req.json(); } catch { return serverJson({ error: 'Invalid JSON' }, 400); }
+    const nonce = String(sim?.nonce || '');
+    const { data: view } = await supabase.from('ad_views').select('nonce,user_id,status,created_at').eq('nonce', nonce).maybeSingle();
+    if (!view || view.user_id !== userId || view.status !== 'pending' || Date.now() - new Date(view.created_at).getTime() > PENDING_TTL_MS) return serverJson({ error: 'Unknown ad view' }, 404);
+    await supabase.from('ad_views').update({ status: 'verified', transaction_id: `sim:${nonce}`, verified_at: new Date().toISOString() }).eq('nonce', nonce).eq('status', 'pending');
+    await grantAdMemento(supabase, userId, `sim:${nonce}`);
+    return serverJson({ result: 'simulated', status: 'verified' });
+  }
 
   if (req.method === 'POST') {
     // Start an ad view: the nonce goes to AdMob as custom_data so Google's callback can be matched to this player.

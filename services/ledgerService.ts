@@ -27,3 +27,12 @@ export async function fetchVerifiedTotals(nonce?: string): Promise<{ verifiedTot
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }
+
+// Preview/testing only: lets the web simulated ad pay its Memento when the server has ALLOW_SIMULATED_AD_REWARD=true. Always false in production.
+export async function simulateAdReward(nonce: string): Promise<boolean> {
+  try {
+    const headers = await authHeaders(); if (!headers) return false;
+    const res = await fetch(apiUrl('/api/ledger?simulate=1'), { method: 'POST', headers, body: JSON.stringify({ nonce }) });
+    return res.ok;
+  } catch { return false; }
+}

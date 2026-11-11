@@ -24,6 +24,7 @@ import { TutorialOverlay } from './components/Tutorial';
 import { AdOverlay } from './components/AdOverlay';
 import PvpShop from './components/PvpShop';
 import DailyRewardsPanel from './components/DailyRewardsPanel';
+import { simulateAdReward, fetchVerifiedTotals } from './services/ledgerService';
 import { fetchMementos, buyRoom, buyKeepsake, buyGoldPass, convertPpToMementos, MementosError, type MementosState, type Faucets } from './services/mementosService';
 import { buyPack, retryPendingPurchases, loadPackPrices, billingAvailable, type VerifiedPurchase } from './services/billing';
 import BoardsPanel from './components/BoardsPanel';
@@ -2678,20 +2679,31 @@ const App: React.FC = () => {
   // claims (which are hard-capped by the Community Reserve, itself funded by that same revenue).
   // Ads reward PP + Stars here — Tickets deliberately are NOT part of the ad payout, so Tickets
   // stay tied to actual gameplay (Bingo, Shuffleboard, Tasks, Scrap) rather than passive watching.
-  const handleWatchVideoReward = useCallback((playerShare: number, communityShare: number) => {
+  // After a rewarded view: the Memento is paid by the SERVER once Google confirms the view (or, on Preview only, by the simulated-reward switch).
+  const confirmAdMemento = useCallback(async (nonce: string | undefined, simulated: boolean) => {
+    if (!nonce) return;
+    if (simulated) { if (await simulateAdReward(nonce)) { await refreshMementos(); notify('+1 Memento!', 'good'); } return; }
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const r = await fetchVerifiedTotals(nonce);
+      if (r?.status === 'verified') { await refreshMementos(); notify('+1 Memento (sponsor confirmed)!', 'good'); return; }
+    }
+  }, [refreshMementos, notify]);
+
+  // Ads no longer pay PP (owner decision): the player gets a Memento (server-paid), Park Stars, quest progress and the passive boost.
+  const handleWatchVideoReward = useCallback((_playerShare: number, communityShare: number, nonce?: string, simulated?: boolean) => {
     if (state.settings.sfxEnabled) audioManager.playSFX('victory');
+    void confirmAdMemento(nonce, !!simulated);
     setState(prev => ({
       ...prev,
-      pensionBalance: prev.pensionBalance + playerShare,
       communityReserve: prev.communityReserve + communityShare,
-      earningsBreakdown: { ...prev.earningsBreakdown, sponsorship: prev.earningsBreakdown.sponsorship + playerShare },
       parkCommunityScore: prev.parkCommunityScore + 10,
       adUsage: { ...prev.adUsage, count: prev.adUsage.count + 1 },
       boostUntil: Math.max(Date.now(), prev.boostUntil) + AD_BOOST_DURATION_MS,
     }));
     handleQuestProgress('ad');
     setShowAdOverlay(false);
-  }, [state.settings.sfxEnabled, handleQuestProgress]);
+  }, [state.settings.sfxEnabled, handleQuestProgress, confirmAdMemento]);
 
   const handleClaimMail = useCallback((id: string) => {
     setState(prev => {

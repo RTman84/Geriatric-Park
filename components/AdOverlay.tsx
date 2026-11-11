@@ -7,10 +7,10 @@ import { Gfx, EmojiText } from './Gfx';
 import React, { useEffect, useRef, useState } from 'react';
 import { AD_REVENUE_PAYOUT, REVENUE_SPLIT, GLYPH_ART } from '../constants';
 import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
-import { beginAdView, fetchVerifiedTotals } from '../services/ledgerService';
+import { beginAdView } from '../services/ledgerService';
 
 interface AdOverlayProps {
-  onRewardEarned: (playerShare: number, communityShare: number) => void;
+  onRewardEarned: (playerShare: number, communityShare: number, nonce?: string, simulated?: boolean) => void;
   onClose: () => void;
   adCount: number;
   maxAds: number;
@@ -31,6 +31,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const adsMode = getAdsMode();
+  const nonceRef = useRef<string | undefined>(undefined);
 
   const playerPct = Math.round(REVENUE_SPLIT.player * 100);
   const communityPct = Math.round(REVENUE_SPLIT.community * 100);
@@ -65,7 +66,7 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   }, [phase]);
 
   const grantReward = () => {
-    onRewardEarned(playerShare, communityShare);
+    onRewardEarned(playerShare, communityShare, nonceRef.current, adsMode === 'simulated');
     setPhase('reward');
   };
 
@@ -76,13 +77,15 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
       return;
     }
     if (adsMode === 'simulated') {
+      const sim = await beginAdView(); // a nonce lets a Preview server (with the test variable) pay the simulated view's Memento
+      nonceRef.current = sim?.nonce;
       setPhase('playing');
       return;
     }
     setPhase('loading');
     const view = await beginAdView(); // server-side nonce so Google's verification callback can be matched (null if signed out)
     const result = await showRewardedAd(view ? { userId: view.userId, customData: view.nonce } : undefined);
-    if (result.completed && view) setTimeout(() => { void fetchVerifiedTotals(view.nonce).then(r => console.info('[Ledger] ad view status:', r?.status ?? 'unknown')); }, 15000);
+    nonceRef.current = view?.nonce;
     if (result.completed) grantReward();
     else { setErrorMessage(result.error ?? 'No ads available right now. Check back soon!'); setPhase('error'); }
   };
@@ -111,19 +114,15 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 </p>
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-base space-y-1">
                   <p className="text-[13px] font-black uppercase tracking-wide text-slate-700 dark:text-slate-200 pb-1">
-                    Each view's ad revenue is split three ways
+                    What you get for each view
                   </p>
                   <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold"><Gfx e="💰" /> You get {playerPct}%</span>
-                    <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">Memento</span>
+                    <span className="font-black text-amber-600 dark:text-amber-300">+1 (paid once the view is confirmed)</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.communityReserve} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Community Reserve {communityPct}%</span>
-                    <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.development} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Development {devPct}%</span>
-                    <span className="font-black text-slate-600 dark:text-slate-300">keeps the park growing</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">Passive boost</span>
+                    <span className="font-black text-green-700 dark:text-green-300">x2 for 1 hour</span>
                   </div>
                   <div className="flex justify-between pt-1">
                     <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.parkStar} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Park Stars</span>
@@ -192,12 +191,12 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
               </p>
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-700 dark:text-slate-200 font-bold">You get {playerPct}%</span>
-                  <span className="font-black text-green-700 dark:text-green-300">+{playerShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Memento</span>
+                  <span className="font-black text-amber-600 dark:text-amber-300">+1 once confirmed</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-700 dark:text-slate-200 font-bold">Community Reserve {communityPct}%</span>
-                  <span className="font-black text-blue-700 dark:text-blue-300">+{communityShare.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Passive boost</span>
+                  <span className="font-black text-green-700 dark:text-green-300">x2 for 1 hour</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-700 dark:text-slate-200 font-bold">Park Stars</span>

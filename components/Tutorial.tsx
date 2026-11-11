@@ -37,7 +37,7 @@ const STEPS: TutorialStep[] = [
   },
   {
     title: "Pension Points (PP)",
-    description: "PP is special and can't be farmed. It comes only from watching sponsor ads, and from claiming your Dividend, which is paid out of the shared Community Reserve. Earn Stars from Tasks to boost your Dividend. PP is a virtual in-game currency.",
+    description: "PP is special and can't be farmed. It comes only from claiming your Dividend and cashing out your Pending Yield. Watching a sponsor now pays you a Memento and doubles your passive earnings for an hour. Earn Stars from Tasks to boost your Dividend. PP is a virtual in-game currency.",
     icon: <SparklesIcon className="w-12 h-12 text-yellow-500" />
   },
   {

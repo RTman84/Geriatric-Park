@@ -289,7 +289,7 @@ export const BankPanel: React.FC<{
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
-            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase tracking-widest`}>You get {Math.round(REVENUE_SPLIT.player * 100)}% of every view · {Math.round(REVENUE_SPLIT.community * 100)}% community · {Math.round(REVENUE_SPLIT.developer * 100)}% development</p>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase tracking-widest`}>Every confirmed view pays 1 Memento and keeps the park growing</p>
           </div>
           <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-[var(--accent-500)] animate-pulse' : 'text-slate-200'}`} />
         </div>
@@ -307,7 +307,7 @@ export const BankPanel: React.FC<{
           disabled={adsLeft <= 0}
           className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-[var(--accent-600)] text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
         >
-          <EmojiText text={adsLeft > 0 ? `Watch Local Sponsor (+${(AD_REVENUE_PAYOUT * REVENUE_SPLIT.player).toFixed(4)} 💰 PP + 2x Passive Boost!)` : 'All slots used — reset at midnight'} />
+          <EmojiText text={adsLeft > 0 ? `Watch Local Sponsor (+1 Memento + 2x Passive Boost!)` : 'All slots used — reset at midnight'} />
         </button>
         {boostActive ? (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">

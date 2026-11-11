@@ -48,7 +48,7 @@ export const EmojiText: React.FC<{ text: any; size?: number }> = ({ text, size =
 
 /** Plain-language names for every currency icon, used for hover titles and tap-to-explain toasts. */
 export const CURRENCY_INFO: Record<string, { name: string; blurb: string }> = {
-  '💰': { name: 'Pension Points (PP)', blurb: 'Earned from sponsors and Dividend / Cash Out claims.' },
+  '💰': { name: 'Pension Points (PP)', blurb: 'Earned from Dividend and Cash Out claims.' },
   '🎟️': { name: 'Tickets', blurb: 'Everyday currency: Shop, upgrades and extra attempts.' },
   '🍽️': { name: 'TV Dinners', blurb: 'Earned from PvP, Arenas and Raids. Spend in the PvP Shop.' },
   '🧱': { name: 'Building Materials', blurb: 'Build and upgrade your Park.' },
