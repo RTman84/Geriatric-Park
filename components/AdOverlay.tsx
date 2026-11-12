@@ -1,31 +1,24 @@
 // components/AdOverlay.tsx
-// Updated to use Google AdSense Display ads (300x250)
-// instead of rewarded video ads.
+// Sponsor Break. Real ads pay ONLY through AdMob rewarded video in the native app.
+// (AdSense display ads may not be rewarded, so they are no longer shown behind a reward.)
+// On the web this is a simulated timer for testing, or disabled -- see services/rewardedAds.ts.
 
+import { Gfx, EmojiText } from './Gfx';
 import React, { useEffect, useRef, useState } from 'react';
-import { AD_REVENUE_PAYOUT, REVENUE_SPLIT } from '../constants';
-
-declare global {
-  interface Window {
-    adsbygoogle: any[];
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// YOUR REAL ADSENSE IDs — already updated with your publisher ID
-// Replace XXXXXXXXXX with your Display ad slot ID from AdSense
-// ─────────────────────────────────────────────────────────────
-const ADSENSE_PUBLISHER_ID = 'ca-pub-4749065898882415';
-const ADSENSE_DISPLAY_SLOT  = '1422136727'; // replace with your slot ID
+import { AD_REVENUE_PAYOUT, REVENUE_SPLIT, GLYPH_ART } from '../constants';
+import { getAdsMode, showRewardedAd } from '../services/rewardedAds';
+import { beginAdView } from '../services/ledgerService';
 
 interface AdOverlayProps {
-  onRewardEarned: (playerShare: number, communityShare: number) => void;
+  onRewardEarned: (playerShare: number, communityShare: number, nonce?: string, simulated?: boolean) => void;
   onClose: () => void;
   adCount: number;
   maxAds: number;
 }
 
-type AdPhase = 'prompt' | 'playing' | 'reward' | 'error';
+type AdPhase = 'prompt' | 'loading' | 'playing' | 'reward' | 'error';
+
+const SIMULATED_AD_SECONDS = 5;
 
 export const AdOverlay: React.FC<AdOverlayProps> = ({
   onRewardEarned,
@@ -34,13 +27,17 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
   maxAds,
 }) => {
   const [phase, setPhase] = useState<AdPhase>('prompt');
-  const [countdown, setCountdown] = useState(15);
-  const adContainerRef = useRef<HTMLDivElement>(null);
+  const [countdown, setCountdown] = useState(SIMULATED_AD_SECONDS);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const adPushed       = useRef(false);
+  const adsMode = getAdsMode();
+  const nonceRef = useRef<string | undefined>(undefined);
 
-  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // 0.07 PP
-  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // 0.02 PP
+  const playerPct = Math.round(REVENUE_SPLIT.player * 100);
+  const communityPct = Math.round(REVENUE_SPLIT.community * 100);
+  const devPct = Math.round(REVENUE_SPLIT.developer * 100);
+  const playerShare    = AD_REVENUE_PAYOUT * REVENUE_SPLIT.player;    // e.g. 0.0056 PP at $0.008/view
+  const communityShare = AD_REVENUE_PAYOUT * REVENUE_SPLIT.community; // e.g. 0.0016 PP at $0.008/view
 
   // Cleanup on unmount
   useEffect(() => {
@@ -49,23 +46,10 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
     };
   }, []);
 
-  // Inject the AdSense display ad and start countdown when playing
+  // Simulated (web testing) countdown -- no ad is shown and nothing real is displayed.
   useEffect(() => {
     if (phase !== 'playing') return;
-
-    // Push the display ad into the container
-    if (adContainerRef.current && !adPushed.current) {
-      adPushed.current = true;
-      try {
-        window.adsbygoogle = window.adsbygoogle || [];
-        window.adsbygoogle.push({});
-      } catch (e) {
-        console.warn('[AdOverlay] AdSense push failed:', e);
-      }
-    }
-
-    // 15 second countdown — then auto-grant reward
-    setCountdown(15);
+    setCountdown(SIMULATED_AD_SECONDS);
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -76,19 +60,34 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
         return prev - 1;
       });
     }, 1000);
-
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [phase]);
 
   const grantReward = () => {
-    onRewardEarned(playerShare, communityShare);
+    onRewardEarned(playerShare, communityShare, nonceRef.current, adsMode === 'simulated');
     setPhase('reward');
   };
 
-  const handleViewAd = () => {
-    setPhase('playing');
+  const handleViewAd = async () => {
+    if (adsMode === 'off') {
+      setErrorMessage('Sponsor rewards are available in the Android app.');
+      setPhase('error');
+      return;
+    }
+    if (adsMode === 'simulated') {
+      const sim = await beginAdView(); // a nonce lets a Preview server (with the test variable) pay the simulated view's Memento
+      nonceRef.current = sim?.nonce;
+      setPhase('playing');
+      return;
+    }
+    setPhase('loading');
+    const view = await beginAdView(); // server-side nonce so Google's verification callback can be matched (null if signed out)
+    const result = await showRewardedAd(view ? { userId: view.userId, customData: view.nonce } : undefined);
+    nonceRef.current = view?.nonce;
+    if (result.completed) grantReward();
+    else { setErrorMessage(result.error ?? 'No ads available right now. Check back soon!'); setPhase('error'); }
   };
 
   return (
@@ -96,11 +95,11 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
 
         {/* Header */}
-        <div className="bg-indigo-600 px-6 py-4 text-white text-center">
-          <div className="text-2xl mb-1">📺</div>
+        <div className="bg-[var(--accent-600)] px-6 py-4 text-white text-center">
+          <img src={GLYPH_ART.watchAd} alt="" className="w-12 h-12 mx-auto mb-1 object-contain" />
           <h2 className="font-black text-lg uppercase tracking-wide">Sponsor Break</h2>
-          <p className="text-indigo-200 text-xs mt-1">
-            {adCount}/{maxAds} sponsorship slots used this hour
+          <p className="text-[var(--accent-200)] text-sm mt-1">
+            {adCount}/{maxAds} sponsorship slots used today
           </p>
         </div>
 
@@ -113,64 +112,70 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
                 <p className="font-semibold text-slate-700 dark:text-slate-200">
                   Support Geriatric Park and earn rewards!
                 </p>
-                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-sm space-y-1">
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-3 text-base space-y-1">
+                  <p className="text-[13px] font-black uppercase tracking-wide text-slate-700 dark:text-slate-200 pb-1">
+                    What you get for each view
+                  </p>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">💰 Your Pension Points</span>
-                    <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">Memento</span>
+                    <span className="font-black text-amber-600 dark:text-amber-300">+1 (paid once the view is confirmed)</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">🏘️ Community pool</span>
-                    <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
+                    <span className="text-slate-700 dark:text-slate-200 font-bold">Passive boost</span>
+                    <span className="font-black text-green-700 dark:text-green-300">x2 for 1 hour</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">⭐ Park Stars</span>
-                    <span className="font-bold text-purple-500">+10</span>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-slate-700 dark:text-slate-200 font-bold"><img src={GLYPH_ART.parkStar} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />Park Stars</span>
+                    <span className="font-black text-purple-700 dark:text-purple-300">+10</span>
                   </div>
                 </div>
               </div>
 
               <button
                 onClick={handleViewAd}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl transition-colors"
+                className="w-full bg-[var(--accent-600)] hover:bg-[var(--accent-700)] text-white font-black py-3 rounded-xl transition-colors"
               >
                 View Sponsor & Earn
               </button>
               <button
                 onClick={onClose}
-                className="w-full text-slate-400 text-sm py-2 hover:text-slate-600 transition-colors"
+                className="w-full text-slate-300 text-base py-2 hover:text-slate-600 transition-colors"
               >
                 Maybe later
               </button>
             </>
           )}
 
-          {/* PLAYING — display ad shown here */}
+          {/* LOADING (native AdMob) */}
+          {phase === 'loading' && (
+            <div className="text-center py-8 space-y-3">
+              <img src={GLYPH_ART.watchAd} alt="" className="w-16 h-16 mx-auto animate-pulse object-contain" />
+              <p className="text-slate-700 dark:text-slate-200 font-bold text-base">Loading sponsor…</p>
+            </div>
+          )}
+
+          {/* PLAYING — simulated sponsor (web testing only) */}
           {phase === 'playing' && (
             <div className="text-center space-y-3">
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold">
+              <p className="text-slate-600 text-sm uppercase tracking-wide font-semibold">
                 Sponsored Message
               </p>
 
-              {/* AdSense display ad unit (300x250) */}
+              {/* Simulated sponsor (testing only) */}
               <div
-                ref={adContainerRef}
-                className="mx-auto flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden"
+                className="mx-auto flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden text-center px-4"
                 style={{ width: 300, height: 250 }}
               >
-                <ins
-                  className="adsbygoogle"
-                  style={{ display: 'block', width: 300, height: 250 }}
-                  data-ad-client={ADSENSE_PUBLISHER_ID}
-                  data-ad-slot={ADSENSE_DISPLAY_SLOT}
-                  data-ad-format="fixed"
-                />
+                <p className="text-slate-700 dark:text-slate-200 font-black uppercase tracking-wide text-sm">
+                  Test sponsor<br />(real video ads run in the Android app)
+                </p>
               </div>
 
-              <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl py-3 px-4">
-                <p className="text-indigo-700 dark:text-indigo-300 font-bold text-sm">
+              <div className="bg-[var(--accent-50)] dark:bg-[var(--accent-900-a30)] rounded-xl py-3 px-4">
+                <p className="text-[var(--accent-700)] dark:text-[var(--accent-300)] font-bold text-base">
                   ⏱ Reward unlocks in {countdown}s
                 </p>
-                <p className="text-indigo-400 text-xs mt-1">
+                <p className="text-[var(--accent-400)] text-sm mt-1">
                   Stay on this screen to earn your reward
                 </p>
               </div>
@@ -180,22 +185,22 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* REWARD */}
           {phase === 'reward' && (
             <div className="text-center py-4 space-y-3">
-              <div className="text-5xl">🎉</div>
+              <img src={GLYPH_ART.victory} alt="" className="w-20 h-20 mx-auto object-contain" />
               <p className="font-black text-xl text-slate-800 dark:text-slate-100">
                 Reward Earned!
               </p>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-sm space-y-1">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-base space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Your Pension Points</span>
-                  <span className="font-bold text-green-600">+{playerShare.toFixed(3)} PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Memento</span>
+                  <span className="font-black text-amber-600 dark:text-amber-300">+1 once confirmed</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Community pool</span>
-                  <span className="font-bold text-blue-500">+{communityShare.toFixed(3)} PP</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Passive boost</span>
+                  <span className="font-black text-green-700 dark:text-green-300">x2 for 1 hour</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Park Stars</span>
-                  <span className="font-bold text-purple-500">+10 ⭐</span>
+                  <span className="text-slate-700 dark:text-slate-200 font-bold">Park Stars</span>
+                  <span className="font-black text-purple-700 dark:text-purple-300">+10 ⭐</span>
                 </div>
               </div>
               <button
@@ -210,9 +215,9 @@ export const AdOverlay: React.FC<AdOverlayProps> = ({
           {/* ERROR */}
           {phase === 'error' && (
             <div className="text-center py-4 space-y-3">
-              <div className="text-4xl">😕</div>
-              <p className="text-slate-500 text-sm">
-                No ads available right now. Check back soon!
+              <div><img src={GLYPH_ART.defeat} alt="" className="w-14 h-14 mx-auto object-contain" /></div>
+              <p className="text-slate-700 dark:text-slate-200 font-bold text-base">
+                {errorMessage ?? 'No ads available right now. Check back soon!'}
               </p>
               <button
                 onClick={onClose}

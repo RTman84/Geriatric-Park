@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 
 export interface CloudSaveRecord {
   schema_version: number;
@@ -21,7 +22,7 @@ async function parse<T>(response: Response): Promise<T> {
 
 export async function fetchCloudSave(): Promise<CloudSaveRecord | null> {
   const headers = await authHeaders();
-  const response = await fetch('/api/account/save', {
+  const response = await fetch(apiUrl('/api/account/save'), {
     headers,
     cache: 'no-store',
   });
@@ -34,10 +35,17 @@ export async function uploadCloudSave(
   saveData: Record<string, unknown>,
 ): Promise<CloudSaveRecord> {
   const headers = await authHeaders();
-  const response = await fetch('/api/account/save', {
+  const response = await fetch(apiUrl('/api/account/save'), {
     method: 'PUT',
     headers,
     body: JSON.stringify({ schemaVersion, clientRevision, saveData }),
   });
-  return (await parse<{ save: CloudSaveRecord }>(response)).save;
+  const body = await parse<{ save: CloudSaveRecord; profileSyncError?: string }>(response);
+  // TEMPORARY (9-15-26 profile-sync investigation): log a failed background
+  // profile sync (used by the friends system) without failing the actual
+  // save, which succeeded. Revert once resolved -- see api/account/save.ts.
+  if (body.profileSyncError) {
+    console.error('Player profile sync failed (friends list may show stale/default data):', body.profileSyncError);
+  }
+  return body.save;
 }

@@ -1,0 +1,88 @@
+GERIATRIC PARK - REMAINING ART: COPY-PASTE PROMPTS + PRIORITY CHECKLIST
+Updated 2026-10-18. Keep this file in the repo root so every Claude account can read it.
+Supersedes the art sections of the 10-16 / 10-17 carry-over docs. Replaces ART_PROMPTS.md sheet-by-sheet.
+
+HOW TO USE
+1. Open the next sheet below, copy EVERYTHING inside its box (style + layout + items are already one paragraph).
+2. Paste the NEGATIVE PROMPT into Leonardo's negative field (same for every sheet).
+3. Attach one finished, good-looking sheet (for example a Common antique sheet S15) as a Style Reference at low-medium strength.
+4. Generate, pick the best, upload it and tell me the sheet id (for example "S20").
+5. I cut it, check it on a DARK background (the game is dark), fix halos, export webp and wire by item NAME.
+If one cell is bad, tell me the number. I can drop that item, and I will list it for a re-roll.
+
+NEGATIVE PROMPT (paste for every sheet):
+text, letters, numbers, watermark, photo, realistic, 3d render, blurry, thin lines, pastel, flat shading, items touching, cropped, label pill, caption, banner, drop shadow, cast shadow, floor, table, extra handles, extra legs, duplicated parts
+
+ERRORS TO LOOK FOR BEFORE UPLOADING (these are the usual AI mistakes):
+- double handles or two heads on a cane / cue / spoon; extra legs or uneven rungs; nonsensical spokes or planks
+- readable gibberish text on posters, clock faces, radio dials, typewriter keys, certificates
+- white halo, white gaps inside items, or a grey shadow smudge under items
+- two items merged or touching; an item cut by the cell edge
+- bowling or other things that do not exist in our game (we have shuffleboard, bingo, gardening, potlucks, canes, porch life)
+
+======================================================================
+GROUP 0 - STORE ESSENTIALS  (DONE 2026-10-18, nothing to generate)
+======================================================================
+Delivered and processed: app icon, launcher icons (all densities, adaptive layers), 512 Play icon, 1024x500 feature graphic, logo badge (transparent, blank ribbon), portrait + landscape start screens, splash screens.
+STILL NEEDED (not AI art): 2+ real phone screenshots from the owner's phone for the Play listing. Take them of: the map, the Park, a battle result, the Mementos or Pass screen.
+The title text on the logo ribbon and the start screen is added in code (AI text is unreliable).
+
+======================================================================
+GROUP 1 - PRIORITY 1: ANTIQUES, RARE / EPIC / LEGENDARY (5 sheets, 30 items)
+Names MUST match ANTIQUES in constants.tsx. Until generated they show as emoji and as silhouettes in the Collection tab.
+Do them in this order: S20, S21, S22, S23, S24.
+======================================================================
+
+----- S20  Rare antiques (faint gold glow) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor. Layout: 3 columns x 2 rows, 6 antique items, one antique per cell, aged warm tones, each item has a faint soft gold glow around it, numbered left to right, top to bottom. 1. a polished silver teapot with one curved spout and one single handle, 2. a wooden phonograph with one large brass horn and a black record on the turntable, 3. a brass telescope extended in three sections on a small wooden stand, 4. a black cast-iron skillet with one handle and a wooden spoon resting in it, 5. a vintage typewriter with round plain keys that have no letters and a single blank page, 6. a tall wooden grandfather clock with a swinging brass pendulum and a clock face with simple tick marks and no numerals.
+
+----- S21  Rare antiques (faint gold glow) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor. Layout: 3 columns x 2 rows, 6 antique items, one antique per cell, aged warm tones, each item has a faint soft gold glow around it, numbered left to right, top to bottom. 1. a folded patchwork quilt with colorful squares and neat stitching, 2. an open brass pocket compass with a simple needle and no numbers, 3. a carved wooden walking cane with ONE single curved handle and one straight shaft, 4. a hand-painted wooden garden sign with painted carrots, tomatoes and leafy greens and no writing, 5. a small banjo with a round drum body, one long neck, four strings and a floral strap, 6. a big brass gramophone horn on a short stand.
+
+----- S22  Rare antiques (faint gold glow) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor. Layout: 3 columns x 2 rows, 6 antique items, one antique per cell, aged warm tones, each item has a faint soft gold glow around it, numbered left to right, top to bottom. 1. two porcelain teacups each with one handle on matching saucers with a rose pattern, 2. a wooden spinning wheel with one large wheel with evenly spaced spokes, one treadle and a spool of yarn, 3. a retro dance hall poster showing a silhouette of a dancing couple with a decorative border and absolutely no words, 4. a framed certificate with a small waving flag in the corner and only wavy lines instead of writing, no readable words, 5. a small hand-cranked radio with one side crank and a dial with plain tick marks and no numbers, 6. a wicker fishing basket with a leather strap and a fish tail sticking out of the lid.
+
+----- S23  Epic antiques (stronger purple-gold glow) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor. Layout: 3 columns x 2 rows, 6 antique items, one antique per cell, aged warm tones, each item has a strong glowing purple-and-gold aura around it, numbered left to right, top to bottom. 1. a golden bingo cage made of gold wire with colorful bingo balls inside and one crank handle, 2. a crystal chandelier with sparkling hanging crystals and small candle bulbs, 3. a red velvet armchair with gold trim and four matching legs, 4. an ornate jeweled hearing horn with colorful gems and gold curls, 5. a mahogany cabinet radio with a round dial with plain tick marks and no numbers and a speaker grille, 6. a pair of gold opera glasses with two matching barrels on one single handle.
+
+----- S24  Epic (first three) and Legendary (last three) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor. Layout: 3 columns x 2 rows, 6 antique items, one antique per cell, aged warm tones, numbered left to right, top to bottom. The top row items 1, 2 and 3 each have a strong glowing purple-and-gold aura. The bottom row items 4, 5 and 6 each have a bright radiant golden glow and look the most precious. 1. a large gold ballroom trophy with a tiny dancing couple on top and two side handles, 2. a colorful Tiffany-style stained-glass lamp with a bronze base, 3. an ivory chess knight piece standing on a small checkered board, 4. a golden glass casserole dish with a lid, two side handles and rising steam, 5. a long straight shuffleboard cue with a gold tip and a round gold shuffleboard puck beside it, 6. a gilded TV dinner tray with gold compartments holding simple food shapes.
+
+======================================================================
+GROUP 2 - FIXES / REGENERATIONS  (priority 2: only what you flag)
+======================================================================
+Nothing is confirmed broken yet. The 5 store images delivered 2026-10-18 passed the check (no text, no white gaps).
+When you spot a bad piece in the game or in a sheet, send me: sheet id or item NAME + a one-line problem, and I will either repair it by cutting (white edge, halo, shadow) or give you a ONE-ITEM re-roll prompt using the same style paragraph.
+Known soft spots to look at on a real phone (2.5 minutes):
+- thin white halos on the zip pieces on the dark UI (the cut was trimmed but never seen live)
+- the Collection silhouettes for unowned items (light silhouette in dark mode)
+- the Elder Pass rows with no cosmetic still show a ticket emoji (needs a rank-to-icon rule in code; no new art needed)
+One-item re-roll template (paste, fill the brackets):
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, a single [ITEM AND DETAILS] centered with generous pure-white space around it, [GLOW LEVEL], pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows, no floor.
+
+======================================================================
+GROUP 3 - PRIORITY 3: AFTER LAUNCH / WHEN THE FEATURE IS BUILT
+======================================================================
+----- S30  Posse banner emblems (build the Posse first, see carry-over 2.4) -----
+Glossy cartoon mobile-game icon art, thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, cozy retirement-community nostalgia, each item centered in its own cell with generous pure-white space around it, items never touching each other or the image edge, pure white background, no text, no letters, no numbers, no watermark, no label pills, no captions, no drop shadows. Layout: 3 columns x 3 rows, 9 round shield emblems, all the same size and the same gold-rimmed shield shape, numbered left to right, top to bottom, each with one simple central object. 1. two crossed shuffleboard cues, 2. a bingo card with a red dauber, 3. a rocking chair, 4. a steaming teapot, 5. a golf cart, 6. a garden gnome, 7. a green cardigan, 8. a walking cane with a star, 9. a clubhouse with a flag.
+
+----- S31  Posse screen header -----
+Wide landscape game banner, glossy cartoon mobile-game art, thick dark-brown outlines, warm golden-hour light, a cozy clubhouse porch with a long bench, potted flowers and a row of three empty flagpoles, soft sky, the middle of the image open and calm so a name can be added in code, no people, no text, no letters, no numbers, no watermark.
+
+Later, only if wanted: about 25 daily/weekly quest icons (they stay emoji), more event scenes for new seasons, extra Tower-floor art when the Tower is extended past tier 100.
+
+======================================================================
+GROUP 4 - ART ALREADY IN THE REPO BUT NOT PLACED ON A SCREEN (code work, no generation)
+======================================================================
+In GLYPH_ART (game-assets/art3.ts): defeat -> battle result screen; mysteryItem -> surprise pickups and the weekly Mementos slot; rosterRoom -> extra roster room line and capacity display; parkStar -> wherever the star emoji shows; parkHub / grounds / friends -> Park top bar and Friends header; communityReserve -> Bank reserve card; development -> development share line.
+Also unused: S27 Park Asset sheet (the game already has art for all 6), S29_plain_alt glyph set, game-assets/spare/ (carolers, guitar, harvest, ghost_a, giftbox, heart cookie, trophy, thermos, flower pot, event tickets, P coin, gems, lightning, crate).
+NEW this session, in game-assets/ui/: logo_badge.webp (for the start screen), start_portrait.webp, start_landscape.webp. The start screen itself (carry-over 2.9) is not built yet.
+
+======================================================================
+SUGGESTED ORDER OF EVERYTHING (art and the work that depends on it)
+======================================================================
+1. Generate S20 -> S24 (5 sheets). I wire all 30 antiques in one pass.
+2. Take 2+ phone screenshots; build the signed release (.aab); Play Console forms.
+3. Build the start screen using the logo badge and start art (carry-over 2.9).
+4. Place the unplaced glyphs (Group 4) and the Pass rank-to-icon rule.
+5. After launch: Posse (S30, S31), activity log, training slots, Tower extension.

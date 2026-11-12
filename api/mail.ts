@@ -1,0 +1,258 @@
+// Self-contained on purpose (see the note at the top of api/friends.ts): shared
+// helper files were not being included in the deployed function bundle.
+// Edge runtime is required -- this route is written against the Web Fetch API.
+export const config = { runtime: 'edge' };
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+// --- POSSE POINTS START (identical copy in api/arena.ts, api/mail.ts and api/court.ts; scripts/check-posse-points.mjs verifies) ---
+// Posse Points are counted here, on the server, where the win is resolved. Never PP: points only feed Posse level,
+// weekly missions and the weekly race. Per-member daily cap stops alt/spam farming.
+const POSSE_POINTS_PER: Record<string, number> = { raid_hit: 3, boss_down: 2, arena_win: 2, dues: 1, pvp_win: 1 };
+const POSSE_DAILY_POINT_CAP = 30;
+async function awardPosse(supabase: SupabaseClient, userId: string, kind: 'raid_hit' | 'boss_down' | 'arena_win' | 'dues' | 'pvp_win', n = 1): Promise<void> {
+  try {
+    const count = Math.max(1, Math.floor(n));
+    const { data: m } = await supabase.from('posse_members').select('posse_id, week_start, week_points').eq('user_id', userId).maybeSingle();
+    if (!m) return;
+    const posseId = (m as any).posse_id as string;
+    const nowD = new Date();
+    const dow = (nowD.getUTCDay() + 6) % 7;
+    const ws = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth(), nowD.getUTCDate() - dow)).toISOString().slice(0, 10);
+    const day = nowD.toISOString().slice(0, 10);
+    // Mission counters (uncapped: the underlying actions already have their own daily limits).
+    const { data: st } = await supabase.from('posse_week_stats').select('count').eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind).maybeSingle();
+    if (st) await supabase.from('posse_week_stats').update({ count: Number((st as any).count) + count }).eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind);
+    else await supabase.from('posse_week_stats').insert({ posse_id: posseId, week_start: ws, kind, count });
+    // Points (capped per member per day).
+    const { data: d } = await supabase.from('posse_daily').select('points_added').eq('user_id', userId).eq('day', day).maybeSingle();
+    const used = Number((d as any)?.points_added ?? 0);
+    const grant = Math.min((POSSE_POINTS_PER[kind] ?? 0) * count, POSSE_DAILY_POINT_CAP - used);
+    if (grant <= 0) return;
+    if (d) await supabase.from('posse_daily').update({ points_added: used + grant }).eq('user_id', userId).eq('day', day);
+    else await supabase.from('posse_daily').insert({ user_id: userId, day, points_added: grant });
+    const oldWeek = (m as any).week_start as string | null;
+    if (oldWeek && oldWeek !== ws && Number((m as any).week_points) > 0) { // archive the finished week before the counter rolls over
+      await supabase.from('posse_member_weeks').delete().eq('user_id', userId).eq('week_start', oldWeek);
+      await supabase.from('posse_member_weeks').insert({ user_id: userId, week_start: oldWeek, posse_id: posseId, points: Number((m as any).week_points) });
+    }
+    const memberPts = oldWeek === ws ? Number((m as any).week_points) : 0;
+    await supabase.from('posse_members').update({ week_start: ws, week_points: memberPts + grant }).eq('user_id', userId);
+    const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
+    if (wp) await supabase.from('posse_week_points').update({ points: Number((wp as any).points) + grant }).eq('posse_id', posseId).eq('week_start', ws);
+    else await supabase.from('posse_week_points').insert({ posse_id: posseId, week_start: ws, points: grant });
+  } catch (e) { console.error('posse award failed', e); }
+}
+// --- POSSE POINTS END ---
+
+type AccountContext = { userId: string; supabase: SupabaseClient };
+
+function serverJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+}
+
+function getBearerToken(req: Request): string | null {
+  const value = req.headers.get('authorization') || '';
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function requireAccount(req: Request): Promise<AccountContext | Response> {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = getBearerToken(req);
+
+  if (!url || !serviceKey) return serverJson({ error: 'Account service is not configured' }, 503);
+  if (!token || token.length > 8192) return serverJson({ error: 'Authentication required' }, 401);
+
+  const supabase = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { 'X-Geriatric-Park-Server': 'mail-api' } },
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
+
+  return { userId: data.user.id, supabase };
+}
+
+function isAccountContext(value: AccountContext | Response): value is AccountContext {
+  return value instanceof Response === false;
+}
+
+// Defender reward tuning. Tickets + Building Materials only -- never PP.
+// Paid to the DEFENDER when they beat a friend's attack; the attacker gets
+// nothing from a loss. Fixed once per attacker per day, and capped per
+// defender per day, so two cooperating accounts can't farm it.
+const DEFENSE_REWARD_TICKETS = 25;
+const DEFENSE_REWARD_MATERIALS = 3;
+const MAX_REWARDED_DEFENSES_PER_DAY = 5;
+// Spam guard: past this many battles from one friend in one day, further
+// battles simply stop updating the message.
+const MAX_BATTLES_PER_PAIR_PER_DAY = 20;
+const INBOX_WINDOW_DAYS = 14;
+
+const MAIL_FIELDS_LEGACY = 'id, sender_name, kind, day, attacker_wins, defender_wins, reward_tickets, reward_materials, updated_at';
+// Migration 008 added `note` (Arena notices). If it has not been run yet, fall back to the old column list.
+const MAIL_FIELDS = `${MAIL_FIELDS_LEGACY}, note, reward_diners`;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ---- Per-mode leaderboards: counted HERE, on the server, from results the server itself resolved. ----
+// (Duplicated inline in each route on purpose: shared files were not being included in the deployed bundle.)
+const BOARD_MAX: Record<string, number> = { arena: 400, raid: 50_000_000, friend: 250 };
+const BRACKET_MINS = [0, 300, 700, 1300, 2300, 3800, 6000, 9500, 15000, 21000]; // keep in sync with POWER_BRACKETS
+function boardWeekKey(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)).padStart(2, '0')}`;
+}
+async function bumpBoard(supabase: SupabaseClient, userId: string, mode: 'arena' | 'raid' | 'friend', add: number): Promise<void> {
+  try {
+    if (!(add > 0)) return;
+    const period = boardWeekKey();
+    const { data: prof } = await supabase.from('player_profiles').select('squad_power, display_name').eq('user_id', userId).maybeSingle();
+    let bracket = 1; const sp = Number((prof as any)?.squad_power) || 0; BRACKET_MINS.forEach((m, i) => { if (sp >= m) bracket = i + 1; });
+    const name = String((prof as any)?.display_name ?? '').replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20) || `Park Visitor ${userId.slice(0, 4)}`;
+    const { data: ex } = await supabase.from('board_scores').select('score').eq('user_id', userId).eq('mode', mode).eq('period', period).maybeSingle();
+    const next = Math.min(BOARD_MAX[mode], Number((ex as any)?.score ?? 0) + Math.floor(add));
+    const { error } = await supabase.from('board_scores').upsert({ user_id: userId, mode, period, bracket, display_name: name, score: next, updated_at: new Date().toISOString() }, { onConflict: 'user_id,mode,period' });
+    if (error) console.error('board bump failed', error.message);
+  } catch (e) { console.error('board bump crashed', e); } // never let a leaderboard problem break a battle
+}
+
+export default async function handler(req: Request): Promise<Response> {
+  try {
+    const context = await requireAccount(req);
+    if (!isAccountContext(context)) return context;
+    const { supabase, userId } = context;
+
+    // Your own inbox rows from the last couple of weeks. The client dedupes
+    // by row id when merging into its Mailbox, so re-fetching is harmless.
+    if (req.method === 'GET') {
+      const since = new Date(Date.now() - INBOX_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const readInbox = (fields: string) => supabase
+        .from('mail_inbox')
+        .select(fields)
+        .eq('recipient_id', userId)
+        .gte('updated_at', since)
+        .order('updated_at', { ascending: true })
+        .limit(100);
+      let { data, error } = await readInbox(MAIL_FIELDS);
+      if (error && (String(error.message).includes('note') || String(error.message).includes('reward_diners'))) ({ data, error } = await readInbox(MAIL_FIELDS_LEGACY));
+      if (error) {
+        console.error('Mail read failed', error.message);
+        return serverJson({ error: 'Mail unavailable', detail: error.message }, 500);
+      }
+      return serverJson({ messages: data ?? [] });
+    }
+
+    if (req.method === 'POST') {
+      let body: any;
+      try { body = await req.json(); } catch { return serverJson({ error: 'Invalid JSON' }, 400); }
+
+      if (body?.action !== 'friendBattle') return serverJson({ error: 'Unknown action' }, 400);
+
+      const defenderId = String(body?.defenderId || '');
+      const attackerWon = body?.attackerWon;
+      if (!UUID_RE.test(defenderId)) return serverJson({ error: 'Invalid defenderId' }, 400);
+      if (typeof attackerWon !== 'boolean') return serverJson({ error: 'attackerWon must be a boolean' }, 400);
+      if (defenderId === userId) return serverJson({ error: "You can't battle yourself." }, 400);
+
+      // Only accepted friends can leave each other Friend Battle mail.
+      const { data: link, error: linkErr } = await supabase
+        .from('friend_requests')
+        .select('id')
+        .eq('requester_id', userId)
+        .eq('addressee_id', defenderId)
+        .eq('status', 'accepted')
+        .maybeSingle();
+      if (linkErr) { console.error('Mail friend check failed', linkErr.message); return serverJson({ error: 'Mail unavailable', detail: linkErr.message }, 500); }
+      if (!link) {
+        // Not a friend: allowed only if the defender opted in to random matching (the near-power opponent list).
+        const { data: opp } = await supabase.from('player_profiles').select('open_to_random_friends').eq('user_id', defenderId).maybeSingle();
+        if (!opp?.open_to_random_friends) return serverJson({ error: 'You can only battle friends or players open to random matching.' }, 403);
+      }
+
+      const { data: profile } = await supabase.from('player_profiles').select('display_name').eq('user_id', userId).maybeSingle();
+      const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Two attempts: the second covers a race where the same friend's two
+      // requests both saw "no row yet" and one insert lost the unique constraint.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data: existing, error: existingErr } = await supabase
+          .from('mail_inbox')
+          .select('id, attacker_wins, defender_wins, reward_tickets')
+          .eq('recipient_id', defenderId)
+          .eq('sender_id', userId)
+          .eq('kind', 'friend_battle')
+          .eq('day', today)
+          .maybeSingle();
+        if (existingErr) { console.error('Mail lookup failed', existingErr.message); return serverJson({ error: 'Mail unavailable', detail: existingErr.message }, 500); }
+
+        if (existing && existing.attacker_wins + existing.defender_wins >= MAX_BATTLES_PER_PAIR_PER_DAY) {
+          return serverJson({ result: 'ignored' });
+        }
+
+        let rewardTickets = existing?.reward_tickets ?? 0;
+        let rewardMaterials = rewardTickets > 0 ? DEFENSE_REWARD_MATERIALS : 0;
+        if (!attackerWon && rewardTickets === 0) {
+          const { count, error: countErr } = await supabase
+            .from('mail_inbox')
+            .select('id', { count: 'exact', head: true })
+            .eq('recipient_id', defenderId)
+            .eq('day', today)
+            .gt('reward_tickets', 0);
+          if (countErr) { console.error('Mail reward count failed', countErr.message); return serverJson({ error: 'Mail unavailable', detail: countErr.message }, 500); }
+          if ((count ?? 0) < MAX_REWARDED_DEFENSES_PER_DAY) {
+            rewardTickets = DEFENSE_REWARD_TICKETS;
+            rewardMaterials = DEFENSE_REWARD_MATERIALS;
+          }
+        }
+
+        const now = new Date().toISOString();
+        if (existing) {
+          const { error: updateErr } = await supabase.from('mail_inbox').update({
+            sender_name: senderName,
+            attacker_wins: existing.attacker_wins + (attackerWon ? 1 : 0),
+            defender_wins: existing.defender_wins + (attackerWon ? 0 : 1),
+            reward_tickets: rewardTickets,
+            reward_materials: rewardMaterials,
+            updated_at: now,
+          }).eq('id', existing.id);
+          if (updateErr) { console.error('Mail update failed', updateErr.message); return serverJson({ error: 'Mail unavailable', detail: updateErr.message }, 500); }
+          if (attackerWon) { await bumpBoard(supabase, userId, 'friend', 1); await awardPosse(supabase, userId, 'pvp_win'); } // counted only after the per-pair daily cap passed
+          return serverJson({ result: 'updated' });
+        }
+
+        const { error: insertErr } = await supabase.from('mail_inbox').insert({
+          recipient_id: defenderId,
+          sender_id: userId,
+          sender_name: senderName,
+          kind: 'friend_battle',
+          day: today,
+          attacker_wins: attackerWon ? 1 : 0,
+          defender_wins: attackerWon ? 0 : 1,
+          reward_tickets: rewardTickets,
+          reward_materials: rewardMaterials,
+          updated_at: now,
+        });
+        if (!insertErr) { if (attackerWon) { await bumpBoard(supabase, userId, 'friend', 1); await awardPosse(supabase, userId, 'pvp_win'); } return serverJson({ result: 'created' }); }
+        if (!(String(insertErr.message).includes('duplicate') || String(insertErr.message).includes('unique'))) {
+          console.error('Mail insert failed', insertErr.message);
+          return serverJson({ error: 'Mail unavailable', detail: insertErr.message }, 500);
+        }
+      }
+      return serverJson({ error: 'Mail busy, try again' }, 409);
+    }
+
+    return serverJson({ error: 'Method not allowed' }, 405);
+  } catch (e) {
+    console.error('Mail handler crashed', e);
+    return serverJson({ error: 'Mail unavailable', detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
+}

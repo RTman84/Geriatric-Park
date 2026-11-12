@@ -1,0 +1,748 @@
+// Arenas (gyms): factions, stationed defenders, attacks, daily Dues. See ARENA_DESIGN.md.
+// Self-contained on purpose (see the note at the top of api/friends.ts): shared helper files were not being
+// included in the deployed function bundle. Edge runtime is required -- written against the Web Fetch API.
+export const config = { runtime: 'edge' };
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+// --- POSSE POINTS START (identical copy in api/arena.ts, api/mail.ts and api/court.ts; scripts/check-posse-points.mjs verifies) ---
+// Posse Points are counted here, on the server, where the win is resolved. Never PP: points only feed Posse level,
+// weekly missions and the weekly race. Per-member daily cap stops alt/spam farming.
+const POSSE_POINTS_PER: Record<string, number> = { raid_hit: 3, boss_down: 2, arena_win: 2, dues: 1, pvp_win: 1 };
+const POSSE_DAILY_POINT_CAP = 30;
+async function awardPosse(supabase: SupabaseClient, userId: string, kind: 'raid_hit' | 'boss_down' | 'arena_win' | 'dues' | 'pvp_win', n = 1): Promise<void> {
+  try {
+    const count = Math.max(1, Math.floor(n));
+    const { data: m } = await supabase.from('posse_members').select('posse_id, week_start, week_points').eq('user_id', userId).maybeSingle();
+    if (!m) return;
+    const posseId = (m as any).posse_id as string;
+    const nowD = new Date();
+    const dow = (nowD.getUTCDay() + 6) % 7;
+    const ws = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth(), nowD.getUTCDate() - dow)).toISOString().slice(0, 10);
+    const day = nowD.toISOString().slice(0, 10);
+    // Mission counters (uncapped: the underlying actions already have their own daily limits).
+    const { data: st } = await supabase.from('posse_week_stats').select('count').eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind).maybeSingle();
+    if (st) await supabase.from('posse_week_stats').update({ count: Number((st as any).count) + count }).eq('posse_id', posseId).eq('week_start', ws).eq('kind', kind);
+    else await supabase.from('posse_week_stats').insert({ posse_id: posseId, week_start: ws, kind, count });
+    // Points (capped per member per day).
+    const { data: d } = await supabase.from('posse_daily').select('points_added').eq('user_id', userId).eq('day', day).maybeSingle();
+    const used = Number((d as any)?.points_added ?? 0);
+    const grant = Math.min((POSSE_POINTS_PER[kind] ?? 0) * count, POSSE_DAILY_POINT_CAP - used);
+    if (grant <= 0) return;
+    if (d) await supabase.from('posse_daily').update({ points_added: used + grant }).eq('user_id', userId).eq('day', day);
+    else await supabase.from('posse_daily').insert({ user_id: userId, day, points_added: grant });
+    const oldWeek = (m as any).week_start as string | null;
+    if (oldWeek && oldWeek !== ws && Number((m as any).week_points) > 0) { // archive the finished week before the counter rolls over
+      await supabase.from('posse_member_weeks').delete().eq('user_id', userId).eq('week_start', oldWeek);
+      await supabase.from('posse_member_weeks').insert({ user_id: userId, week_start: oldWeek, posse_id: posseId, points: Number((m as any).week_points) });
+    }
+    const memberPts = oldWeek === ws ? Number((m as any).week_points) : 0;
+    await supabase.from('posse_members').update({ week_start: ws, week_points: memberPts + grant }).eq('user_id', userId);
+    const { data: wp } = await supabase.from('posse_week_points').select('points').eq('posse_id', posseId).eq('week_start', ws).maybeSingle();
+    if (wp) await supabase.from('posse_week_points').update({ points: Number((wp as any).points) + grant }).eq('posse_id', posseId).eq('week_start', ws);
+    else await supabase.from('posse_week_points').insert({ posse_id: posseId, week_start: ws, points: grant });
+  } catch (e) { console.error('posse award failed', e); }
+}
+// --- POSSE POINTS END ---
+
+type AccountContext = { userId: string; supabase: SupabaseClient };
+
+function serverJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+}
+
+function getBearerToken(req: Request): string | null {
+  const value = req.headers.get('authorization') || '';
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function requireAccount(req: Request): Promise<AccountContext | Response> {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = getBearerToken(req);
+  if (!url || !serviceKey) return serverJson({ error: 'Account service is not configured' }, 503);
+  if (!token || token.length > 8192) return serverJson({ error: 'Authentication required' }, 401);
+  const supabase = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { 'X-Geriatric-Park-Server': 'arena-api' } },
+  });
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
+  return { userId: data.user.id, supabase };
+}
+function isAccountContext(value: AccountContext | Response): value is AccountContext {
+  return value instanceof Response === false;
+}
+
+// ---- Tuning (client copies of the display numbers live in constants.tsx: keep in sync) -------------------
+const FACTIONS = ['early_birds', 'night_owls', 'sunday_drivers'];
+const MAX_SLOTS = 6;
+const MAX_ARENAS_PER_PLAYER = 3;
+const FACTION_LOCK_MS = 30 * 24 * 60 * 60 * 1000;
+const ATTACK_COOLDOWN_MS = 5 * 60 * 1000; // 10 -> 5 min (2026-10-11)
+const MAX_ATTACKS_PER_DAY = 40; // 20 -> 40 (2026-10-11)
+const REWARDED_WINS_PER_DAY = 10;
+const FATIGUE = 0.85;          // attacker power x0.85 for each defender already fought this attack
+const VARIANCE = 0.15;         // +-15% roll
+const WIN_TICKETS_MIN = 8;
+const WIN_TICKETS_MAX = 15;
+const WIN_MATERIALS = 1;
+const KNOCKOUT_CONSOLATION = 5;      // Tickets to a knocked-out owner
+const KNOCKOUT_CONSOLATION_CAP = 20; // per attacker per day, per owner
+const NEW_HOLDER_SHIELD_MS = 10 * 60 * 1000;
+const CLEAR_PRIORITY_MS = 5 * 60 * 1000;
+const DUES_MAX_HOURS = 12;
+const DUES_TICKETS_PER_HOUR = 1;
+const DUES_HOURS_PER_MATERIAL = 6;
+const MAX_IDS = 30;
+
+// ---- Raids: DUPLICATE of services/worldMap.ts's Raid section. Keep identical. ------------------------
+const RAID_WINDOW_HOURS_UTC = [15, 19, 0, 2, 4, 6, 8, 10, 12, 17, 21]; // keep in sync with services/worldMap.ts
+const RAID_WINDOW_MINUTES = 90;
+// TEMP FOR LIVE TESTING (2026-09-25): raised from 0.12 to make raids land reliably during a
+// testing session. REVERT TO 0.12 BEFORE LAUNCH -- keep in sync with services/worldMap.ts's copy.
+const RAID_CHANCE = 0.18; // restored from 0.6 after live testing was confirmed working (2026-09-27)
+const RAID_SALT = 2000;
+const RAID_EVENT_WINDOWS: [number, number, number, number][] = [[2, 7, 2, 16], [4, 1, 4, 14], [6, 28, 7, 6], [9, 4, 9, 13], [10, 24, 11, 2], [11, 20, 11, 30], [12, 15, 1, 2]]; // seasonal events (UTC month/day start-end); keep in sync with SEASONAL_EVENTS in constants.tsx
+const RAID_LEGENDARY_EVENT_CHANCE = 0.35; // during an event, this share of raids roll as Tier 5 Legendary
+const RAID_TIER_WEIGHTS = [0.45, 0.75, 0.92, 1.0]; // cumulative: T1 45% / T2 30% / T3 17% / T4 8% (T5 is event-only)
+function raidEventActive(ms: number): boolean {
+  const d = new Date(ms), v = (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  return RAID_EVENT_WINDOWS.some(([sm, sd, em, ed]) => { const a = sm * 100 + sd, b = em * 100 + ed; return a <= b ? v >= a && v <= b : v >= a || v <= b; });
+}
+
+const RAID_BASE_HP = [3000, 6000, 10000, 20000, 40000];
+const RAID_BOSS_HP_MULT = [1.0, 1.6, 1.0, 0.75, 1.0, 0.85, 1.0, 1.2, 1.0, 1.3];
+const RAID_FREE_ATTEMPTS = 2;
+const RAID_EXTRA_ATTEMPT_COST = 15;
+const RAID_MAX_REWARDED_PER_DAY = 10; // raised from 3 (2026-10-10)
+// Per-tier rewards (index = tier-1): participation Tickets / Materials, plus a defeat bonus of Materials.
+const RAID_PARTICIPATION_TICKETS = [10, 15, 25, 40, 60];
+const RAID_PARTICIPATION_MATERIALS = [2, 3, 4, 6, 8];
+const RAID_DEFEAT_BONUS_MATERIALS = [4, 8, 14, 22, 30];
+// Boss survived: participation pays between 50% and 100% depending on how much of the boss's HP you personally dealt
+// (10% of max HP or more = full pay).
+const RAID_PARTIAL_FLOOR = 0.5, RAID_PARTIAL_FULL_SHARE = 0.10;
+const RAID_DAMAGE_VARIANCE = 0.2; // your hit = squad power x (0.8 to 1.2)
+// 2026-09-27 rebalance (round 3, per player feedback): a FLAT damage-per-hit cap doesn't actually
+// create tier difficulty variance for a strong squad -- since the cap is a % of maxHp, damage per
+// hit scales proportionally with tier size, so hit-count-to-clear stays roughly constant across
+// tiers for anyone whose raw power exceeds the cap threshold. Real Pokemon-GO-style variance (some
+// raids soloable, some genuinely need a group) needs the CAP ITSELF to vary by tier, not just HP.
+// Attempts restored to 10 (was lowered to 4 last round) for retention -- grinding a raid across
+// several visits is a good reason to come back, and tier's cap (not attempt count) now governs
+// solo-feasibility. Tier 1: 50% -- trivially soloable in ~2 hits, quick "easy raid" for anyone.
+// Tier 2: 20% -- soloable by a dedicated player spending several of their 10 attempts, but much
+// faster with help. Tier 3: 8% -- 10 x 8% = 80% < 100%, so NO single squad, however strong or
+// Ticket-rich, can ever fully solo it -- guarantees real cooperation on the hardest tier.
+const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches constants.tsx's copy
+const RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER = [0.5, 0.25, 0.12, 0.09, 0.05]; // by tier (1-5), matches constants.tsx's copy
+const RAID_SATURATION_POWER = [1500, 5000, 16000, 24000, 24000]; // squad power at which a hit reaches its tier cap
+const RAID_POWER_EXPONENT = 0.65; // damage share = cap x min(1, (power / saturation)^0.65): power matters, with diminishing returns
+// Per-instance "power flux" (deterministic, seeded the same as everything else in this function --
+// see the extra rand() call below) so two raids of the same tier/boss never feel identical.
+const RAID_FLUX_MIN = 0.85;
+const RAID_FLUX_RANGE = 0.45; // flux rolls in [0.85, 1.30]
+function hashDay(dayKey: string): number { let h = 0; for (let i = 0; i < dayKey.length; i++) h = (Math.imul(h, 31) + dayKey.charCodeAt(i)) | 0; return h >>> 0; }
+interface RaidSlot { slotStart: number; slotEnd: number; tier: number; bossIndex: number; maxHp: number; raidId: string }
+function raidSlotsFor(arenaId: string, now: number): RaidSlot[] {
+  const m = ARENA_ID_RE.exec(arenaId);
+  if (!m) return [];
+  const cx = parseInt(m[1], 10), cy = parseInt(m[2], 10);
+  const out: RaidSlot[] = [];
+  for (let dayOffset = -1; dayOffset <= 1; dayOffset++) {
+    const day = new Date(now); day.setUTCHours(0, 0, 0, 0); day.setUTCDate(day.getUTCDate() + dayOffset);
+    const dayKey = day.toISOString().slice(0, 10);
+    const dayStart = day.getTime();
+    for (let slot = 0; slot < RAID_WINDOW_HOURS_UTC.length; slot++) {
+      const hour = RAID_WINDOW_HOURS_UTC[slot];
+      const slotStart = dayStart + hour * 3600000;
+      const rand = rng(hash32(cx, cy, RAID_SALT + slot * 10000 + dayOffset * 100000 + hashDay(dayKey)));
+      if (rand() >= RAID_CHANCE) continue;
+      const tierRoll = rand();
+      const bossInTier = rand() < 0.5 ? 0 : 1;
+      const flux = RAID_FLUX_MIN + rand() * RAID_FLUX_RANGE;
+      const legendRoll = rand();
+      let tier = 1 + RAID_TIER_WEIGHTS.findIndex(w => tierRoll < w);
+      if (tier < 1) tier = 1;
+      if (raidEventActive(slotStart) && legendRoll < RAID_LEGENDARY_EVENT_CHANCE) tier = 5;
+      const bossIndex = (tier - 1) * 2 + bossInTier;
+      const maxHp = Math.round(RAID_BASE_HP[tier - 1] * RAID_BOSS_HP_MULT[bossIndex] * flux);
+      out.push({ slotStart, slotEnd: slotStart + RAID_WINDOW_MINUTES * 60000, tier, bossIndex, maxHp, raidId: `${arenaId}_${dayKey}_${slot}` });
+    }
+  }
+  return out;
+}
+function activeOrNextRaid(arenaId: string, now: number): RaidSlot | null {
+  const slots = raidSlotsFor(arenaId, now);
+  return slots.find(s => s.slotStart <= now && now < s.slotEnd) ?? slots.filter(s => s.slotStart > now).sort((a, b) => a.slotStart - b.slotStart)[0] ?? null;
+}
+function raidById(arenaId: string, raidId: string, now: number): RaidSlot | null {
+  return raidSlotsFor(arenaId, now).find(s => s.raidId === raidId) ?? null;
+}
+
+// ---- Shared world grid: DUPLICATE of services/worldMap.ts (Arena section). Keep identical. ---------------
+const WORLD_SEED = 20260920;
+const WORLD_CELL_DEG = 0.02;
+const ARENA_CELL_CHANCE = 0.6;
+const ARENA_SALT = 1000;
+const ARENA_NAMES = [
+  'Sunny Acres Clubhouse', 'Maple Court Rec Hall', 'Bingo Bluff Arena', 'Shady Oaks Lodge',
+  'Lakeside Legends Hall', 'Golden Years Gym', 'Cedar Springs Pavilion', 'Old Timers Coliseum',
+];
+function hash32(a: number, b: number, c: number): number {
+  let h = (WORLD_SEED ^ Math.imul(a | 0, 0x9e3779b1) ^ Math.imul(b | 0, 0x85ebca6b) ^ Math.imul(c | 0, 0xc2b2ae35)) >>> 0;
+  h ^= h >>> 16; h = Math.imul(h, 0x7feb352d);
+  h ^= h >>> 15; h = Math.imul(h, 0x846ca68b);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+function rng(seed: number): () => number {
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const ARENA_ID_RE = /^a_(-?\d{1,7})_(-?\d{1,7})$/;
+// Returns the Arena's name if this id is a real Arena on the shared grid, else null.
+function arenaName(id: string): string | null {
+  const m = ARENA_ID_RE.exec(id);
+  if (!m) return null;
+  const cx = parseInt(m[1], 10), cy = parseInt(m[2], 10);
+  const rand = rng(hash32(cx, cy, ARENA_SALT));
+  if (rand() >= ARENA_CELL_CHANCE) return null;
+  rand(); rand(); // lat, lng draws (kept so the name draw matches the client)
+  return ARENA_NAMES[Math.floor(rand() * ARENA_NAMES.length)];
+}
+
+// ---- Helpers ---------------------------------------------------------------------------------------------
+const num = (v: any, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const ms = (iso: any) => { const t = typeof iso === 'string' ? Date.parse(iso) : NaN; return Number.isFinite(t) ? t : 0; };
+const fail = (status: number, error: string, extra: Record<string, unknown> = {}) => serverJson({ error, ...extra }, status);
+const dbFail = (label: string, error: { message: string }) => {
+  console.error(`Arena ${label} failed`, error.message);
+  return serverJson({ error: 'Arenas unavailable', detail: `${label}: ${error.message}` }, 500);
+};
+const uniq = <T,>(xs: T[]) => Array.from(new Set(xs));
+
+function cleanElder(e: any): { id: string; name: string; type: string; rarity: string; level: number; evolutionStage: number } | null {
+  if (!e || typeof e !== 'object') return null;
+  const id = typeof e.id === 'string' ? e.id.slice(0, 64) : '';
+  if (!id) return null;
+  const rarity = ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common';
+  return {
+    id,
+    name: (typeof e.name === 'string' ? e.name : 'Elder').slice(0, 40),
+    type: (typeof e.type === 'string' ? e.type : 'Unknown').slice(0, 30),
+    rarity,
+    level: Math.min(100, Math.max(1, Math.floor(num(e.level, 1)))),
+    evolutionStage: Math.min(2, Math.max(0, Math.floor(num(e.evolutionStage, 0)))),
+  };
+}
+
+// Dues owed to a set of defender rows: per defender, up to DUES_MAX_HOURS since dues_from.
+function duesFor(rows: any[], now: number) {
+  let tickets = 0, materials = 0, hours = 0;
+  for (const r of rows) {
+    const h = Math.min(DUES_MAX_HOURS, Math.max(0, (now - ms(r.dues_from)) / 3600000));
+    tickets += Math.floor(h) * DUES_TICKETS_PER_HOUR;
+    materials += Math.floor(h / DUES_HOURS_PER_MATERIAL);
+    hours += h;
+  }
+  return { tickets, materials, hours: Math.round(hours * 10) / 10 };
+}
+
+async function loadMe(supabase: SupabaseClient, userId: string, now: number) {
+  let [profileRes, dailyRes, defRes] = await Promise.all([
+    supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power, arena_bonus_pct, raid_bonus_pct, max_elder_power').eq('user_id', userId).maybeSingle(),
+    supabase.from('arena_player_daily').select('attacks, wins, dues_claimed').eq('user_id', userId).eq('day', todayKey()).maybeSingle(),
+    supabase.from('arena_defenders').select('id, arena_id, elder, power, placed_at, dues_from').eq('user_id', userId),
+  ]);
+  if (profileRes.error && /arena_bonus_pct|raid_bonus_pct|max_elder_power/.test(String(profileRes.error.message))) {
+    // Migration 028 not applied yet: carry on without set bonuses instead of breaking every Arena call.
+    profileRes = await supabase.from('player_profiles').select('display_name, faction, faction_changed_at, squad_power').eq('user_id', userId).maybeSingle() as typeof profileRes;
+  }
+  if (profileRes.error) return { error: dbFail('profile read', profileRes.error) };
+  if (dailyRes.error) return { error: dbFail('daily read', dailyRes.error) };
+  if (defRes.error) return { error: dbFail('defenders read', defRes.error) };
+  const profile: any = profileRes.data;
+  const defenders: any[] = defRes.data ?? [];
+  const daily: any = dailyRes.data;
+  return {
+    profile,
+    defenders,
+    daily,
+    me: {
+      faction: FACTIONS.includes(profile?.faction) ? profile.faction : null,
+      factionChangedAt: profile?.faction_changed_at ?? null,
+      squadPower: num(profile?.squad_power, 0),
+      arenaBonusPct: Math.max(0, Math.min(14, num(profile?.arena_bonus_pct, 0))),
+      raidBonusPct: Math.max(0, Math.min(14, num(profile?.raid_bonus_pct, 0))),
+      maxElderPower: Math.max(0, num(profile?.max_elder_power, 0)),
+      attacksToday: num(daily?.attacks, 0),
+      winsToday: num(daily?.wins, 0),
+      duesClaimedToday: !!daily?.dues_claimed,
+      dues: duesFor(defenders, now),
+      defenders: defenders.map(d => ({ arenaId: d.arena_id, elderId: String(d.elder?.id ?? ''), placedAt: d.placed_at })),
+    },
+  };
+}
+
+async function upsertDaily(supabase: SupabaseClient, userId: string, patch: { attacks?: number; wins?: number; dues_claimed?: boolean }, existing: any) {
+  return supabase.from('arena_player_daily').upsert({
+    user_id: userId,
+    day: todayKey(),
+    attacks: patch.attacks ?? num(existing?.attacks, 0),
+    wins: patch.wins ?? num(existing?.wins, 0),
+    dues_claimed: patch.dues_claimed ?? !!existing?.dues_claimed,
+  }, { onConflict: 'user_id,day' });
+}
+
+// Best-effort mail (a failed notice must never fail the action that caused it).
+async function sendMail(supabase: SupabaseClient, row: {
+  recipient: string; sender: string; senderName: string; kind: 'arena_knockout' | 'arena_dues' | 'raid_result';
+  addWins?: number; tickets: number; materials: number; note: string; cap?: number; ref?: string;
+}) {
+  try {
+    const day = todayKey();
+    const ref = row.ref ?? '';
+    const now = new Date().toISOString();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data: existing, error: lookupErr } = await supabase.from('mail_inbox').select('id, attacker_wins, reward_tickets, reward_materials')
+        .eq('recipient_id', row.recipient).eq('sender_id', row.sender).eq('kind', row.kind).eq('day', day).eq('ref', ref).maybeSingle();
+      if (lookupErr) { console.error('Arena mail lookup failed', lookupErr.message); return; }
+      const cap = row.cap ?? Infinity;
+      if (existing) {
+        const { error } = await supabase.from('mail_inbox').update({
+          sender_name: row.senderName,
+          attacker_wins: existing.attacker_wins + (row.addWins ?? 0),
+          reward_tickets: Math.min(cap, existing.reward_tickets + row.tickets),
+          reward_materials: existing.reward_materials + row.materials,
+          note: row.note, updated_at: now,
+        }).eq('id', existing.id);
+        if (error) console.error('Arena mail update failed', error.message);
+        return;
+      }
+      const { error } = await supabase.from('mail_inbox').insert({
+        recipient_id: row.recipient, sender_id: row.sender, sender_name: row.senderName, kind: row.kind, day, ref,
+        attacker_wins: row.addWins ?? 0, defender_wins: 0,
+        reward_tickets: Math.min(cap, row.tickets), reward_materials: row.materials, note: row.note, updated_at: now,
+      });
+      if (!error) return;
+      if (!(String(error.message).includes('duplicate') || String(error.message).includes('unique'))) { console.error('Arena mail insert failed', error.message); return; }
+    }
+  } catch (e) { console.error('Arena mail crashed', e); }
+}
+
+// Lazily creates the arena_raids row for a slot on first contact (nobody ever queries a raid that
+// never gets a hit, so most slots that roll "true" but nobody attacks never need a row at all).
+async function getOrCreateRaidRow(supabase: SupabaseClient, arenaId: string, slot: RaidSlot) {
+  const { data: existing, error } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+  if (error) return { error: dbFail('raid read', error) };
+  if (existing) return { row: existing };
+  const fresh = {
+    raid_id: slot.raidId, arena_id: arenaId, tier: slot.tier, boss_index: slot.bossIndex,
+    starts_at: new Date(slot.slotStart).toISOString(), ends_at: new Date(slot.slotEnd).toISOString(),
+    max_hp: slot.maxHp, damage_total: 0, settled: false, defeated: null,
+  };
+  const { error: insErr } = await supabase.from('arena_raids').upsert(fresh, { onConflict: 'raid_id', ignoreDuplicates: true });
+  if (insErr) return { error: dbFail('raid create', insErr) };
+  const { data: after, error: reErr } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+  if (reErr) return { error: dbFail('raid re-read', reErr) };
+  return { row: after ?? fresh };
+}
+
+// Settles a Raid once (settled flips from false to true exactly once). Called either right after the
+// hit that pushes damage_total over max_hp (defeated), or opportunistically whenever anyone touches an
+// Arena whose most recent Raid window has closed and never got a killing blow (survived). Rewards go
+// out by Mailbox, capped at RAID_MAX_REWARDED_PER_DAY rewarded Raids per player per day (arena_player_daily.raid_rewards).
+async function settleRaid(supabase: SupabaseClient, raidRow: any, defeated: boolean): Promise<Response | null> {
+  const { error: setErr } = await supabase.from('arena_raids').update({ settled: true, defeated }).eq('raid_id', raidRow.raid_id).eq('settled', false);
+  if (setErr) return dbFail('raid settle', setErr);
+  const { data: hits, error: hitsErr } = await supabase.from('arena_raid_hits').select('user_id, damage, attempts').eq('raid_id', raidRow.raid_id).gt('attempts', 0);
+  if (hitsErr) { console.error('Raid hits read failed', hitsErr.message); return null; }
+  const boss = RAID_BOSS_NAMES[raidRow.boss_index] ?? 'the Raid boss';
+  for (const h of hits ?? []) {
+    const day = todayKey();
+    const { data: daily, error: dErr } = await supabase.from('arena_player_daily').select('raid_rewards').eq('user_id', h.user_id).eq('day', day).maybeSingle();
+    if (dErr) { console.error('Raid daily read failed', dErr.message); continue; }
+    const already = num(daily?.raid_rewards, 0);
+    if (already >= RAID_MAX_REWARDED_PER_DAY) continue;
+    const { error: upErr } = await supabase.from('arena_player_daily').upsert({ user_id: h.user_id, day, raid_rewards: already + 1 }, { onConflict: 'user_id,day' });
+    if (upErr) { console.error('Raid daily write failed', upErr.message); continue; }
+    const ti = Math.max(0, Math.min(4, num(raidRow.tier, 1) - 1));
+    const share = defeated ? 1 : RAID_PARTIAL_FLOOR + (1 - RAID_PARTIAL_FLOOR) * Math.min(1, (num(h.damage, 0) / Math.max(1, num(raidRow.max_hp, 1))) / RAID_PARTIAL_FULL_SHARE);
+    const tickets = Math.max(1, Math.round(RAID_PARTICIPATION_TICKETS[ti] * share));
+    const materials = Math.max(1, Math.round(RAID_PARTICIPATION_MATERIALS[ti] * share)) + (defeated ? RAID_DEFEAT_BONUS_MATERIALS[ti] : 0);
+    await sendMail(supabase, {
+      recipient: h.user_id, sender: h.user_id, senderName: boss, kind: 'raid_result', ref: raidRow.raid_id,
+      tickets, materials,
+      note: defeated
+        ? `${boss} was defeated! Everyone who joined in gets a bonus.`
+        : `The window closed and ${boss} is still standing — here's something for pitching in.`,
+    });
+  }
+  return null;
+}
+const RAID_BOSS_NAMES = ['The HOA President', 'The DMV Clerk', 'The Golf-Cart Marshal', 'The Early-Bird Buffet Line', 'Charley Horse', 'The Prune Juice Reckoning', 'The Property Tax Assessor', 'The Thermostat Wars', 'The Casino Bus Tour', 'Father Time Himself'];
+
+async function settleIfDue(supabase: SupabaseClient, arenaId: string, now: number): Promise<Response | null> {
+  const slots = raidSlotsFor(arenaId, now).filter(s => s.slotEnd <= now);
+  if (slots.length === 0) return null;
+  const mostRecent = slots.sort((a, b) => b.slotEnd - a.slotEnd)[0];
+  const { data: row, error } = await supabase.from('arena_raids').select('*').eq('raid_id', mostRecent.raidId).maybeSingle();
+  if (error) { console.error('Raid due-check failed', error.message); return null; }
+  if (!row || row.settled) return null; // never hit -> nothing to settle, nothing owed
+  return settleRaid(supabase, row, row.damage_total >= row.max_hp);
+}
+
+// Builds the `raid` block returned to the client for one Arena: null if no raid is active or coming up
+// soon, otherwise countdown/boss/HP info plus this player's own damage/attempts if they've hit it.
+async function raidInfoFor(supabase: SupabaseClient, arenaId: string, userId: string, now: number) {
+  const settleErr = await settleIfDue(supabase, arenaId, now);
+  if (settleErr) return { error: settleErr };
+  const slot = activeOrNextRaid(arenaId, now);
+  if (!slot) return { raid: null };
+  const boss = RAID_BOSS_NAMES[slot.bossIndex] ?? 'the Raid boss';
+  const active = slot.slotStart <= now;
+  let damageTotal = 0, settled = false, defeated: boolean | null = null, myDamage = 0, myAttempts = 0;
+  if (active) {
+    const { data: row, error } = await supabase.from('arena_raids').select('*').eq('raid_id', slot.raidId).maybeSingle();
+    if (error) return { error: dbFail('raid read', error) };
+    if (row) { damageTotal = Math.min(num(row.damage_total, 0), slot.maxHp); settled = !!row.settled; defeated = row.defeated; }
+    const { data: hit, error: hitErr } = await supabase.from('arena_raid_hits').select('damage, attempts').eq('raid_id', slot.raidId).eq('user_id', userId).maybeSingle();
+    if (hitErr) return { error: dbFail('raid hit read', hitErr) };
+    if (hit) { myDamage = num(hit.damage, 0); myAttempts = num(hit.attempts, 0); }
+  }
+  return {
+    raid: {
+      raidId: slot.raidId, tier: slot.tier, bossIndex: slot.bossIndex, bossName: boss,
+      startsAt: new Date(slot.slotStart).toISOString(), endsAt: new Date(slot.slotEnd).toISOString(),
+      active, maxHp: slot.maxHp, damageTotal, settled, defeated, myDamage, myAttempts,
+    },
+  };
+}
+
+// ---- Per-mode leaderboards: counted HERE, on the server, from results the server itself resolved. ----
+// (Duplicated inline in each route on purpose: shared files were not being included in the deployed bundle.)
+const BOARD_MAX: Record<string, number> = { arena: 400, raid: 50_000_000, friend: 250 };
+const BRACKET_MINS = [0, 300, 700, 1300, 2300, 3800, 6000, 9500, 15000, 21000]; // keep in sync with POWER_BRACKETS
+function boardWeekKey(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - y0.getTime()) / 86400000 + 1) / 7)).padStart(2, '0')}`;
+}
+async function bumpBoard(supabase: SupabaseClient, userId: string, mode: 'arena' | 'raid' | 'friend', add: number): Promise<void> {
+  try {
+    if (!(add > 0)) return;
+    const period = boardWeekKey();
+    const { data: prof } = await supabase.from('player_profiles').select('squad_power, display_name').eq('user_id', userId).maybeSingle();
+    let bracket = 1; const sp = Number((prof as any)?.squad_power) || 0; BRACKET_MINS.forEach((m, i) => { if (sp >= m) bracket = i + 1; });
+    const name = String((prof as any)?.display_name ?? '').replace(/[^a-zA-Z0-9 _'-]/g, '').trim().slice(0, 20) || `Park Visitor ${userId.slice(0, 4)}`;
+    const { data: ex } = await supabase.from('board_scores').select('score').eq('user_id', userId).eq('mode', mode).eq('period', period).maybeSingle();
+    const next = Math.min(BOARD_MAX[mode], Number((ex as any)?.score ?? 0) + Math.floor(add));
+    const { error } = await supabase.from('board_scores').upsert({ user_id: userId, mode, period, bracket, display_name: name, score: next, updated_at: new Date().toISOString() }, { onConflict: 'user_id,mode,period' });
+    if (error) console.error('board bump failed', error.message);
+  } catch (e) { console.error('board bump crashed', e); } // never let a leaderboard problem break a battle
+}
+
+export default async function handler(req: Request): Promise<Response> {
+  try {
+    const context = await requireAccount(req);
+    if (!isAccountContext(context)) return context;
+    const { supabase, userId } = context;
+    const now = Date.now();
+
+    // ---------------------------------------------------------------- GET: nearby Arenas + my status
+    if (req.method === 'GET') {
+      const raw = new URL(req.url).searchParams.get('ids') || '';
+      const ids = uniq(raw.split(',').map(s => s.trim()).filter(id => arenaName(id) !== null)).slice(0, MAX_IDS);
+      const mine = await loadMe(supabase, userId, now);
+      if ('error' in mine) return mine.error as Response;
+
+      const arenas: Record<string, any> = {};
+      if (ids.length > 0) {
+        const [stateRes, defRes] = await Promise.all([
+          supabase.from('arena_state').select('arena_id, faction, claimed_at, priority_faction, priority_until, shield_until').in('arena_id', ids),
+          supabase.from('arena_defenders').select('id, arena_id, user_id, faction, elder, power, placed_at').in('arena_id', ids).order('placed_at', { ascending: true }),
+        ]);
+        if (stateRes.error) return dbFail('state read', stateRes.error);
+        if (defRes.error) return dbFail('defender read', defRes.error);
+        const owners = uniq((defRes.data ?? []).map((d: any) => d.user_id as string));
+        const names: Record<string, string> = {};
+        if (owners.length > 0) {
+          const { data: profs, error: profErr } = await supabase.from('player_profiles').select('user_id, display_name').in('user_id', owners);
+          if (profErr) return dbFail('owner names', profErr);
+          for (const p of profs ?? []) names[(p as any).user_id] = (p as any).display_name || 'Park Visitor';
+        }
+        for (const id of ids) {
+          const st: any = (stateRes.data ?? []).find((s: any) => s.arena_id === id);
+          const defenders = (defRes.data ?? []).filter((d: any) => d.arena_id === id).map((d: any) => ({
+            id: d.id, mine: d.user_id === userId, owner: names[d.user_id] || 'Park Visitor',
+            elder: d.elder, power: d.power, placedAt: d.placed_at,
+          }));
+          const raidResult = await raidInfoFor(supabase, id, userId, now);
+          if ('error' in raidResult) return raidResult.error as Response;
+          arenas[id] = {
+            name: arenaName(id),
+            faction: defenders.length > 0 ? (st?.faction ?? null) : null,
+            priorityFaction: st?.priority_until && ms(st.priority_until) > now ? st.priority_faction : null,
+            priorityUntil: st?.priority_until && ms(st.priority_until) > now ? st.priority_until : null,
+            shieldUntil: st?.shield_until && ms(st.shield_until) > now ? st.shield_until : null,
+            defenders,
+            raid: raidResult.raid,
+          };
+        }
+      }
+      return serverJson({ arenas, me: mine.me, serverTime: now });
+    }
+
+    if (req.method !== 'POST') return fail(405, 'Method not allowed');
+    let body: any;
+    try { body = await req.json(); } catch { return fail(400, 'Invalid JSON'); }
+    const action = String(body?.action || '');
+
+    const mine = await loadMe(supabase, userId, now);
+    if ('error' in mine) return mine.error as Response;
+    const { profile, defenders: myDefenders, daily, me } = mine as any;
+    const myFaction: string | null = me.faction;
+    const senderName = (profile?.display_name && String(profile.display_name).slice(0, 40)) || 'Park Visitor';
+
+    // ---------------------------------------------------------------- faction
+    if (action === 'faction') {
+      const faction = String(body?.faction || '');
+      if (!FACTIONS.includes(faction)) return fail(400, 'Unknown faction');
+      if (faction === myFaction) return serverJson({ faction, me });
+      if (myFaction && now - ms(profile?.faction_changed_at) < FACTION_LOCK_MS) {
+        return fail(403, 'You can change factions once every 30 days.', { changeAvailableAt: new Date(ms(profile?.faction_changed_at) + FACTION_LOCK_MS).toISOString() });
+      }
+      if (myDefenders.length > 0) return fail(409, 'Recall your defenders from every Arena before switching factions.');
+      // Profile row is normally created by the friends/profile sync; make sure it exists without touching other columns.
+      const { data: exists, error: exErr } = await supabase.from('player_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+      if (exErr) return dbFail('profile check', exErr);
+      if (!exists) return fail(409, 'Play for a moment first so your profile can sync, then pick a faction.');
+      const { error } = await supabase.from('player_profiles').update({ faction, faction_changed_at: new Date().toISOString() }).eq('user_id', userId);
+      if (error) return dbFail('faction update', error);
+      return serverJson({ faction, me: { ...me, faction } });
+    }
+
+    // ---------------------------------------------------------------- claim_dues
+    if (action === 'claim_dues') {
+      if (me.duesClaimedToday) return fail(409, 'You already collected Arena Dues today.');
+      const dues = duesFor(myDefenders, now);
+      if (dues.tickets <= 0 && dues.materials <= 0) return fail(400, 'No Dues yet — each stationed Elder earns for up to 12 hours.');
+      const { error: dailyErr } = await upsertDaily(supabase, userId, { dues_claimed: true }, daily);
+      if (dailyErr) return dbFail('dues flag', dailyErr);
+      const { error: resetErr } = await supabase.from('arena_defenders').update({ dues_from: new Date(now).toISOString() }).eq('user_id', userId);
+      if (resetErr) return dbFail('dues reset', resetErr);
+      await sendMail(supabase, {
+        recipient: userId, sender: userId, senderName: 'Arena Committee', kind: 'arena_dues',
+        tickets: dues.tickets, materials: dues.materials,
+        note: `Your stationed Elders earned Dues over ${dues.hours} hours.`,
+      });
+      await awardPosse(supabase, userId, 'dues');
+      return serverJson({ tickets: dues.tickets, materials: dues.materials, hours: dues.hours });
+    }
+
+    // ---------------------------------------------------------------- raid_hit
+    if (action === 'raid_hit') {
+      const raidArenaId = String(body?.arenaId || '');
+      if (!arenaName(raidArenaId)) return fail(400, 'That is not an Arena.');
+      if (me.squadPower <= 0) return fail(400, 'Put an Elder on your squad and let it sync first.');
+      const settleErr = await settleIfDue(supabase, raidArenaId, now);
+      if (settleErr) return settleErr;
+      const slot = activeOrNextRaid(raidArenaId, now);
+      if (!slot || slot.slotStart > now) return fail(400, 'No Raid battle is active at this Arena right now.');
+      const rowResult = await getOrCreateRaidRow(supabase, raidArenaId, slot);
+      if ('error' in rowResult) return rowResult.error as Response;
+      let row = rowResult.row;
+      if (row.settled) return fail(409, 'This Raid has already ended.');
+      if (now >= slot.slotEnd) {
+        const err = await settleRaid(supabase, row, num(row.damage_total, 0) >= row.max_hp);
+        if (err) return err;
+        return fail(409, "This Raid's window just closed.");
+      }
+      const { data: hitRow, error: hitReadErr } = await supabase.from('arena_raid_hits')
+        .select('damage, attempts').eq('raid_id', slot.raidId).eq('user_id', userId).maybeSingle();
+      if (hitReadErr) return dbFail('raid hit read', hitReadErr);
+      const attemptsSoFar = num(hitRow?.attempts, 0);
+      if (attemptsSoFar >= RAID_MAX_ATTEMPTS_PER_PLAYER) return fail(429, `You've hit ${RAID_BOSS_NAMES[slot.bossIndex]} enough times for this Raid — let others take a swing.`);
+      // Tickets for extra attempts are charged client-side (same pattern as the Arena attack fee) --
+      // the server only enforces the attempt count, never touches the Tickets balance itself.
+      const rawDamage = Math.round(me.squadPower * (1 + me.raidBonusPct / 100) * (1 - RAID_DAMAGE_VARIANCE + Math.random() * RAID_DAMAGE_VARIANCE * 2));
+      const capPct = RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[slot.tier - 1] ?? RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER[RAID_MAX_DAMAGE_PCT_PER_HIT_BY_TIER.length - 1];
+      const satPower = RAID_SATURATION_POWER[slot.tier - 1] ?? RAID_SATURATION_POWER[RAID_SATURATION_POWER.length - 1];
+      const damage = Math.max(1, Math.round(slot.maxHp * capPct * Math.min(1, Math.pow(Math.max(1, rawDamage) / satPower, RAID_POWER_EXPONENT))));
+      const { error: hitUpErr } = await supabase.from('arena_raid_hits').upsert({
+        raid_id: slot.raidId, user_id: userId, power: me.squadPower,
+        damage: num(hitRow?.damage, 0) + damage, attempts: attemptsSoFar + 1,
+      }, { onConflict: 'raid_id,user_id' });
+      if (hitUpErr) return dbFail('raid hit write', hitUpErr);
+      await bumpBoard(supabase, userId, 'raid', damage);
+      const newTotal = num(row.damage_total, 0) + damage;
+      const { error: totalErr } = await supabase.from('arena_raids').update({ damage_total: newTotal }).eq('raid_id', slot.raidId);
+      if (totalErr) return dbFail('raid total write', totalErr);
+      let settled = false, defeated: boolean | null = null;
+      if (newTotal >= row.max_hp) {
+        const err = await settleRaid(supabase, { ...row, damage_total: newTotal }, true);
+        if (err) return err;
+        settled = true; defeated = true;
+      }
+      await awardPosse(supabase, userId, 'raid_hit');
+      if (defeated) await awardPosse(supabase, userId, 'boss_down');
+      return serverJson({
+        result: {
+          bossName: RAID_BOSS_NAMES[slot.bossIndex] ?? 'the Raid boss', damage, damageTotal: Math.min(newTotal, row.max_hp),
+          maxHp: row.max_hp, settled, defeated, attemptsUsed: attemptsSoFar + 1, freeAttemptsLeft: Math.max(0, RAID_FREE_ATTEMPTS - (attemptsSoFar + 1)),
+        },
+      });
+    }
+
+    // Everything below acts on one Arena.
+    const arenaId = String(body?.arenaId || '');
+    const name = arenaName(arenaId);
+    if (!name) return fail(400, 'That is not an Arena.');
+    const { data: stateRow, error: stateErr } = await supabase.from('arena_state')
+      .select('arena_id, faction, priority_faction, priority_until, shield_until').eq('arena_id', arenaId).maybeSingle();
+    if (stateErr) return dbFail('state read', stateErr);
+    const { data: arenaDefs, error: defsErr } = await supabase.from('arena_defenders')
+      .select('id, user_id, faction, elder, power, placed_at').eq('arena_id', arenaId).order('placed_at', { ascending: true });
+    if (defsErr) return dbFail('defender read', defsErr);
+    const defs: any[] = arenaDefs ?? [];
+    const holder: string | null = defs.length > 0 ? (stateRow?.faction ?? null) : null;
+
+    async function makeNeutral(priorityFaction: string | null) {
+      return supabase.from('arena_state').upsert({
+        arena_id: arenaId, faction: null, claimed_at: null,
+        priority_faction: priorityFaction, priority_until: priorityFaction ? new Date(now + CLEAR_PRIORITY_MS).toISOString() : null,
+        shield_until: null, updated_at: new Date().toISOString(),
+      }, { onConflict: 'arena_id' });
+    }
+
+    // ---------------------------------------------------------------- station
+    if (action === 'station') {
+      if (!myFaction) return fail(403, 'Pick a faction first.');
+      const elder = cleanElder(body?.elder);
+      if (!elder) return fail(400, 'Invalid Elder');
+      const power = Math.floor(num(body?.power, -1));
+      // Same trust level as Friend Battle: power comes from the client, but it can't exceed what the player's
+      // synced squad could plausibly field (floor of 100 so brand-new players aren't blocked).
+      // (A benched Elder can be stronger than the whole squad's total, so the limit is the strongest Elder OR the squad.)
+      if (power < 0 || power > Math.max(me.squadPower, me.maxElderPower, 100)) return fail(400, 'Elder power out of range — let your squad sync, then try again.');
+      if (holder && holder !== myFaction) return fail(403, 'An opposing faction holds this Arena. Defeat its defenders first.');
+      if (!holder && stateRow?.priority_until && ms(stateRow.priority_until) > now && stateRow.priority_faction && stateRow.priority_faction !== myFaction) {
+        return fail(403, 'The faction that just cleared this Arena has first claim for a few minutes.', { priorityUntil: stateRow.priority_until });
+      }
+      if (defs.some(d => d.user_id === userId)) return fail(409, 'You already have a defender here.');
+      if (defs.length >= MAX_SLOTS) return fail(409, 'This Arena is full.');
+      if (myDefenders.length >= MAX_ARENAS_PER_PLAYER) return fail(409, `You can defend at most ${MAX_ARENAS_PER_PLAYER} Arenas at once.`);
+      if (myDefenders.some((d: any) => String(d.elder?.id) === elder.id)) return fail(409, 'That Elder is already stationed somewhere.');
+
+      const claiming = !holder;
+      const { error: upErr } = await supabase.from('arena_state').upsert(claiming ? {
+        arena_id: arenaId, faction: myFaction, claimed_at: new Date().toISOString(), priority_faction: null, priority_until: null,
+        shield_until: new Date(now + NEW_HOLDER_SHIELD_MS).toISOString(), updated_at: new Date().toISOString(),
+      } : { arena_id: arenaId, faction: myFaction, updated_at: new Date().toISOString() }, { onConflict: 'arena_id' });
+      if (upErr) return dbFail('state write', upErr);
+      const { error: insErr } = await supabase.from('arena_defenders').insert({ arena_id: arenaId, user_id: userId, faction: myFaction, elder, power });
+      if (insErr) {
+        if (String(insErr.message).includes('duplicate') || String(insErr.message).includes('unique')) return fail(409, 'You already have a defender here.');
+        return dbFail('station insert', insErr);
+      }
+      return serverJson({ ok: true, claimed: claiming, elderId: elder.id });
+    }
+
+    // ---------------------------------------------------------------- recall
+    if (action === 'recall') {
+      const { data: removed, error: delErr } = await supabase.from('arena_defenders').delete().eq('arena_id', arenaId).eq('user_id', userId).select('id, elder');
+      if (delErr) return dbFail('recall', delErr);
+      if (!removed || removed.length === 0) return fail(404, 'You have no defender in this Arena.');
+      if (defs.filter(d => d.user_id !== userId).length === 0) {
+        const { error } = await makeNeutral(null);
+        if (error) return dbFail('neutral write', error);
+      }
+      return serverJson({ ok: true, elderId: String((removed[0] as any).elder?.id ?? '') });
+    }
+
+    // ---------------------------------------------------------------- attack
+    if (action === 'attack') {
+      if (!myFaction) return fail(403, 'Pick a faction first.');
+      if (me.squadPower <= 0) return fail(400, 'Put an Elder on your squad and let it sync first.');
+      if (!holder) return fail(400, 'Nobody holds this Arena — station an Elder to claim it instead.');
+      if (holder === myFaction) return fail(400, 'Your own faction holds this Arena — station a defender instead.');
+      if (stateRow?.shield_until && ms(stateRow.shield_until) > now) return fail(403, 'New holders are shielded for a few minutes.', { shieldUntil: stateRow.shield_until });
+      if (me.attacksToday >= MAX_ATTACKS_PER_DAY) return fail(429, 'You are out of Arena attacks for today.');
+      const { data: cd, error: cdErr } = await supabase.from('arena_player_arena').select('last_attack_at').eq('user_id', userId).eq('arena_id', arenaId).maybeSingle();
+      if (cdErr) return dbFail('cooldown read', cdErr);
+      if (cd && now - ms(cd.last_attack_at) < ATTACK_COOLDOWN_MS) {
+        return fail(429, 'Your squad needs a breather before attacking this Arena again.', { retryAfterMs: ATTACK_COOLDOWN_MS - (now - ms(cd.last_attack_at)) });
+      }
+
+      // Fight defenders in placement order. The attacker's power is the SERVER-HELD synced squad power.
+      const log: { owner: string; elder: string; power: number; attackerPower: number; won: boolean }[] = [];
+      const beatenRows: any[] = [];
+      for (let i = 0; i < defs.length; i++) {
+        const d = defs[i];
+        const eff = me.squadPower * (1 + me.arenaBonusPct / 100) * Math.pow(FATIGUE, i) * (1 - VARIANCE + Math.random() * VARIANCE * 2);
+        const won = eff > d.power;
+        log.push({ owner: '', elder: String(d.elder?.name ?? 'Elder'), power: d.power, attackerPower: Math.round(eff), won });
+        if (!won) break;
+        beatenRows.push(d);
+      }
+
+      // Knock out beaten defenders. Only rows we actually deleted count (protects against two attackers racing).
+      let knockedOut = 0;
+      for (const d of beatenRows) {
+        const { data: gone, error } = await supabase.from('arena_defenders').delete().eq('id', d.id).select('id');
+        if (error) { console.error('Arena knockout delete failed', error.message); continue; }
+        if (!gone || gone.length === 0) continue;
+        knockedOut++;
+        await sendMail(supabase, {
+          recipient: d.user_id, sender: userId, senderName, kind: 'arena_knockout', addWins: 1,
+          tickets: KNOCKOUT_CONSOLATION, materials: 0, cap: KNOCKOUT_CONSOLATION_CAP,
+          note: `${name}: ${String(d.elder?.name ?? 'Your Elder')} was knocked out and is back home.`,
+        });
+      }
+
+      // Flip the Arena if nobody is left.
+      let flipped = false;
+      const { count: remaining, error: remErr } = await supabase.from('arena_defenders').select('id', { count: 'exact', head: true }).eq('arena_id', arenaId);
+      if (remErr) console.error('Arena remaining count failed', remErr.message);
+      else if ((remaining ?? 0) === 0) {
+        const { error } = await makeNeutral(myFaction);
+        if (error) console.error('Arena flip failed', error.message); else flipped = true;
+      }
+
+      // Rewards: first REWARDED_WINS_PER_DAY beaten defenders each day pay Tickets + Materials. Never PP.
+      const rewardedWins = Math.min(knockedOut, Math.max(0, REWARDED_WINS_PER_DAY - me.winsToday));
+      let tickets = 0;
+      for (let i = 0; i < rewardedWins; i++) tickets += WIN_TICKETS_MIN + Math.floor(Math.random() * (WIN_TICKETS_MAX - WIN_TICKETS_MIN + 1));
+      const materials = rewardedWins * WIN_MATERIALS;
+
+      await bumpBoard(supabase, userId, 'arena', knockedOut);
+      if (knockedOut > 0) await awardPosse(supabase, userId, 'arena_win', knockedOut);
+      const { error: dErr } = await upsertDaily(supabase, userId, { attacks: me.attacksToday + 1, wins: me.winsToday + knockedOut }, daily);
+      if (dErr) console.error('Arena daily write failed', dErr.message);
+      const { error: cErr } = await supabase.from('arena_player_arena').upsert({ user_id: userId, arena_id: arenaId, last_attack_at: new Date().toISOString() }, { onConflict: 'user_id,arena_id' });
+      if (cErr) console.error('Arena cooldown write failed', cErr.message);
+
+      return serverJson({
+        result: { arenaName: name, fought: log.length, beaten: knockedOut, total: defs.length, flipped, rewardedWins, tickets, materials, log, attackNumber: me.attacksToday + 1 },
+      });
+    }
+
+    return fail(400, 'Unknown action');
+  } catch (e) {
+    console.error('Arena handler crashed', e);
+    return serverJson({ error: 'Arenas unavailable', detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
+}

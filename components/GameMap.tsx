@@ -1,9 +1,12 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
+import arenaImg from '../game-assets/map/arena.webp';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Rectangle, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Elder, MapItem, Friend, Parcel, Structure } from '../types';
-import { ELDER_AVATARS, WORLD_PATHS } from '../constants';
+import { ELDER_AVATARS, ITEM_ICON_ASSETS, STRUCTURE_ICON_ASSETS, PLAYER_MARKER_IMG, WORLD_PATHS, factionById } from '../constants';
+import type { ArenaSite } from '../services/worldMap';
+import type { ArenaRaidInfo } from '../services/arenaService';
 import { 
   PlusCircleIcon, 
   MinusCircleIcon, 
@@ -25,6 +28,10 @@ interface GameMapProps {
   nearbyStructures: Structure[];
   heldStructureIds: string[];
   ownedParcels: Parcel[];
+  arenas?: ArenaSite[];
+  arenaFactions?: Record<string, string | null>;
+  arenaRaids?: Record<string, ArenaRaidInfo | null>;
+  onArenaClick?: (id: string) => void;
   roamingElders?: Elder[];
   unreadMailCount?: number;
   onElderClick: (elder: Elder) => void;
@@ -34,6 +41,10 @@ interface GameMapProps {
   onMailClick?: () => void;
   onBuyParcel: () => void;
 }
+
+// Half-width of the pannable window in degrees (0.07 deg is about 7.8 km north-south). Zoom-out is limited to MAP_MIN_ZOOM.
+const MAP_LIMIT_DEG = 0.07;
+const MAP_MIN_ZOOM = 13;
 
 const RecenterButton: React.FC<{ 
   center: [number, number], 
@@ -52,6 +63,14 @@ const RecenterButton: React.FC<{
   useEffect(() => {
     map.invalidateSize();
   }, [map]);
+
+  // Keep the map near the player: panning is limited to a window of about +/-8 km around the current location (the game world
+  // only exists around you), so you can no longer scroll off to empty parts of the planet. Re-applied whenever you move.
+  useEffect(() => {
+    const d = MAP_LIMIT_DEG;
+    map.setMaxBounds(L.latLngBounds([center[0] - d, center[1] - d], [center[0] + d, center[1] + d]));
+    map.options.maxBoundsViscosity = 1;
+  }, [map, center[0], center[1]]);
 
   useEffect(() => {
     if (isFollowing) {
@@ -73,6 +92,10 @@ const GameMap: React.FC<GameMapProps> = ({
   nearbyStructures,
   heldStructureIds,
   ownedParcels,
+  arenas = [],
+  arenaFactions = {},
+  arenaRaids = {},
+  onArenaClick,
   roamingElders = [],
   unreadMailCount = 0,
   onElderClick,
@@ -85,17 +108,49 @@ const GameMap: React.FC<GameMapProps> = ({
   const [zoom, setZoom] = useState(18);
   const [isFollowing, setIsFollowing] = useState(true);
 
-  const createCustomIcon = (emoji: string, size: number = 40, color: string = 'white', isRoaming: boolean = false) => {
+  const createCustomIcon = (emojiOrSrc: string, size: number = 40, color: string = 'white', isRoaming: boolean = false, shape: 'circle' | 'square' = 'circle', badge?: { text: string; color: string; pulse?: boolean }) => {
     const glow = isRoaming ? 'box-shadow: 0 0 15px #4f46e5, 0 0 5px #4f46e5;' : 'box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
+    const isImage = /^(\/|https?:|data:)/.test(emojiOrSrc);
+    const outerRadius = shape === 'circle' ? '50%' : '18px';
+    const innerRadius = shape === 'circle' ? '50%' : '12px';
+    // Circle badges (elders/player) use cover -- portraits are centered and cropping the
+    // edges is fine. Square badges (items/structures) use contain so nothing is ever
+    // clipped -- important for irregular shapes (a shoe, a hearing aid) and for
+    // buildings, where cropping corners off a rectangular structure makes it unrecognizable.
+    const fit = shape === 'circle' ? 'cover' : 'contain';
+    const content = isImage
+      ? `<img src="${emojiOrSrc}" style="width: 100%; height: 100%; object-fit: ${fit}; border-radius: ${innerRadius};" draggable="false" />`
+      : emojiOrSrc;
+    const innerStyle = isImage ? '' : `font-size: ${size}px;`;
+    const wrapSize = size + 12;
+    // A raid badge (or any future corner badge) needs to poke outside the main
+    // circle/square, so it lives in an outer position:relative wrapper rather than
+    // inside the inner element, which clips its own content with overflow:hidden.
+    const badgeHtml = badge
+      ? `<div style="position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; padding:0 4px; background:${badge.color}; color:#fff; border-radius:10px; border:2px solid white; font-size:10px; font-weight:900; line-height:16px; text-align:center; white-space:nowrap; ${badge.pulse ? 'animation: raid-badge-pulse 1.4s ease-in-out infinite;' : ''}">${badge.text}</div>`
+      : '';
     return L.divIcon({
-      html: `<div style="font-size: ${size}px; background: ${color}; border-radius: 50%; width: ${size + 12}px; height: ${size + 12}px; display: flex; align-items: center; justify-content: center; border: 3px solid white; ${glow}">${emoji}</div>`,
+      html: `<div style="position: relative; width: ${wrapSize}px; height: ${wrapSize}px;"><div style="${innerStyle} background: ${color}; border-radius: ${outerRadius}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border: 3px solid white; overflow: hidden; ${glow}">${content}</div>${badgeHtml}</div>`,
       className: 'custom-div-icon',
-      iconSize: [size + 12, size + 12],
-      iconAnchor: [(size + 12) / 2, (size + 12) / 2],
+      iconSize: [wrapSize, wrapSize],
+      iconAnchor: [wrapSize / 2, wrapSize / 2],
     });
   };
 
-  const playerIcon = createCustomIcon('🧑‍🦽', 50, '#4f46e5', true);
+  // Small corner badge for an Arena marker: a countdown to an upcoming Raid, or a
+  // live remaining-HP percentage while one is active. Null once settled/none.
+  const getRaidBadge = (raid: ArenaRaidInfo | null | undefined): { text: string; color: string; pulse?: boolean } | undefined => {
+    if (!raid || raid.settled) return undefined;
+    if (raid.active) {
+      const hpPct = raid.maxHp > 0 ? Math.max(0, Math.round((1 - raid.damageTotal / raid.maxHp) * 100)) : 0;
+      return { text: `⚔️${hpPct}%`, color: '#dc2626', pulse: true };
+    }
+    const minsToStart = Math.max(0, Math.round((new Date(raid.startsAt).getTime() - Date.now()) / 60000));
+    const text = minsToStart >= 60 ? `⏳${Math.round(minsToStart / 60)}h` : `⏳${minsToStart}m`;
+    return { text, color: '#f59e0b' };
+  };
+
+  const playerIcon = createCustomIcon(PLAYER_MARKER_IMG, 50, '#4f46e5', true);
 
   const getParcelColor = (type: string) => {
     switch (type) {
@@ -107,20 +162,22 @@ const GameMap: React.FC<GameMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden" style={{ isolation: 'isolate', zIndex: 0 }}>
       <MapContainer 
         center={[currentLocation.lat, currentLocation.lng]} 
         zoom={zoom} 
+        minZoom={MAP_MIN_ZOOM}
+        maxZoom={20}
+        worldCopyJump={false}
         zoomControl={false}
         className="w-full h-full"
         style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}
       >
         <TileLayer
-          url={isDark 
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          }
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          className={isDark ? 'map-tiles-dark' : ''}
+          noWrap
         />
         
         <RecenterButton 
@@ -156,7 +213,7 @@ const GameMap: React.FC<GameMapProps> = ({
             }}
           >
             <Popup>
-              <div className="text-xs font-bold uppercase">
+              <div className="text-sm font-bold uppercase">
                 {p.type} Parcel Owned
               </div>
             </Popup>
@@ -164,7 +221,7 @@ const GameMap: React.FC<GameMapProps> = ({
         ))}
 
         {/* Player Marker */}
-        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={playerIcon} eventHandlers={{ click: onPlayerClick }} />
+        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={playerIcon} zIndexOffset={1000} eventHandlers={{ click: onPlayerClick }} />
 
         {/* Elders */}
         {nearbyElders.map(elder => (
@@ -191,7 +248,7 @@ const GameMap: React.FC<GameMapProps> = ({
           <Marker 
             key={item.id} 
             position={[item.lat, item.lng]} 
-            icon={createCustomIcon(item.icon, 32, '#fbbf24')}
+            icon={createCustomIcon(ITEM_ICON_ASSETS[item.name] || item.icon, 32, '#fbbf24', false, 'square')}
             zIndexOffset={500}
             eventHandlers={{ click: () => onItemClick(item) }}
           />
@@ -204,16 +261,36 @@ const GameMap: React.FC<GameMapProps> = ({
             <Marker 
               key={st.id} 
               position={[st.lat, st.lng]} 
-              icon={createCustomIcon(st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'))}
+              icon={createCustomIcon(STRUCTURE_ICON_ASSETS[st.type] || st.icon, 60, isHeld ? '#4f46e5' : (isDark ? '#334155' : 'white'), false, 'square')}
               eventHandlers={{ click: () => onEventClick(st) }}
             >
+              <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">
+                {st.name}
+              </Tooltip>
               <Popup>
                 <div className="p-2 text-center">
-                  <h3 className="font-black uppercase text-sm">{st.name}</h3>
-                  {isHeld && <div className="text-[10px] font-black text-indigo-500 uppercase mb-1">✓ Held by You</div>}
-                  <p className="text-[10px] opacity-60">{st.description}</p>
+                  <h3 className="font-black uppercase text-base">{st.name}</h3>
+                  {isHeld && <div className="text-[15px] font-black text-[var(--accent-500)] uppercase mb-1">✓ Held by You</div>}
+                  <p className="text-[15px] opacity-60">{st.description}</p>
                 </div>
               </Popup>
+            </Marker>
+          );
+        })}
+        {/* Arenas (shared world gyms): ring colour = the faction that holds it */}
+        {arenas.map(a => {
+          const f = factionById(arenaFactions[a.id]);
+          const raidBadge = getRaidBadge(arenaRaids[a.id]);
+          return (
+            <Marker
+              key={a.id}
+              position={[a.lat, a.lng]}
+              icon={createCustomIcon(arenaImg, 46, f ? f.color : (isDark ? '#475569' : '#e2e8f0'), false, 'square', raidBadge)}
+              eventHandlers={{ click: () => onArenaClick && onArenaClick(a.id) }}
+            >
+              <Tooltip permanent direction="bottom" offset={[0, 8]} className="structure-label">
+                {f ? `${f.icon} ${a.name}` : a.name}{raidBadge ? (arenaRaids[a.id]?.active ? ' · Raid!' : ' · Raid soon') : ''}
+              </Tooltip>
             </Marker>
           );
         })}
@@ -221,18 +298,18 @@ const GameMap: React.FC<GameMapProps> = ({
 
       <div className="absolute top-6 left-6 flex flex-col gap-3 z-[1000]">
         <div className={`px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md flex items-center gap-2 ${isDark ? 'bg-slate-900/80 border-slate-700 text-white' : 'bg-white/90 border-slate-100 text-slate-800'}`}>
-          <MapPinIcon className="w-4 h-4 text-indigo-500" />
-          <span className="text-[10px] font-black uppercase tracking-tighter">
+          <MapPinIcon className="w-4 h-4 text-[var(--accent-500)]" />
+          <span className="text-[15px] font-black uppercase tracking-tighter">
             {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
           </span>
         </div>
         {unreadMailCount > 0 && (
           <button 
             onClick={onMailClick} 
-            className="w-16 h-16 bg-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-white relative animate-bounce border-4 border-white"
+            className="w-16 h-16 bg-[var(--accent-600)] rounded-full shadow-2xl flex items-center justify-center text-white relative animate-bounce border-4 border-white"
           >
             <EnvelopeIcon className="w-8 h-8" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black">
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[15px] font-black">
               {unreadMailCount}
             </div>
           </button>
@@ -246,16 +323,16 @@ const GameMap: React.FC<GameMapProps> = ({
           title="Buy Parcel"
         >
           <MapPinIcon className="w-6 h-6" />
-          <span className="text-[8px] font-black uppercase mt-0.5">Buy</span>
+          <span className="text-[13px] font-black uppercase mt-0.5">Buy</span>
         </button>
       </div>
 
       <div className="absolute bottom-6 right-6 flex flex-col gap-3 z-[1000]">
-        <button onClick={() => setIsFollowing(true)} className={`p-4 rounded-[1.5rem] shadow-xl border transition-all ${isFollowing ? 'bg-indigo-600 border-indigo-500 text-white' : isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}>
+        <button onClick={() => setIsFollowing(true)} className={`p-4 rounded-[1.5rem] shadow-xl border transition-all ${isFollowing ? 'bg-[var(--accent-600)] border-[var(--accent-500)] text-white' : isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}>
           <ArrowPathIcon className={`w-8 h-8 ${isFollowing ? 'animate-spin-slow' : ''}`} />
         </button>
-        <button onClick={() => setZoom(z => Math.min(z + 1, 20))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}><PlusCircleIcon className="w-8 h-8" /></button>
-        <button onClick={() => setZoom(z => Math.max(z - 1, 10))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-indigo-600'}`}><MinusCircleIcon className="w-8 h-8" /></button>
+        <button onClick={() => setZoom(z => Math.min(z + 1, 20))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><PlusCircleIcon className="w-8 h-8" /></button>
+        <button onClick={() => setZoom(z => Math.max(z - 1, MAP_MIN_ZOOM))} className={`p-4 rounded-[1.5rem] shadow-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white/95 border-slate-100 text-[var(--accent-600)]'}`}><MinusCircleIcon className="w-8 h-8" /></button>
       </div>
       <style>{`
         @keyframes spin-slow {
@@ -264,6 +341,10 @@ const GameMap: React.FC<GameMapProps> = ({
         }
         .animate-spin-slow {
           animation: spin-slow 8s linear infinite;
+        }
+        @keyframes raid-badge-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
         }
       `}</style>
     </div>

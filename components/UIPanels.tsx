@@ -1,10 +1,27 @@
+import { PASS_LANE_ART } from '../game-assets/art3';
+import { EVENT_ELDERS, EVENT_KEEPSAKES, completedEventIds } from '../constants';
+import { EVENT_ELDER_ART } from '../game-assets/eventElders';
+import { MODE_BADGE_ART } from '../game-assets/badges/badgeArt';
 import React, { useState, useEffect, useCallback } from 'react';
+import { Gfx, EmojiText, BracketCrest } from './Gfx';
+import { EquippedGearSlot, ElderEquipRow, GearActions } from './GearInspector';
 import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from '../types';
 import { 
-  ELDER_AVATARS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
-  SEASON_XP_PER_LEVEL, ELDER_TYPE_STYLING, DAILY_REWARDS, 
-  MAX_ADS_PER_HOUR, DIVIDEND_COOLDOWN, INVESTMENT_TIERS,
-  SHUFFLEBOARD_KING_BOOST
+  ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
+  SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, getBestSetBonus, GLYPH_ART, isImagePath, GEAR_SET_INFO, GEAR_SET_ORDER, getSetPieces, withSetBonus, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
+  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
+  isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
+  ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
+  ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
+  EVOLUTION_STAGE2_COST, EVOLUTION_STAGE2_STEEP_COST, ELDER_XP_FOR_LEVEL_UP,
+  GOLDEN_GAMES_LEAGUES, getElderPower, getSquadPower,
+  GOLDEN_GAMES_MAX_TIERS, autoPlayBenchmark,
+  CHALLENGE_TIERS, CHALLENGE_MAX_TIERS, CHALLENGE_DAILY_PAID_WINS, CHALLENGE_FIRST_CLEAR_MULT, CHALLENGE_VARIANCE,
+  normalizeChallengeLadder, rollChallenge, utcDayKey, ownedAssetCount,
+  GOLDEN_GAMES_DAILY_PAID_MATCHES, GOLDEN_GAMES_FIRST_CLEAR_MULT, AUTO_PLAY_DAILY_PAID, AUTO_PLAY_MIN_TICKETS, AUTO_PLAY_TICKET_SPAN,
+  TOURNAMENT_DAILY_THROWS, dailyCountToday,
+  rollFriendBattle, FRIEND_BATTLE_COOLDOWN_MS, FRIEND_BATTLE_DAILY_ATTACK_CAP,
+  POWER_BRACKETS, gearLevelScale, GEAR_RARITY_COLOR, rarityCardStyle, GEAR_RARITY_MULTIPLIER, MODE_BADGES, MODE_BADGE_TIERS, MODE_MILESTONE_REWARDS, modeCount, modeTierReached, getStatBreakdown, getGearMaxLevel, getEffectiveGearBoost, applyUpgradeDiscount, applySalvageBonus, activeSeasonalEvent, nextSeasonalEvent, eventGoalProgress, getGearUpgradeCost, getGearSellValue, gearSlotKey, GEAR_SLOT_STAT_SHORT, passLaneArtFor,
 } from '../constants';
 import { 
   HeartIcon, StarIcon, CheckCircleIcon, 
@@ -13,7 +30,7 @@ import {
   CalendarDaysIcon, GiftIcon, BellIcon, SparklesIcon,
   FireIcon, BeakerIcon, HandThumbUpIcon, VideoCameraIcon,
   BanknotesIcon, ClockIcon, ChartBarIcon, TrophyIcon,
-  ArrowPathIcon, PlayIcon, UserGroupIcon
+  ArrowPathIcon, PlayIcon, UserGroupIcon, UserPlusIcon
 } from '@heroicons/react/24/solid';
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
@@ -21,7 +38,7 @@ import {
 const ElderInsignia: React.FC<{ type: ElderType }> = ({ type }) => {
   const style = ELDER_TYPE_STYLING[type];
   return (
-    <div className={`px-2 py-0.5 rounded-md border ${style.bg} ${style.border} ${style.color} text-[8px] font-black uppercase tracking-tighter shadow-sm`}>
+    <div className={`px-2 py-0.5 rounded-md border ${style.bg} ${style.border} ${style.color} text-[13px] font-black uppercase tracking-tighter shadow-sm`}>
       {style.label}
     </div>
   );
@@ -29,13 +46,13 @@ const ElderInsignia: React.FC<{ type: ElderType }> = ({ type }) => {
 
 const RarityBadge: React.FC<{ rarity: Elder['rarity'] }> = ({ rarity }) => {
   const styles = {
-    Common: 'bg-slate-100 text-slate-500 border-slate-200',
+    Common: 'bg-slate-100 text-slate-600 border-slate-200',
     Rare: 'bg-blue-100 text-blue-600 border-blue-200',
     Epic: 'bg-purple-100 text-purple-600 border-purple-200',
     Legendary: 'bg-amber-100 text-amber-600 border-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.2)]'
   };
   return (
-    <div className={`px-2 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-widest ${styles[rarity]}`}>
+    <div className={`px-2 py-0.5 rounded-md border text-[13px] font-black uppercase tracking-widest ${styles[rarity]}`}>
       {rarity}
     </div>
   );
@@ -53,31 +70,61 @@ const HealthBar: React.FC<{ hp: number; maxHp: number; isDark: boolean }> = ({ h
   );
 };
 
-const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => (
-  <div className="grid grid-cols-2 gap-2 w-full mt-2">
-    {[
-      { label: 'Strength', val: elder.strength, color: 'text-orange-500', icon: BoltSolid },
-      { label: 'Wit', val: elder.wit, color: 'text-blue-500', icon: LightBulbIcon },
-      { label: 'Agility', val: elder.agility, color: 'text-emerald-500', icon: LifebuoyIcon },
-      { label: 'Tenacity', val: elder.tenacity, color: 'text-purple-500', icon: ShieldSolid }
-    ].map(s => (
-      <div key={s.label} className={`flex items-center gap-2 p-2 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-        <s.icon className={`w-3 h-3 ${s.color}`} />
-        <span className="text-[10px] font-black uppercase opacity-60 flex-1">{s.label}</span>
-        <span className="text-[10px] font-black">{s.val}</span>
-      </div>
+// The four gear slots of an Elder at a glance (used on the Team screen): item art, rarity border, level and the stat it adds.
+const GearRow: React.FC<{ elder: Elder, isDark: boolean, actions?: GearActions }> = ({ elder, isDark, actions }) => (
+  <div className="grid grid-cols-4 gap-2 mt-3">
+    {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => (
+      <EquippedGearSlot key={slotKey} elder={elder} slotKey={slotKey} isDark={isDark} actions={actions}
+        className={`rounded-xl p-1.5 flex flex-col items-center border-2 active:scale-95 ${isDark ? 'bg-slate-900/60' : 'bg-white'}`}>
+        {(item: any) => (
+          <div className="flex flex-col items-center w-full" style={{ borderColor: item ? GEAR_RARITY_COLOR[(item.rarity ?? 'Common') as keyof typeof GEAR_RARITY_COLOR] : undefined }}>
+            <span className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
+            {item ? <>
+              <ItemIcon name={item.name} icon={item.icon} size={34} rarity={item.rarity} />
+              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>+{Math.round(getEffectiveGearBoost(item) * gearLevelScale(elder.level))}</span>
+              <span className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Lv.{item.level ?? 1}</span>
+            </> : <span className={`text-[20px] leading-[48px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>＋</span>}
+          </div>
+        )}
+      </EquippedGearSlot>
     ))}
   </div>
 );
 
+const StatsGrid: React.FC<{ elder: Elder, isDark: boolean }> = ({ elder, isDark }) => {
+  const br = getStatBreakdown(elder);
+  return (
+  <div className="grid grid-cols-2 gap-2 w-full mt-2">
+    {[
+      { label: 'Strength', k: 'strength' as const, color: 'text-orange-500', icon: BoltSolid },
+      { label: 'Wit', k: 'wit' as const, color: 'text-blue-500', icon: LightBulbIcon },
+      { label: 'Agility', k: 'agility' as const, color: 'text-emerald-500', icon: LifebuoyIcon },
+      { label: 'Tenacity', k: 'tenacity' as const, color: 'text-purple-500', icon: ShieldSolid }
+    ].map(s => {
+      const b = br[s.k];
+      return (
+      <div key={s.label} className={`flex items-center gap-2 p-2 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`} title={`Total ${b.total}`}>
+        <s.icon className={`w-3 h-3 ${s.color}`} />
+        <span className="text-[15px] font-black uppercase opacity-60 flex-1">{s.label}</span>
+        <span className="text-[15px] font-black">{b.base}</span>
+        {(b.rarity + b.gear + b.evolution) > 0 && <span className="text-[13px] font-black text-green-500" title={`Bonus: rarity +${b.rarity}, gear +${b.gear}, evolution +${b.evolution}`}>+{b.rarity + b.gear + b.evolution}</span>}
+      </div>
+      );
+    })}
+  </div>
+  );
+};
+
 // ─── Mailbox Panel ────────────────────────────────────────────────────────────
 
-export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, isDark: boolean }> = ({ messages, onClaim, isDark }) => (
+export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: string) => void, onRespondFriendRequest?: (msgId: string, requestId: string, accept: boolean) => void, onRespondPosseInvite?: (msgId: string, inviteId: string, accept: boolean) => void, onClaimGift?: (id: string, targetId: string) => void, quests?: Quest[], workingBuildings?: { id: string, name: string }[], isDark: boolean }> = ({ messages, onClaim, onRespondFriendRequest, onRespondPosseInvite, onClaimGift, quests = [], workingBuildings = [], isDark }) => {
+  const [giftOpenId, setGiftOpenId] = React.useState<string | null>(null);
+  return (
   <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
     <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 flex justify-between items-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
       <div className="min-w-0 flex-1">
         <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>Mailbox</h2>
-        <p className="text-[10px] text-slate-400 font-bold uppercase truncate">Park Administration</p>
+        <p className="text-[15px] text-slate-300 font-bold uppercase truncate">Park Administration</p>
       </div>
       <BellIcon className={`w-10 h-10 ${isDark ? 'text-slate-700' : 'text-slate-100'}`} />
     </div>
@@ -86,23 +133,70 @@ export const MailboxPanel: React.FC<{ messages: MailMessage[], onClaim: (id: str
         <div key={msg.id} className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${msg.claimed ? 'opacity-50' : ''}`}>
           <div className="flex justify-between items-start mb-3">
             <div>
-              <span className="block text-[8px] font-black text-indigo-500 uppercase mb-1">From: {msg.sender}</span>
-              <h4 className={`font-black text-sm uppercase leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{msg.subject}</h4>
+              <span className="block text-[13px] font-black text-[var(--accent-500)] uppercase mb-1">From: {msg.sender}</span>
+              <h4 className={`font-black text-base uppercase leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{msg.subject}</h4>
             </div>
             {!msg.claimed && <div className="w-2 h-2 bg-red-500 rounded-full"></div>}
           </div>
-          <p className="text-[10px] text-slate-500 mb-6 leading-relaxed">{msg.body}</p>
-          {msg.reward && !msg.claimed && (
-            <button onClick={() => onClaim(msg.id)} className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-indigo-500/20">
-              <GiftIcon className="w-4 h-4" /> Claim {msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name}
+          <p className="text-[15px] text-slate-600 mb-6 leading-relaxed">{msg.body}</p>
+          {msg.gift && !msg.claimed && (
+            <div>
+              {msg.gift.targetId && (msg.gift.type === 'quest' ? quests.some(q => q.id === msg.gift!.targetId && !q.completed) : workingBuildings.some(b => b.id === msg.gift!.targetId)) ? (
+                <button onClick={() => onClaimGift?.(msg.id, msg.gift!.targetId!)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
+                  {msg.gift.type === 'quest' ? `Claim +${msg.gift.amount} on ${msg.gift.targetLabel || 'your quest'}` : `Claim +${msg.gift.amount}h on ${msg.gift.targetLabel || 'your building'}`}
+                </button>
+              ) : (
+              <button onClick={() => setGiftOpenId(giftOpenId === msg.id ? null : msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
+                <GiftIcon className="w-4 h-4" /> {giftOpenId === msg.id ? 'Choose a target' : (msg.gift.type === 'quest' ? `Claim +${msg.gift.amount} Quest progress` : `Claim +${msg.gift.amount}h building output`)}
+              </button>
+              )}
+              {giftOpenId === msg.id && (() => {
+                const targets = msg.gift!.type === 'quest'
+                  ? quests.filter(q => !q.completed).map(q => ({ id: q.id, label: `${q.title} (${q.progress}/${q.target})` }))
+                  : workingBuildings.map(b => ({ id: b.id, label: b.name }));
+                return (
+                  <div className="mt-3 space-y-2">
+                    {targets.length === 0 && <p className="text-[14px] text-slate-500 italic">{msg.gift!.type === 'quest' ? 'No active Quests right now — check back after they refresh.' : 'Build a working building (Nature Trail, Grocery Store…) first.'}</p>}
+                    {targets.map(t => (
+                      <button key={t.id} onClick={() => { onClaimGift?.(msg.id, t.id); setGiftOpenId(null); }} className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-black ${isDark ? 'bg-slate-700 text-slate-100' : 'bg-slate-100 text-slate-700'}`}>{t.label}</button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          {(msg.reward || msg.materials) && !msg.claimed && (
+            <button onClick={() => onClaim(msg.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
+              <GiftIcon className="w-4 h-4" /> Claim {<EmojiText text={[
+                msg.reward ? (msg.reward.type === 'Tokens' ? `${msg.reward.value} 🎟️` : (msg.reward.value as Gear).name) : null,
+                msg.materials ? `${msg.materials} 🧱` : null,
+              ].filter(Boolean).join(' + ')} />}
             </button>
           )}
-          {msg.claimed && <div className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">Reward Claimed</div>}
+          {msg.posseInvite && !msg.claimed && onRespondPosseInvite && (
+            <div className="flex gap-2">
+              <button onClick={() => onRespondPosseInvite(msg.id, msg.posseInvite!.inviteId, true)} className="flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 bg-emerald-600 text-white">Accept</button>
+              <button onClick={() => onRespondPosseInvite(msg.id, msg.posseInvite!.inviteId, false)} className={`flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>Decline</button>
+            </div>
+          )}
+          {msg.friendRequest && !msg.claimed && onRespondFriendRequest && (
+            <div className="flex gap-2">
+              <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, true)} className="flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 bg-emerald-600 text-white">Accept</button>
+              <button onClick={() => onRespondFriendRequest(msg.id, msg.friendRequest!.requestId, false)} className={`flex-1 font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>Decline</button>
+            </div>
+          )}
+          {!msg.reward && !msg.materials && !msg.gift && !msg.claimed && !msg.friendRequest && !msg.posseInvite && (
+            <button onClick={() => onClaim(msg.id)} className={`w-full font-black py-4 rounded-2xl text-[15px] uppercase tracking-widest active:scale-95 transition-transform ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
+              Mark as Read
+            </button>
+          )}
+          {msg.claimed && <div className="text-center text-[15px] font-black text-slate-300 uppercase tracking-widest border-t border-dashed border-slate-200 pt-4">{(msg.friendRequest || msg.posseInvite) ? 'Answered' : (msg.reward || msg.materials || msg.gift) ? 'Reward Claimed' : 'Read'}</div>}
         </div>
-      )) : <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black tracking-widest">Inbox is empty</div>}
+      )) : <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black tracking-widest">Inbox is empty</div>}
     </div>
   </div>
-);
+  );
+};
 
 // ─── Bank Panel ───────────────────────────────────────────────────────────────
 
@@ -110,10 +204,15 @@ export const BankPanel: React.FC<{
   balance: number, reserve: number, breakdown: any, rate: number, 
   onWithdraw: () => void, adCount: number, onWatchAdTrigger: () => void, 
   onInvest: (item: any) => void, isDark: boolean, boostUntil?: number,
-  onWatchAd?: (playerShare: number, communityShare: number) => void
-}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil }) => {
-  const adsLeft = MAX_ADS_PER_HOUR - adCount;
+  onWatchAd?: (playerShare: number, communityShare: number) => void,
+  pendingYield?: number, onCashOutYield?: () => void,
+  parkAssets?: Record<string, number>, assetRatePerTick?: number
+}> = ({ balance, reserve, breakdown, rate, onWithdraw, adCount, onWatchAdTrigger, onInvest, isDark, boostUntil, pendingYield = 0, onCashOutYield, parkAssets, assetRatePerTick = 0 }) => {
+  const adsLeft = MAX_ADS_PER_DAY - adCount;
   const [boostRemaining, setBoostRemaining] = useState<number>(0);
+  const exchangeRate = getYieldExchangeRate(reserve);
+  const reserveHealthLabel = reserve >= RESERVE_HEALTHY_THRESHOLD ? 'Healthy' : reserve > 0 ? 'Thin' : 'Empty';
+  const reserveHealthColor = reserve >= RESERVE_HEALTHY_THRESHOLD ? 'text-emerald-500' : reserve > 0 ? 'text-amber-500' : 'text-rose-500';
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -128,105 +227,199 @@ export const BankPanel: React.FC<{
 
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
-        <h2 className="text-[11px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
-        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(2)} PP</div>
-        <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[10px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
+      <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
+        <h2 className="text-[16px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
+        <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(4)} <Gfx e="💰" size={40} className="mx-1" /> PP</div>
+        <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
           <SparklesIcon className="w-4 h-4" /> Redeem Pension Points
         </button>
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Rate/hr</span>
-            <span className="text-xs font-black tabular-nums block">{(rate * 3600).toFixed(4)} PP</span>
+            <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Rate/hr</span>
+            <span className="text-sm font-black tabular-nums block">{(rate * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP</span>
           </div>
           <div>
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Passive</span>
-            <span className="text-xs font-black tabular-nums block">{breakdown.passive.toFixed(4)} PP</span>
+            <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Passive</span>
+            <span className="text-sm font-black tabular-nums block">{breakdown.passive.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
           </div>
           <div className="text-right">
-            <span className="block text-[8px] font-black opacity-40 uppercase truncate mb-1">Sponsorship</span>
-            <span className="text-xs font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} PP</span>
+            <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Sponsorship</span>
+            <span className="text-sm font-black tabular-nums block">{breakdown.sponsorship.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
           </div>
         </div>
+      </div>
+
+      {/* Pending Yield */}
+      <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="flex justify-between items-start mb-1">
+          <div>
+            <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Pending Yield</h3>
+            <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} uppercase font-bold tracking-widest mt-1`}>Always growing — convert it below</p>
+          </div>
+          <span className="text-[var(--accent-500)] font-black text-lg tabular-nums">{pendingYield.toFixed(4)}</span>
+        </div>
+        <button
+          onClick={onCashOutYield}
+          disabled={pendingYield <= 0}
+          className={`w-full mt-6 py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+        >
+          <span>Cash Out to PP</span>
+          <span className="text-[13px] opacity-90 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate · loose PP, ready to redeem</span>
+        </button>
+        <p className={`text-[13px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase text-center leading-relaxed italic mt-4`}>
+          Cash Out turns yield into PP, capped by Community Reserve health. Or leave it as is — Pending Yield keeps growing and is what you spend on Park Assets below to raise your passive rate.
+        </p>
       </div>
 
       {/* Community Reserve */}
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-2">
-          <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
-          <span className="text-emerald-500 font-black text-sm">{reserve.toFixed(3)} PP</span>
+          <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Community Reserve</h3>
+          <span className="text-emerald-500 font-black text-base">{reserve.toFixed(4)} <Gfx e="💰" size={16} /> PP</span>
         </div>
-        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">20% of all ad revenue funds the weekly prize pool</p>
+        <div className="flex justify-between items-center mb-2">
+          <span className={`text-[14px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
+          <span className={`text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
+        </div>
+        <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} uppercase font-bold tracking-widest`}>{Math.round(REVENUE_SPLIT.community * 100)}% of every ad view goes into this pool. It pays Dividends and Cash Outs for everyone.</p>
       </div>
 
       {/* Sponsorship Slots */}
       <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">70/20/10 revenue split per view</p>
+            <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Sponsorship Slots</h3>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase tracking-widest`}>Every confirmed view pays 1 Memento and keeps the park growing</p>
           </div>
-          <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-indigo-500 animate-pulse' : 'text-slate-300'}`} />
+          <VideoCameraIcon className={`w-8 h-8 ${adsLeft > 0 ? 'text-[var(--accent-500)] animate-pulse' : 'text-slate-200'}`} />
         </div>
         <div className="mb-6">
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter mb-2">
-            <span className="opacity-60">Hourly Availability</span>
-            <span className={adsLeft > 0 ? "text-indigo-500" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_HOUR} Slots</span>
+          <div className="flex justify-between text-[15px] font-black uppercase tracking-tighter mb-2">
+            <span className="opacity-60">Daily Availability</span>
+            <span className={adsLeft > 0 ? "text-[var(--accent-500)]" : "text-rose-500"}>{adsLeft} / {MAX_ADS_PER_DAY} Slots</span>
           </div>
           <div className={`w-full h-2 rounded-full overflow-hidden p-0.5 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-            <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_HOUR) * 100}%` }} />
+            <div className="h-full bg-[var(--accent-500)] rounded-full transition-all" style={{ width: `${(adsLeft / MAX_ADS_PER_DAY) * 100}%` }} />
           </div>
         </div>
         <button 
           onClick={onWatchAdTrigger} 
           disabled={adsLeft <= 0}
-          className={`w-full font-black py-4 rounded-2xl uppercase text-[10px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-indigo-600 text-white active:scale-95' : 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed'}`}
+          className={`w-full font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-xl transition-all ${adsLeft > 0 ? 'bg-[var(--accent-600)] text-white active:scale-95' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
         >
-          {adsLeft > 0 ? 'Watch Local Sponsor (+0.07 PP + 2x Passive Boost!)' : 'Slots Recharging...'}
+          <EmojiText text={adsLeft > 0 ? `Watch Local Sponsor (+1 Memento + 2x Passive Boost!)` : 'All slots used — reset at midnight'} />
         </button>
         {boostActive ? (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2">
-            <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">2x Boost Active</span>
-            <span className="text-[10px] font-black tabular-nums text-emerald-500">{String(boostMinutes).padStart(2, '0')}:{String(boostSeconds).padStart(2, '0')}</span>
+            <span className="text-[14px] font-black uppercase text-emerald-500 tracking-widest"><img src={GLYPH_ART.adBoost} alt="" className="inline-block w-4 h-4 mr-1 object-contain align-middle" />2x Boost Active</span>
+            <span className="text-[15px] font-black tabular-nums text-emerald-500">{String(boostMinutes).padStart(2, '0')}:{String(boostSeconds).padStart(2, '0')}</span>
           </div>
         ) : (
-          <p className="mt-4 text-[7px] text-slate-400 font-black uppercase text-center leading-relaxed italic">
+          <p className={`mt-4 text-[12px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-black uppercase text-center leading-relaxed italic`}>
             Watching an ad also activates 2x passive income for 1 hour! Watching again while boosted extends the timer.
           </p>
         )}
       </div>
 
+      {/* Your Park Assets: what you own and how much each adds */}
+      {(() => {
+        const owned = INVESTMENT_TIERS.flatMap(t => t.items)
+          .map(item => ({ item, count: ownedAssetCount(parkAssets, item.id) }))
+          .filter(o => o.count > 0);
+        const tracked = owned.reduce((sum, o) => sum + o.count * o.item.rateBoost, 0);
+        const earlier = Math.max(0, assetRatePerTick - tracked);
+        const hasEarlier = earlier >= 1e-8;
+        const totalCount = owned.reduce((sum, o) => sum + o.count, 0);
+        const muted = isDark ? 'text-slate-300' : 'text-slate-600';
+        return (
+          <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Your Park Assets</h3>
+              <span className={`text-[14px] font-black uppercase ${muted}`}>{totalCount} owned</span>
+            </div>
+            {owned.length === 0 && !hasEarlier ? (
+              <p className={`text-[15px] font-bold ${muted}`}>You don't own any Park Assets yet. Spend Pending Yield below to buy your first one — each raises your passive rate for good.</p>
+            ) : (
+              <div className="space-y-3">
+                {owned.map(({ item, count }) => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                      {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" /> : item.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></p>
+                    </div>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(count * item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
+                  </div>
+                ))}
+                {hasEarlier && (
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>📦</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-[15px] uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>Earlier purchases</p>
+                      <p className={`text-[13px] font-bold ${muted}`}>Bought before assets were itemised</p>
+                    </div>
+                    <span className={`font-black text-[14px] shrink-0 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(earlier * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Investment Tiers */}
       <div className="mb-10">
         <div className="flex items-center justify-between px-4 mb-6">
-          <h3 className={`text-[12px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Park Asset Portfolio</h3>
-          <div className="flex items-center gap-1.5 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-            <ChartBarIcon className="w-3 h-3 text-indigo-500" />
-            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Reinvest Earnings</span>
+          <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Asset Portfolio</h3>
+          <div className="flex items-center gap-1.5 bg-[var(--accent-500-a10)] px-3 py-1 rounded-full border border-[var(--accent-500-a20)]">
+            <ChartBarIcon className="w-3 h-3 text-[var(--accent-500)]" />
+            <span className="text-[14px] font-black text-[var(--accent-500)] uppercase tracking-tighter">Spend Pending Yield</span>
           </div>
         </div>
         <div className="space-y-10">
           {INVESTMENT_TIERS.map(tier => (
             <div key={tier.category}>
-              <h4 className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4 px-4">{tier.category}</h4>
+              <h4 className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-[0.2em] mb-4 px-4`}>{tier.category}</h4>
               <div className="grid grid-cols-1 gap-4 px-2">
-                {tier.items.map(item => (
-                  <button 
-                    key={item.id} 
+                {tier.items.map(item => {
+                  const ownedCount = ownedAssetCount(parkAssets, item.id);
+                  const maxed = ownedCount >= PARK_ASSET_MAX_OWNED;
+                  const price = parkAssetCost(item.cost, ownedCount);
+                  const canAfford = !maxed && pendingYield >= price;
+                  const progress = Math.min(100, (pendingYield / price) * 100);
+                  return (
+                  <button
+                    key={item.id}
                     onClick={() => onInvest(item)}
-                    disabled={balance < item.cost}
-                    className={`p-6 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${balance >= item.cost ? 'bg-white border-slate-100 shadow-sm hover:border-indigo-500' : 'opacity-40 grayscale bg-slate-50 border-slate-200 cursor-not-allowed'}`}
+                    disabled={!canAfford}
+                    className={`p-6 rounded-[2.5rem] border-2 flex items-center gap-6 text-left transition-all ${canAfford
+                      ? `${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'} shadow-sm hover:border-[var(--accent-500)] active:scale-95`
+                      : `${isDark ? 'bg-slate-900 border-slate-700 border-dashed' : 'bg-slate-100 border-slate-300 border-dashed'} cursor-not-allowed`}`}
                   >
-                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl">{item.icon}</div>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-slate-50'} ${canAfford ? '' : 'opacity-70'}`}>
+                      {PARCEL_ICON_ASSETS[item.id] ? (
+                        <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" />
+                      ) : item.icon}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h5 className="font-black text-sm uppercase text-slate-800 truncate">{item.name}</h5>
-                        <span className="text-indigo-600 font-black text-xs">{item.cost.toFixed(2)} PP</span>
+                      <div className="flex justify-between items-start gap-2">
+                        <h5 className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.name}{ownedCount > 0 && <span className="text-[var(--accent-500)]"> ×{ownedCount}/{PARK_ASSET_MAX_OWNED}</span>}</h5>
+                        <span className={`font-black text-sm shrink-0 ${isDark ? 'text-[var(--accent-300)]' : 'text-[var(--accent-700)]'}`}>{maxed ? 'MAX' : `${price.toFixed(2)} Yield`}</span>
                       </div>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">+{(item.rateBoost * 3600).toFixed(4)} PP/hr passive</p>
+                      <p className={`text-[15px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>+{(item.rateBoost * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr passive</p>
+                      {!canAfford && (
+                        <div className="mt-2">
+                          <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}>
+                            <div className="h-full bg-[var(--accent-500)] rounded-full" style={{ width: `${progress}%` }} />
+                          </div>
+                          <p className={`text-[13px] font-black uppercase tracking-wide mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{maxed ? 'Maximum owned' : `Need ${(price - pendingYield).toFixed(4)} more yield`}</p>
+                        </div>
+                      )}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -239,42 +432,78 @@ export const BankPanel: React.FC<{
 // ─── Shuffleboard Panel ───────────────────────────────────────────────────────
 
 interface ShuffleboardProps {
+  notify?: (text: string, tone?: 'good' | 'bad') => void;
   isDark: boolean;
   elders: Elder[];
   tokens: number;
   shuffleboardKing: any;
+  lastCourtPurseClaim?: number;
+  onClaimCourtPurse?: () => void;
   heldStructureIds: string[];
-  onPassiveResult: (won: boolean, tokensEarned: number) => void;
+  onPassiveResult: (won: boolean, tokensEarned: number) => { tickets: number; paid: boolean };
   onTournamentPlay: (score: number) => void;
-  onChallenge: (stakeTokens: number, won: boolean) => void;
+  onChallenge: (tierIndex: number, won: boolean) => { paid: boolean; tickets: number; firstClear: boolean };
+  challengeLadder?: { highestCleared: number; day: string; paidWins: number };
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number; paid?: { day: string; count: number } };
+  onGoldenGamesResult: (leagueIndex: number, won: boolean, ticketsEarned: number) => { tickets: number; materials: number; paid: boolean; firstClear: boolean };
+  tournamentThrows?: number;
+  autoPlayPaid?: { day: string; count: number };
+  onLeaderboardBracket?: (b: number) => void;
+  leaderboard: { bracket?: number; myBracket?: number; top: { display_name: string; score: number; user_id?: string }[]; mine: { display_name: string; score: number; user_id?: string } | null; day: string } | null;
+  leaderboardAvailable: boolean;
+  leaderboardError: boolean;
+  onRetryLeaderboard: () => void;
+  onAddFriendFromLeaderboard?: (userId: string) => void;
+  friends: { user_id: string; display_name: string | null; squad_power: number; arena_bonus_pct?: number }[];
+  friendBattle: { nextMatchAt: number; lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
+  onFriendBattleResult: (won: boolean, ticketsEarned: number, friendUserId: string) => { tickets: number; materials: number; rewarded: boolean };
 }
 
 export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
-  isDark, elders, tokens, shuffleboardKing, heldStructureIds,
-  onPassiveResult, onTournamentPlay, onChallenge,
-  tournamentScore, tournamentEndsAt, passiveMatchAt
+  notify, isDark, elders, tokens, shuffleboardKing, lastCourtPurseClaim = 0, onClaimCourtPurse, heldStructureIds,
+  onPassiveResult, onTournamentPlay, onChallenge, challengeLadder,
+  tournamentScore, tournamentEndsAt, passiveMatchAt, tournamentThrows = 0, autoPlayPaid,
+  goldenGames, onGoldenGamesResult,
+  friends, friendBattle, onFriendBattleResult,
+  leaderboard, leaderboardAvailable, leaderboardError, onRetryLeaderboard, onLeaderboardBracket, onAddFriendFromLeaderboard
 }) => {
-  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge'>('passive');
-  const [stakeAmount, setStakeAmount] = useState(20);
+  const [activeMode, setActiveMode] = useState<'passive' | 'tournament' | 'challenge' | 'league' | 'friendBattle'>('passive');
+  const [challengeTier, setChallengeTier] = useState(() => Math.min(CHALLENGE_MAX_TIERS - 1, normalizeChallengeLadder(challengeLadder).highestCleared + 1));
+  const [selectedLeague, setSelectedLeague] = useState(() =>
+    Math.min(Math.max(goldenGames.highestLeagueCleared + 1, 0), GOLDEN_GAMES_LEAGUES.length - 1)
+  );
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [timeToFriendBattle, setTimeToFriendBattle] = useState(0);
+  const [addedFriendIds, setAddedFriendIds] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [lastResultWon, setLastResultWon] = useState(false);
+  useEffect(() => { if (lastResult) notify?.(lastResult, lastResultWon ? 'good' : 'bad'); }, [lastResult]);
   const [timeToMatch, setTimeToMatch] = useState(0);
   const [timeToTournament, setTimeToTournament] = useState(0);
+  const [timeToLeagueMatch, setTimeToLeagueMatch] = useState(0);
 
   const team = elders.filter(e => e.status === 'Team' && e.captured);
-  const teamStrength = team.reduce((sum, e) => sum + e.strength + e.tenacity + e.wit, 0);
-  const isKing = shuffleboardKing?.id === 'player';
+  const teamStrength = getSquadPower(team); // includes any loaned Elder (fights/rolls)
+  const ownStrength = getSquadPower(team.filter(e => !e.borrowed)); // used for league unlocks so a loan can't skip tiers
+  const isKing = isCourtChampion(shuffleboardKing, Date.now());
+  const reignMsLeft = isKing ? Math.max(0, COURT_CHAMPION_DURATION_MS - (Date.now() - shuffleboardKing.heldSince)) : 0;
+  const reignHoursLeft = Math.floor(reignMsLeft / 3600000);
+  const reignMinsLeft = Math.floor((reignMsLeft % 3600000) / 60000);
+  const purseAvailable = isKing && (lastCourtPurseClaim ?? 0) < shuffleboardKing.heldSince;
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeToMatch(Math.max(0, passiveMatchAt - Date.now()));
       setTimeToTournament(Math.max(0, tournamentEndsAt - Date.now()));
+      setTimeToLeagueMatch(Math.max(0, goldenGames.nextMatchAt - Date.now()));
+      setTimeToFriendBattle(Math.max(0, (selectedFriendId ? (friendBattle.lastByFriend?.[selectedFriendId] ?? 0) + FRIEND_BATTLE_COOLDOWN_MS : 0) - Date.now()));
     }, 1000);
     return () => clearInterval(timer);
-  }, [passiveMatchAt, tournamentEndsAt]);
+  }, [passiveMatchAt, tournamentEndsAt, goldenGames.nextMatchAt, friendBattle.lastByFriend, selectedFriendId]);
 
   const formatTime = (ms: number) => {
     const m = Math.floor(ms / 60000);
@@ -286,38 +515,87 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
     if (timeToMatch > 0) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const difficulty = 40 + Math.random() * 60;
-      const won = teamStrength > difficulty;
-      const tokensEarned = won ? Math.floor(15 + Math.random() * 25) : 5;
-      onPassiveResult(won, tokensEarned);
-      setLastResult(won 
-        ? `Your Elders won the match! +${tokensEarned} 🎟️` 
-        : `Tough match — consolation prize: +${tokensEarned} 🎟️`);
+      // Auto-Play is meant to feel like steady background progress from a
+      // squad that's been training/playing on its own, not a coin-flip --
+      // outcome is driven by squad power against a fixed benchmark, with only
+      // a small +-10% wobble so repeated collections aren't identical.
+      const wobble = 0.9 + Math.random() * 0.2;
+      const progressPct = Math.min(150, (teamStrength / autoPlayBenchmark(teamStrength)) * 100 * wobble);
+      const won = progressPct >= 100;
+      const tokensEarned = Math.floor(AUTO_PLAY_MIN_TICKETS + (progressPct / 100) * AUTO_PLAY_TICKET_SPAN);
+      const res = onPassiveResult(won, tokensEarned);
+      setLastResultWon(won);
+      setLastResult((won
+        ? `Your Elders cleared the match (${Math.round(progressPct)}% squad readiness)! +${res.tickets} 🎟️`
+        : `Solid progress, not quite a win (${Math.round(progressPct)}% squad readiness) — +${res.tickets} 🎟️`) + (res.paid ? '' : ' Daily paid collections used — friendly round, reduced XP.'));
       setIsPlaying(false);
     }, 1500);
   };
 
   const handleTournamentPlay = () => {
-    if (team.length === 0) return;
+    if (team.length === 0 || tournamentThrows >= TOURNAMENT_DAILY_THROWS) return;
     setIsPlaying(true);
     setTimeout(() => {
       const score = Math.floor(teamStrength * (0.5 + Math.random()));
       onTournamentPlay(score);
-      setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? '🏆 New personal best!' : ''}`);
+      setLastResultWon(score > tournamentScore);
+      setLastResult(`Tournament throw scored ${score} pts! ${score > tournamentScore ? 'New personal best!' : ''}`);
+      setIsPlaying(false);
+    }, 1500);
+  };
+
+  const handleFriendBattle = () => {
+    const attacksToday = friendBattle.attackDay === new Date().toISOString().slice(0, 10) ? (friendBattle.attacksToday ?? 0) : 0;
+    if (team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId || attacksToday >= FRIEND_BATTLE_DAILY_ATTACK_CAP) return;
+    const friend = friends.find(f => f.user_id === selectedFriendId);
+    if (!friend) return;
+    setIsPlaying(true);
+    setTimeout(() => {
+      const { won, ticketsEarned } = rollFriendBattle(withSetBonus(getSquadPower(team.filter(e => !e.borrowed)), getBestSetBonus(team.filter(e => !e.borrowed)).pct), withSetBonus(friend.squad_power, friend.arena_bonus_pct));
+      const result = onFriendBattleResult(won, ticketsEarned, friend.user_id);
+      setLastResultWon(won);
+      setLastResult(won
+        ? (result.rewarded ? `You beat ${friend.display_name || 'Park Visitor'}'s squad! +${result.tickets} 🎟️ +${result.materials} 🧱` : `You beat ${friend.display_name || 'Park Visitor'}'s squad! Today's battle rewards are used up, so this one is for bragging rights.`)
+        : `${friend.display_name || 'Park Visitor'}'s squad held their ground — the defender's bounty goes to them this time. (+Elder XP for your squad)`);
       setIsPlaying(false);
     }, 1500);
   };
 
   const handleChallenge = () => {
-    if (tokens < stakeAmount || team.length === 0) return;
+    if (team.length === 0) return;
+    const ladder = normalizeChallengeLadder(challengeLadder);
+    const sel = Math.max(0, Math.min(challengeTier, Math.min(CHALLENGE_MAX_TIERS - 1, ladder.highestCleared + 1)));
+    const tier = CHALLENGE_TIERS[sel];
+    const paidLeft = CHALLENGE_DAILY_PAID_WINS - (ladder.day === utcDayKey() ? ladder.paidWins : 0);
+    if (paidLeft > 0 && tokens < tier.lossTickets) return;
     setIsPlaying(true);
     setTimeout(() => {
-      const difficulty = 30 + Math.random() * 70;
+      const { won, rivalPower } = rollChallenge(teamStrength, tier);
+      const res = onChallenge(tier.index, won);
+      setLastResultWon(won);
+      setLastResult(won
+        ? `Rank ${tier.rank} ${tier.name} defeated (rival power ${Math.round(rivalPower)})! ${res.firstClear ? 'First-win bonus! ' : ''}${res.tickets > 0 ? `+${res.tickets} 🎟️` : 'Friendly duel — no Tickets, reduced XP.'}`
+        : `Outmatched by ${tier.name} (rival power ${Math.round(rivalPower)})${res.tickets < 0 ? ` — ${res.tickets} 🎟️` : ''}`);
+      setIsPlaying(false);
+    }, 1500);
+  };
+
+  const handleLeagueMatch = () => {
+    if (team.length === 0 || timeToLeagueMatch > 0) return;
+    const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
+    if (ownStrength < league.minSquadPower) return;
+    setIsPlaying(true);
+    setTimeout(() => {
+      const difficulty = league.difficultyMin + Math.random() * (league.difficultyMax - league.difficultyMin);
       const won = teamStrength > difficulty;
-      onChallenge(stakeAmount, won);
-      setLastResult(won 
-        ? `Challenge won! +${stakeAmount} 🎟️ stolen!` 
-        : `Challenge lost! -${stakeAmount} 🎟️`);
+      const ticketsEarned = won
+        ? Math.floor(league.winTicketsMin + Math.random() * (league.winTicketsMax - league.winTicketsMin))
+        : league.lossTickets;
+      const res = onGoldenGamesResult(selectedLeague, won, ticketsEarned);
+      setLastResultWon(won);
+      setLastResult((res.firstClear ? 'FIRST WIN bonus x3! ' : '') + (won
+        ? `Your squad triumphed at the ${league.name}! +${res.tickets} 🎟️ +${res.materials} 🧱`
+        : `Outplayed at the ${league.name} — consolation: +${res.tickets} 🎟️ +${res.materials} 🧱`) + (res.paid || res.firstClear ? '' : ' Daily paid matches used — friendly match, reduced XP.'));
       setIsPlaying(false);
     }, 1500);
   };
@@ -325,56 +603,68 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       {/* Header */}
-      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-6 relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
+      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-6 relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-3xl font-black uppercase italic tracking-tighter">Grand Shuffle Court</h2>
-            <p className="text-[10px] opacity-60 uppercase tracking-widest mt-1">🥏 Compete · Defend · Earn</p>
+            <p className="text-[15px] opacity-60 uppercase tracking-widest mt-1 inline-flex items-center gap-2 justify-center w-full"><img src={GLYPH_ART.courtPuck} alt="" className="w-5 h-5 object-contain" />Compete · Defend · Earn</p>
           </div>
           {isKing && (
-            <div className="bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[9px] font-black uppercase animate-pulse">
-              👑 KING
+            <div className="bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[14px] font-black uppercase animate-pulse">
+              <img src={GLYPH_ART.courtChampion} alt="" className="inline-block w-5 h-5 mr-1 object-contain align-middle" />KING
             </div>
           )}
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Squad Power</span>
+            <span className="block text-[13px] opacity-60 uppercase mb-1">Squad Power</span>
             <span className="font-black text-lg">{teamStrength}</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Tournament</span>
+            <span className="block text-[13px] opacity-60 uppercase mb-1">Tournament</span>
             <span className="font-black text-lg">{tournamentScore}pts</span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
-            <span className="block text-[8px] opacity-40 uppercase mb-1">Court Boost</span>
-            <span className="font-black text-lg">{isKing ? '1.5x' : '—'}</span>
+            <span className="block text-[13px] opacity-60 uppercase mb-1">Champion</span>
+            <span className="font-black text-lg">{isKing ? `${reignHoursLeft}h ${reignMinsLeft}m` : '--'}</span>
           </div>
         </div>
         {isKing && (
-          <div className="mt-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-3 text-center">
-            <p className="text-[9px] font-black text-amber-300 uppercase tracking-widest">
-              👑 You hold the court! Passive income boosted {SHUFFLEBOARD_KING_BOOST}x
+          <div className="mt-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-3 text-center space-y-2">
+            <p className="text-[14px] font-black text-amber-300 uppercase tracking-widest">
+              You are the Court Champion for {reignHoursLeft}h {reignMinsLeft}m
             </p>
+            <button
+              onClick={onClaimCourtPurse}
+              disabled={!purseAvailable}
+              className={`w-full py-3 rounded-xl text-[14px] font-black uppercase ${purseAvailable ? 'bg-amber-400 text-amber-950 active:scale-95' : 'bg-white/10 text-white/60 cursor-not-allowed'}`}
+            >
+              {<EmojiText text={purseAvailable ? `Collect Champion's Purse (+${COURT_PURSE_TICKETS} 🎟️)` : "Purse collected — defend again after your title ends"} />}
+            </button>
           </div>
+        )}
+        {!isKing && (
+          <p className="mt-4 text-[13px] font-black uppercase tracking-widest text-center opacity-70">
+            Beat the Grand Shuffle Court on the map to become Champion for 24 hours and collect a purse.
+          </p>
         )}
       </div>
 
       {/* Mode Selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-        {(['passive', 'tournament', 'challenge'] as const).map(mode => (
+        {(['passive', 'tournament', 'challenge', 'league', 'friendBattle'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => { setActiveMode(mode); setLastResult(null); }}
-            className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}
+            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeMode === mode ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {mode === 'passive' ? '🤖 Auto' : mode === 'tournament' ? '🏆 Daily' : '⚔️ Challenge'}
+            {mode === 'passive' ? <><img src={GLYPH_ART.autoplay} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Auto</> : mode === 'tournament' ? <><img src={GLYPH_ART.tournament} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Daily</> : mode === 'challenge' ? <><img src={GLYPH_ART.challengeCanes} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Challenge</> : mode === 'league' ? <><img src={GLYPH_ART.goldenTower} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Tower</> : <><img src={GLYPH_ART.friendBattle} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />Friend</>}
           </button>
         ))}
       </div>
 
-      {lastResult && (
-        <div className={`p-4 rounded-2xl mb-4 text-center text-sm font-black border ${lastResult.includes('won') || lastResult.includes('best') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+      {lastResult && !notify && (
+        <div className={`p-4 rounded-2xl mb-4 text-center text-base font-black border ${lastResultWon ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
           {lastResult}
         </div>
       )}
@@ -383,43 +673,51 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'passive' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🤖</div>
+            <img src={GLYPH_ART.autoplay} alt="" className="w-20 h-20 mx-auto mb-3 object-contain" />
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Auto-Play Mode</h3>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">Your Elders compete automatically every 10 minutes while you roam the map</p>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Your Elders train and compete automatically in the background — stronger squads make steadier progress</p>
           </div>
           <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <div className="flex justify-between text-[10px] font-black uppercase mb-2">
+            <div className="flex justify-between text-[15px] font-black uppercase mb-2">
               <span className="opacity-60">Next Match</span>
               <span className={timeToMatch > 0 ? 'text-amber-500' : 'text-green-500'}>
                 {timeToMatch > 0 ? formatTime(timeToMatch) : 'READY!'}
               </span>
             </div>
-            <div className="flex justify-between text-[10px] font-black uppercase">
-              <span className="opacity-60">Win Reward</span>
-              <span className="text-indigo-500">15–40 🎟️</span>
+            <div className="flex justify-between text-[15px] font-black uppercase mb-2">
+              <span className="opacity-60">Squad Readiness</span>
+              <span className="text-[var(--accent-500)]">{Math.min(150, Math.round((teamStrength / autoPlayBenchmark(teamStrength)) * 100))}%</span>
+            </div>
+            <div className="flex justify-between text-[15px] font-black uppercase">
+              <span className="opacity-60">Reward Range</span>
+              <span className="text-[var(--accent-500)]">{AUTO_PLAY_MIN_TICKETS}–{Math.floor(AUTO_PLAY_MIN_TICKETS + 1.5 * AUTO_PLAY_TICKET_SPAN)} <Gfx e="🎟" /></span>
+            </div>
+            <div className="flex justify-between text-[15px] font-black uppercase mt-2">
+              <span className="opacity-60">Paid Collections Left</span>
+              <span className="text-[var(--accent-500)]">{Math.max(0, AUTO_PLAY_DAILY_PAID - dailyCountToday(autoPlayPaid))} / {AUTO_PLAY_DAILY_PAID}</span>
             </div>
           </div>
           {team.length === 0 ? (
-            <div className="text-center text-[10px] font-black text-slate-400 uppercase py-4">
+            <div className="text-center text-[15px] font-black text-slate-300 uppercase py-4">
               Assign Elders to your squad first!
             </div>
           ) : (
             <button
               onClick={handlePassiveCollect}
               disabled={timeToMatch > 0 || isPlaying}
-              className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${timeToMatch <= 0 && !isPlaying ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+              className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${timeToMatch <= 0 && !isPlaying ? 'bg-[var(--accent-600)] text-white shadow-xl shadow-[var(--accent-500-a20)]' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
             >
               {isPlaying ? 'Match in progress...' : timeToMatch > 0 ? `Next match in ${formatTime(timeToMatch)}` : 'Collect Match Results'}
             </button>
           )}
           {/* Elder lineup */}
           <div className="mt-6 space-y-2">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Active Lineup</p>
-            {team.slice(0, 3).map(e => (
+            <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest`}>Active Lineup</p>
+            {team.map(e => (
               <div key={e.id} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <span className="text-2xl">{ELDER_AVATARS[e.type][0]}</span>
-                <span className="text-[10px] font-black uppercase flex-1">{e.name}</span>
-                <span className="text-[9px] text-indigo-500 font-black">PWR {e.strength + e.tenacity}</span>
+                <ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={32} />
+                <span className="text-[15px] font-black uppercase flex-1">{e.name}</span>
+                <span className="text-[14px] text-[var(--accent-500)] font-black">PWR {getElderPower(e)}</span>
               </div>
             ))}
           </div>
@@ -430,98 +728,289 @@ export const ShuffleboardPanel: React.FC<ShuffleboardProps> = ({
       {activeMode === 'tournament' && (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏆</div>
+            <div className="mb-3"><img src={GLYPH_ART.tournament} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
             <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Tournament</h3>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">Leaderboard resets every 24hrs. Top scorer gets 1.5x passive income bonus all next day!</p>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Leaderboard resets every 24hrs. Top scorer gets 1.5x passive income bonus all next day!</p>
           </div>
           <div className={`p-4 rounded-2xl mb-6 space-y-2 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <div className="flex justify-between text-[10px] font-black uppercase">
+            <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Your Best Score</span>
-              <span className="text-indigo-500">{tournamentScore} pts</span>
+              <span className="text-[var(--accent-500)]">{tournamentScore} pts</span>
             </div>
-            <div className="flex justify-between text-[10px] font-black uppercase">
+            <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Resets In</span>
               <span className="text-amber-500">{formatTime(timeToTournament)}</span>
             </div>
-            <div className="flex justify-between text-[10px] font-black uppercase">
+            <div className="flex justify-between text-[15px] font-black uppercase">
               <span className="opacity-60">Top Prize</span>
               <span className="text-emerald-500">1.5x passive all day</span>
             </div>
           </div>
 
-          {/* Simulated leaderboard */}
+          {/* Real daily leaderboard, server-backed — grouped by player and by score */}
           <div className="mb-6 space-y-2">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Today's Leaderboard</p>
-            {[
-              { name: 'BingoQueen47', score: Math.max(tournamentScore + 150, 380) },
-              { name: 'GrumpyGus', score: Math.max(tournamentScore + 80, 310) },
-              { name: 'You', score: tournamentScore },
-              { name: 'MallWalker99', score: Math.max(tournamentScore - 30, 180) },
-            ].sort((a, b) => b.score - a.score).map((entry, i) => (
-              <div key={entry.name} className={`flex items-center gap-3 p-3 rounded-xl ${entry.name === 'You' ? 'bg-indigo-50 border border-indigo-200' : isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <span className={`text-[10px] font-black w-5 ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
-                <span className={`text-[10px] font-black flex-1 uppercase ${entry.name === 'You' ? 'text-indigo-900' : isDark ? 'text-white' : 'text-slate-800'}`}>{entry.name}</span>
-                <span className="text-[10px] font-black text-indigo-500">{entry.score} pts</span>
+            <p className={`text-[14px] font-black uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'} tracking-widest mb-3`}>Today's Leaderboard</p>
+            {leaderboardAvailable && leaderboard && onLeaderboardBracket && (
+              <div className={`flex items-center justify-between p-2 rounded-2xl mb-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                <button disabled={(leaderboard.bracket ?? 1) <= 1} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) - 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>◀</button>
+                <div className="text-center">
+                  <div className="text-[12px] font-black uppercase opacity-60">Bracket {leaderboard.bracket ?? 1}{leaderboard.myBracket === leaderboard.bracket ? ' (yours)' : ''}</div>
+                  <div className="text-[15px] font-black flex items-center justify-center gap-2"><BracketCrest n={leaderboard.bracket ?? 1} className="w-8 h-8" />{POWER_BRACKETS[(leaderboard.bracket ?? 1) - 1]?.name}</div>
+                </div>
+                <button disabled={(leaderboard.bracket ?? 1) >= 10} onClick={() => onLeaderboardBracket((leaderboard.bracket ?? 1) + 1)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-700 text-white' : 'bg-white text-slate-700'} disabled:opacity-40`}>▶</button>
               </div>
-            ))}
+            )}
+            {!leaderboardAvailable ? (
+              <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold text-center py-4`}>Sign in to see how you rank against other players.</p>
+            ) : leaderboardError ? (
+              <div className="text-center py-4">
+                <p className="text-[14px] text-rose-500 font-bold mb-2">Couldn't load the leaderboard.</p>
+                <button onClick={onRetryLeaderboard} className="text-[14px] font-black uppercase text-[var(--accent-500)] underline">Retry</button>
+              </div>
+            ) : !leaderboard ? (
+              <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold text-center py-4`}>Loading leaderboard...</p>
+            ) : (
+              <>
+                {leaderboard.top.length === 0 && (
+                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold text-center py-4`}>No scores yet today — be the first!</p>
+                )}
+                {leaderboard.top.map((entry, i) => (
+                  <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                    <span className={`text-[15px] font-black w-5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}.</span>
+                    <span className={`text-[15px] font-black flex-1 uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{entry.display_name}</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">{entry.score} pts</span>
+                    {onAddFriendFromLeaderboard && entry.user_id && addedFriendIds.indexOf(entry.user_id) === -1 && (
+                      <button
+                        onClick={() => { onAddFriendFromLeaderboard(entry.user_id!); setAddedFriendIds(prev => [...prev, entry.user_id!]); }}
+                        title="Add as friend"
+                        className="p-1.5 rounded-lg text-[var(--accent-500)] hover:bg-[var(--accent-500-a10)] flex-shrink-0"
+                      >
+                        <UserPlusIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    {entry.user_id && addedFriendIds.indexOf(entry.user_id) !== -1 && (
+                      <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    )}
+                  </div>
+                ))}
+                {leaderboard.mine && !leaderboard.top.some(e => e.display_name === leaderboard.mine!.display_name) && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--accent-50)] border border-[var(--accent-200)]">
+                    <span className="text-[15px] font-black w-5 text-[var(--accent-900)]">-</span>
+                    <span className="text-[15px] font-black flex-1 uppercase text-[var(--accent-900)]">{leaderboard.mine.display_name} (You)</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">{leaderboard.mine.score} pts</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <button
             onClick={handleTournamentPlay}
-            disabled={isPlaying || team.length === 0}
-            className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${!isPlaying && team.length > 0 ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+            disabled={isPlaying || team.length === 0 || tournamentThrows >= TOURNAMENT_DAILY_THROWS}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${!isPlaying && team.length > 0 ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
           >
-            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : '🥏 Throw for Score'}
+            {isPlaying ? 'Throwing...' : team.length === 0 ? 'Assign squad first!' : tournamentThrows >= TOURNAMENT_DAILY_THROWS ? 'No throws left — resets with the timer' : <span className="inline-flex items-center justify-center gap-2"><img src={GLYPH_ART.courtPuck} alt="" className="w-6 h-6 object-contain" />{`Throw for Score (${TOURNAMENT_DAILY_THROWS - tournamentThrows} left)`}</span>}
           </button>
         </div>
       )}
 
-      {/* Challenge Mode */}
-      {activeMode === 'challenge' && (
+      {/* Challenge Mode: the Rival Ladder */}
+      {activeMode === 'challenge' && (() => {
+        const ladder = normalizeChallengeLadder(challengeLadder);
+        const maxSelectable = Math.min(CHALLENGE_MAX_TIERS - 1, ladder.highestCleared + 1);
+        const sel = Math.max(0, Math.min(challengeTier, maxSelectable));
+        const tier = CHALLENGE_TIERS[sel];
+        const paidLeft = Math.max(0, CHALLENGE_DAILY_PAID_WINS - (ladder.day === utcDayKey() ? ladder.paidWins : 0));
+        const firstClear = tier.index > ladder.highestCleared;
+        const rivalMin = Math.round(tier.rivalPower * (1 - CHALLENGE_VARIANCE));
+        const rivalMax = Math.round(tier.rivalPower * (1 + CHALLENGE_VARIANCE));
+        const canPlay = !isPlaying && team.length > 0 && (paidLeft === 0 || tokens >= tier.lossTickets);
+        const oddsText = teamStrength > rivalMax ? 'favorable odds' : teamStrength < rivalMin ? 'risky fight' : 'close match';
+        const oddsColor = teamStrength > rivalMax ? 'text-emerald-500' : teamStrength < rivalMin ? 'text-rose-400' : 'text-amber-500';
+        const muted = isDark ? 'text-slate-300' : 'text-slate-600';
+        const navBtn = (enabled: boolean) => `flex-1 py-2 rounded-xl text-[14px] font-black uppercase transition-all ${enabled ? (isDark ? 'bg-slate-700 text-slate-100 active:scale-95' : 'bg-slate-100 text-slate-700 active:scale-95') : (isDark ? 'bg-slate-900 text-slate-600' : 'bg-slate-50 text-slate-300')} ${enabled ? '' : 'cursor-not-allowed'}`;
+        return (
         <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">⚔️</div>
-            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge</h3>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mt-2">Stake Tickets and challenge a rival Elder. Winner takes all!</p>
+            <div className="mb-3"><img src={GLYPH_ART.debateBattle} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Elder Challenge Ladder</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{CHALLENGE_MAX_TIERS} ranks of rivals. Beat a rank to unlock the next.</p>
           </div>
 
-          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Set Your Stake</p>
+          <div className={`p-4 rounded-2xl mb-4 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <p className={`text-[14px] font-black uppercase ${muted} tracking-widest mb-3 text-center`}>Choose Your Rival</p>
             <div className="flex gap-2">
-              {[10, 20, 50, 100].map(amt => (
-                <button
-                  key={amt}
-                  onClick={() => setStakeAmount(amt)}
-                  className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${stakeAmount === amt ? 'bg-indigo-600 text-white' : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}
-                >
-                  {amt}🎟️
-                </button>
-              ))}
+              <button disabled={sel <= 0} onClick={() => setChallengeTier(Math.max(0, sel - 10))} className={navBtn(sel > 0)}>−10</button>
+              <button disabled={sel <= 0} onClick={() => setChallengeTier(sel - 1)} className={navBtn(sel > 0)}>◀</button>
+              <button disabled={sel >= maxSelectable} onClick={() => setChallengeTier(sel + 1)} className={navBtn(sel < maxSelectable)}>▶</button>
+              <button disabled={sel >= maxSelectable} onClick={() => setChallengeTier(maxSelectable)} className={navBtn(sel < maxSelectable)}>Next ⏭</button>
             </div>
           </div>
 
-          {/* Rival Elder */}
-          <div className={`p-4 rounded-2xl mb-6 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Your Rival</p>
+          <div className={`p-4 rounded-2xl mb-4 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
             <div className="flex items-center gap-4">
-              <span className="text-4xl">👴</span>
-              <div>
-                <p className="font-black text-sm uppercase">Shuffleboard Steve</p>
-                <p className="text-[9px] text-slate-400">Power: {Math.floor(teamStrength * 0.8 + Math.random() * 20)}</p>
+              <img src={GLYPH_ART.mysteryRival} alt="" className="w-14 h-14 object-contain shrink-0" />
+              <div className="min-w-0">
+                <p className="font-black text-base uppercase truncate">{tier.name}</p>
+                <p className={`text-[14px] ${muted}`}>Rank {tier.rank} · Power {rivalMin}–{rivalMax}</p>
               </div>
-              <div className="ml-auto text-center">
-                <span className="block text-[8px] uppercase text-slate-400">Prize Pool</span>
-                <span className="font-black text-indigo-500">{stakeAmount * 2} 🎟️</span>
+              <div className="ml-auto text-center shrink-0">
+                <span className={`block text-[13px] uppercase ${muted}`}>{firstClear ? 'First win' : 'Win'}</span>
+                <span className="font-black text-[var(--accent-500)]">+{firstClear ? tier.winTickets * CHALLENGE_FIRST_CLEAR_MULT : tier.winTickets} <Gfx e="🎟" /></span>
               </div>
+            </div>
+            <p className={`text-[13px] font-bold mt-3 ${oddsColor}`}>Your Squad Power: {teamStrength} — {oddsText}</p>
+            <p className={`text-[13px] font-bold mt-1 ${muted}`}>
+              {<EmojiText text={paidLeft > 0 ? `Lose: −${tier.lossTickets} 🎟️` : 'Friendly duel: nothing to lose, reduced XP'} />}
+            </p>
+          </div>
+
+          <p className={`text-[14px] font-black uppercase text-center mb-4 ${paidLeft > 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {paidLeft > 0 ? `${paidLeft} of ${CHALLENGE_DAILY_PAID_WINS} paid wins left today` : 'Daily paid wins used — resets at midnight UTC'}
+          </p>
+
+          <button
+            onClick={handleChallenge}
+            disabled={!canPlay}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${canPlay ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+          >
+            {isPlaying ? 'Dueling...' : team.length === 0 ? 'Assign squad first!' : (paidLeft > 0 && tokens < tier.lossTickets) ? 'Not enough Tickets!' : `⚔️ Challenge ${tier.name}!`}
+          </button>
+        </div>
+        );
+      })()}
+
+      {/* Golden Games Mode ("The Tower") */}
+      {activeMode === 'league' && (
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="text-center mb-6">
+            <div className="mb-3"><img src={GLYPH_ART.goldenTower} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>The Golden Games Tower</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">{GOLDEN_GAMES_LEAGUES.length} tiers and climbing — there's always a next rung.</p>
+          </div>
+
+          {/* Compact scrollable tier strip -- 50 tiers is too many to show as full cards */}
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-4 -mx-2 px-2">
+            {GOLDEN_GAMES_LEAGUES.map((league, i) => {
+              const isUnlocked = ownStrength >= league.minSquadPower;
+              const isCleared = goldenGames.highestLeagueCleared >= i;
+              const isSelected = selectedLeague === i;
+              return (
+                <button
+                  key={league.id}
+                  onClick={() => isUnlocked && setSelectedLeague(i)}
+                  disabled={!isUnlocked}
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${
+                    isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                  } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}`}
+                >
+                  <span className="text-lg leading-none">{isCleared ? '✓' : (isImagePath(league.icon) ? <img src={league.icon} alt="" className="w-6 h-6 object-contain" /> : league.icon)}</span>
+                  <span className={`text-[10px] font-black mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>#{i + 1}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Detail card for the selected tier */}
+          {(() => {
+            const league = GOLDEN_GAMES_LEAGUES[selectedLeague];
+            const isUnlocked = ownStrength >= league.minSquadPower;
+            const isCleared = goldenGames.highestLeagueCleared >= selectedLeague;
+            return (
+              <div className={`p-5 rounded-2xl mb-4 border ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl">{isImagePath(league.icon) ? <img src={league.icon} alt="" className="w-12 h-12 object-contain" /> : league.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-black text-base uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      Tier {selectedLeague + 1}: {league.name} {isCleared && <span className="text-emerald-500">✓</span>}
+                    </p>
+                    <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold`}>
+                      Min Power {league.minSquadPower} · Recommended {league.difficultyMax}
+                    </p>
+                  </div>
+                </div>
+                <p className={`text-[14px] font-bold ${isUnlocked ? 'text-emerald-500' : 'text-rose-400'}`}>
+                  {<EmojiText text={isUnlocked ? `${league.winTicketsMin}–${league.winTicketsMax} 🎟️ per win` : `You have ${ownStrength} — need ${league.minSquadPower - teamStrength} more`} />}
+                </p>
+              </div>
+            );
+          })()}
+
+          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <div className="flex justify-between text-[15px] font-black uppercase">
+              <span className="opacity-60">Next Match</span>
+              <span className={timeToLeagueMatch > 0 ? 'text-amber-500' : 'text-green-500'}>
+                {timeToLeagueMatch > 0 ? formatTime(timeToLeagueMatch) : 'READY!'}
+              </span>
+            </div>
+          </div>
+
+          <p className={`text-[14px] font-black uppercase text-center mb-4 ${GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid) > 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid) > 0 ? `${GOLDEN_GAMES_DAILY_PAID_MATCHES - dailyCountToday(goldenGames.paid)} of ${GOLDEN_GAMES_DAILY_PAID_MATCHES} paid matches left today` : 'Daily paid matches used — resets at midnight UTC'} · first win in a tier pays ×{GOLDEN_GAMES_FIRST_CLEAR_MULT}
+          </p>
+
+          <button
+            onClick={handleLeagueMatch}
+            disabled={isPlaying || team.length === 0 || timeToLeagueMatch > 0 || ownStrength < GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${
+              !isPlaying && team.length > 0 && timeToLeagueMatch <= 0 && ownStrength >= GOLDEN_GAMES_LEAGUES[selectedLeague].minSquadPower
+                ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+            }`}
+          >
+            {isPlaying ? 'Competing...' : team.length === 0 ? 'Assign squad first!' : timeToLeagueMatch > 0 ? `Next match in ${formatTime(timeToLeagueMatch)}` : `Compete in ${GOLDEN_GAMES_LEAGUES[selectedLeague].name}`}
+          </button>
+        </div>
+      )}
+
+      {/* Friend Battle Mode -- async PvP against a friend's synced Squad Power */}
+      {activeMode === 'friendBattle' && (
+        <div className={`p-8 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="text-center mb-6">
+            <div className="mb-3"><img src={GLYPH_ART.friendBattle} alt="" className="w-20 h-20 mx-auto object-contain" /></div>
+            <h3 className={`font-black text-lg uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Friend Battle</h3>
+            <p className="text-[15px] text-slate-300 uppercase font-bold mt-2">Async PvP against a friend's Squad Power — no need for them to be online.</p>
+          </div>
+
+          {friends.length === 0 ? (
+            <p className={`text-[14px] italic text-center py-8 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Add some friends first to battle them here.</p>
+          ) : (
+            <div className="space-y-2 mb-6">
+              {friends.map(friend => {
+                const isSelected = selectedFriendId === friend.user_id;
+                return (
+                  <button
+                    key={friend.user_id}
+                    onClick={() => setSelectedFriendId(friend.user_id)}
+                    className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                      isSelected ? 'border-[var(--accent-500)] bg-[var(--accent-500-a10)]' : isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                    }`}
+                  >
+                    <span className="font-black text-sm uppercase truncate">{friend.display_name || 'Park Visitor'}</span>
+                    <span className="text-[14px] font-black text-[var(--accent-500)] flex-shrink-0 ml-2">PWR {friend.squad_power}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+            <div className="flex justify-between text-[15px] font-black uppercase">
+              <span className="opacity-60">Next Battle</span>
+              <span className={timeToFriendBattle > 0 ? 'text-amber-500' : 'text-green-500'}>
+                {timeToFriendBattle > 0 ? formatTime(timeToFriendBattle) : 'READY!'}
+              </span>
             </div>
           </div>
 
           <button
-            onClick={handleChallenge}
-            disabled={isPlaying || team.length === 0 || tokens < stakeAmount}
-            className={`w-full font-black py-5 rounded-2xl uppercase text-[11px] transition-all active:scale-95 ${!isPlaying && team.length > 0 && tokens >= stakeAmount ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+            onClick={handleFriendBattle}
+            disabled={isPlaying || team.length === 0 || timeToFriendBattle > 0 || !selectedFriendId}
+            className={`w-full font-black py-5 rounded-2xl uppercase text-[16px] transition-all active:scale-95 ${
+              !isPlaying && team.length > 0 && timeToFriendBattle <= 0 && selectedFriendId
+                ? 'bg-rose-600 text-white shadow-xl shadow-rose-500/20' : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+            }`}
           >
-            {isPlaying ? 'Dueling...' : tokens < stakeAmount ? 'Not enough Tickets!' : team.length === 0 ? 'Assign squad first!' : `⚔️ Challenge! (Stake ${stakeAmount} 🎟️)`}
+            {isPlaying ? 'Battling...' : team.length === 0 ? 'Assign squad first!' : !selectedFriendId ? 'Pick a friend above' : timeToFriendBattle > 0 ? `Next battle in ${formatTime(timeToFriendBattle)}` : 'Battle!'}
           </button>
         </div>
       )}
@@ -536,7 +1025,7 @@ const EXTENDED_SHOP_ITEMS = [
   { id: 's1', name: 'High-Fiber Muffin', icon: '🧁', price: 50, description: 'Instantly restores 50 HP to your lead Elder.', category: 'Consumable' },
   { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity by 6.', slot: 'Body', boost: 6, category: 'Gear' },
   { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit by 4.', slot: 'Head', boost: 4, category: 'Gear' },
-  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts competitive spirit.', slot: 'Accessory', boost: 5, category: 'Gear' },
+  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts Agility with a touch of luck.', slot: 'Charm', boost: 5, category: 'Gear' },
   // Passive boosters
   { id: 's5', name: 'Rocking Chair Upgrade', icon: '🪑', price: 500, description: 'Boosts passive income rate for 2 hours.', category: 'Booster', rateBoost: 0.00005, duration: 2 * 60 * 60 * 1000 },
   { id: 's6', name: 'Early Bird Special', icon: '🌅', price: 200, description: 'Doubles next ad reward payout.', category: 'Booster' },
@@ -547,7 +1036,7 @@ const EXTENDED_SHOP_ITEMS = [
   { id: 's10', name: 'Court Reservations', icon: '📋', price: 350, description: 'Hold the shuffleboard court for 30 mins automatically.', category: 'Shuffleboard' },
 ];
 
-export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, isDark: boolean }> = ({ tokens, onBuy, isDark }) => {
+export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, isDark: boolean, diners?: number, onOpenPvpShop?: () => void, mementos?: number, onOpenMementoShop?: () => void }> = ({ tokens, onBuy, isDark, diners = 0, onOpenPvpShop, mementos = 0, onOpenMementoShop }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Gear', 'Consumable', 'Booster', 'Shuffleboard'];
   const filtered = activeCategory === 'All' ? EXTENDED_SHOP_ITEMS : EXTENDED_SHOP_ITEMS.filter(i => i.category === activeCategory);
@@ -557,9 +1046,19 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
       <div className={`mb-6 p-6 rounded-[2.5rem] border shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className={`text-2xl font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Commissary</div>
         <div className={`p-4 rounded-2xl flex items-center justify-between mt-4 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-          <span className="text-[10px] font-black uppercase opacity-60">Balance</span>
-          <span className="text-xl font-black text-indigo-500">{tokens} 🎟️</span>
+          <span className="text-[15px] font-black uppercase opacity-60">Balance</span>
+          <span className="text-xl font-black text-[var(--accent-500)]">{tokens} <Gfx e="🎟" /></span>
         </div>
+        {onOpenPvpShop && (
+          <button onClick={onOpenPvpShop} className="w-full mt-3 py-3 rounded-2xl bg-[var(--accent-600)] text-white font-black uppercase text-[14px] active:scale-95 transition-transform">
+            <Gfx e="🍽" /> PvP Shop · {diners} TV Dinners
+          </button>
+        )}
+        {onOpenMementoShop && (
+          <button onClick={onOpenMementoShop} className={`w-full mt-2 py-3 rounded-2xl font-black uppercase text-[14px] active:scale-95 transition-transform border-2 ${isDark ? 'border-amber-500 text-amber-300' : 'border-amber-500 text-amber-700'}`}>
+            <Gfx e="💛" /> Mementos Shop · {mementos} Mementos
+          </button>
+        )}
       </div>
 
       {/* Category filter */}
@@ -568,7 +1067,7 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-full text-[9px] font-black uppercase whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-lg' : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}
+            className={`px-4 py-2 rounded-full text-[14px] font-black uppercase whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-[var(--accent-600)] text-white shadow-lg' : isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}
           >
             {cat}
           </button>
@@ -581,21 +1080,21 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
             key={item.id} 
             onClick={() => onBuy(item)} 
             disabled={tokens < item.price}
-            className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-100 hover:border-indigo-500 shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
+            className={`p-5 rounded-[2.5rem] border flex items-center gap-6 text-left transition-all active:scale-95 ${tokens >= item.price ? isDark ? 'bg-slate-800 border-slate-700 hover:border-[var(--accent-500)]' : 'bg-white border-slate-100 hover:border-[var(--accent-500)] shadow-sm' : 'opacity-40 grayscale cursor-not-allowed bg-slate-50 border-slate-200'}`}
           >
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>{item.icon}</div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl overflow-hidden p-2 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ItemIcon name={item.name} icon={item.icon} fill /></div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
-                <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name}</h4>
-                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
+                <h4 className={`font-black text-base uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name}</h4>
+                <span className={`text-[13px] font-black uppercase px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
                   item.category === 'Gear' ? 'bg-blue-100 text-blue-600' :
                   item.category === 'Booster' ? 'bg-green-100 text-green-600' :
                   item.category === 'Shuffleboard' ? 'bg-purple-100 text-purple-600' :
                   'bg-amber-100 text-amber-600'
                 }`}>{item.category}</span>
               </div>
-              <p className="text-[9px] text-slate-500 leading-tight mb-2">{item.description}</p>
-              <div className="text-indigo-500 font-black text-xs">{item.price} 🎟️</div>
+              <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} leading-tight mb-2`}>{item.description}</p>
+              <div className="text-[var(--accent-500)] font-black text-sm">{item.price} <Gfx e="🎟" /></div>
             </div>
           </button>
         ))}
@@ -606,41 +1105,67 @@ export const ShopPanel: React.FC<{ tokens: number, onBuy: (item: any) => void, i
 
 // ─── Elder Pass Panel ─────────────────────────────────────────────────────────
 
-export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim: (level: number) => void }> = ({ season, isDark, onClaim }) => {
-  const currentLevel = Math.min(Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1, SEASONAL_REWARDS.length);
-  const levelXP = season.xp % SEASON_XP_PER_LEVEL;
+export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, mementos?: number, signedIn?: boolean, onClaim: (level: number, lane?: 'free' | 'gold') => void, onBuyGold?: () => void }> = ({ season, isDark, mementos = 0, signedIn = false, onClaim, onBuyGold }) => {
+  const maxRank = SEASONAL_REWARDS.length;
+  const currentLevel = Math.min(Math.floor(season.xp / SEASON_XP_PER_LEVEL) + 1, maxRank);
+  const maxed = season.xp >= SEASON_XP_PER_LEVEL * maxRank;
+  const levelXP = maxed ? SEASON_XP_PER_LEVEL : season.xp % SEASON_XP_PER_LEVEL;
   const daysLeft = Math.max(0, Math.ceil((season.endDate - Date.now()) / (24 * 60 * 60 * 1000)));
+  const gold = !!season.isPremium;
+  const claimedGold = season.claimedGold ?? [];
+  const nextMilestone = SEASONAL_REWARDS.find(r => r.level > currentLevel && (r.freeCosmetic || r.goldCosmetic || r.level % 5 === 0));
+  const card = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
+  const lane = (done: boolean, ready: boolean, locked: boolean, text: string, onClick: () => void, goldLane: boolean) => (
+    <div className={`flex-1 min-w-0 p-3 rounded-2xl border-2 flex flex-col gap-1 ${goldLane ? (locked ? 'border-amber-500/30 opacity-70' : 'border-amber-400') : (isDark ? 'border-slate-700' : 'border-slate-200')}`}>
+      <span className={`text-[11px] font-black uppercase tracking-widest ${goldLane ? 'text-amber-500' : 'opacity-60'}`}>{goldLane ? '🌟 Gold' : 'Free'}</span>
+      <span className="text-[13px] font-black leading-tight">{text}</span>
+      <span className="mt-1 text-[12px] font-black uppercase">
+        {done ? <span className="text-emerald-500"><img src={GLYPH_ART.claimed} alt="" className="inline-block w-4 h-4 mr-1 object-contain align-middle" />Claimed</span> : locked ? <span className="opacity-60">{goldLane && !gold ? 'Gold only' : 'Locked'}</span> : ready ? <button onClick={onClick} className="px-3 py-1 rounded-lg bg-[var(--accent-600)] text-white">Claim</button> : null}
+      </span>
+    </div>
+  );
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <div className={`rounded-[40px] p-10 text-white shadow-2xl mb-8 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
-        <h2 className="text-[12px] font-black text-indigo-400 uppercase tracking-widest mb-2">PASS RANK {currentLevel}</h2>
-        <h1 className="text-5xl font-black uppercase leading-none italic tracking-tighter">Elder Pass</h1>
-        <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
+      <div className={`rounded-[40px] p-8 text-white shadow-2xl mb-6 relative overflow-hidden italic ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
+        <h2 className="text-[17px] font-black text-[var(--accent-400)] uppercase tracking-widest mb-2">PASS RANK {currentLevel} / {maxRank}{gold ? ' · 🌟 GOLD' : ''}</h2>
+        <h1 className="flex items-center gap-3 text-5xl font-black uppercase leading-none italic tracking-tighter"><img src={UI_ART.elderPass} alt="" className="w-16 h-16 object-contain not-italic" />Elder Pass</h1>
+        <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{season.name} &middot; {daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
         <div className="mt-6 w-full h-5 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
-          <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
+          <div className="h-full bg-[var(--accent-500)] rounded-full transition-all duration-1000" style={{ width: `${(levelXP / SEASON_XP_PER_LEVEL) * 100}%` }}></div>
         </div>
-        <p className="text-[9px] opacity-40 uppercase tracking-widest mt-3">{levelXP} / {SEASON_XP_PER_LEVEL} XP to next rank</p>
+        <p className="text-[14px] opacity-60 uppercase tracking-widest mt-3">{maxed ? 'Season complete: every rank reached!' : `${levelXP} / ${SEASON_XP_PER_LEVEL} XP to next rank`}</p>
       </div>
-      <div className="space-y-4">
-        {SEASONAL_REWARDS.map((reward, i) => {
-          const unlocked = reward.level <= currentLevel;
-          const claimed = season.claimedLevels.includes(reward.level);
+      <div className={`p-4 rounded-2xl border mb-6 text-[13px] font-bold ${card}`}>
+        <p className="font-black uppercase text-[13px] mb-1">How ranks work</p>
+        <p className="opacity-80">Everything you do earns Pass XP automatically: battles, Court, Friend Battles, Arenas, Raids, Bingo, Exchange visits, evolving, collecting, plus Tasks. Nothing is required, a bit of any of it keeps you moving. Up to {SEASON_ACTIVITY_DAILY_CAP} XP a day comes from play. Each rank pays Tickets (and Materials), and ranks 10, 20 and 30 unlock a season title. Rewards pay automatically. A new season starts every 30 days and ranks reset, but titles you earned are yours forever.</p>
+        {nextMilestone && !maxed && <p className="mt-2 text-[var(--accent-500)] font-black">Next milestone: rank {nextMilestone.level} ({nextMilestone.free}{nextMilestone.goldCosmetic && !gold ? `; Gold adds "${nextMilestone.goldCosmetic.label}"` : ''}).</p>}
+      </div>
+      {!gold ? (
+        <div className="p-5 rounded-[2rem] border-2 border-amber-400 mb-6 bg-gradient-to-br from-amber-500/15 to-transparent">
+          <h3 className="flex items-center gap-2 text-[18px] font-black uppercase text-amber-500"><img src={UI_ART.goldPass} alt="" className="w-10 h-10 object-contain" />Gold Pass · this season</h3>
+          <p className="text-[13px] font-bold opacity-80 mt-1">A second reward lane on every rank: extra Tickets and Materials, plus 6 exclusive Gold titles and icons (ranks 5, 10, 15, 20, 25, 30). Cosmetic and convenience only: it never adds power, passive income or PP, and the free lane stays fully playable. Buying mid-season pays out every Gold rank you have already reached.</p>
+          <button onClick={onBuyGold} disabled={!signedIn || mementos < GOLD_PASS_PRICE_MEMENTOS || !onBuyGold} className="mt-3 w-full py-3 rounded-2xl bg-amber-500 text-slate-900 font-black uppercase text-[14px] disabled:opacity-40 active:scale-95">
+            {!signedIn ? 'Sign in to buy' : mementos < GOLD_PASS_PRICE_MEMENTOS ? `Need ${GOLD_PASS_PRICE_MEMENTOS - mementos} more Mementos` : `Unlock for ${GOLD_PASS_PRICE_MEMENTOS} Mementos`}
+          </button>
+          <p className="text-[11px] opacity-60 mt-2">You have <Gfx e="💛" size={14} /> {mementos} Mementos. Get them in the Mementos Shop (about $5 for {GOLD_PASS_PRICE_MEMENTOS}) or convert PP you earned from sponsors.</p>
+        </div>
+      ) : <p className="flex items-center justify-center gap-2 text-center text-[13px] font-black uppercase text-amber-500 mb-6"><img src={UI_ART.goldPass} alt="" className="w-8 h-8 object-contain" />Gold Pass active this season</p>}
+      <div className="space-y-3">
+        {SEASONAL_REWARDS.map(reward => {
+          const reached = reward.level <= currentLevel && (reward.level === 1 || season.xp >= SEASON_XP_PER_LEVEL * (reward.level - 1));
+          const freeDone = season.claimedLevels.includes(reward.level);
+          const goldDone = claimedGold.includes(reward.level);
           return (
-            <div key={i} className={`p-6 rounded-[2.5rem] border flex items-center justify-between shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${!unlocked ? 'opacity-40 grayscale' : ''}`}>
-              <div className="flex items-center gap-5 min-w-0">
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl">{reward.icon}</div>
-                <div>
-                  <span className="block text-[8px] font-black text-slate-500 uppercase mb-1">Rank {reward.level}</span>
-                  <span className={`text-[11px] font-black uppercase truncate block ${isDark ? 'text-white' : 'text-slate-800'}`}>{reward.free}</span>
-                </div>
+            <div key={reward.level} className={`p-4 rounded-[2rem] border shadow-sm ${card} ${reward.level % 5 === 0 ? 'ring-2 ring-[var(--accent-500)]/40' : ''}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-[var(--accent-500-a10)] rounded-xl flex items-center justify-center text-xl">{(() => { const cos = (reward.goldCosmetic ?? reward.freeCosmetic); const art = cos ? (passLaneArtFor(cos.label, season.name) ?? cos.icon) : undefined; return art && isImagePath(art) ? <img src={art} alt="" className="w-9 h-9 object-contain" /> : (() => { const band = reward.level < 10 ? 0 : reward.level < 20 ? 1 : 2; const key = (gold ? ['Gilded Guest', 'Gilded Veteran', 'Golden Champion'] : ['Regular', 'Veteran', 'Champion'])[band]; const bandArt = passLaneArtFor(key, season.name); return bandArt ? <img src={bandArt} alt="" className="w-9 h-9 object-contain" /> : reward.icon; })(); })()}</div>
+                <span className="text-[14px] font-black uppercase">Rank {reward.level}{reward.level % 5 === 0 ? ' · Milestone' : ''}</span>
+                {!reached && <span className="ml-auto text-[11px] font-black uppercase opacity-50">Locked</span>}
               </div>
-              {claimed ? (
-                <CheckCircleIcon className="w-7 h-7 text-emerald-500" />
-              ) : unlocked ? (
-                <button onClick={() => onClaim(reward.level)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Claim</button>
-              ) : (
-                <span className="text-[8px] font-black uppercase text-slate-400">Locked</span>
-              )}
+              <div className="flex gap-2">
+                {lane(freeDone, reached && !freeDone, !reached, reward.free, () => onClaim(reward.level, 'free'), false)}
+                {lane(goldDone, reached && gold && !goldDone, !reached || !gold, reward.gold, () => onClaim(reward.level, 'gold'), true)}
+              </div>
             </div>
           );
         })}
@@ -653,9 +1178,12 @@ export const ElderPassPanel: React.FC<{ season: Season, isDark: boolean, onClaim
 
 export const QuestPanel: React.FC<{ 
   quests: Quest[], achievements: Achievement[], parkScore: number, 
-  onClaim: (id: string) => void, isDark: boolean 
-}> = ({ quests, achievements, parkScore, onClaim, isDark }) => {
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements'>('daily');
+  onClaim: (id: string) => void, isDark: boolean,
+  modeStats?: Record<string, number>, claimedMilestones?: string[], onClaimMilestone?: (mode: string, tier: number) => void,
+  eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }
+  eventCosmetics?: string[]
+}> = ({ quests, achievements, parkScore, onClaim, isDark, modeStats, claimedMilestones = [], onClaimMilestone, eventProgress, eventCosmetics }) => {
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'achievements' | 'milestones'>('daily');
   const daily = quests.filter(q => q.type === 'Daily');
   const weekly = quests.filter(q => q.type === 'Weekly');
 
@@ -665,32 +1193,72 @@ export const QuestPanel: React.FC<{
         <div className="flex justify-between items-center">
           <div className="min-w-0 flex-1">
             <h2 className={`text-2xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Tasks</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
+            <p className="text-[15px] text-slate-300 font-bold uppercase truncate">Daily Patrol & Weekly Missions</p>
           </div>
-          <div className="text-3xl font-black text-indigo-500 ml-4 flex items-center">{parkScore} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
+          <div className="text-3xl font-black text-[var(--accent-500)] ml-4 flex items-center">{Math.round(parkScore)} <StarIcon className="w-6 h-6 text-yellow-400 ml-2" /></div>
         </div>
-        <div className={`mt-4 pt-4 border-t text-[9px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-100 text-slate-500'}`}>
-          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-indigo-500 font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} 🎟️</span> every time you claim.
+        <div className={`mt-4 pt-4 border-t text-[14px] font-bold leading-relaxed ${isDark ? 'border-slate-700 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
+          Stars are earned by completing Tasks, winning battles, and other Park activities. They boost your <span className="text-[var(--accent-500)] font-black">Park Dividend</span> claim in the Bank — right now that's a bonus of <span className="text-emerald-500 font-black">+{(parkScore * 0.0002).toFixed(4)} <Gfx e="💰" size={16} /> PP</span> and <span className="text-emerald-500 font-black">+{Math.floor(parkScore / 10)} <Gfx e="🎟" /></span> every time you claim.
         </div>
       </div>
 
+      <EventsCard isDark={isDark} modeStats={modeStats} eventProgress={eventProgress} earnedEventIds={completedEventIds(eventCosmetics)} />
+
       {/* Tab selector */}
       <div className={`flex rounded-2xl p-1 mb-6 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-        {(['daily', 'weekly', 'achievements'] as const).map(tab => (
+        {(['daily', 'weekly', 'milestones', 'achievements'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}
+            className={`flex-1 py-3 rounded-xl text-[14px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'bg-[var(--accent-600)] text-white shadow-lg' : 'text-slate-300'}`}
           >
-            {tab === 'daily' ? '📅 Daily' : tab === 'weekly' ? '📆 Weekly' : '🏅 Feats'}
+            {(() => { const k = tab === 'daily' ? 'tabDaily' : tab === 'weekly' ? 'tabWeekly' : tab === 'milestones' ? 'tabGoals' : 'tabFeats'; const label = tab === 'daily' ? 'Daily' : tab === 'weekly' ? 'Weekly' : tab === 'milestones' ? 'Goals' : 'Feats'; return <><img src={GLYPH_ART[k]} alt="" className="inline-block w-6 h-6 mr-1 object-contain align-middle" />{label}</>; })()}
           </button>
         ))}
       </div>
 
+      {/* Milestones: one-time progression goals per mode (the mode badge tiers) */}
+      {activeTab === 'milestones' && (
+        <div className="space-y-4">
+          <p className={`text-[13px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lifetime goals for every part of the Park. Each tier is a one-time reward and unlocks a badge and title. They never repeat.</p>
+          {MODE_BADGES.map(m => {
+            const count = modeCount(modeStats, m.mode);
+            const reached = modeTierReached(count);
+            return (
+              <div key={m.mode} className={`p-4 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[15px] font-black uppercase">{m.name}</h3>
+                  <span className="text-[13px] font-black opacity-70">{count} total</span>
+                </div>
+                <div className="space-y-1.5">
+                  {MODE_BADGE_TIERS.map(t => {
+                    const key = `${m.mode}:${t.tier}`;
+                    const done = reached >= t.tier, claimed = claimedMilestones.includes(key);
+                    const r = MODE_MILESTONE_REWARDS[t.tier - 1];
+                    return (
+                      <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'} ${!done ? 'opacity-60' : ''}`}>
+                        {MODE_BADGE_ART[m.mode]?.[t.tier - 1] ? <img src={MODE_BADGE_ART[m.mode][t.tier - 1]} alt="" className="w-9 h-9 object-contain shrink-0" /> : <span className="text-xl">{t.icon}</span>}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-black uppercase">{t.name} · {t.min}</p>
+                          <p className="text-[12px] opacity-70">{r.tickets} Tickets{r.materials ? ` + ${r.materials} Materials` : ''}</p>
+                        </div>
+                        {claimed ? <span className="text-[12px] font-black text-emerald-500">Collected</span>
+                          : done ? <button onClick={() => onClaimMilestone?.(m.mode, t.tier)} className="px-3 py-1.5 rounded-lg bg-[var(--accent-600)] text-white font-black uppercase text-[12px]">Claim</button>
+                          : <span className="text-[12px] font-bold opacity-60">{Math.max(0, t.min - count)} to go</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Daily quests */}
       {activeTab === 'daily' && (
         <div className="space-y-4">
-          {daily.length === 0 && <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black">No daily quests</div>}
+          {daily.length === 0 && <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black">No daily quests</div>}
           {daily.map(q => (
             <QuestCard key={q.id} quest={q} onClaim={onClaim} isDark={isDark} />
           ))}
@@ -700,7 +1268,7 @@ export const QuestPanel: React.FC<{
       {/* Weekly quests */}
       {activeTab === 'weekly' && (
         <div className="space-y-4">
-          {weekly.length === 0 && <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black">No weekly quests</div>}
+          {weekly.length === 0 && <div className="text-center py-20 opacity-30 italic text-sm uppercase font-black">No weekly quests</div>}
           {weekly.map(q => (
             <QuestCard key={q.id} quest={q} onClaim={onClaim} isDark={isDark} />
           ))}
@@ -713,10 +1281,14 @@ export const QuestPanel: React.FC<{
           {achievements.map(a => (
             <div key={a.id} className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${a.completed ? '' : 'opacity-50 grayscale'}`}>
               <div className="flex items-center gap-4">
-                <span className="text-3xl">{a.icon}</span>
+                {ACHIEVEMENT_ICON_ASSETS[a.id] ? (
+                  <img src={ACHIEVEMENT_ICON_ASSETS[a.id]} alt={a.title} className="w-14 h-14 object-contain flex-shrink-0" />
+                ) : (
+                  <span className="text-3xl">{a.icon}</span>
+                )}
                 <div className="flex-1">
-                  <h4 className={`font-black text-sm uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{a.title}</h4>
-                  <p className="text-[10px] text-slate-500">{a.description}</p>
+                  <h4 className={`font-black text-base uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{a.title}</h4>
+                  <p className="text-[15px] text-slate-600">{a.description}</p>
                 </div>
                 {a.completed && <CheckCircleIcon className="w-6 h-6 text-emerald-500 flex-shrink-0" />}
               </div>
@@ -731,20 +1303,20 @@ export const QuestPanel: React.FC<{
 const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark: boolean }> = ({ quest: q, onClaim, isDark }) => (
   <div className={`p-6 rounded-[2.5rem] border shadow-sm transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${q.completed ? 'opacity-40 grayscale' : ''}`}>
     <div className="flex justify-between items-start mb-2">
-      <div className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-[8px] font-black uppercase mb-1">{q.type}</div>
-      <div className="text-[9px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} 🎟️<br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
+      <div className="px-2 py-0.5 rounded bg-[var(--accent-500-a10)] text-[var(--accent-500)] text-[13px] font-black uppercase mb-1">{q.type}</div>
+      <div className="text-[14px] font-black text-emerald-500 text-right">+{q.rewardXP} XP / +{q.rewardTokens} <Gfx e="🎟" /><br/><span className="text-yellow-500">+{q.rewardStars} ⭐</span></div>
     </div>
-    <h4 className={`font-black text-sm uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{q.title}</h4>
-    <p className="text-[10px] text-slate-500 mb-4">{q.description}</p>
-    <div className="flex justify-between text-[9px] font-black uppercase mb-2">
+    <h4 className={`font-black text-base uppercase truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{q.title}</h4>
+    <p className="text-[15px] text-slate-600 mb-4">{q.description}</p>
+    <div className="flex justify-between text-[14px] font-black uppercase mb-2">
       <span className="opacity-50">Progress</span>
       <span>{q.progress}/{q.target}</span>
     </div>
     <div className={`w-full h-3 rounded-full overflow-hidden mb-4 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-      <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${Math.min(100, (q.progress / q.target) * 100)}%` }}></div>
+      <div className="h-full bg-[var(--accent-500)] transition-all duration-500" style={{ width: `${Math.min(100, (q.progress / q.target) * 100)}%` }}></div>
     </div>
     {q.progress >= q.target && !q.completed && (
-      <button onClick={() => onClaim(q.id)} className="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-indigo-500/20">
+      <button onClick={() => onClaim(q.id)} className="w-full bg-[var(--accent-600)] text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 text-[15px] uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-[var(--accent-500-a20)]">
         <GiftIcon className="w-4 h-4" /> Claim Reward
       </button>
     )}
@@ -753,21 +1325,76 @@ const QuestCard: React.FC<{ quest: Quest, onClaim: (id: string) => void, isDark:
 
 // ─── Base Panel ───────────────────────────────────────────────────────────────
 
-export const BasePanel: React.FC<{ 
-  elders: Elder[], inventory: Gear[], tokens: number, 
-  onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, 
+// Evolution eligibility for one Elder (same rules as the Squad tab): shared so the Park Hub can evolve too.
+const evolveInfo = (e: Elder, tokens: number) => {
+  const stage = e.evolutionStage ?? 0;
+  const needed = stage >= 2 ? null : stage === 0 ? ELDER_EVOLUTION_STAGE1_LEVEL : ELDER_EVOLUTION_STAGE2_LEVEL;
+  const elite = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(e.rarity);
+  const cost = stage === 0 ? EVOLUTION_STAGE1_COST : (elite ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST);
+  const meetsLevel = needed !== null && e.level >= needed;
+  return { stage, needed, cost, meetsLevel, canAfford: tokens >= cost, ready: meetsLevel && tokens >= cost };
+};
+
+export const BasePanel: React.FC<{ onEvolve?: (id: string) => void,
+  elders: Elder[], inventory: Gear[], tokens: number, materials: number,
+  upgradeDiscountPct?: number, salvageBonusPct?: number, onHealAll: () => void, onEquipElder: (elderId: string, item: Gear) => void, onUnequipElder: (elderId: string, slot: 'head' | 'body' | 'accessory' | 'charm') => void, onUpgradeGear: (itemId: string) => void, onSellGear: (itemId: string) => void, onSellManyGear?: (ids: string[]) => void,
   onDividendClaim: () => void, onMoveToTeam: (id: string) => void, 
   onMoveToStandby: (id: string) => void, lastCheckIn?: number, 
   onCheckIn: () => void, streak: number, lastDividendClaim?: number, 
   isDark: boolean,
   shuffleboardKing?: any,
-  passiveBreakdown?: { elders: number, parcels: number, base: number },
+  passiveBreakdown?: { base: number, assets: number },
   onScrapElder?: (id: string) => void,
-  parkScore?: number
-}> = ({ elders, inventory, tokens, onHealAll, onEquipElder, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, parkScore = 0 }) => {
+  onRenameElder?: (id: string, name: string) => void,
+  parkScore?: number,
+  parkAssets?: Record<string, number>,
+  healPrice?: { cost: number; soldOut: boolean }
+}> = ({ upgradeDiscountPct, salvageBonusPct, onEvolve, elders, inventory, tokens, materials, onHealAll, onEquipElder, onUnequipElder, onUpgradeGear, onSellGear, onSellManyGear, onDividendClaim, onMoveToTeam, onMoveToStandby, lastCheckIn, onCheckIn, streak, lastDividendClaim, isDark, shuffleboardKing, passiveBreakdown, onScrapElder, onRenameElder, parkScore = 0, parkAssets, healPrice }) => {
+  const [regSort, setRegSort] = React.useState<ElderSortMode>(() => readElderSortPref().sort);
+  const [gearSort, setGearSort] = React.useState<'newest' | 'rarity' | 'slot' | 'level' | 'boost' | 'name'>('rarity');
+  const [gearDesc, setGearDesc] = React.useState(true);
+  const [gearSlotF, setGearSlotF] = React.useState<'All' | 'Head' | 'Body' | 'Accessory' | 'Charm'>('All');
+  const [gearRarityF, setGearRarityF] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
+  const [gearMulti, setGearMulti] = React.useState(false);
+  const [gearPicked, setGearPicked] = React.useState<string[]>([]);
+  const sortedInventory = React.useMemo(() => {
+    const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+    const slotOrder: Record<string, number> = { Head: 0, Body: 1, Accessory: 2, Charm: 3 };
+    const idx = new Map<string, number>(inventory.map((g, i): [string, number] => [g.id, i]));
+    const R = (g: Gear) => rr[g.rarity ?? 'Common'] ?? 0;
+    // d > 0 means "a is higher than b"; the High/Low toggle flips it for every sort key.
+    const key = (a: Gear, b: Gear): number => {
+      if (gearSort === 'newest') return (idx.get(a.id) ?? 0) - (idx.get(b.id) ?? 0);
+      if (gearSort === 'name') return b.name.localeCompare(a.name);
+      if (gearSort === 'slot') return (slotOrder[b.slot] ?? 0) - (slotOrder[a.slot] ?? 0) || (R(a) - R(b)) || ((a.level ?? 1) - (b.level ?? 1));
+      if (gearSort === 'level') return ((a.level ?? 1) - (b.level ?? 1)) || (R(a) - R(b));
+      if (gearSort === 'boost') return (getEffectiveGearBoost(a) - getEffectiveGearBoost(b)) || ((a.level ?? 1) - (b.level ?? 1));
+      return (R(a) - R(b)) || ((a.level ?? 1) - (b.level ?? 1)) || (a.boost - b.boost);
+    };
+    return inventory
+      .filter(i => (gearSlotF === 'All' || i.slot === gearSlotF) && (gearRarityF === 'All' || (i.rarity ?? 'Common') === gearRarityF))
+      .sort((a, b) => gearDesc ? key(b, a) : key(a, b));
+  }, [inventory, gearSort, gearDesc, gearSlotF, gearRarityF]);
+  const gearPickedItems = inventory.filter(i => gearPicked.includes(i.id));
+  const gearPickedTotal = gearPickedItems.reduce((t, i) => { const v = applySalvageBonus(getGearSellValue(i), salvageBonusPct ?? 0); return { tickets: t.tickets + v.tickets, materials: t.materials + v.materials }; }, { tickets: 0, materials: 0 });
+  const [regDesc, setRegDesc] = React.useState(() => readElderSortPref().desc);
+  React.useEffect(() => { writeElderSortPref(regSort, regDesc); }, [regSort, regDesc]);
+  const [regView, setRegView] = React.useState<'list' | 'grid'>('list');
+  const [regRarity, setRegRarity] = React.useState<'All' | 'Common' | 'Rare' | 'Epic' | 'Legendary'>('All');
+  const [regType, setRegType] = React.useState<string>('All');
+  const [regStatus, setRegStatus] = React.useState<'All' | 'Squad' | 'Bench' | 'Away'>('All');
+  const regElders = React.useMemo(() => {
+    const rarityRank: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+    const list = elders.filter(e =>
+      (regRarity === 'All' || e.rarity === regRarity) &&
+      (regType === 'All' || String(e.type) === regType) &&
+      (regStatus === 'All' || (regStatus === 'Squad' ? e.status === 'Team' : regStatus === 'Away' ? !!e.awayUntil : (e.status !== 'Team' && !e.awayUntil))));
+    return sortEldersBy(list, regSort, regDesc, elders);
+  }, [elders, regSort, regDesc, regRarity, regType, regStatus]);
+  const elderTypes = React.useMemo(() => Array.from(new Set(elders.map(e => String(e.type)))), [elders]);
   const [selectedItem, setSelectedItem] = useState<Gear | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const isKing = shuffleboardKing?.id === 'player';
+
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -785,15 +1412,15 @@ export const BasePanel: React.FC<{
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
       {/* Park Hub header */}
-      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-8 flex flex-col italic transition-all relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-950'}`}>
+      <div className={`rounded-[3rem] p-8 text-white shadow-2xl mb-8 flex flex-col italic transition-all relative overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-3xl font-black uppercase leading-none italic tracking-tighter mb-4 relative z-10">Park Hub</h2>
         <div className="grid grid-cols-2 gap-3 relative z-10 mb-6">
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
-            <span className="text-[8px] font-black uppercase opacity-40 mb-1">Currency</span>
-            <span className="text-lg font-black tabular-nums">{tokens} 🎟️</span>
+            <span className="text-[13px] font-black uppercase opacity-60 mb-1">Currency</span>
+            <span className="text-lg font-black tabular-nums">{tokens} <Gfx e="🎟" /></span>
           </div>
           <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex flex-col justify-center text-center">
-            <span className="text-[8px] font-black uppercase opacity-40 mb-1">Residents</span>
+            <span className="text-[13px] font-black uppercase opacity-60 mb-1">Residents</span>
             <span className="text-lg font-black tabular-nums">{elders.length}</span>
           </div>
         </div>
@@ -801,47 +1428,64 @@ export const BasePanel: React.FC<{
         {/* Passive income breakdown */}
         {passiveBreakdown && (
           <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
-            <p className="text-[8px] font-black uppercase opacity-40 mb-2 tracking-widest">Passive Income Sources</p>
+            <p className="text-[13px] font-black uppercase opacity-60 mb-2 tracking-widest">Passive Income Sources</p>
             <div className="space-y-1">
-              <div className="flex justify-between text-[9px] font-black">
+              <div className="flex justify-between text-[14px] font-black">
                 <span className="opacity-60">Base Rate</span>
-                <span>{(passiveBreakdown.base * 3600).toFixed(4)} PP/hr</span>
+                <span>{(passiveBreakdown.base * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
               </div>
-              <div className="flex justify-between text-[9px] font-black">
-                <span className="opacity-60">Elder Comfort</span>
-                <span className="text-indigo-300">{(passiveBreakdown.elders * 3600).toFixed(4)} PP/hr</span>
+              <div className="flex justify-between text-[14px] font-black">
+                <span className="opacity-60">Park Assets</span>
+                <span className="text-emerald-300">{(passiveBreakdown.assets * PASSIVE_TICKS_PER_HOUR).toFixed(6)} <Gfx e="💰" size={16} /> PP/hr</span>
               </div>
-              <div className="flex justify-between text-[9px] font-black">
-                <span className="opacity-60">Parcel Rent</span>
-                <span className="text-emerald-300">{(passiveBreakdown.parcels * 3600).toFixed(4)} PP/hr</span>
+              <div className="flex justify-between text-[14px] font-black pt-2 mt-1 border-t border-white/10">
+                <span className="opacity-60">Elder Comfort → building output</span>
+                <span className="text-[var(--accent-300)]">+{(comfortOutputBonus(elders) * 100).toFixed(0)}%</span>
               </div>
-              {isKing && (
-                <div className="flex justify-between text-[9px] font-black">
-                  <span className="opacity-60">👑 Court Bonus</span>
-                  <span className="text-amber-300">×{SHUFFLEBOARD_KING_BOOST}</span>
-                </div>
-              )}
             </div>
           </div>
         )}
 
-        <button onClick={onHealAll} className="relative z-10 w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-xl">
-          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab (25 🎟️)
+        <button onClick={onHealAll} disabled={healPrice?.soldOut} className="relative z-10 w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 text-[15px] uppercase tracking-widest active:scale-95 transition-all shadow-xl">
+          <BeakerIcon className="w-4 h-4" /> Silver Springs Rehab ({healPrice ? healPrice.cost : 25} <Gfx e="🎟" />)
         </button>
       </div>
+
+      {/* Park Assets on display */}
+      {(() => {
+        const owned = INVESTMENT_TIERS.flatMap(t => t.items)
+          .map(item => ({ item, count: ownedAssetCount(parkAssets, item.id) }))
+          .filter(o => o.count > 0);
+        if (owned.length === 0) return null;
+        return (
+          <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            <h3 className={`text-base font-black uppercase italic mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Assets</h3>
+            <div className="flex flex-wrap gap-3">
+              {owned.map(({ item, count }) => (
+                <div key={item.id} className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl overflow-hidden shrink-0 ${isDark ? 'bg-slate-700' : 'bg-white'}`}>
+                    {PARCEL_ICON_ASSETS[item.id] ? <img src={PARCEL_ICON_ASSETS[item.id]} alt={item.name} className="w-full h-full object-contain p-0.5" /> : item.icon}
+                  </div>
+                  <span className={`font-black text-[14px] uppercase ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.name} <span className="text-[var(--accent-500)]">×{count}</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Daily check-in */}
       <div className={`p-6 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-3">
           <div>
-            <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Check-In</h3>
-            <p className="text-[9px] text-slate-500 uppercase font-bold">Streak: {streak} days 🔥</p>
+            <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Daily Check-In</h3>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase font-bold`}>Streak: {streak} days <img src={GLYPH_ART.streak} alt="" className="inline-block w-4 h-4 object-contain align-middle" /></p>
           </div>
-          <CalendarDaysIcon className="w-8 h-8 text-indigo-400" />
+          <CalendarDaysIcon className="w-8 h-8 text-[var(--accent-400)]" />
         </div>
         <button
           onClick={onCheckIn}
-          className="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl uppercase text-[10px] active:scale-95 transition-all"
+          className="w-full bg-[var(--accent-600)] text-white font-black py-3 rounded-2xl uppercase text-[15px] active:scale-95 transition-all"
         >
           Check In for Day {streak + 1} Reward
         </button>
@@ -851,81 +1495,296 @@ export const BasePanel: React.FC<{
       <div className={`p-8 rounded-[3rem] border shadow-sm mb-8 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className={`text-sm font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Dividend</h3>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Passive reward for management</p>
-            <p className="text-[8px] text-amber-500 font-black uppercase tracking-widest mt-1">{parkScore} ⭐ boosts this payout</p>
+            <h3 className={`text-base font-black uppercase italic ${isDark ? 'text-white' : 'text-slate-800'}`}>Park Dividend</h3>
+            <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-600'} font-bold uppercase tracking-widest`}>Passive reward for management</p>
+            <p className="text-[13px] text-amber-500 font-black uppercase tracking-widest mt-1">{Math.round(parkScore)} ⭐ boosts this payout</p>
           </div>
-          <StarIcon className={`w-8 h-8 ${canClaim ? 'text-amber-500' : 'text-slate-300'}`} />
+          <StarIcon className={`w-8 h-8 ${canClaim ? 'text-amber-500' : 'text-slate-200'}`} />
         </div>
         <button 
           onClick={onDividendClaim}
           disabled={!canClaim}
-          className={`w-full py-6 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all shadow-xl font-black uppercase ${canClaim ? 'bg-amber-500 text-white active:scale-95' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+          className={`w-full py-6 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all shadow-xl font-black uppercase ${canClaim ? 'bg-amber-500 text-white active:scale-95' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
         >
-          <span className="text-xs tracking-tighter">{canClaim ? 'Claim Park Bonus' : 'Recharging...'}</span>
-          <span className="text-[9px] font-bold opacity-80 tracking-widest">
+          <span className="text-sm tracking-tighter">{canClaim ? 'Claim Park Bonus' : 'Recharging...'}</span>
+          <span className="text-[14px] font-bold opacity-80 tracking-widest">
             {canClaim ? '(Pull from Reserve pool)' : `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`}
           </span>
         </button>
       </div>
 
+      {/* Gear sets: every set gives the same bonus to Arena power, Raid damage and PvP power; only the best one counts */}
+      {(() => {
+        const squad = elders.filter(e => e.status === 'Team' && !e.borrowed);
+        const best = getBestSetBonus(squad);
+        return (
+          <div className="mb-6">
+            <h3 className={`text-[17px] font-black uppercase px-4 mb-1 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Gear Sets</h3>
+            <p className="px-4 mb-3 text-[12px] font-bold opacity-70">Wear 2 or 4 pieces of a set on your squad. The bonus boosts Arena power, Raid damage and PvP power (Court ladder and Friend Battles). Only your best set counts, so they don't stack.</p>
+            <div className={`p-4 rounded-[2rem] border grid gap-4 ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <p className={`text-[14px] font-black uppercase ${best.pct > 0 ? 'text-emerald-500' : 'opacity-60'}`}>{best.set ? `Active: ${GEAR_SET_INFO[best.set].name} +${best.pct}%` : 'No set bonus active'}</p>
+              {GEAR_SET_ORDER.map(id => {
+                const info = GEAR_SET_INFO[id];
+                const n = countSetPieces(squad, id);
+                const pct = getSetBonusPct(squad, id);
+                return (
+                  <div key={id} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-black uppercase">{info.name} <span className="opacity-60">{n}/4</span></p>
+                      <div className="flex gap-1.5 my-1">
+                        {getSetPieces(id).map(p => {
+                          const worn = squad.some(e => Object.values(e.equipment ?? {}).some((it: any) => it?.name === p.name));
+                          return <div key={p.id} title={`${p.name} (${p.slot})${worn ? ' - worn' : ''}`} className={`w-10 h-10 rounded-lg flex items-center justify-center ${worn ? 'bg-emerald-500/20 ring-2 ring-emerald-500' : 'opacity-60'}`}><ItemIcon name={p.name} icon={p.icon} size={32} /></div>;
+                        })}
+                      </div>
+                      <p className="text-[12px] font-bold opacity-70">{info.source}. 2 pieces: +{info.bonus[2]}%, 4 pieces: +{info.bonus[4]}%.</p>
+                    </div>
+                    <span className={`text-[15px] font-black flex-shrink-0 ${pct > 0 ? 'text-emerald-500' : 'opacity-50'}`}>{pct > 0 ? `+${pct}%` : 'none'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Inventory */}
       <div className="mb-10">
-        <h3 className={`text-[12px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Inventory</h3>
-        <div className={`p-6 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
+        <div className="flex items-center justify-between gap-3 px-4 mb-4">
+          <h3 className={`text-[17px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Inventory</h3>
+          {inventory.length > 1 && (
+            <div className="flex gap-2">
+              <select value={gearSort} onChange={ev => setGearSort(ev.target.value as typeof gearSort)} className={`rounded-xl px-3 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>
+                <option value="rarity">Sort: Rarity</option><option value="slot">Sort: Slot</option><option value="level">Sort: Level</option>
+                <option value="boost">Sort: Boost</option><option value="newest">Sort: Date obtained</option><option value="name">Sort: Name</option>
+              </select>
+              <button onClick={() => setGearDesc(d => !d)} className={`px-3 py-2 rounded-xl text-[13px] font-black ${isDark ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'}`}>{gearDesc ? '↓ High' : '↑ Low'}</button>
+            </div>
+          )}
+        </div>
+        {inventory.length > 1 && (
+          <div className="flex gap-2 flex-wrap px-2 mb-3">
+            <select value={gearSlotF} onChange={ev => setGearSlotF(ev.target.value as typeof gearSlotF)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>
+              {['All', 'Head', 'Body', 'Accessory', 'Charm'].map(x => <option key={x} value={x}>{x === 'All' ? 'All slots' : x}</option>)}
+            </select>
+            <select value={gearRarityF} onChange={ev => setGearRarityF(ev.target.value as typeof gearRarityF)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>
+              {['All', 'Common', 'Rare', 'Epic', 'Legendary'].map(x => <option key={x} value={x}>{x === 'All' ? 'All rarities' : x}</option>)}
+            </select>
+            {onSellManyGear && <button onClick={() => { setGearMulti(m => !m); setGearPicked([]); }} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] active:scale-95 ${gearMulti ? 'bg-rose-600 text-white' : isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>{gearMulti ? `Cancel (${gearPicked.length})` : 'Multi-salvage'}</button>}
+            {gearMulti && <button onClick={() => setGearPicked(sortedInventory.map(i => i.id))} className={`px-3 py-2 rounded-xl font-black uppercase text-[12px] ${isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}>Select all shown</button>}
+          </div>
+        )}
+        <div className={`p-4 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100'} shadow-sm`}>
           {inventory.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
-              {inventory.map(item => (
-                <button key={item.id} onClick={() => setSelectedItem(item)} className={`p-3 aspect-square rounded-2xl border flex flex-col items-center justify-center transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-indigo-600 border-indigo-400 text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`}>
-                  <span className="text-3xl mb-1">{item.icon}</span>
-                  <span className={`text-[7px] font-black uppercase truncate w-full text-center ${selectedItem?.id === item.id ? 'text-indigo-100' : 'opacity-60'}`}>{item.name}</span>
+            <div className="grid grid-cols-3 gap-2">
+              {sortedInventory.map(item => (
+                <button key={item.id} onClick={() => gearMulti ? setGearPicked(p => p.includes(item.id) ? p.filter(x => x !== item.id) : [...p, item.id]) : setSelectedItem(item)} className={`relative ${gearPicked.includes(item.id) ? 'ring-4 ring-rose-500 ' : ''}p-2 aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${selectedItem?.id === item.id ? 'bg-[var(--accent-600)] border-[var(--accent-400)] text-white' : isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800'}`} style={gearPicked.includes(item.id) ? { ...rarityCardStyle(item.rarity), borderColor: '#f43f5e', boxShadow: '0 0 0 4px #f43f5e, 0 0 18px #f43f5e', transform: 'scale(0.94)' } : selectedItem?.id !== item.id ? rarityCardStyle(item.rarity) : undefined}>
+                  {gearPicked.includes(item.id) && <span className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white text-[14px] font-black flex items-center justify-center z-10">{'\u2713'}</span>}
+                  <ItemIcon name={item.name} icon={item.icon} size={52} rarity={item.rarity} />
+                  <span className={`text-[11px] leading-tight font-black uppercase w-full text-center line-clamp-2 ${selectedItem?.id === item.id ? 'text-[var(--accent-100)]' : 'opacity-60'}`}>{item.name}</span>
+                  {(item.level ?? 1) > 1 && <span className="text-[10px] font-black opacity-50">Lv.{item.level}</span>}
                 </button>
               ))}
             </div>
-          ) : <div className="text-center py-10 opacity-30 text-xs font-black uppercase">Storage is empty</div>}
+          ) : <div className="text-center py-10 opacity-30 text-sm font-black uppercase">Storage is empty</div>}
+          {gearMulti && onSellManyGear && (
+            <button disabled={!gearPicked.length} style={{ position: 'sticky', bottom: '5.5rem', zIndex: 20 }} onClick={() => { if (gearPickedItems.some(i => (i.rarity ?? 'Common') === 'Epic' || (i.rarity ?? 'Common') === 'Legendary') && !window.confirm('Your selection includes Epic or Legendary gear. Salvage it anyway?')) return; onSellManyGear(gearPickedItems.map(i => i.id)); setGearPicked([]); setGearMulti(false); }} className={`mt-3 w-full py-3 rounded-2xl font-black uppercase text-[13px] active:scale-95 shadow-xl ${gearPicked.length ? 'bg-rose-600 text-white' : 'opacity-40 border-2 border-slate-400'}`}>
+              {gearPicked.length ? <>Salvage {gearPicked.length} items: +{gearPickedTotal.tickets} <Gfx e="🎟️" size={16} /> +{gearPickedTotal.materials} <Gfx e="🧱" size={16} /></> : 'Tap gear to select it'}
+            </button>
+          )}
         </div>
       </div>
 
-      {selectedItem && (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className={`w-full max-w-sm rounded-[3rem] p-10 flex flex-col border shadow-2xl max-h-[85vh] ${isDark ? 'bg-slate-900 border-indigo-500/20' : 'bg-white border-slate-100'}`}>
-            <div className="text-6xl text-center mb-6 animate-bounce">{selectedItem.icon}</div>
-            <h3 className={`text-xl font-black uppercase text-center mb-2 italic leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Equip {selectedItem.name}</h3>
-            <p className="text-[10px] text-center mb-4 text-indigo-400 uppercase font-black tracking-widest">{selectedItem.description}</p>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 px-1">
-              {elders.map(e => (
-                <button key={e.id} onClick={() => { onEquipElder(e.id, selectedItem); setSelectedItem(null); }} className={`w-full p-5 rounded-[2rem] border flex items-center gap-5 active:scale-95 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} hover:border-indigo-500`}>
-                  <span className="text-4xl">{ELDER_AVATARS[e.type][0]}</span>
-                  <div className={`flex-1 text-left min-w-0 text-[12px] font-black uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</div>
-                </button>
+      {selectedItem && (() => {
+        // selectedItem is a one-time snapshot taken when the item was tapped -- it does NOT
+        // update when `inventory` changes underneath it (e.g. after Upgrade), so the modal used
+        // to keep showing pre-upgrade level/boost until closed and reopened. Look the item up
+        // live by id every render instead, falling back to the snapshot only if it's gone
+        // (e.g. it was just sold or equipped from another tab).
+        const item = inventory.find(i => i.id === selectedItem.id) ?? selectedItem;
+        return (
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }} onClick={() => setSelectedItem(null)}>
+          <div onClick={ev => ev.stopPropagation()} className={`w-full max-w-sm rounded-[3rem] p-6 flex flex-col border shadow-2xl max-h-full h-[90dvh] ${isDark ? 'bg-slate-900 border-[var(--accent-500-a20)]' : 'bg-white border-slate-100'}`}>
+            {/* Compact header: icon+name+rarity all on one row, description capped to 2 lines --
+                a long description used to push the Elder list down to almost nothing. */}
+            <div className="flex items-center gap-3 mb-2 flex-shrink-0">
+              <ItemIcon name={item.name} icon={item.icon} size={44} rarity={item.rarity} />
+              <div className="flex-1 min-w-0">
+                <h3 className={`text-[15px] font-black uppercase italic leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <RarityBadge rarity={item.rarity ?? 'Common'} />
+                  <span className={`text-[14px] font-black uppercase tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.slot} slot</span>
+                </div>
+              </div>
+              <button onClick={() => setSelectedItem(null)} aria-label="Close" className="flex-shrink-0 w-11 h-11 rounded-full bg-slate-200 text-slate-700 text-[20px] font-black active:scale-90">&#10005;</button>
+            </div>
+            <p className={`text-[14px] font-semibold mb-2 flex-shrink-0 line-clamp-3 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{item.description}</p>
+            {(() => {
+              const slotStat = GEAR_SLOT_STAT_SHORT[gearSlotKey(item.slot)];
+              const lvl = item.level ?? 1, maxLvl = getGearMaxLevel(item);
+              const now = getEffectiveGearBoost(item);
+              const next = lvl < maxLvl ? getEffectiveGearBoost({ ...item, level: lvl + 1 }) : null;
+              return (
+                <div className={`mb-3 p-3 rounded-2xl flex-shrink-0 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-[22px] font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Base +{now} {slotStat}</span>
+                    <span className={`text-[15px] font-black ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Level {lvl} / {maxLvl}</span>
+                  </div>
+                  <div className={`text-[13px] font-bold mt-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {next !== null ? <>Next level: <span className="text-green-500">+{next} {slotStat}</span> (+{next - now})</> : <>Maximum level reached</>}
+                    {' · '}Base +{item.boost} × {item.rarity ?? 'Common'} {GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common']}
+                    <div className="mt-1 opacity-80">The real bonus grows with the Elder wearing it: x1 up to level 30, x2 at 50, x3 at 70, x4.5 at 100. Pick an Elder in Compare to see the exact number.</div>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex gap-2 mb-3 flex-shrink-0">
+              {(item.level ?? 1) < getGearMaxLevel(item) && (() => {
+                const cost = applyUpgradeDiscount(getGearUpgradeCost(item), upgradeDiscountPct ?? 0);
+                const canAfford = tokens >= cost.tickets && materials >= cost.materials;
+                return (
+                  <button
+                    onClick={() => onUpgradeGear(item.id)}
+                    disabled={!canAfford}
+                    className={`flex-1 py-2.5 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 transition-all active:scale-95 ${canAfford ? 'bg-[var(--accent-500)] border-[var(--accent-400)] text-white' : 'opacity-40 border-slate-300 text-slate-400'}`}
+                  >
+                    Upgrade — {cost.tickets} <Gfx e="🎟" /> + {cost.materials} <Gfx e="🧱" />
+                  </button>
+                );
+              })()}
+              {onSellGear && (() => {
+                const sellValue = applySalvageBonus(getGearSellValue(item), salvageBonusPct ?? 0);
+                return (
+                  <button
+                    onClick={() => { onSellGear(item.id); setSelectedItem(null); }}
+                    className="py-2.5 px-3 rounded-2xl font-black uppercase text-[12px] tracking-widest border-2 border-rose-300 text-rose-500 active:scale-95 transition-all"
+                  >
+                    Sell — {sellValue.tickets} <Gfx e="🎟" /> + {sellValue.materials} <Gfx e="🧱" />
+                  </button>
+                );
+              })()}
+            </div>
+            <div className={`text-[11px] font-black uppercase tracking-widest mb-2 flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Give to an Elder</div>
+            {/* min-h guarantees at least ~2 Elder rows are always visible no matter how much
+                room the header/description/buttons above end up taking. */}
+            <div className="flex-1 min-h-[220px] overflow-y-auto custom-scrollbar space-y-2 px-1 -mx-1">
+              {sortEldersByPref<Elder>(elders.filter(e => !e.awayUntil || e.awayUntil < Date.now())).map(e => (
+                <ElderEquipRow key={e.id} elder={e} item={item} isDark={isDark} onPick={() => { onEquipElder(e.id, item); setSelectedItem(null); }}
+                  avatar={<ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} size={40} />} />
               ))}
             </div>
-            <button onClick={() => setSelectedItem(null)} className="mt-8 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] active:scale-95 transition-transform">Cancel</button>
+            <button onClick={() => setSelectedItem(null)} className="mt-4 bg-slate-100 text-slate-600 font-black py-3 rounded-2xl uppercase text-[14px] active:scale-95 transition-transform flex-shrink-0">Cancel</button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Park Registry */}
       <div className="mb-24">
-        <h3 className={`text-[12px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Park Registry</h3>
-        <div className="space-y-6">
-          {elders.map(e => (
+        <h3 className={`text-[17px] font-black uppercase px-4 mb-4 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Park Registry <span className="opacity-50 text-[14px]">({regElders.length}/{elders.length})</span></h3>
+        <div className={`mx-2 mb-4 p-3 rounded-2xl space-y-2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select value={regSort} onChange={ev => setRegSort(ev.target.value as typeof regSort)} className={`flex-1 min-w-[8rem] rounded-xl px-3 py-2 text-[14px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="power">Sort: Power</option><option value="level">Sort: Level</option><option value="rarity">Sort: Rarity</option>
+              <option value="type">Sort: Type</option><option value="obtained">Sort: Date obtained</option><option value="name">Sort: Name</option>
+            </select>
+            <button onClick={() => setRegDesc(d => !d)} className={`px-3 py-2 rounded-xl text-[14px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>{regDesc ? '↓ High first' : '↑ Low first'}</button>
+            <button onClick={() => setRegView(v => v === 'list' ? 'grid' : 'list')} className="px-3 py-2 rounded-xl text-[14px] font-black bg-[var(--accent-600)] text-white">{regView === 'list' ? '▦ Grid' : '☰ List'}</button>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <select value={regRarity} onChange={ev => setRegRarity(ev.target.value as typeof regRarity)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              {['All', 'Common', 'Rare', 'Epic', 'Legendary'].map(r => <option key={r} value={r}>{r === 'All' ? 'All rarities' : r}</option>)}
+            </select>
+            <select value={regType} onChange={ev => setRegType(ev.target.value)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="All">All types</option>{elderTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={regStatus} onChange={ev => setRegStatus(ev.target.value as typeof regStatus)} className={`flex-1 min-w-[6rem] rounded-xl px-2 py-2 text-[13px] font-black ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+              <option value="All">Everyone</option><option value="Squad">Squad</option><option value="Bench">Bench</option><option value="Away">Away</option>
+            </select>
+          </div>
+        </div>
+        {regView === 'grid' && (
+          <div className="grid grid-cols-2 gap-3 px-2">
+            {regElders.map(e => {
+              const br = getStatBreakdown(e);
+              return (
+                <div key={e.id} className={`p-3 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} ${e.awayUntil ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill /></div>
+                    <div className="min-w-0">
+                      <p className="font-black text-[14px] uppercase truncate">{e.name} {onRenameElder && <button onClick={() => { const n = window.prompt('New name for this Elder (max 20 characters):', e.name); if (n && n.trim()) onRenameElder(e.id, n); }} title="Rename" className="text-[14px] opacity-60 active:scale-90">✏️</button>}</p>
+                      <p className="text-[12px] font-black opacity-70">Lv {e.level} · <span className="text-[var(--accent-500)]">PWR {getElderPower(e)}</span></p>
+                      <RarityBadge rarity={e.rarity} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 mt-2 text-center text-[11px] font-black">
+                    {([['STR', 'strength'], ['WIT', 'wit'], ['AGI', 'agility'], ['TEN', 'tenacity']] as const).map(([lab, k]) => {
+                      const bonus = br[k].rarity + br[k].gear + br[k].evolution;
+                      return <div key={k}><span className="opacity-50">{lab}</span><br />{br[k].base}{bonus > 0 && <span className="text-green-500"> +{bonus}</span>}</div>;
+                    })}
+                  </div>
+                  <p className="text-[11px] font-bold opacity-60 mt-1 truncate">{e.awayUntil ? (e.awayLoan ? '🤝 On loan' : '🏡 Visiting') : e.status === 'Team' ? '⭐ Squad' : 'Bench'} · HP {e.hp}/{e.maxHp}</p>
+                  {!e.awayUntil && (e.status === 'Team'
+                    ? <button onClick={() => onMoveToStandby(e.id)} className={`w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
+                    : <button onClick={() => onMoveToTeam(e.id)} className="w-full mt-2 py-1.5 rounded-xl text-[12px] font-black uppercase bg-[var(--accent-600)] text-white">Squad</button>)}
+                  {!e.awayUntil && onEvolve && (() => { const ev = evolveInfo(e, tokens); return ev.stage < 2 ? (
+                    <button onClick={() => onEvolve(e.id)} disabled={!ev.ready} className={`w-full mt-1.5 py-1.5 rounded-xl text-[12px] font-black uppercase ${ev.ready ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>
+                      Evolve {ev.meetsLevel ? `(${ev.cost})` : `(Lv.${ev.needed})`}
+                    </button>) : <p className="text-center text-[11px] font-black text-amber-500 mt-1.5">Fully evolved</p>; })()}
+                </div>
+              );
+            })}
+            {regElders.length === 0 && <p className="col-span-2 text-center opacity-50 italic py-8">No Elders match these filters.</p>}
+          </div>
+        )}
+        <div className={`space-y-6 ${regView === 'grid' ? 'hidden' : ''}`}>
+          {regElders.length === 0 && <p className="text-center opacity-50 italic py-8">No Elders match these filters.</p>}
+          {regElders.map(e => (
             <div key={e.id} className={`p-6 rounded-[3rem] border shadow-sm flex flex-col gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-5xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>{ELDER_AVATARS[e.type][0]}</div>
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}><ElderAvatarImg type={e.type} eventId={e.eventId} stage={e.evolutionStage ?? 0} fill className="rounded-2xl" /></div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-black text-lg uppercase leading-none truncate">{e.name}</h4>
+                    {onRenameElder && <button onClick={() => { const n = window.prompt('New name for this Elder (max 20 characters):', e.name); if (n && n.trim()) onRenameElder(e.id, n); }} title="Rename" className="text-[14px] opacity-60 active:scale-90">✏️</button>}
+                    <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
+                    <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
+                  </div>
                   <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
-                  <p className="text-[9px] text-slate-400 mt-1">Comfort: {e.comfortGeneration.toFixed(4)}/tick</p>
-                  <div className="flex gap-2 mt-3">
+                  <p className={`text-[14px] ${isDark ? 'text-slate-300' : 'text-slate-600'} mt-1`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {(e.xp ?? 0)}/{xpForElderLevel(e.level)}</p>
+                  {onUnequipElder && (
+                    <div className="flex gap-2 mt-2">
+                      {(['head', 'body', 'accessory', 'charm'] as const).map(slotKey => (
+                        <div key={slotKey} className="flex flex-col items-center gap-0.5">
+                          <EquippedGearSlot elder={e} slotKey={slotKey} isDark={isDark}
+                            actions={{ inventory, tokens, materials, upgradeDiscountPct, onUpgrade: onUpgradeGear, onUnequip: onUnequipElder, onEquip: onEquipElder }}
+                            className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${e.equipment?.[slotKey] ? 'active:scale-90' : 'opacity-30'} ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                            {(item: any) => item ? <ItemIcon name={item.name} icon={item.icon} size={32} rarity={item.rarity} /> : <span className="text-[18px] opacity-60">+</span>}
+                          </EquippedGearSlot>
+                          <span className="text-[9px] font-black uppercase tracking-wider opacity-50">{slotKey} · {GEAR_SLOT_STAT_SHORT[slotKey]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {e.awayUntil && (
+                    <div className={`mt-3 p-2 rounded-xl text-[13px] font-black text-center ${isDark ? 'bg-sky-900/40 text-sky-200' : 'bg-sky-100 text-sky-700'}`}>
+                      {e.awayLoan ? '🤝 On loan to' : '🏡 At'} {e.awayHost || "a friend"}{e.awayLoan ? '' : "'s park"} · {e.awayUntil > Date.now() ? `${Math.ceil((e.awayUntil - Date.now()) / 3600000)}h left` : 'returning…'}
+                    </div>
+                  )}
+                  <div className={`flex gap-2 mt-3 ${e.awayUntil ? 'opacity-40 pointer-events-none' : ''}`}>
                     {e.status === 'Team' 
-                      ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>Bench</button> 
-                      : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[9px] font-black uppercase bg-indigo-600 text-white shadow-lg shadow-indigo-900/10">Assign to Squad</button>
+                      ? <button onClick={() => onMoveToStandby(e.id)} className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button> 
+                      : <button onClick={() => onMoveToTeam(e.id)} className="flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-[var(--accent-600)] text-white shadow-lg shadow-[var(--accent-900-a10)]">Assign to Squad</button>
                     }
+                    {onEvolve && (() => { const ev = evolveInfo(e, tokens); return ev.stage < 2 ? (
+                      <button onClick={() => onEvolve(e.id)} disabled={!ev.ready} title={!ev.meetsLevel ? `Needs level ${ev.needed}` : !ev.canAfford ? `Needs ${ev.cost} Tickets` : `Evolve to stage ${ev.stage + 1}`}
+                        className={`flex-1 py-2 px-3 rounded-xl text-[14px] font-black uppercase ${ev.ready ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-500' : 'bg-slate-200 text-slate-400'}`}>
+                        Evolve {ev.meetsLevel ? `(${ev.cost})` : `(Lv.${ev.needed})`}
+                      </button>) : null; })()}
                     {onScrapElder && (
                       <button
                         onClick={() => { if (window.confirm(`Scrap ${e.name} for Tickets? This can't be undone.`)) onScrapElder(e.id); }}
-                        className="py-2 px-3 rounded-xl text-[9px] font-black uppercase bg-rose-100 text-rose-600"
+                        className="py-2 px-3 rounded-xl text-[14px] font-black uppercase bg-rose-100 text-rose-600"
                       >
                         Scrap
                       </button>
@@ -945,31 +1804,163 @@ export const BasePanel: React.FC<{
 
 // ─── Team Panel ───────────────────────────────────────────────────────────────
 
-export const TeamPanel: React.FC<{ elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean }> = ({ elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark }) => {
+export const TeamPanel: React.FC<{ borrowed?: Elder[], elders: Elder[], onMoveToStandby: (id: string) => void, onMoveToTeam: (id: string) => void, onSetRoamer: (id: string) => void, isDark: boolean, onEvolve?: (id: string) => void, onReorderTeam?: (orderedIds: string[]) => void, legacyTokens?: number, gearActions?: GearActions }> = ({ borrowed = [], onReorderTeam, elders, onMoveToStandby, onMoveToTeam, onSetRoamer, isDark, onEvolve, legacyTokens = 0, gearActions }) => {
   const team = elders.filter(e => e.status === 'Team');
+  const squadPower = getSquadPower(team);
   return (
     <div className="p-6 pb-28 h-full overflow-y-auto custom-scrollbar">
-      <h2 className={`text-3xl font-black uppercase mb-8 italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
+      <div className="flex items-center justify-between mb-8 gap-4">
+        <h2 className={`text-3xl font-black uppercase italic tracking-tighter ${isDark ? 'text-white' : 'text-slate-800'}`}>The Squad</h2>
+        <div className={`px-4 py-2 rounded-2xl text-right ${isDark ? 'bg-slate-800 border border-[var(--accent-500-a30)]' : 'bg-[var(--accent-50)] border border-[var(--accent-100)]'}`}>
+          <span className={`block text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Squad Power</span>
+          <span className="font-black text-lg text-[var(--accent-500)] leading-none">{squadPower}</span>
+        </div>
+      </div>
+      {borrowed.map(b => (
+        <div key={b.id} className={`mb-6 p-4 rounded-2xl border-2 ${isDark ? 'bg-sky-900/30 border-sky-700 text-sky-100' : 'bg-sky-50 border-sky-200 text-sky-800'}`}>
+          <p className="text-[12px] font-black uppercase tracking-widest opacity-70">🤝 On loan from {b.loanedBy}</p>
+          <p className="text-[16px] font-black">{b.name} · Lv {b.level} {b.rarity} · Power {getElderPower(b)}</p>
+          <p className="text-[13px] font-bold opacity-80">Fights alongside your squad in Battles and Court games. Not used in Arenas or Raids.</p>
+        </div>
+      ))}
+      {onReorderTeam && team.length > 1 && (
+        <div className={`mb-5 p-3 rounded-2xl flex gap-2 items-center flex-wrap ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <span className="text-[13px] font-black uppercase opacity-60">Order squad:</span>
+          <button onClick={() => onReorderTeam([...team].sort((a, b) => getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Strongest first</button>
+          <button onClick={() => onReorderTeam([...team].sort((a, b) => b.level - a.level || getElderPower(b) - getElderPower(a)).map(x => x.id))} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Highest level first</button>
+          <button onClick={() => { const rank: Record<string, number> = { Legendary: 4, Epic: 3, Rare: 2, Common: 1 }; onReorderTeam([...team].sort((a, b) => (rank[b.rarity] ?? 0) - (rank[a.rarity] ?? 0) || b.level - a.level || getElderPower(b) - getElderPower(a)).map(x => x.id)); }} className="px-3 py-1.5 rounded-xl text-[13px] font-black bg-[var(--accent-600)] text-white">Rarest first</button>
+          <p className="w-full text-[12px] opacity-60">The first Elder leads in battles. Use the arrows on each card to place anyone manually.</p>
+        </div>
+      )}
       <div className="space-y-6">
-        {team.map(e => (
-          <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-indigo-500/20' : 'bg-white border-indigo-100'}`}>
+        {team.map((e, teamIdx) => {
+          const stage = e.evolutionStage ?? 0;
+          const xp = e.xp ?? 0;
+          const nextLevelNeeded = stage >= 2 ? null : stage === 0 ? ELDER_EVOLUTION_STAGE1_LEVEL : ELDER_EVOLUTION_STAGE2_LEVEL;
+          const isEliteRarity = (ELDER_EVOLUTION_STAGE2_ELITE_RARITIES as string[]).includes(e.rarity);
+          const evolveCost = stage === 0 ? EVOLUTION_STAGE1_COST : (isEliteRarity ? EVOLUTION_STAGE2_COST : EVOLUTION_STAGE2_STEEP_COST);
+          const meetsLevel = nextLevelNeeded !== null && e.level >= nextLevelNeeded;
+          const canAffordEvolve = legacyTokens >= evolveCost;
+          return (
+          <div key={e.id} className={`p-6 rounded-[3rem] border-2 flex flex-col gap-4 shadow-lg mb-6 transition-all ${isDark ? 'bg-slate-800 border-[var(--accent-500-a20)]' : 'bg-white border-[var(--accent-100)]'}`}>
             <div className="flex items-center gap-6">
-              <div className="text-5xl flex-shrink-0 relative">{ELDER_AVATARS[e.type][0]}</div>
+              <div className="w-16 h-16 flex-shrink-0 relative"><ElderAvatarImg type={e.type} eventId={e.eventId} stage={stage} fill /></div>
               <div className="flex-1 min-w-0 text-left">
-                <h4 className="font-black text-base uppercase leading-none truncate">{e.name}</h4>
-                <p className="text-[9px] text-slate-400 mt-1">Comfort Gen: {e.comfortGeneration.toFixed(4)}</p>
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
-                  {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-900/10">Neighborhood Lead</button>}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className={`font-black text-base uppercase leading-none truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</h4>
+                  {onReorderTeam && team.length > 1 && (
+                    <span className="flex items-center gap-1 ml-auto">
+                      {teamIdx === 0 && <span className="text-[11px] font-black uppercase text-amber-500">Leads</span>}
+                      <button disabled={teamIdx === 0} onClick={() => { const ids = team.map(x => x.id); [ids[teamIdx - 1], ids[teamIdx]] = [ids[teamIdx], ids[teamIdx - 1]]; onReorderTeam(ids); }} className={`w-8 h-8 rounded-lg font-black ${teamIdx === 0 ? 'opacity-30' : ''} ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700'}`} title="Move up">↑</button>
+                      <button disabled={teamIdx === team.length - 1} onClick={() => { const ids = team.map(x => x.id); [ids[teamIdx + 1], ids[teamIdx]] = [ids[teamIdx], ids[teamIdx + 1]]; onReorderTeam(ids); }} className={`w-8 h-8 rounded-lg font-black ${teamIdx === team.length - 1 ? 'opacity-30' : ''} ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700'}`} title="Move down">↓</button>
+                    </span>
+                  )}
+                  <span className={`text-[15px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Lv.{e.level}</span>
+                  <span className="text-[15px] font-black text-[var(--accent-500)]">PWR {getElderPower(e)}</span>
+                </div>
+                <div className="flex gap-2 items-center flex-wrap mt-2"><ElderInsignia type={e.type} /><RarityBadge rarity={e.rarity} /></div>
+                <p className={`text-[14px] mt-1 font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Comfort: {comfortPoints(e).toFixed(1)} pts · XP {xp}/{xpForElderLevel(e.level)}</p>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <button onClick={() => onMoveToStandby(e.id)} className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Bench</button>
+                  {!e.isRoaming && <button onClick={() => onSetRoamer(e.id)} className="bg-[var(--accent-600)] text-white px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg shadow-[var(--accent-900-a10)]">Neighborhood Lead</button>}
+                  {onEvolve && stage < 2 && (
+                    <button
+                      onClick={() => onEvolve(e.id)}
+                      disabled={!meetsLevel || !canAffordEvolve}
+                      title={!meetsLevel ? `Needs level ${nextLevelNeeded}` : !canAffordEvolve ? `Needs ${evolveCost} Tickets` : `Evolve to stage ${stage + 1}`}
+                      className={`px-4 py-2 rounded-xl text-[14px] font-black uppercase shadow-lg ${meetsLevel && canAffordEvolve ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-300 cursor-not-allowed'}`}
+                    >
+                      Evolve {<EmojiText text={meetsLevel ? `(${evolveCost} 🎟️)` : `(Lv.${nextLevelNeeded})`} />}
+                    </button>
+                  )}
+                  {stage >= 2 && <span className="px-4 py-2 rounded-xl text-[14px] font-black uppercase bg-amber-100 text-amber-600">Fully Evolved</span>}
                 </div>
               </div>
             </div>
             <HealthBar hp={e.hp} maxHp={e.maxHp} isDark={isDark} />
             <StatsGrid elder={e} isDark={isDark} />
+            <GearRow elder={e} isDark={isDark} actions={gearActions} />
           </div>
-        ))}
-        {team.length === 0 && <div className="text-center py-20 opacity-30 italic text-xs uppercase font-black tracking-widest leading-relaxed">Squad is empty. Assign elders in the Park Hub.</div>}
+        );})}
+        {team.length === 0 && <div className={`text-center py-20 italic text-sm uppercase font-black tracking-widest leading-relaxed ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>Squad is empty. Assign elders in the Park Hub.</div>}
       </div>
     </div>
   );
+};// Seasonal event card: the running event with live goal progress, or a countdown to the next one.
+// What finishing every goal of a seasonal event gives besides the title: the Event Elder (Legendary) and the Event Keepsake.
+const EventRewards: React.FC<{ eventId: string; owned: boolean; isDark: boolean }> = ({ eventId, owned, isDark }) => {
+  const elder = EVENT_ELDERS[eventId]; const keep = EVENT_KEEPSAKES.find(k => k.eventId === eventId);
+  if (!elder || !keep) return null;
+  const tile = `flex-1 min-w-0 rounded-2xl p-2 text-center ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`;
+  return (
+    <div className="mt-3">
+      <div className="text-[12px] font-black uppercase tracking-widest text-slate-400 mb-1">Event rewards {owned && <span className="text-emerald-500">- owned</span>}</div>
+      <div className="flex gap-2">
+        <div className={tile} style={{ border: '2px solid #f59e0b' }}>
+          <img src={EVENT_ELDER_ART[eventId][0]} alt="" className="mx-auto h-16 w-16 object-contain" />
+          <div className="text-[13px] font-black leading-tight" style={{ color: '#f59e0b' }}>{elder.name}</div>
+          <div className="text-[11px] font-bold text-slate-400">Legendary Event Elder</div>
+        </div>
+        <div className={tile} style={{ border: '2px solid #a855f7' }}>
+          <img src={keep.art} alt="" className="mx-auto h-16 w-16 object-contain" />
+          <div className="text-[13px] font-black leading-tight" style={{ color: '#a855f7' }}>{keep.name}</div>
+          <div className="text-[11px] font-bold text-slate-400">Event Keepsake</div>
+        </div>
+      </div>
+      <div className="text-[12px] font-bold text-slate-400 mt-1">Finish every goal to earn both. {owned ? 'You already have them (see the Mementos Shop and your Team).' : 'The Elder joins at the average level of your top 6 Elders and evolves like any other Elder.'}</div>
+    </div>
+  );
 };
+
+const EventsCard: React.FC<{ isDark: boolean; modeStats?: Record<string, number>; eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }; earnedEventIds?: string[] }> = ({ isDark, modeStats, eventProgress, earnedEventIds = [] }) => {
+  const act = activeSeasonalEvent();
+  const card = `p-5 rounded-[2.5rem] border shadow-sm mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`;
+  const daysLeft = (t: number) => Math.max(0, Math.ceil((t - Date.now()) / 86400000));
+  if (!act) {
+    const nx = nextSeasonalEvent();
+    return (
+      <div className={card}>
+        <div className="text-[13px] font-black uppercase tracking-widest text-slate-400 mb-1">Seasonal Events</div>
+        <div className={`text-[16px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}><span className="inline-flex items-center gap-2">{eventArt(nx.event.id) ? <img src={eventArt(nx.event.id)} alt="" className="w-14 h-14 object-contain" /> : nx.event.icon} {nx.event.name} starts in {daysLeft(nx.startsAt)} days</span></div>
+        <div className="text-[13px] font-bold text-slate-400 mt-1">{nx.event.blurb} Finish every goal for a permanent event title and icon.</div>
+        <EventRewards eventId={nx.event.id} owned={earnedEventIds.includes(nx.event.id)} isDark={isDark} />
+      </div>
+    );
+  }
+  const key = `${act.event.id}-${act.year}`;
+  const base = eventProgress && eventProgress.id === key ? eventProgress.base : undefined;
+  const claimed = eventProgress && eventProgress.id === key ? eventProgress.claimed : [];
+  const done = act.event.goals.every(g => claimed.includes(g.id));
+  return (
+    <div className={`${card} border-[var(--accent-500)]`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[13px] font-black uppercase tracking-widest text-[var(--accent-500)]">Event - {daysLeft(act.endsAt)} days left</div>
+          <div className={`text-[20px] font-black uppercase italic leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}><span className="flex items-center gap-3">{eventArt(act.event.id) ? <img src={eventArt(act.event.id)} alt="" className="w-20 h-20 object-contain flex-shrink-0" /> : act.event.icon} {act.event.name}</span></div>
+          <div className="text-[13px] font-bold text-slate-400 mt-1">{act.event.blurb}</div>
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        {act.event.goals.map(g => {
+          const p = base ? eventGoalProgress(g, modeStats, base) : 0;
+          const isDone = claimed.includes(g.id);
+          return (
+            <div key={g.id} className={`p-3 rounded-2xl ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+              <div className="flex justify-between items-baseline gap-2">
+                <span className={`text-[14px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{isDone ? '\u2713 ' : ''}{g.label}</span>
+                <span className="text-[13px] font-black text-slate-400 whitespace-nowrap">{p}/{g.target}</span>
+              </div>
+              <div className={`h-2 rounded-full mt-2 overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}><div className="h-full bg-[var(--accent-500)]" style={{ width: `${(p / g.target) * 100}%` }} /></div>
+              <div className="text-[12px] font-bold text-slate-400 mt-1">Reward: {g.tickets} <Gfx e="🎟️" size={14} /> {g.materials} <Gfx e="🧱" size={14} /> {g.xp} XP</div>
+            </div>
+          );
+        })}
+      </div>
+      <EventRewards eventId={act.event.id} owned={earnedEventIds.includes(act.event.id)} isDark={isDark} />
+      <div className="text-[13px] font-black mt-3 text-center" style={{ color: done ? '#22c55e' : undefined }}>{done ? `Complete! You earned "${act.event.title} ${act.year}".` : `Finish every goal to earn the title "${act.event.title} ${act.year}" and its icon.`}</div>
+    </div>
+  );
+};
+
+
+

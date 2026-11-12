@@ -1,0 +1,66 @@
+import React from 'react';
+import ticketImg from '../game-assets/icons/ticket.png';
+import materialsImg from '../game-assets/icons/materials.png';
+import ppImg from '../game-assets/icons/pp.png';
+import tvDinnerImg from '../game-assets/icons/tvdinner.png';
+import mementoImg from '../game-assets/icons/memento.png';
+import passImg from '../game-assets/icons/pass.png';
+import debateBattleImg from '../game-assets/glyphs/debate_battle.webp';
+import { BRACKET_ART, PLACE_ART } from '../game-assets/badges/badgeArt';
+
+// Emoji -> real art map. Drop a PNG in game-assets/icons/ and add one line here;
+// until an entry exists the original emoji is shown, so nothing breaks mid-migration.
+const ART: Record<string, string> = {
+  '🎟️': ticketImg,
+  '🧱': materialsImg,
+  '💰': ppImg,
+  '🍽️': tvDinnerImg,
+  '💛': mementoImg,
+  '🎫': passImg,
+  '⚔️': debateBattleImg, // crossed swords in a speech bubble = the game's battle icon (battles are "debates")
+};
+
+const norm = (s: string) => s.replace(/\ufe0f/g, '');
+const LOOKUP: Record<string, string> = Object.fromEntries(Object.entries(ART).map(([k, v]) => [norm(k), v]));
+const KEYS = Object.keys(LOOKUP);
+
+/** Single icon: real art if mapped, else the emoji itself. */
+export const Gfx: React.FC<{ e: string; className?: string; size?: number }> = ({ e, className = '', size = 20 }) => {
+  const src = LOOKUP[norm(e)];
+  if (!src) return <span className={className} aria-hidden>{e}</span>;
+  return <img src={src} alt="" draggable={false} className={`inline-block object-contain align-[-0.2em] ${className}`} style={{ width: size, height: size }} />;
+};
+
+/** Text that may contain mapped emoji (e.g. "+12 🎟️"); swaps only the mapped ones. */
+export const EmojiText: React.FC<{ text: any; size?: number }> = ({ text, size = 18 }) => {
+  if (!KEYS.length || typeof text !== 'string') return <>{text}</>;
+  const re = new RegExp(`(${KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\ufe0f?`, 'g');
+  const out: React.ReactNode[] = [];
+  let last = 0, m: RegExpExecArray | null, i = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<Gfx key={i++} e={m[1]} size={size} />);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return <>{out}</>;
+};
+
+/** Plain-language names for every currency icon, used for hover titles and tap-to-explain toasts. */
+export const CURRENCY_INFO: Record<string, { name: string; blurb: string }> = {
+  '💰': { name: 'Pension Points (PP)', blurb: 'Earned from Dividend and Cash Out claims.' },
+  '🎟️': { name: 'Tickets', blurb: 'Everyday currency: Shop, upgrades and extra attempts.' },
+  '🍽️': { name: 'TV Dinners', blurb: 'Earned from PvP, Arenas and Raids. Spend in the PvP Shop.' },
+  '🧱': { name: 'Building Materials', blurb: 'Build and upgrade your Park.' },
+  '💛': { name: 'Mementos', blurb: 'Premium currency for the Mementos Shop.' },
+};
+
+// Power-bracket crest (1-10) and 1st/2nd/3rd place medal images. Return nothing for out-of-range values.
+export const BracketCrest: React.FC<{ n: number; className?: string }> = ({ n, className = 'w-7 h-7' }) => {
+  const src = BRACKET_ART[n - 1];
+  return src ? <img src={src} alt="" className={`${className} object-contain inline-block flex-shrink-0`} /> : null;
+};
+export const PlaceMedal: React.FC<{ place: number; className?: string }> = ({ place, className = 'w-6 h-6' }) => {
+  const src = PLACE_ART[place - 1];
+  return src ? <img src={src} alt="" className={`${className} object-contain inline-block flex-shrink-0`} /> : null;
+};

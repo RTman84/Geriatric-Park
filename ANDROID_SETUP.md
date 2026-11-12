@@ -1,0 +1,86 @@
+# Geriatric Park — Android app (Capacitor) setup
+
+The Android app is the existing web game wrapped in a native shell (Capacitor 8), with
+Google AdMob rewarded video as the ONLY thing that pays PP. `compileSdk` / `targetSdk` are 36
+(Android 16), which Google Play requires for new apps since 2026-08-31.
+
+## What already exists in the repo
+- `android/` — the native project. `capacitor.config.ts` — app id + settings.
+- `npm run build:native` — builds the web bundle for the app (strips the AdSense script,
+  reads `.env.native`). `npm run android:sync` — build + copy into `android/`.
+- `services/rewardedAds.ts` — one entry point for ads: AdMob in the app, a 5-second simulated
+  "test sponsor" on the web (no real ad), or nothing if `VITE_ADS_MODE=off`.
+- `.github/workflows/android-debug.yml` — builds an installable debug APK in the cloud.
+- The app calls the deployed backend via `VITE_API_BASE_URL` (in `.env.native`), and network
+  calls go through Capacitor's native HTTP so browser CORS rules don't block them.
+
+## Try it on your phone (no Android Studio needed)
+1. GitHub → the repo → **Actions** → **Android debug build** → **Run workflow** (or just push).
+2. When it finishes (about 5-10 minutes), open the run and download **geriatric-park-debug-apk**.
+3. Unzip it, copy `app-debug.apk` to your phone, and open it (allow "install unknown apps").
+4. The sponsor button plays Google's TEST ad (labelled "Test Ad"). Nothing real is earned.
+
+## Before a real Play release (each is a manual step for you)
+1. **Google Play Console** developer account ($25 one-time) and identity verification.
+2. **AdMob account** (admob.google.com) -> Apps -> Add app (Android, "not yet on Google Play"
+   is fine) -> copy the **App ID** (`ca-app-pub-...~...`). Add a **Rewarded** ad unit -> copy its
+   **Ad unit ID** (`ca-app-pub-.../...`). AdMob also needs a payments profile before it pays.
+3. Put the App ID in `android/app/src/main/AndroidManifest.xml` (the `APPLICATION_ID` meta-data,
+   currently Google's test id) and set `VITE_ADMOB_REWARDED_ID` + `VITE_ADMOB_PRODUCTION=true`
+   in `.env.native`. Until then the app only ever serves test ads.
+4. **Confirm the app id** `com.geriatricpark.game` (capacitor.config.ts). It is permanent once
+   uploaded to Play.
+5. **Release signing**: create an upload keystore (never commit it or its passwords), enrol in
+   Play App Signing, then build a signed `.aab`. (The debug workflow above is not a release build.)
+6. **Play Console forms**: privacy policy at a permanent HTTPS URL (must now mention AdMob and
+   location), Data Safety, content rating (chance/Bingo mechanics), ads declaration = yes.
+7. **Backend URL**: after `main` includes the phase2 backend, point `VITE_API_BASE_URL` at the
+   production URL.
+
+## Selling Mementos (Google Play Billing) -- steps for you
+Built: the app buys through the `@capgo/native-purchases` plugin and sends Google's purchase token to `api/purchase.ts`, which
+verifies it with Google, credits Mementos once (migration `022_purchases.sql`) and books the money into the ledger.
+1. **Play Console -> your app -> Monetize -> Products -> In-app products**: create three **consumable** products with EXACTLY these
+   ids and prices: `mementos_100` ($0.99), `mementos_550` ($4.99), `mementos_1150` ($9.99). Activate them. (The app must have an
+   uploaded build in a testing track before products can be bought.)
+2. **Service account for the server check**: Google Cloud Console -> create a project (or use the AdMob/Play one) -> enable the
+   **Google Play Android Developer API** -> IAM & Admin -> Service accounts -> create one -> Keys -> Add key -> JSON. In **Play
+   Console -> Users and permissions -> Invite new users**, add that service account's email and give it permission to
+   **view financial data and manage orders** for the app.
+3. **Vercel -> Settings -> Environment Variables** (Production + Preview, then Redeploy without cache):
+   - `GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL` = the `client_email` from the JSON
+   - `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY` = the `private_key` from the JSON (keep it secret; never commit it)
+   - `PLAY_PACKAGE_NAME` = `com.geriatricpark.game`
+4. Run `supabase/migrations/022_purchases.sql` AND `supabase/migrations/023_mementos_server.sql` in Supabase (023 holds the
+   server-side Mementos balance and refund handling).
+5. **Test with a license tester**: Play Console -> Settings -> License testing -> add your Google account. Test purchases are
+   refused by default (see the marked line in `api/purchase.ts`); remove that line temporarily to test, then put it back.
+6. The Mementos balance lives on the SERVER (`api/mementos.ts`); the game mirrors it and the server's number always wins.
+   Refunds: at most every 30 minutes the server asks Google for voided purchases (same service account) and takes refunded
+   Mementos back; if they were already spent, the Mementos purchases made since are revoked, newest first. For testing the PP
+   conversion before ads are verified, set `ALLOW_UNVERIFIED_PP_CONVERT=true` on a Preview deployment only.
+
+## Known gaps (not done yet)
+- **Google sign-in inside the app**: Google blocks OAuth in embedded WebViews. Email/password and
+  magic link work; Google OAuth needs a native flow (browser + deep link). Not built.
+- **Android back button**: currently exits the app; should close open panels first.
+- **Tailwind CDN**: styling loads Tailwind from a CDN, so the app needs internet to look right.
+  Bundle Tailwind locally before release.
+- **Server-side reward verification** (AdMob SSV) needs the server ledger (Bundle F) — until then
+  rewards are granted client-side after the ad's Dismissed+Rewarded events.
+- **iOS**: not set up (Steam is not possible for ad rewards; see ECONOMY.md 4c).
+- **Web production**: set `VITE_ADS_MODE=off` on the production web deploy before public launch
+  so the simulated sponsor can't grant PP without real ad revenue behind it.
+
+## Google sign-in inside the app (done in code 2026-10-14; ONE dashboard step for you)
+Google blocks sign-in inside an app's built-in browser, so in the Android app "Continue with Google" opens a normal browser tab (Chrome Custom Tabs) and the browser returns to the app through the link `com.geriatricpark.game://auth-callback`. Email magic links and sign-up confirmation emails use the same return link.
+1. Supabase dashboard -> your project -> **Authentication** -> **URL Configuration** -> under **Redirect URLs** click **Add URL**, paste `com.geriatricpark.game://auth-callback`, **Save**. (Keep the existing website URLs.)
+2. Nothing to change in Google Cloud: Google still returns to Supabase's own callback, which already works on the website.
+3. The Android project picks up the new plugin (`@capacitor/browser`) when the GitHub Actions build runs `cap sync`; building locally needs `npx cap sync android` first.
+The website sign-in is unchanged. If the app id `com.geriatricpark.game` ever changes, change it in `services/nativeAuth.ts` and the manifest intent-filter and update the Supabase redirect URL to match.
+
+## AdMob ids wired in (2026-10-14)
+- App ID `ca-app-pub-4749065898882415~7060559259` is in `AndroidManifest.xml`. Rewarded ad unit `ca-app-pub-4749065898882415/9578911384` is in `.env.native`. Both are public ids, not secrets.
+- The real ad unit is used ONLY by a production build: `npm run build:native:release` (sets `VITE_ADMOB_PRODUCTION=true`). Debug APKs and the GitHub "Android debug build" always show Google's TEST ad, so testing never produces real impressions or clicks. Never tap real ads on your own account.
+- `public/app-ads.txt` (`google.com, pub-4749065898882415, DIRECT, f08c47fec0942fa0`) is served at the website root as `/app-ads.txt`. AdMob checks it on the developer website listed in the Play Store listing; production serves `main`, so it is only live on the production domain after phase2 is merged to `main`.
+- Still to do for ads: AdMob payments profile, the server-side verification callback URL (`https://<production domain>/api/ledger`, after the production deploy), a release workflow that runs `build:native:release`, and the Play Console Data Safety / privacy policy text for ads.

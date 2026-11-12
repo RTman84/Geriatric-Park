@@ -5,20 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Geriatric Park</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/favicon.png">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4749065898882415" crossorigin="anonymous"></script>
   <style>
     :root {
       --sat: env(safe-area-inset-top);
       --sab: env(safe-area-inset-bottom);
+      /* Default UI color theme (Rustic Brown) -- overridden at runtime by
+         applyUITheme() in constants.tsx based on saved settings, but set here
+         too so the first paint isn't unstyled before React mounts. */
+      --accent-50: #fdf6ee;
+      --accent-100: #f8e8d4;
+      --accent-200: #f0d0a8;
+      --accent-300: #e3b17d;
+      --accent-400: #cd8a52;
+      --accent-500: #b06a35;
+      --accent-600: #8b4d24;
+      --accent-700: #6b3a1c;
+      --accent-900: #3e2210;
+      --accent-950: #24140a;
+      --accent-500-a10: rgba(176, 106, 53, 0.10);
+      --accent-500-a20: rgba(176, 106, 53, 0.20);
+      --accent-500-a30: rgba(176, 106, 53, 0.30);
+      --accent-900-a10: rgba(62, 34, 16, 0.10);
+      --accent-900-a20: rgba(62, 34, 16, 0.20);
+      --accent-900-a30: rgba(62, 34, 16, 0.30);
     }
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background-color: #f8fafc;
+      background-color: #0f172a;
       font-family: 'Fredoka', sans-serif;
       overscroll-behavior: none;
     }
@@ -32,18 +50,31 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     .safe-bottom { padding-bottom: var(--sab); }
     .safe-top { padding-top: var(--sat); }
-  </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "react/": "https://esm.sh/react@^19.2.4/",
-      "react": "https://esm.sh/react@^19.2.4",
-      "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-      "@heroicons/react/": "https://esm.sh/@heroicons/react@^2.2.0/"
+    .structure-label {
+      background: rgba(15, 23, 42, 0.82);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 2px 8px;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      white-space: nowrap;
     }
-  }
-  </script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    .structure-label::before { display: none; }
+
+    /* Dark-mode map tiles: previously used Carto's dark_all basemap, which
+       now requires a signed-up API key (see basemaps.cartocdn.com policy
+       change) -- rather than add a dependency on a third-party key/signup,
+       this fakes a dark look on the same free OpenStreetMap tiles used in
+       light mode via a CSS filter. No external service, no key, no signup. */
+    .map-tiles-dark {
+      filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>

@@ -1,0 +1,64 @@
+GERIATRIC PARK - EVENT ELDER EVOLUTION ART (14 images: stage 2 and stage 3 for each of the 7 Event Elders)
+Task W1.4 in the tracker. Today every event Elder shows ONE portrait at all three evolution stages. These prompts give each one a grander second and third form while staying clearly the same person.
+
+HOW TO USE: for each image attach THAT Elder's current portrait (the EE sheet you already generated) as the reference/style image, paste the STYLE BLOCK, then paste the stage text below it. One image per generation, 1:1 or 3:4 is fine (the circle is cut out in code). Name the files like EV1_stage2_CupidCarl.png so I can match them.
+
+QA before uploading: same face and glasses as the reference, two hands with five fingers each, one signature prop only (plus the extra items named), circular badge on pure white, no readable text anywhere, nothing scary.
+
+STYLE BLOCK (paste before every prompt):
+Glossy cartoon mobile-game character portrait, exactly like the attached reference portrait: a single elderly character shown waist-up inside a perfect circular badge with a thin dark-brown outline ring, pure white background outside the circle, the character partly breaking out of the circle (hat, wings, hair or prop overlapping the ring), thick dark-brown outlines, bright glossy highlights, warm saturated colors, soft top-left lighting, themed colored backdrop with a glowing golden legendary aura and floating sparkles, friendly warm expression, SAME FACE, SAME HAIR, SAME GLASSES AND SAME CORE OUTFIT AS THE REFERENCE so it is clearly the same person, no text, no letters, no numbers, no watermark, no captions, no extra people.
+
+NEGATIVE PROMPT (all):
+text, letters, numbers, watermark, caption, extra people, extra arms, extra fingers, extra hands, different face, different character, scary, realistic photo, 3d render, blurry, thin lines, flat shading, cropped head, duplicated props, merged objects, square frame, rectangular border
+
+
+====================================================================================================
+1. CUPID CARL (Sweetheart event)
+====================================================================================================
+STAGE 2 (file EV1_stage2): Stage 2: the wings are larger and glow faintly pink, the golden bow gains ornate swirls and two floating heart-tipped arrows orbit him, his sash gets gold embroidery and a heart-shaped brooch, a ring of drifting rose petals.
+
+STAGE 3 (file EV1_stage3): Stage 3 (final): huge radiant white-and-gold wings, a small floating golden halo, a magnificent glowing golden bow with a blazing heart-shaped arrow ready to fire, a long flowing rose-gold cape over the red cardigan, a burst of hearts and starlight behind him.
+
+====================================================================================================
+2. BLOSSOM BETTY (Spring Fling event)
+====================================================================================================
+STAGE 2 (file EV2_stage2): Stage 2: a fuller crown of cherry blossoms and small green vines in her silver bun, the watering can becomes a gilded teal can with blossoms painted on it pouring a thicker ribbon of glowing petals, more butterflies, a flowered shawl over the green cardigan.
+
+STAGE 3 (file EV2_stage3): Stage 3 (final): a grand floral crown with a glowing blossom at the center, long trailing branches of cherry blossoms framing her, a golden magical watering can pouring a swirling spiral of petals and light, delicate translucent butterfly wings on her back, the whole backdrop a blooming spring sunrise.
+
+====================================================================================================
+3. PICNIC PETE (Summer Picnic event)
+====================================================================================================
+STAGE 2 (file EV3_stage2): Stage 2: a bigger straw hat with a golden band and tiny lemon charms, mirrored sunglasses glinting, the picnic basket now overflowing with a roast chicken, fruit and cheese, a larger lemonade pitcher with glowing lemon slices orbiting, brighter sun rays.
+
+STAGE 3 (file EV3_stage3): Stage 3 (final): a grand golden-straw sun hat with a glowing sun emblem, a sparkling golden picnic basket with a feast spilling out and a regal red-and-white checkered cape, glowing lemons and sunbeams swirling around, a radiant sun halo behind his head.
+
+====================================================================================================
+4. GRAN-GRAN GERTIE (Grandparents' Day event)
+====================================================================================================
+STAGE 2 (file EV4_stage2): Stage 2: a larger golden-framed family photo glowing softly, a bigger platter of heart cookies, a lavender cardigan with gold buttons and a rose brooch, floating crayon hearts and stars brighter and more numerous, a pretty lace collar.
+
+STAGE 3 (file EV4_stage3): Stage 3 (final): a shimmering golden crown-like hair comb in her white bun, an ornate glowing photo frame holding a happy family portrait, a tray of golden heart cookies radiating warmth, a flowing lavender-and-gold shawl, a giant soft glowing heart behind her and a rain of tiny hearts.
+
+====================================================================================================
+5. BOO BERNICE (Spooky Bingo Night event)
+====================================================================================================
+STAGE 2 (file EV5_stage2): Stage 2: a taller witch hat with a glowing crescent moon buckle and more bingo-ball charms, the ghost dauber grows a glowing aura, more friendly ghosts swirling, a flowing black-and-purple cloak with bat embroidery over the cardigan, a bigger harvest moon.
+
+STAGE 3 (file EV5_stage3): Stage 3 (final): a towering enchanted witch hat studded with glowing bingo balls and a golden moon crest, a wand-sized glowing ghost dauber trailing ribbons of purple fire, a grand starry cloak, a crowd of cheerful translucent ghosts and spectral bingo balls (no numbers), a huge glowing orange moon behind her. Friendly, never scary.
+
+====================================================================================================
+6. CASSEROLE CLARENCE (Thanksgiving Potluck event)
+====================================================================================================
+STAGE 2 (file EV6_stage2): Stage 2: a taller chef hat with a golden autumn-leaf band, a bigger casserole dish with a glowing golden-brown crust and richer steam, a chef's jacket under the apron with copper buttons, more falling leaves and wheat.
+
+STAGE 3 (file EV6_stage3): Stage 3 (final): a towering chef's hat with a golden crown band and a glowing maple leaf emblem, a magnificent gleaming golden casserole on a glowing platter with a spiral of steam shaped like a swirling harvest, a rich burgundy-and-gold chef's cape, a halo of golden leaves and wheat.
+
+====================================================================================================
+7. FROSTY FRANK (Winter Games event)
+====================================================================================================
+STAGE 2 (file EV7_stage2): Stage 2: a thicker pompom hat with a frosted gold band, the curling broom now has glowing blue bristles, the curling stone gets a gold ring and glowing runes, a gold medal plus a silver medal on his parka, heavier snowfall and ice crystals.
+
+STAGE 3 (file EV7_stage3): Stage 3 (final): a crown-like knit hat with a glowing ice-crystal crest, a radiant glowing broom trailing a ribbon of icy light, a gleaming golden curling stone with a swirling snowflake aura, three medals (gold, silver, bronze) and a long frosted royal-blue cape, an aurora in the sky behind him.
+
+WIRING (next chat): resize to match the current event portraits, cut the circle, save as game-assets/events/elders/<eventId>_stage2.webp and _stage3.webp, then `EVENT_ELDER_ART[eventId][stage]` and the `eventId` prop on every `ElderAvatarImg` call site (bug W0.1 must be fixed first).

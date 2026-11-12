@@ -1,10 +1,290 @@
-import { isAccountContext, requireAccount, serverJson } from '../_accountServer';
+// Inlined intentionally — a shared file (whether under api/ or lib/) was not being
+// included in the deployed function bundle in this project, causing
+// ERR_MODULE_NOT_FOUND at runtime for every route that imported it. Each API route
+// is self-contained instead, at the cost of duplicating this ~45-line helper.
+//
+// Edge runtime is required here, not optional: this file is written entirely
+// against the Web Fetch API (Request/Response/Headers, req.json(), req.headers.get()).
+// Without this declaration Vercel defaults to the Node.js runtime, where req is a
+// plain http.IncomingMessage-like object with none of those methods -- this was
+// causing a hard "TypeError: req.headers.get is not a function" crash on every
+// request in production (confirmed via live Vercel function logs, 9-12-26).
+export const config = { runtime: 'edge' };
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+// --- WORDFILTER START (identical copy lives in services/wordFilter.ts and every api route that uses it; scripts/check-wordfilter.mjs verifies) ---
+const WF_LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i', '+': 't' };
+// Matched anywhere inside the squashed text (spaces, symbols and repeats removed): unambiguous severe terms only.
+const WF_ALWAYS = ['nigg', 'nigr', 'fagg', 'faggot', 'retard', 'tranny', 'kike', 'chink', 'gook', 'wetback', 'spic', 'cunt', 'fuck', 'shit', 'bitch', 'whore', 'slut', 'rapist', 'nazi', 'hitler', 'cock', 'dick', 'pussy', 'bastard', 'twat', 'wank', 'jizz', 'porn', 'dildo', 'penis', 'vagina', 'molest', 'pedo'];
+// Matched only as whole words (so "class", "grape", "assistant" stay fine).
+const WF_WORDS = ['ass', 'asshole', 'coon', 'dyke', 'rape', 'rapes', 'raped', 'sex', 'sexy', 'nude', 'nudes', 'tits', 'boob', 'boobs', 'anal', 'cum', 'hoe', 'damn', 'piss', 'crap', 'fag', 'negro', 'homo', 'suicide', 'kys', 'kkk'];
+// Innocent words that contain a blocked fragment; removed whole before the squashed check.
+const WF_SAFE = ['scunthorpe', 'cockburn', 'dickens', 'dickinson', 'dickson', 'hancock', 'peacock', 'cockatoo', 'cocktail', 'cockpit', 'shiitake', 'shitake', 'penistone', 'analysis', 'analyst', 'assassin', 'bassett', 'classic', 'grape', 'therapist', 'mishit', 'pussycat', 'pussy willow', 'cumberland', 'cucumber', 'document', 'accumulate', 'circumstance', 'specific', 'spice', 'spicy', 'helen'];
+const WF_RESERVED = ['admin', 'administrator', 'moderator', 'support', 'staff', 'official', 'geriatricpark', 'anthropic', 'claude'];
+type WordCheck = { ok: boolean; reason?: 'empty' | 'length' | 'blocked' | 'contact' | 'reserved' };
+function wfSquash(text: string): string {
+  const base = text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  let out = '';
+  for (const ch of base) out += WF_LEET[ch] ?? ch;
+  return out.replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1');
+}
+function wfTokens(text: string): string[] {
+  const base = text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  let out = '';
+  for (const ch of base) out += WF_LEET[ch] ?? ch;
+  return out.split(/[^a-z]+/).filter(Boolean);
+}
+function wfVariants(t: string): string[] { return [t, t.replace(/(.)\1{2,}/g, '$1'), t.replace(/(.)\1{2,}/g, '$1$1')]; }
+function checkText(raw: unknown, opts: { min?: number; max?: number; reserved?: boolean } = {}): WordCheck {
+  const text = typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim() : '';
+  if (!text) return { ok: false, reason: 'empty' };
+  if (text.length < (opts.min ?? 1) || text.length > (opts.max ?? 40)) return { ok: false, reason: 'length' };
+  if (/https?:|www\.|\.(com|net|org|io|gg|ly|me|co|tv)\b|@\w+\.\w+|\b\d{3}[\s.\-]?\d{3}[\s.\-]?\d{4}\b/i.test(text)) return { ok: false, reason: 'contact' };
+  const tokens = wfTokens(text);
+  if (tokens.some(t => wfVariants(t).some(v => WF_WORDS.includes(v)))) return { ok: false, reason: 'blocked' };
+  const kept = tokens.filter(t => !WF_SAFE.includes(t)).join(' ');
+  const squashed = wfSquash(kept);
+  if (WF_ALWAYS.some(w => squashed.includes(w.replace(/(.)\1+/g, '$1')))) return { ok: false, reason: 'blocked' };
+  const wholeSquash = wfSquash(text);
+  if (opts.reserved && WF_RESERVED.some(w => { const d = w.replace(/(.)\1+/g, '$1'); return wholeSquash === d || wholeSquash.startsWith(d); })) return { ok: false, reason: 'reserved' };
+  return { ok: true };
+}
+function wordCheckMessage(c: WordCheck): string {
+  if (c.ok) return '';
+  if (c.reason === 'empty') return 'Please enter something.';
+  if (c.reason === 'length') return 'That is too short or too long.';
+  if (c.reason === 'contact') return 'Links, emails and phone numbers are not allowed.';
+  if (c.reason === 'reserved') return 'That name is reserved. Please pick another.';
+  return 'That is not allowed. Please pick something friendlier.';
+}
+// --- WORDFILTER END ---
+
+type AccountContext = { userId: string; supabase: SupabaseClient; displayName: string | null };
+
+function serverJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+}
+
+function getBearerToken(req: Request): string | null {
+  const value = req.headers.get('authorization') || '';
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function requireAccount(req: Request): Promise<AccountContext | Response> {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const token = getBearerToken(req);
+
+  if (!url || !serviceKey) return serverJson({ error: 'Account service is not configured' }, 503);
+  if (!token || token.length > 8192) return serverJson({ error: 'Authentication required' }, 401);
+
+  const supabase = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { 'X-Geriatric-Park-Server': 'account-api' } },
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return serverJson({ error: 'Invalid or expired session' }, 401);
+
+  const rawName = typeof data.user.user_metadata?.display_name === 'string' ? data.user.user_metadata.display_name : null;
+  // Server-side enforcement: a name that fails the word filter (for example set by a modified client) is never shown to other players.
+  const displayName = rawName && checkText(rawName, { min: 2, max: 24, reserved: true }).ok ? rawName : null;
+  return { userId: data.user.id, supabase, displayName };
+}
+
+function isAccountContext(value: AccountContext | Response): value is AccountContext {
+  return value instanceof Response === false;
+}
 
 const MAX_SAVE_BYTES = 350_000;
 const MAX_SCHEMA_VERSION = 100;
 
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
+}
+
+// Mirrors getElderPower/getSquadPower in constants.tsx -- duplicated here for
+// the same self-contained-file reason as everything else in this file, since
+// this is a different runtime bundle than the client.
+// Gear sets: distinct pieces of a set worn by the squad -> one percent bonus that applies to Arena power, Raid damage AND PvP power.
+// Only the best set counts. Mirrors GEAR_SET_INFO in constants.tsx (names and bonus tables must stay in sync).
+const SET_PIECE_NAMES: Record<string, string[]> = {
+  porch: ['Porch Sun Visor', 'League Windbreaker', 'Lucky Bocce Ball', 'Lemonade Lucky Pin'],
+  club: ['Tournament Visor', 'Club Blazer', 'Champion Cufflinks', 'Lucky Rabbit Foot'],
+  heirloom: ['Golden Reading Glasses', 'Velvet Smoking Jacket', 'Heirloom Pocket Watch', 'Four-Leaf Clover Pin'],
+  arena: ["Champion's Sweatband", 'Clubhouse Cardigan', 'Banner Brooch', 'Faction Pin'],
+  raid: ['Whistle-Blower Cap', 'Reflective Crossing Vest', 'Clipboard Shield', 'Lucky Bingo Dauber'],
+};
+const SET_BONUS_PCT_TABLE: Record<string, number[]> = {
+  porch: [0, 0, 2, 2, 5], club: [0, 0, 4, 4, 10], heirloom: [0, 0, 6, 6, 14], arena: [0, 0, 4, 4, 10], raid: [0, 0, 5, 5, 12],
+};
+function bestSetBonusFrom(saveData: any): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  let best = 0;
+  for (const set of Object.keys(SET_PIECE_NAMES)) {
+    const slots = new Set<string>();
+    for (const e of elders) {
+      if (e?.status !== 'Team' || !e?.equipment || typeof e.equipment !== 'object') continue;
+      for (const [slot, it] of Object.entries(e.equipment as Record<string, any>)) {
+        if (it && SET_PIECE_NAMES[set].includes(String(it.name))) slots.add(slot);
+      }
+    }
+    best = Math.max(best, SET_BONUS_PCT_TABLE[set][Math.min(4, slots.size)]);
+  }
+  return best;
+}
+// Strongest single Elder the player owns (any status), so a benched Elder can still be stationed at an Arena.
+function maxElderPowerFrom(saveData: any): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  return elders.reduce((m: number, e: any) => Math.max(m, (Number(e?.strength) || 0) + (Number(e?.tenacity) || 0) + (Number(e?.wit) || 0)), 0);
+}
+function squadPowerFrom(saveData: any): number {
+  const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+  return elders
+    .filter((e: any) => e?.status === 'Team')
+    .reduce((sum: number, e: any) => sum + (Number(e?.strength) || 0) + (Number(e?.tenacity) || 0) + (Number(e?.wit) || 0), 0);
+}
+
+// Best-effort snapshot for the Social Profile / friends system (Phase 2) --
+// never blocks or fails the actual cloud save if this part errors, since the
+// save itself is the important write and this is purely a derived read-model
+// for other players to view via api/friends.ts.
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateFriendCode(): string {
+  let code = '';
+  for (let i = 0; i < 8; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return code;
+}
+
+async function syncPlayerProfile(supabase: SupabaseClient, userId: string, displayName: string | null, saveData: any): Promise<string | null> {
+  try {
+    const elders = Array.isArray(saveData?.allElders) ? saveData.allElders : [];
+    const achievements = Array.isArray(saveData?.achievements) ? saveData.achievements : [];
+    const favoriteIds: string[] = Array.isArray(saveData?.favoriteElderIds) ? saveData.favoriteElderIds.slice(0, 3) : [];
+    const favoriteElders = favoriteIds
+      .map(id => elders.find((e: any) => e?.id === id))
+      .filter(Boolean)
+      .map((e: any) => ({ type: e.type, evolutionStage: e.evolutionStage ?? 0, name: e.name, level: Number.isFinite(e.level) ? e.level : 1, rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common' }));
+
+    // Roster for the friend-park view: captured Elders that are home (not away), highest level first, max 30. Untrusted-save rules apply.
+    const nowMs = Date.now();
+    const parkElders = elders
+      .filter((e: any) => e && e.captured === true && typeof e.type === 'string' && typeof e.name === 'string' && !(Number.isFinite(e.awayUntil) && e.awayUntil > nowMs))
+      .sort((a: any, b: any) => (Number.isFinite(b.level) ? b.level : 1) - (Number.isFinite(a.level) ? a.level : 1))
+      .slice(0, 30)
+      .map((e: any) => ({
+        type: e.type.slice(0, 40),
+        evolutionStage: [0, 1, 2].includes(e.evolutionStage) ? e.evolutionStage : 0,
+        eventId: typeof e.eventId === 'string' && /^[a-z]{3,20}$/.test(e.eventId) ? e.eventId : undefined,
+        name: e.name.slice(0, 40),
+        level: Number.isFinite(e.level) ? Math.max(1, Math.floor(e.level)) : 1,
+        rarity: ['Common', 'Rare', 'Epic', 'Legendary'].includes(e.rarity) ? e.rarity : 'Common',
+      }));
+
+    // A bracket title can only be shown to other players if the server recorded the honor (court_honors).
+    const verifiedCourtKey = async (key: unknown): Promise<string | null> => {
+      if (typeof key !== 'string' || !(key.startsWith('court:') || key.startsWith('board:'))) return typeof key === 'string' ? key : null;
+      if (!/^(court:\d{1,2}:[123]|board:(arena|raid|friend):\d{1,2}:[123])$/.test(key)) return null;
+      const { data } = await supabase.from('court_honors').select('key').eq('user_id', userId).eq('key', key).maybeSingle();
+      return data ? key : null;
+    };
+    const safeTitle = await verifiedCourtKey(saveData?.selectedTitle);
+    const safeIcon = await verifiedCourtKey(saveData?.selectedAccountIcon);
+
+    const statFields = {
+      display_name: displayName,
+      level: Number.isInteger(saveData?.level) ? saveData.level : 1,
+      selected_title: safeTitle,
+      selected_account_icon: safeIcon,
+      achievements_completed: achievements.filter((a: any) => a?.completed).length,
+      achievements_total: achievements.length,
+      squad_power: squadPowerFrom(saveData),
+      arena_bonus_pct: bestSetBonusFrom(saveData), // arena_bonus_pct and raid_bonus_pct both hold the player's best set bonus; PvP (Court, Friend Battle) uses it too
+      max_elder_power: Math.min(1000000, Math.round(maxElderPowerFrom(saveData))),
+      raid_bonus_pct: bestSetBonusFrom(saveData),
+      favorite_elders: favoriteElders,
+      park_elders: parkElders,
+      built_amenities: Array.isArray(saveData?.builtAmenityIds) ? saveData.builtAmenityIds : [],
+      park_decor: (Array.isArray(saveData?.parkDecor) ? saveData.parkDecor : []).slice(0, 40).filter((d: any) => d && typeof d.id === 'string' && Number.isFinite(d.x) && Number.isFinite(d.y)).map((d: any) => ({ id: String(d.id).slice(0, 8), x: Math.max(0, Math.min(100, d.x)), y: Math.max(0, Math.min(100, d.y)) })).concat(
+        // Moved buildings ride along as extra park_decor pieces with 'b<n>' ids (no schema change); percent of the 1024 x 2992 scene.
+        Object.entries(saveData?.parkLayout && typeof saveData.parkLayout === 'object' ? saveData.parkLayout : {}).filter(([k, v]: [string, any]) => /^b\d{1,2}$/.test(k) && v && Number.isFinite(v.x) && Number.isFinite(v.y)).slice(0, 12).map(([k, v]: [string, any]) => ({ id: k, x: +(Math.max(0, Math.min(1024, v.x)) / 1024 * 100).toFixed(2), y: +(Math.max(0, Math.min(2992, v.y)) / 2992 * 100).toFixed(2) }))),
+      // Active (unfinished) quests, so friends can pick one when leaving an Elder to help. Untrusted-save rules apply.
+      active_quests: (Array.isArray(saveData?.quests) ? saveData.quests : [])
+        .filter((q: any) => q && typeof q.id === 'string' && typeof q.title === 'string' && !q.completed && Number.isFinite(q.target) && Number.isFinite(q.progress))
+        .slice(0, 12)
+        .map((q: any) => ({ id: q.id.slice(0, 40), title: q.title.slice(0, 60), progress: Math.max(0, Math.floor(q.progress)), target: Math.max(1, Math.floor(q.target)) })),
+      // Friend's park otherwise always showed Lv 1 -- sanitized the same way as any other
+      // untrusted-save field: only keep finite integer levels >= 1, keyed by a string id.
+      amenity_levels: (() => {
+        const raw = saveData?.amenityLevels;
+        if (!raw || typeof raw !== 'object') return {};
+        const out: Record<string, number> = {};
+        for (const [id, lvl] of Object.entries(raw)) {
+          if (typeof id === 'string' && Number.isFinite(lvl as number) && (lvl as number) >= 1) out[id] = Math.floor(lvl as number);
+        }
+        return out;
+      })(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // BUG FOUND (9-15-26): player_profiles.friend_code is NOT NULL + UNIQUE
+    // with no default, but this function's upsert never included it. If a
+    // player's very first cloud autosave fires before they've ever opened
+    // their own Friends screen (near-certain, since autosave debounces just
+    // 2 seconds after any change, while opening Friends is a deliberate,
+    // much later action), no row exists yet -- the upsert has to INSERT, and
+    // that INSERT violates the not-null constraint on friend_code every
+    // single time, forever, for every player. It never surfaced anywhere
+    // because the { error } from that call was also never checked (see the
+    // fix below this function). The end result: a player's *own* first
+    // Friends-screen visit was the ONLY thing that ever successfully created
+    // their row (via ensureProfile in api/friends.ts, which does supply a
+    // code) -- but that row is a bare default (level 1, squad_power 0, no
+    // name), and unless something happened to retry the sync after that
+    // point, it could sit stale indefinitely.
+    //
+    // Fix: ensure a row exists first (mirroring ensureProfile's own
+    // race-safe retry-on-collision pattern) using a plain INSERT with a
+    // fresh code, then UPDATE (never upsert) the real stat fields separately
+    // so an existing friend_code is never at risk of being touched.
+    const { data: existing, error: selectErr } = await supabase.from('player_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+    if (selectErr) { console.error('Player profile sync failed (non-fatal)', selectErr.message); return selectErr.message; }
+
+    if (!existing) {
+      let inserted = false;
+      let lastError: string | null = null;
+      for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+        const { arena_bonus_pct: _ia, raid_bonus_pct: _ir, max_elder_power: _im, ...insertFields } = statFields as any; // bonuses start at the column default (0) and are set by the next sync
+        const { error: insertErr } = await supabase.from('player_profiles').insert({ user_id: userId, friend_code: generateFriendCode(), ...insertFields });
+        if (!insertErr) { inserted = true; break; }
+        lastError = insertErr.message;
+        if (!String(insertErr.message).includes('friend_code')) break;
+      }
+      if (!inserted) { console.error('Player profile sync failed (non-fatal)', lastError); return lastError; }
+      return null;
+    }
+
+    let { error: updateErr } = await supabase.from('player_profiles').update(statFields).eq('user_id', userId);
+    if (updateErr && /arena_bonus_pct|raid_bonus_pct|max_elder_power/.test(String(updateErr.message))) {
+      // Migration 028 not applied yet: keep syncing everything else rather than losing squad power updates.
+      const { arena_bonus_pct: _a, raid_bonus_pct: _r, max_elder_power: _m, ...withoutBonus } = statFields as any;
+      ({ error: updateErr } = await supabase.from('player_profiles').update(withoutBonus).eq('user_id', userId));
+    }
+    if (updateErr) { console.error('Player profile sync failed (non-fatal)', updateErr.message); return updateErr.message; }
+    return null;
+  } catch (e: any) {
+    // Deliberately swallowed -- a broken profile snapshot should never take
+    // down cloud saves. api/friends.ts creates a fresh row on first access
+    // anyway (ensureProfile), so a missed sync just means slightly stale
+    // data until the next successful save.
+    console.error('Player profile sync failed (non-fatal)', e?.message || e);
+    return e?.message || String(e);
+  }
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -83,5 +363,12 @@ export default async function handler(req: Request): Promise<Response> {
     return serverJson({ error: 'Cloud save unavailable' }, 500);
   }
 
-  return serverJson({ save: data });
+  const profileSyncError = await syncPlayerProfile(context.supabase, context.userId, context.displayName, saveData);
+
+  // TEMPORARY (9-15-26 profile-sync investigation): surface a failed profile
+  // sync in the successful save response so it's visible in the browser
+  // console via cloudSaveService.ts without needing Vercel's live Logs tab.
+  // Never blocks/fails the save itself -- purely informational. Revert once
+  // the underlying cause (RLS policy, column mismatch, etc.) is found.
+  return serverJson({ save: data, profileSyncError: profileSyncError || undefined });
 }

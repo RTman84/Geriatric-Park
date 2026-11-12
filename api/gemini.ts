@@ -1,3 +1,10 @@
+// Edge runtime is required here, not optional: this file is written entirely
+// against the Web Fetch API (Request/Response, req.json()). Without this
+// declaration Vercel defaults to the Node.js runtime, where req is a plain
+// http.IncomingMessage-like object with neither method -- see the same bug
+// found and fixed in api/tournament-board.ts and api/account/*.ts (9-12-26).
+export const config = { runtime: 'edge' };
+
 import { GoogleGenAI, Type } from '@google/genai';
 
 const MAX_NAME = 80;

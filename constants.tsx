@@ -10,22 +10,440 @@ import {
   ClipboardDocumentListIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline';
-import { ElderType, PowerType, Achievement } from './types';
+import { ElderType, PowerType, Achievement, Quest, Gear, GearSetId } from './types';
+
+// Every image below is imported (not referenced by a hardcoded /public path).
+// Vite content-hashes imported assets at build time -- e.g.
+// comfy_loafers.png becomes /assets/comfy_loafers-a1b2c3d4.png -- so any time
+// the source PNG's pixels change, the built URL automatically changes too.
+// No manual "_v2" renaming and no risk of a browser/CDN cache serving stale
+// bytes under an unchanged filename, ever again. When adding or replacing
+// game art going forward: drop the file in game-assets/<category>/, import
+// it here, done -- never edit a file already referenced in public/.
+import bingoWarriorStage1 from './game-assets/elders/bingo_warrior_stage1.png';
+import bingoWarriorStage2 from './game-assets/elders/bingo_warrior_stage2.png';
+import bingoWarriorStage3 from './game-assets/elders/bingo_warrior_stage3.png';
+import grumpyGardenerStage1 from './game-assets/elders/grumpy_gardener_stage1.png';
+import grumpyGardenerStage2 from './game-assets/elders/grumpy_gardener_stage2.png';
+import grumpyGardenerStage3 from './game-assets/elders/grumpy_gardener_stage3.png';
+import knittingNinjaStage1 from './game-assets/elders/knitting_ninja_stage1.png';
+import knittingNinjaStage2 from './game-assets/elders/knitting_ninja_stage2.png';
+import knittingNinjaStage3 from './game-assets/elders/knitting_ninja_stage3.png';
+import mallWalkerStage1 from './game-assets/elders/mall_walker_stage1.png';
+import mallWalkerStage2 from './game-assets/elders/mall_walker_stage2.png';
+import mallWalkerStage3 from './game-assets/elders/mall_walker_stage3.png';
+import storytellerStage1 from './game-assets/elders/storyteller_stage1.png';
+import storytellerStage2 from './game-assets/elders/storyteller_stage2.png';
+import storytellerStage3 from './game-assets/elders/storyteller_stage3.png';
+import techWizardStage1 from './game-assets/elders/tech_wizard_stage1.png';
+import techWizardStage2 from './game-assets/elders/tech_wizard_stage2.png';
+import techWizardStage3 from './game-assets/elders/tech_wizard_stage3.png';
+import amenityCottage from './game-assets/amenities/cottage.webp';
+import amenityTrail from './game-assets/amenities/trail.webp';
+import amenityGrocery from './game-assets/amenities/grocery.webp';
+import amenityAerobics from './game-assets/amenities/aerobics.webp';
+import amenityBirdwatch from './game-assets/amenities/birdwatch.webp';
+import amenityEarlybird from './game-assets/amenities/earlybird.webp';
+import amenityComplaints from './game-assets/amenities/complaints.webp';
+import amenityNappod from './game-assets/amenities/nappod.webp';
+import amenityPrunebar from './game-assets/amenities/prunebar.webp';
+import amenityShuffleboard from './game-assets/amenities/shuffleboard_deco.webp';
+import amenityWorkshop from './game-assets/amenities/workshop.webp';
+import bossHoaImg from './game-assets/raid/hoa.png';
+import bossDmvImg from './game-assets/raid/dmv.png';
+import bossMarshalImg from './game-assets/raid/marshal.png';
+import bossBuffetImg from './game-assets/raid/buffet.png';
+import bossHorseImg from './game-assets/raid/horse.png';
+import bossPruneImg from './game-assets/raid/prune.png';
+import bossTaxImg from './game-assets/raid/tax.png';
+import bossThermostatImg from './game-assets/raid/thermostat.png';
+import bossBusImg from './game-assets/raid/bus.png';
+import bossTimeImg from './game-assets/raid/time.png';
+import factionBirdsImg from './game-assets/factions/early_birds.png';
+import factionOwlsImg from './game-assets/factions/night_owls.png';
+import factionDriversImg from './game-assets/factions/sunday_drivers.png';
+import amenityLodge from './game-assets/amenities/lodge.webp';
+
+
+import bingoBlitzHallImg from './game-assets/structures/bingo_blitz_hall.webp';
+import communityGardenImg from './game-assets/structures/community_garden.webp';
+import farmersMarketImg from './game-assets/structures/farmers_market.webp';
+import grandShuffleCourtImg from './game-assets/structures/grand_shuffle_court.webp';
+import mallCircuitImg from './game-assets/structures/mall_circuit.webp';
+import potluckPavilionImg from './game-assets/structures/potluck_pavilion.webp';
+import silverSpringsRehabImg from './game-assets/structures/silver_springs_rehab.webp';
+
+
+import playerMarkerImg from './game-assets/player/player_marker.png';
+export const PLAYER_MARKER_IMG = playerMarkerImg;
+
+import earlyBirdImg from './game-assets/achievements/early_bird.webp';
+import communityPillarImg from './game-assets/achievements/community_pillar.webp';
+import debateChampionImg from './game-assets/achievements/debate_champion.webp';
+import wealthyPensionerImg from './game-assets/achievements/wealthy_pensioner.webp';
+import trophySpare from './game-assets/spare/trophy.webp';
+import { RANK_ART, MODE_BADGE_ART, MODE_GLYPH_ART, PLACE_ART, HONOR_ART } from './game-assets/badges/badgeArt';
+import { EVENT_ART, NEW_GEAR_ART, UI_ART as UI_ART_BASE } from './game-assets/newArt';
+import { ITEM_ART4, PARCEL_ART4, NAV_ART } from './game-assets/art4';
+import { EVENT_ELDER_ART, EVENT_KEEPSAKE_ART } from './game-assets/eventElders';
+import { NEW_GEAR_ART_W7, NEW_KEEPSAKE_ART_W7, NEW_ANTIQUE_ART_W7, PASS_THEME_ART } from './game-assets/w7Art';
+import { ITEM_ART3, PASS_LANE_ART, PASS_ART, FEAT_ART, GLYPH_ART } from './game-assets/art3';
+
+// Keyed by id -- INITIAL_ACHIEVEMENTS items are read directly from this array
+// and only ever have `.completed` toggled, never cloned with a new id.
+export const ACHIEVEMENT_ICON_ASSETS: Record<string, string> = {
+  a1: earlyBirdImg,
+  a2: communityPillarImg,
+  a3: debateChampionImg,
+  a4: wealthyPensionerImg,
+  ...FEAT_ART, // a5-a10
+};
 
 export const GAME_VERSION = '1.7.0';
 export const TEAM_SIZE_LIMIT = 6;
 export const BASE_POPULATION_LIMIT = 100;
-export const WITHDRAWAL_MINIMUM = 10.00;
-export const INITIAL_PENSION_RATE = 0.00005;
-export const AD_REVENUE_PAYOUT = 0.10; 
-export const MAX_ADS_PER_HOUR = 50;
-export const DIVIDEND_COOLDOWN = 15 * 60 * 1000; 
+// ─── Economy v2 (Bundle B, 2026-09-20) ────────────────────────────────────────
+// ONE number drives the whole PP economy: what a single rewarded ad view is
+// assumed to earn in real USD. Benchmarks put US rewarded video near $0.016 per
+// view; we assume half of that ($0.008) to allow for fill-rate loss, frequency
+// decay and a global mix. There is NO real AdSense/AdMob data yet -- once real
+// reports exist, change this ONE constant and every PP rate below follows it.
+// (Costs/rates below were derived at this value; see ECONOMY.md before retuning.)
+export const ASSUMED_AD_REVENUE_PER_VIEW_USD = 0.008;
+export const ECONOMY_VERSION = 4;      // saves below this get their PP-denominated values scaled once (see migrateEconomy)
+export const PP_SCALE_V2 = 0.08;        // = 0.008 / 0.10, the old simulated payout
+export const AD_REVENUE_PAYOUT = ASSUMED_AD_REVENUE_PER_VIEW_USD;
+export const MAX_ADS_PER_DAY = 15; // typical casual-game rewarded cap; resets at local midnight
+export const WITHDRAWAL_MINIMUM = 5.00;
+// Passive rates are PER 30-SECOND TICK (see PASSIVE_TICK_MS). Deliberately tiny,
+// many-decimal numbers: passive earning is a slow loyalty layer, reached through
+// long-term investment, and is only ever cashable through the reserve-capped Cash Out.
+export const INITIAL_PENSION_RATE = 0.000004;
+export const DIVIDEND_COOLDOWN = 60 * 60 * 1000;
+export const DIVIDEND_BASE_PAYOUT = 0.0008;          // PP per claim before Stars bonus
+export const DIVIDEND_SCORE_BONUS = 0.000004;        // extra PP per Star
+export const DIVIDEND_MAX_SCORE_BONUS = 0.004;       // cap on the Stars bonus
+export const DIVIDEND_MAX_RESERVE_SHARE = 0.05;      // one claim can never take more than 5% of the pool
+export const DIVIDEND_MIN_RESERVE = 0.004;           // below this the pool is "too low" (~2-3 ads' worth)
+export const DIVIDEND_TICKETS_BASE = 5;
+export const DIVIDEND_TICKETS_PER_STARS = 50;        // +1 Ticket per this many Stars...
+export const DIVIDEND_TICKETS_CAP = 25;              // ...up to this cap per claim
+export const CASHOUT_MAX_RESERVE_SHARE = 0.25;       // one Cash Out can never drain more than 25% of the pool
 
-export const XP_FOR_LEVEL_UP = 1000;
-export const SEASON_XP_PER_LEVEL = 1000;
+// Account (player) XP: gentle exponential so growth stays slow but never dead,
+// with a high cap so long-term players always have somewhere to go.
+export const XP_FOR_LEVEL_UP = 1000;   // base cost, level 1 -> 2
+export const PLAYER_XP_GROWTH = 1.06;
+export const MAX_PLAYER_LEVEL = 300;      // raised from 100 (2026-11-07). Raising this later is always safe; lowering it would not be.
+export const PLAYER_CURVE_BREAK_LEVEL = 100;
+export const PLAYER_POST_BREAK_STEP = 0.02; // past level 100 each level costs 2% more than level 100 did (linear), so level 300 costs 5x level 100
+export function xpForPlayerLevel(level: number): number {
+  const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, MAX_PLAYER_LEVEL));
+  if (lvl <= PLAYER_CURVE_BREAK_LEVEL) return Math.round(XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, lvl - 1));
+  const atBreak = XP_FOR_LEVEL_UP * Math.pow(PLAYER_XP_GROWTH, PLAYER_CURVE_BREAK_LEVEL - 1);
+  return Math.round(atBreak * (1 + PLAYER_POST_BREAK_STEP * (lvl - PLAYER_CURVE_BREAK_LEVEL)));
+}
+export const SEASON_XP_PER_LEVEL = 800; // was 1000 with 10 ranks; the Pass now has 30 ranks (24,000 XP a season)
+// Seasons are GLOBAL 30-day windows from this epoch (so the server can sell a per-season Gold Pass and everyone's ranks line up).
+export const SEASON_EPOCH = Date.UTC(2026, 9, 1);
+export const SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
+export const SEASON_NAMES = ['Autumn Gathering', 'Winter Warmth', 'Spring Bloom', 'Summer Social'];
+export function currentSeasonWindow(now: number = Date.now()): { id: number; name: string; start: number; end: number } {
+  const idx = Math.max(0, Math.floor((now - SEASON_EPOCH) / SEASON_LENGTH_MS));
+  return { id: idx + 1, name: SEASON_NAMES[idx % SEASON_NAMES.length], start: SEASON_EPOCH + idx * SEASON_LENGTH_MS, end: SEASON_EPOCH + (idx + 1) * SEASON_LENGTH_MS };
+}
+// Pass XP from play: every mode counts a little, nothing is required, and a daily cap keeps it steady (existing Task/Quest/pickup XP is on top).
+export const SEASON_ACTIVITY_XP: Record<string, number> = { battle: 20, shuffleboard: 15, tournament: 25, challenge: 20, friend_battle: 25, arena: 25, exchange_send: 25, exchange_host: 15, bingo: 25, collect: 3, evolve: 100 };
+export const SEASON_RAID_HIT_XP = 30;
+export const SEASON_ACTIVITY_DAILY_CAP = 500;
+export const GOLD_PASS_PRICE_MEMENTOS = 550; // about $5 of Mementos (550-pack is $4.99). Server-side price lives in api/mementos.ts
 
 export const TRAINING_BASE_COST = 50; 
 export const STAT_BONUS_PER_LEVEL = 5;
+// Rarity makes an Elder better in every way: all stats, HP and level-up growth scale by this multiplier
+// (comfort, scrap value and capture odds already scaled by rarity). Legendary is the best at everything.
+export const RARITY_STAT_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 1, Rare: 1.2, Epic: 1.45, Legendary: 1.8,
+};
+// The stats a fresh Elder of this level and rarity has (same growth per level as grantElderXp in App.tsx).
+export function standardElderStats(level: number, rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary') {
+  const L = Math.max(1, Math.floor(level) || 1) - 1;
+  const m = RARITY_STAT_MULTIPLIER[rarity] ?? 1;
+  return {
+    strength: Math.round((10 + STAT_BONUS_PER_LEVEL * L) * m),
+    wit: Math.round((10 + STAT_BONUS_PER_LEVEL * L) * m),
+    agility: Math.round((8 + Math.ceil(STAT_BONUS_PER_LEVEL / 2) * L) * m),
+    tenacity: Math.round((8 + Math.ceil(STAT_BONUS_PER_LEVEL / 2) * L) * m),
+    maxHp: Math.round((80 + STAT_BONUS_PER_LEVEL * 2 * L) * m),
+  };
+}
+// Splits an Elder's displayed stat into Base + green bonuses (rarity, gear, evolution) for the registry and squad
+// screens. Evolution multiplies the whole stat (including gear), so we divide it out first; rarity is the standard
+// curve's edge over a Common of the same level (capped so it never exceeds what is actually there).
+export type StatKey = 'strength' | 'wit' | 'agility' | 'tenacity';
+export function getStatBreakdown(e: { level: number; rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any>; strength: number; wit: number; agility: number; tenacity: number }) {
+  const stage = e.evolutionStage ?? 0;
+  const cum = (stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
+  const std = standardElderStats(e.level, e.rarity), com = standardElderStats(e.level, 'Common');
+  const gearKey: Record<string, StatKey> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
+  const out = {} as Record<StatKey, { total: number; base: number; rarity: number; gear: number; evolution: number }>;
+  (['strength', 'wit', 'agility', 'tenacity'] as StatKey[]).forEach(k => {
+    const total = e[k];
+    let gear = 0;
+    for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && gearKey[slot] === k) gear += Math.round(getEffectiveGearBoost(item as any) * gearLevelScale(e.level));
+    gear = Math.min(gear, Math.max(0, total));
+    // Base = what a Common Elder of this level has; rarity = the extra a higher rarity adds at this level; gear = equipped
+    // gear; evolution = whatever is left. (The old version divided the whole stat by the evolution multiplier, which is
+    // wrong for levels gained after evolving and made the "base" look far too small, e.g. 92 for a level-66 Legendary.)
+    const base = Math.max(0, Math.min(total - gear, com[k]));
+    const rarity = Math.max(0, Math.min(std[k] - com[k], total - gear - base));
+    out[k] = { total, base, rarity, gear, evolution: Math.max(0, total - base - rarity - gear) };
+  });
+  return out;
+}
+
+// One shared Elder ordering: the Park Registry saves the player's sort choice and every Elder picker (equip, Arena station, Exchange,
+// Workshop) follows it, so Elders always appear in the same places.
+export type ElderSortMode = 'power' | 'level' | 'rarity' | 'type' | 'obtained' | 'name';
+const ELDER_SORT_KEY = 'gp_elder_sort';
+export function readElderSortPref(): { sort: ElderSortMode; desc: boolean } {
+  try {
+    const v = JSON.parse(localStorage.getItem(ELDER_SORT_KEY) || '{}');
+    const ok: ElderSortMode[] = ['power', 'level', 'rarity', 'type', 'obtained', 'name'];
+    return { sort: ok.includes(v.sort) ? v.sort : 'power', desc: v.desc !== false };
+  } catch { return { sort: 'power', desc: true }; }
+}
+export function writeElderSortPref(sort: ElderSortMode, desc: boolean) { try { localStorage.setItem(ELDER_SORT_KEY, JSON.stringify({ sort, desc })); } catch { /* storage unavailable */ } }
+interface SortableElder { id: string; name: string; type: any; level: number; rarity?: string; strength: number; wit: number; tenacity: number; obtainedAt?: number }
+export function sortEldersBy<T extends SortableElder>(list: T[], sort: ElderSortMode, desc: boolean, order?: T[]): T[] {
+  const rr: Record<string, number> = { Common: 0, Rare: 1, Epic: 2, Legendary: 3 };
+  const idx = new Map<string, number>((order ?? list).map((e, i): [string, number] => [e.id, i]));
+  const pw = (e: T) => e.strength + e.tenacity + e.wit;
+  const key = (e: T): number | string => sort === 'power' ? pw(e) : sort === 'level' ? e.level : sort === 'rarity' ? (rr[e.rarity ?? 'Common'] ?? 0) : sort === 'obtained' ? (e.obtainedAt ?? (idx.get(e.id) ?? 0)) : sort === 'name' ? e.name.toLowerCase() : String(e.type);
+  return [...list].sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    const c = typeof ka === 'string' ? ka.localeCompare(kb as string) : (ka as number) - (kb as number);
+    return (desc ? -c : c) || pw(b) - pw(a);
+  });
+}
+export function sortEldersByPref<T extends SortableElder>(list: T[]): T[] { const p = readElderSortPref(); return sortEldersBy<T>(list, p.sort, p.desc); }
+
+// ONE standard formula for an Elder's stats: the level/rarity curve, times the evolution multipliers, plus equipped gear (added after,
+// not multiplied). Levelling, evolving, capturing and the 2026-10-11 migration all produce exactly this, so no Elder can be stronger or
+// weaker than another of the same level, rarity, stage and gear (this fixed wild captures arriving with inflated stats and evolution
+// multiplying whatever an Elder happened to have at the time).
+// Evolution gets stronger as the Elder and the player progress. The base multipliers (x1.3, then x1.75 = x2.275 at stage 2) describe the
+// GAIN from evolving; that gain is scaled by up to +EVOLUTION_LEVEL_BONUS_MAX (+60%) as progress goes from 0 to 1, where progress is
+// 60% Elder level and 40% account level (both out of 100). Examples at stage 2: Elder 25 / player 25 -> x2.47; 50 / 50 -> x2.66;
+// 100 / 100 -> x3.04 (about +34% over the old flat x2.275), so a maxed Legendary is clearly the strongest thing in the game.
+export const EVOLUTION_LEVEL_BONUS_MAX = 0.6;
+export const evolutionProgress = (elderLevel: number, playerLevel: number): number => {
+  const e = Math.min(1, Math.max(0, (Number.isFinite(elderLevel) ? elderLevel : 1) / 100));
+  const p = Math.min(1, Math.max(0, (Number.isFinite(playerLevel) ? playerLevel : 1) / 100));
+  return 0.6 * e + 0.4 * p;
+};
+export const evolutionCum = (stage?: number, elderLevel?: number, playerLevel?: number): number => {
+  const base = (stage && stage >= 1 ? EVOLUTION_STAT_MULTIPLIER[1] : 1) * (stage && stage >= 2 ? EVOLUTION_STAT_MULTIPLIER[2] : 1);
+  if (base <= 1 || elderLevel === undefined) return base;
+  return 1 + (base - 1) * (1 + EVOLUTION_LEVEL_BONUS_MAX * evolutionProgress(elderLevel, playerLevel ?? 1));
+};
+// --- Endgame scaling (2026-10-16) ---------------------------------------------------------------------------------------------
+// Gear is a flat stat, which stops mattering once an Elder's own stats reach the thousands. From Elder level 30 on, every gear piece counts
+// for more: x1 up to level 30, then +1 for every 20 levels (level 50 = x2, 70 = x3, 100 = x4.5). Nothing changes below level 30.
+export const GEAR_SCALE_START_LEVEL = 30;
+export const GEAR_SCALE_LEVELS_PER_STEP = 20;
+export const gearLevelScale = (elderLevel: number): number =>
+  1 + Math.max(0, (Number.isFinite(elderLevel) ? elderLevel : 1) - GEAR_SCALE_START_LEVEL) / GEAR_SCALE_LEVELS_PER_STEP;
+// XP rewards are small flat numbers while each level costs more and more (Elder level 60 costs 8,150 XP, level 99 about 112,000). Above level
+// 25 every XP award is multiplied by how much more that level costs than level 25 (raised to 0.75, so late levels still take a bit longer).
+// Example (Elder): level 40 x2.1, 60 x6.0, 80 x16, 99 x42. Nothing changes at level 25 or below.
+export const XP_CATCHUP_START_LEVEL = 25;
+export const XP_CATCHUP_EXPONENT = 0.75;
+export function xpCatchUp(level: number, thresholdFor: (lvl: number) => number): number {
+  if (!(level > XP_CATCHUP_START_LEVEL)) return 1;
+  const ref = thresholdFor(XP_CATCHUP_START_LEVEL), now = thresholdFor(level);
+  return ref > 0 && now > 0 ? Math.max(1, Math.pow(now / ref, XP_CATCHUP_EXPONENT)) : 1;
+}
+
+export function canonicalElderStats(e: { level: number; rarity?: 'Common' | 'Rare' | 'Epic' | 'Legendary'; evolutionStage?: number; equipment?: Record<string, any> }, playerLevel: number = 1) {
+  const rarity = e.rarity ?? 'Common';
+  const std = standardElderStats(e.level, rarity), cum = evolutionCum(e.evolutionStage, e.level, playerLevel);
+  const gear = { strength: 0, wit: 0, agility: 0, tenacity: 0 };
+  const key: Record<string, 'strength' | 'wit' | 'agility' | 'tenacity'> = { head: 'wit', body: 'tenacity', accessory: 'strength', charm: 'agility' };
+  const gearScale = gearLevelScale(e.level);
+  for (const [slot, item] of Object.entries(e.equipment ?? {})) if (item && key[slot]) gear[key[slot]] += Math.round(getEffectiveGearBoost(item as any) * gearScale);
+  return {
+    strength: Math.round(std.strength * cum) + gear.strength, wit: Math.round(std.wit * cum) + gear.wit,
+    agility: Math.round(std.agility * cum) + gear.agility, tenacity: Math.round(std.tenacity * cum) + gear.tenacity,
+    maxHp: Math.round(std.maxHp * cum),
+  };
+}
+
+// --- Arena and Raid gear sets (2026-10-11) -----------------------------------------------------------------------
+// Arena and Raid sets drop from Arena wins / Raid hits (rare, capped per day). See GEAR_SET_INFO below for how every set's bonus works.
+export interface SetPiece { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; description: string }
+export const ARENA_SET_NAME = 'Clubhouse Champion', RAID_SET_NAME = 'Boss Buster';
+export const ARENA_SET_PIECES: SetPiece[] = [
+  { id: 'as_head', name: "Champion's Sweatband", icon: '\u{1F9E2}', slot: 'Head', description: 'Clubhouse Champion set. Increases Wit.' },
+  { id: 'as_body', name: 'Clubhouse Cardigan', icon: '\u{1F9E5}', slot: 'Body', description: 'Clubhouse Champion set. Increases Tenacity.' },
+  { id: 'as_acc', name: 'Banner Brooch', icon: '\u{1F4DB}', slot: 'Accessory', description: 'Clubhouse Champion set. Increases Strength.' },
+  { id: 'as_charm', name: 'Faction Pin', icon: '\u{1F4CC}', slot: 'Charm', description: 'Clubhouse Champion set. Increases Agility.' },
+];
+export const RAID_SET_PIECES: SetPiece[] = [
+  { id: 'rs_head', name: 'Whistle-Blower Cap', icon: '\u26D1\uFE0F', slot: 'Head', description: 'Boss Buster set. Increases Wit.' },
+  { id: 'rs_body', name: 'Reflective Crossing Vest', icon: '\u{1F9BA}', slot: 'Body', description: 'Boss Buster set. Increases Tenacity.' },
+  { id: 'rs_acc', name: 'Clipboard Shield', icon: '\u{1F4CB}', slot: 'Accessory', description: 'Boss Buster set. Increases Strength.' },
+  { id: 'rs_charm', name: 'Lucky Bingo Dauber', icon: '\u{1F3AF}', slot: 'Charm', description: 'Boss Buster set. Increases Agility.' },
+];
+// Five gear sets. EVERY set gives the same percentage to Arena power, Raid damage and PvP power (Court ladder + Friend Battle), and only the
+// player's BEST set counts (no stacking). index = distinct pieces worn on the squad (0-4); 2 and 3 pieces give the same bonus.
+// Rarer = stronger: Porch League (cheap PvP starter) < Clubhouse Champion = Tournament Club < Boss Buster (rarer drop) < Heirloom Collection.
+// Mirrored in api/account/save.ts (SET_PIECE_NAMES / SET_BONUS_PCT_TABLE).
+export type { GearSetId };
+export const GEAR_SET_INFO: Record<GearSetId, { name: string; source: string; bonus: readonly [number, number, number, number, number] }> = {
+  porch:    { name: 'Porch League',        source: 'PvP shop starter set (cheapest)', bonus: [0, 0, 2, 2, 5] },
+  club:     { name: 'Tournament Club',     source: 'PvP shop (Epic)',                 bonus: [0, 0, 4, 4, 10] },
+  heirloom: { name: 'Heirloom Collection', source: 'PvP shop (Legendary)',            bonus: [0, 0, 6, 6, 14] },
+  arena:    { name: ARENA_SET_NAME,        source: 'Drops from Arena wins',           bonus: [0, 0, 4, 4, 10] },
+  raid:     { name: RAID_SET_NAME,         source: 'Drops from Raid hits (rarer)',    bonus: [0, 0, 5, 5, 12] },
+};
+export const GEAR_SET_ORDER: GearSetId[] = ['porch', 'club', 'arena', 'raid', 'heirloom'];
+export const SET_MAX_BONUS_PCT = 14;
+export const SET_DROP_CHANCE = { arena: 0.10, raid: 0.06 } as const; // per defender beaten / per raid hit
+export const SET_DROP_DAILY_CAP = 3; // per mode per day
+/** Pieces of a set (name, icon, slot). PvP sets come from the PvP shop list, Arena/Raid from their drop lists. */
+export function getSetPieces(set: GearSetId): { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm' }[] {
+  if (set === 'arena') return ARENA_SET_PIECES;
+  if (set === 'raid') return RAID_SET_PIECES;
+  return PVP_GEAR.filter(g => g.set === set);
+}
+/** How many different pieces of a set the squad wears (matched by name, so pieces bought before sets existed still count). */
+export function countSetPieces(team: { equipment?: Record<string, any> }[], set: GearSetId): number {
+  const names = new Set(getSetPieces(set).map(p => p.name));
+  const slots = new Set<string>();
+  for (const e of team) for (const [slot, it] of Object.entries(e.equipment ?? {})) if (it && names.has((it as any).name)) slots.add(slot);
+  return slots.size;
+}
+export const getSetBonusPct = (team: { equipment?: Record<string, any> }[], set: GearSetId): number => GEAR_SET_INFO[set].bonus[Math.min(4, countSetPieces(team, set))];
+/** The squad's best set bonus (what actually applies to Arena, Raid and PvP). */
+export function getBestSetBonus(team: { equipment?: Record<string, any> }[]): { pct: number; set: GearSetId | null } {
+  let best: { pct: number; set: GearSetId | null } = { pct: 0, set: null };
+  for (const id of GEAR_SET_ORDER) { const pct = getSetBonusPct(team, id); if (pct > best.pct) best = { pct, set: id }; }
+  return best;
+}
+/** Power after a set bonus (used in PvP rolls). */
+export const withSetBonus = (power: number, pct?: number): number => power * (1 + Math.max(0, Math.min(SET_MAX_BONUS_PCT, Number(pct) || 0)) / 100);
+export function rollSetPiece(set: 'arena' | 'raid'): Gear {
+  const pieces = set === 'arena' ? ARENA_SET_PIECES : RAID_SET_PIECES;
+  const p = pieces[Math.floor(Math.random() * pieces.length)];
+  const r = Math.random();
+  const rarity: Gear['rarity'] = r < 0.05 ? 'Legendary' : r < 0.30 ? 'Epic' : 'Rare';
+  return { id: 'gear_' + Math.random().toString(36).slice(2, 11), name: p.name, boost: 3, description: p.description, icon: p.icon, slot: p.slot, rarity, level: 1, set };
+}
+
+// What a Resident Exchange gift is worth after `hours` hours away (mirrors api/resident-exchange.ts).
+export const exchangeGiftMaterials = (h: number) => Math.max(1, Math.round(h * 0.5));
+export const exchangeGiftQuestPoints = (h: number) => Math.max(1, Math.round(h / 4));
+export const exchangeGiftBoostHours = (h: number) => Math.max(1, Math.round(h / 4));
+export const EXCHANGE_OWNER_XP_PER_HOUR = 15;
+
+// Ten competitive brackets by squad power, thresholds spread along the same progression curve the Golden Games and
+// Challenge ladder use (top bracket starts near what a fully built squad reaches). Used to label opponents; the
+// near-power opponent list favors your own bracket with a little randomness.
+export const POWER_BRACKETS = [
+  { n: 1, name: 'Porch Sitters', min: 0 }, { n: 2, name: 'Shuffle Starters', min: 300 }, { n: 3, name: 'Bingo Regulars', min: 700 },
+  { n: 4, name: 'Court Challengers', min: 1300 }, { n: 5, name: 'Clubhouse Contenders', min: 2300 }, { n: 6, name: 'Sunroom Veterans', min: 3800 },
+  { n: 7, name: 'Gold Lounge', min: 6000 }, { n: 8, name: 'Circuit Elite', min: 9500 }, { n: 9, name: 'Hall of Famers', min: 15000 },
+  { n: 10, name: 'Living Legends', min: 21000 },
+] as const;
+export function getBracket(power: number) {
+  let b: (typeof POWER_BRACKETS)[number] = POWER_BRACKETS[0];
+  for (const x of POWER_BRACKETS) if (power >= x.min) b = x;
+  return b;
+}
+export const NEARBY_REFRESH_COOLDOWN_MS = 1500; // only a double-tap guard: Refresh is effectively always available
+
+// Scrapping counts an Elder's level only up to this cap, so a high-level wild capture can't be turned into a big
+// Ticket payout (wild Elders are now kept at the level and power they were fought at).
+export const SCRAP_LEVEL_CAP = 25;
+
+// Wild Elder level. Never more than WILD_LEVEL_MAX_ABOVE levels above the player's strongest captured Elder. It centres on the midpoint of
+// that top level and the average level of the player's top 6 Elders (so one lopsided roster can't skew it), rolls 70-120% of that centre,
+// and rarer Elders skew a little higher (Common x0.9 ... Legendary x1.15). `rand` is a 0-1 number (Math.random in the game).
+export const WILD_LEVEL_MAX_ABOVE = 10;
+export function wildElderLevel(ownedLevels: number[], rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary', rand: number): number {
+  const lv = ownedLevels.filter(n => Number.isFinite(n) && n >= 1).sort((a, b) => b - a);
+  const top = lv[0] ?? 1;
+  const top6 = lv.slice(0, 6);
+  const avg = top6.length ? top6.reduce((s, n) => s + n, 0) / top6.length : 1;
+  const centre = (top + avg) / 2;
+  const rarityBias = rarity === 'Legendary' ? 1.15 : rarity === 'Epic' ? 1.08 : rarity === 'Rare' ? 1.0 : 0.9;
+  const r = Math.min(1, Math.max(0, rand));
+  const rolled = Math.round(centre * (0.7 + 0.5 * r) * rarityBias);
+  // Low-level boost: while your best Elder is still low, wilds get up to a few extra levels (3 below level 10, 2 below 20, 1 below 30)
+  // so new and freshly captured Elders always have fights worth XP. Based on Elder levels only, never the account level.
+  const lowBoost = top < 10 ? 3 : top < 20 ? 2 : top < 30 ? 1 : 0;
+  const bonus = Math.floor(r * (lowBoost + 1));
+  return Math.min(100, top + WILD_LEVEL_MAX_ABOVE, Math.max(1, rolled + bonus));
+}
+// Highest squad power a fully built late-game squad can realistically reach (6 Elders at max level, evolved,
+// Epic/Legendary, some gear). Tier 100 of the Golden Games and the Challenge ladder are pegged to this, so every
+// tier is reachable and difficulty tracks real progression instead of compounding past anything attainable.
+export const PROGRESSION_MAX_POWER = 24000;
+
+// ─── Elder progression (evolution spec, Phases 2-4) ───────────────────────────
+// Elder XP uses a separate, smaller threshold than the player's XP_FOR_LEVEL_UP
+// so the two curves can be tuned independently (multiple Elders level up per
+// activity, so their curve needs to be shallower).
+export const ELDER_XP_FOR_LEVEL_UP = 150;  // base cost, Elder level 1 -> 2
+export const ELDER_XP_GROWTH = 1.07;
+export const ELDER_MAX_LEVEL = 100;
+export function xpForElderLevel(level: number): number {
+  const lvl = Math.max(1, Math.min(Number.isFinite(level) ? level : 1, ELDER_MAX_LEVEL));
+  return Math.round(ELDER_XP_FOR_LEVEL_UP * Math.pow(ELDER_XP_GROWTH, lvl - 1));
+}
+
+// Base comfortGeneration is now rarity-scaled instead of a flat 0.0001 for
+// every Elder (see getBaseComfortGeneration below).
+export const BASE_COMFORT_GENERATION = 0.0001;
+export const ELDER_COMFORT_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legendary', number> = {
+  Common: 1, Rare: 1.5, Epic: 2.5, Legendary: 5,
+};
+export function getBaseComfortGeneration(rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary'): number {
+  return BASE_COMFORT_GENERATION * ELDER_COMFORT_RARITY_MULTIPLIER[rarity];
+}
+
+// COMFORT: what it does. Comfortable residents make your park's WORKING BUILDINGS (Nature Trail, Grocery
+// Store, ...) produce more. It never touches passive income or PP. Each active Elder (Team or Porch)
+// contributes "comfort points": rarity scales it (Common 1, Rare 1.5, Epic 2.5, Legendary 5), evolving
+// multiplies it, and every Elder level adds a little more. Points -> +1% building output each, max +50%.
+export const COMFORT_PER_LEVEL = 0.04;
+export const COMFORT_OUTPUT_PER_POINT = 0.01;
+export const COMFORT_OUTPUT_CAP = 0.5;
+export function comfortPoints(e: { comfortGeneration: number; level: number }): number {
+  const base = Number.isFinite(e.comfortGeneration) ? e.comfortGeneration / BASE_COMFORT_GENERATION : 0;
+  const lvl = Number.isFinite(e.level) ? Math.max(1, e.level) : 1;
+  return base * (1 + COMFORT_PER_LEVEL * (lvl - 1));
+}
+export function comfortOutputBonus(elders: Array<{ comfortGeneration: number; level: number; captured?: boolean; status?: string }>): number {
+  const pts = elders
+    .filter(e => e.captured && (e.status === 'Team' || e.status === 'Porch'))
+    .reduce((sum, e) => sum + comfortPoints(e), 0);
+  return Math.min(COMFORT_OUTPUT_CAP, pts * COMFORT_OUTPUT_PER_POINT);
+}
+
+// Evolution: stage 0 -> 1 is level-gated only (open to every rarity). Stage
+// 1 -> 2 is level-gated for everyone, but costs far more Tickets unless the
+// Elder is Epic/Legendary rarity -- the "hybrid" model: never a hard rarity
+// wall, but rarity is the cheaper path.
+export const ELDER_EVOLUTION_STAGE1_LEVEL = 10;
+export const ELDER_EVOLUTION_STAGE2_LEVEL = 25;
+export const ELDER_EVOLUTION_STAGE2_ELITE_RARITIES: Array<'Epic' | 'Legendary'> = ['Epic', 'Legendary'];
+export const EVOLUTION_STAGE1_COST = TRAINING_BASE_COST * 10;       // 500 Tickets
+export const EVOLUTION_STAGE2_COST = TRAINING_BASE_COST * 20;       // 1000 Tickets (Epic/Legendary)
+export const EVOLUTION_STAGE2_STEEP_COST = TRAINING_BASE_COST * 50; // 2500 Tickets (Common/Rare grind path)
+// Multiplier applied once, at the moment of evolving, to stats/comfortGeneration.
+export const EVOLUTION_STAT_MULTIPLIER: Record<1 | 2, number> = { 1: 1.3, 2: 1.75 };
 
 export const REVENUE_SPLIT = {
   player: 0.70,     
@@ -34,8 +452,7 @@ export const REVENUE_SPLIT = {
 };
 
 export const PASSIVE_TICK_MS         = 30 * 1000;
-export const ELDER_COMFORT_RATE      = 0.000008;
-export const PARCEL_RENT_RATE        = 0.000005;
+export const PASSIVE_TICKS_PER_HOUR  = 3600000 / PASSIVE_TICK_MS; // rates are per TICK, so PP/hour = rate x this (UI used x3600, overstating 30x)
 export const AD_BOOST_MULTIPLIER     = 2.0;
 export const AD_BOOST_DURATION_MS    = 60 * 60 * 1000;
 export const MAX_NEARBY_ITEMS       = 14;      // hard cap on items visible on the map at once
@@ -49,17 +466,425 @@ export const SCRAP_RARITY_MULTIPLIER: Record<'Common' | 'Rare' | 'Epic' | 'Legen
   Common: 1, Rare: 2, Epic: 4, Legendary: 8,
 };
 export const OFFLINE_CAP_MS          = 8 * 60 * 60 * 1000;
-export const SHUFFLEBOARD_KING_BOOST = 1.5;
-export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
-export const RANK_TIERS: { minLevel: number, title: string, icon: string }[] = [
-  { minLevel: 1,  title: 'Newcomer', icon: '🌱' },
-  { minLevel: 5,  title: 'Regular',  icon: '🎯' },
-  { minLevel: 10, title: 'Veteran',  icon: '🏅' },
-  { minLevel: 15, title: 'Champion', icon: '🏆' },
-  { minLevel: 20, title: 'Legend',   icon: '👑' },
-  { minLevel: 30, title: 'Park Icon', icon: '⭐' },
+
+// ─── Pending Yield conversion (economic sustainability addendum, 9-7-26) ──────
+// The passive tick credits pendingYield, not pensionBalance directly — it's an
+// uncapped "earning power" number, not a cash liability, so it can accrue
+// freely. Converting it into real PP happens through one of two player-chosen
+// paths in the Bank panel:
+export const RESERVE_HEALTHY_THRESHOLD = 0.40;  // reserve level at/above which Cash Out pays 1:1
+export const MIN_CASHOUT_EXCHANGE_RATE = 0.25;  // floor rate when the reserve is thin, never zero
+
+// Cash Out rate scales linearly with reserve health between the floor and 1:1,
+// so a thin reserve is communicated as a lower rate rather than a hidden cap.
+export function getYieldExchangeRate(reserve: number): number {
+  if (reserve <= 0) return MIN_CASHOUT_EXCHANGE_RATE;
+  return Math.min(1, Math.max(MIN_CASHOUT_EXCHANGE_RATE, reserve / RESERVE_HEALTHY_THRESHOLD));
+}
+// Court Champion (the old "Shuffleboard King"). This used to be a PERMANENT 1.5x multiplier on the
+// whole passive rate for one 20-Ticket win that nobody could ever take back. Gameplay must never raise
+// passive income (ECONOMY.md), so it is now a 24-hour title with a Ticket purse to collect.
+export const COURT_CHAMPION_DURATION_MS = 24 * 60 * 60 * 1000;
+export const COURT_PURSE_TICKETS = 45; // once per reign; a challenge costs 20 Tickets
+export function isCourtChampion(king: { id?: string; heldSince?: number } | null | undefined, now: number): boolean {
+  return !!king && king.id === 'player' && typeof king.heldSince === 'number' && now - king.heldSince < COURT_CHAMPION_DURATION_MS;
+}
+
+// Single shared definition of "Elder Power" -- used by the Team panel's per-
+// Elder and squad-total display, and matches exactly what ShuffleboardPanel
+// uses internally to resolve every mode's win/loss (Auto-Play, Tournament,
+// Challenge, Golden Games), so what the player sees is what actually decides
+// outcomes, not a cosmetic approximation.
+export function getElderPower(e: { strength: number; tenacity: number; wit: number }): number {
+  return e.strength + e.tenacity + e.wit;
+}
+export function getSquadPower(team: { strength: number; tenacity: number; wit: number }[]): number {
+  return team.reduce((sum, e) => sum + getElderPower(e), 0);
+}
+
+// ─── Golden Games (Phase 5, evolution spec) ──────────────────────────────────
+// An escalating league ladder gated by total squad power, resolved with the
+// exact same squad-power-vs-difficulty math Shuffleboard's other modes already
+// use (see ShuffleboardPanel) rather than a new minigame engine. Leagues stay
+// replayable after being cleared -- clearing one just raises the bragging-right
+// high-water mark (highestLeagueCleared) and unlocks the next league's card;
+// it's not a one-time gate. Rewards are Tickets/Elder-XP/Community-Score only,
+// same PP-sourcing rule as everything else non-ad/non-Dividend.
+export interface GoldenGamesLeague {
+  id: string;
+  name: string;
+  icon: string;
+  minSquadPower: number;
+  difficultyMin: number;
+  difficultyMax: number;
+  winTicketsMin: number;
+  winTicketsMax: number;
+  winElderXp: number;
+  winCommunityScore: number;
+  lossTickets: number;
+  lossElderXp: number;
+}
+// The first 4 tiers are hand-tuned. Beyond that, the Tower keeps generating
+// further tiers procedurally (scaling ~1.10x per step, compounding) so a
+// maxed-out squad always has a next rung to climb rather than hitting a hard
+// ceiling -- per user request, since dedicated max-power content doesn't
+// exist yet. Capped at a large but finite tier count (GOLDEN_GAMES_MAX_TIERS)
+// purely so the data model stays bounded; in practice this is far more
+// runway than any squad will realistically climb through soon.
+const GOLDEN_GAMES_BASE_TIERS: GoldenGamesLeague[] = [
+  { id: 'bronze', name: 'Bronze Clubhouse', icon: PLACE_ART[2], minSquadPower: 0, difficultyMin: 30, difficultyMax: 100, winTicketsMin: 5, winTicketsMax: 10, winElderXp: 25, winCommunityScore: 10, lossTickets: 2, lossElderXp: 8 },
+  { id: 'silver', name: 'Silver Sunroom', icon: PLACE_ART[1], minSquadPower: 150, difficultyMin: 100, difficultyMax: 220, winTicketsMin: 12, winTicketsMax: 22, winElderXp: 45, winCommunityScore: 20, lossTickets: 3, lossElderXp: 12 },
+  { id: 'gold', name: 'Gold Lounge', icon: PLACE_ART[0], minSquadPower: 350, difficultyMin: 220, difficultyMax: 400, winTicketsMin: 25, winTicketsMax: 40, winElderXp: 70, winCommunityScore: 35, lossTickets: 5, lossElderXp: 18 },
+  { id: 'legendary', name: 'Legendary Circuit', icon: trophySpare, minSquadPower: 600, difficultyMin: 400, difficultyMax: 650, winTicketsMin: 50, winTicketsMax: 75, winElderXp: 100, winCommunityScore: 60, lossTickets: 6, lossElderXp: 25 },
 ];
-export function getRankForLevel(level: number): { title: string, icon: string } {
+export const GOLDEN_GAMES_MAX_TIERS = 100;
+// Power/difficulty requirements climb 1.10x per tier, but REWARDS climb slower
+// (Tickets 1.02x, Elder XP 1.05x, Stars 1.03x) so higher tiers are more of a
+// challenge than a faucet and progression stays slow.
+// Power curve for generated tiers: roughly linear early (tracks a squad gaining ~13 power per Elder level) and
+// bending upward later (evolution, rarity and gear compound), landing exactly on PROGRESSION_MAX_POWER at the last tier.
+const GG_STEPS = GOLDEN_GAMES_MAX_TIERS - GOLDEN_GAMES_BASE_TIERS.length;
+const goldenGamesPowerAt = (step: number): number => {
+  const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1].minSquadPower;
+  return base + 65 * step + (PROGRESSION_MAX_POWER - base - 65 * GG_STEPS) * Math.pow(step / GG_STEPS, 3);
+};
+const GOLDEN_GAMES_TICKET_GROWTH = 1.02; // was 1.04 -- late-game Ticket inflation fix (ECONOMY.md 6m)
+const GOLDEN_GAMES_XP_GROWTH = 1.05;
+const GOLDEN_GAMES_SCORE_GROWTH = 1.03;
+// (Roman-numeral naming removed 2026-09-22 -- see bug note in generateGoldenGamesTiers below.)
+
+function generateGoldenGamesTiers(): GoldenGamesLeague[] {
+  const tiers = [...GOLDEN_GAMES_BASE_TIERS];
+  const base = GOLDEN_GAMES_BASE_TIERS[GOLDEN_GAMES_BASE_TIERS.length - 1];
+  for (let i = GOLDEN_GAMES_BASE_TIERS.length; i < GOLDEN_GAMES_MAX_TIERS; i++) {
+    const step = i - GOLDEN_GAMES_BASE_TIERS.length + 1; // 1, 2, 3...
+    const mult = goldenGamesPowerAt(step) / base.minSquadPower;
+    const tMult = Math.pow(GOLDEN_GAMES_TICKET_GROWTH, step);
+    const xMult = Math.pow(GOLDEN_GAMES_XP_GROWTH, step);
+    const sMult = Math.pow(GOLDEN_GAMES_SCORE_GROWTH, step);
+    // BUG FOUND AND FIXED (2026-09-22): this used to spell out Roman numerals ('II', 'III', ...) up to
+    // 20, then fall back to the literal string `Tier ${step + 1}` -- but `step` counts GENERATED tiers
+    // only (starting after the 4 hand-tuned ones), while every other part of the UI (the tab number,
+    // the detail card's "Tier N") shows the OVERALL tier number `i + 1`. Those two numbers differ by
+    // exactly 3 (the count of hand-tuned tiers before this one), so once the Roman numerals ran out
+    // (tier 24 onward -- more than 3/4 of the 100-tier tower), the button's own label showed a tier
+    // number that was 3 lower than what the rest of the screen showed for the exact same tier. Always
+    // use the real overall tier number now, so the name can never disagree with the tab/detail card.
+    tiers.push({
+      id: `legendary-${step}`,
+      name: `Legendary Circuit — Tier ${i + 1}`,
+      icon: trophySpare,
+      minSquadPower: Math.round(base.minSquadPower * mult),
+      difficultyMin: Math.round(base.difficultyMin * mult),
+      difficultyMax: Math.round(base.difficultyMax * mult),
+      winTicketsMin: Math.round(base.winTicketsMin * tMult),
+      winTicketsMax: Math.round(base.winTicketsMax * tMult),
+      winElderXp: Math.round(base.winElderXp * xMult),
+      winCommunityScore: Math.round(base.winCommunityScore * sMult),
+      lossTickets: Math.round(base.lossTickets * tMult),
+      lossElderXp: Math.round(base.lossElderXp * xMult),
+    });
+  }
+  return tiers;
+}
+export const GOLDEN_GAMES_LEAGUES: GoldenGamesLeague[] = generateGoldenGamesTiers();
+// One shared cooldown across all leagues (not per-league) -- keeps the data
+// model simple and stops pure spam-farming without needing four separate timers.
+export const GOLDEN_GAMES_COOLDOWN_MS = 3 * 60 * 1000;
+
+// --- Elder Challenge: the Rival Ladder ---------------------------------------
+// Replaces the old "stake any amount, winner takes all" duel, which was an endless Ticket faucet: a squad
+// stronger than the rival won every time for +stake with no cooldown or limit. Now:
+//  * a ladder of CHALLENGE_MAX_TIERS rivals whose power climbs 1.10x per rank (same steepness as the
+//    Golden Games Tower) while rewards climb only 1.04x, so higher ranks are a challenge, not a faucet;
+//  * you can only take on ranks up to one above your best win (replaying lower ranks is allowed);
+//  * only the first CHALLENGE_DAILY_PAID_WINS wins per UTC day pay Tickets/full XP; after that duels are
+//    friendly (reduced XP, nothing to lose);
+//  * the first win against a rank pays CHALLENGE_FIRST_CLEAR_MULT x the normal purse (one-time, bounded).
+// Change CHALLENGE_MAX_TIERS to add more rungs -- rank data is generated, nothing else to edit.
+export const CHALLENGE_MAX_TIERS = 100;
+const CHALLENGE_BASE_POWER = 40;
+const challengePowerAt = (i: number): number =>
+  CHALLENGE_BASE_POWER + 70 * i + (PROGRESSION_MAX_POWER - CHALLENGE_BASE_POWER - 70 * (CHALLENGE_MAX_TIERS - 1)) * Math.pow(i / (CHALLENGE_MAX_TIERS - 1), 3); // same shape as the Golden Games curve
+const CHALLENGE_REWARD_GROWTH = 1.04;
+const CHALLENGE_XP_GROWTH = 1.05;
+export const CHALLENGE_VARIANCE = 0.10; // rival power swings +-10% each duel
+export const CHALLENGE_DAILY_PAID_WINS = 5;
+export const CHALLENGE_FIRST_CLEAR_MULT = 3;
+export const CHALLENGE_UNPAID_XP_SHARE = 0.25;
+const CHALLENGE_RIVAL_NAMES = ['Shuffleboard Steve', 'Bingo Barb', 'Canasta Carl', 'Mahjong Millie', 'Golf-Cart Gary', 'Pinochle Pearl', 'Crossword Clyde', 'Casserole Connie', 'Sudoku Sal', 'Bocce Betty'];
+export interface ChallengeTier {
+  index: number; rank: number; name: string; rivalPower: number;
+  winTickets: number; lossTickets: number; winElderXp: number; winPlayerXp: number; winScore: number;
+}
+export const CHALLENGE_TIERS: ChallengeTier[] = Array.from({ length: CHALLENGE_MAX_TIERS }, (_, i) => {
+  const winTickets = Math.round(6 * Math.pow(CHALLENGE_REWARD_GROWTH, i));
+  return {
+    index: i,
+    rank: i + 1,
+    name: CHALLENGE_RIVAL_NAMES[i % CHALLENGE_RIVAL_NAMES.length],
+    rivalPower: Math.round(challengePowerAt(i)),
+    winTickets,
+    lossTickets: Math.max(3, Math.round(winTickets * 0.5)),
+    winElderXp: Math.round(20 * Math.pow(CHALLENGE_XP_GROWTH, i)),
+    winPlayerXp: Math.round(60 * Math.pow(CHALLENGE_XP_GROWTH, i)),
+    winScore: 8,
+  };
+});
+// Saved/cloud data is untrusted: tolerate any shape.
+export function normalizeChallengeLadder(x: any): { highestCleared: number; day: string; paidWins: number } {
+  const num = (v: any, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : d);
+  const highest = Math.min(CHALLENGE_MAX_TIERS - 1, Math.max(-1, num(x?.highestCleared, -1)));
+  return { highestCleared: highest, day: typeof x?.day === 'string' ? x.day : '', paidWins: Math.max(0, num(x?.paidWins, 0)) };
+}
+export function rollChallenge(myPower: number, tier: ChallengeTier): { won: boolean; rivalPower: number } {
+  const rivalPower = tier.rivalPower * (1 - CHALLENGE_VARIANCE + Math.random() * CHALLENGE_VARIANCE * 2);
+  return { won: myPower > rivalPower, rivalPower };
+}
+
+// Park Asset limits (2026-10-06): every extra copy costs 1.5x more and each asset caps at 5, so a player's passive rate
+// is BOUNDED (before this, unlimited copies at a flat price made passive accrue without limit against a reserve that
+// only grows with ads and purchases). Saves that already own more than the cap keep them but cannot buy more.
+export const PARK_ASSET_MAX_OWNED = 5;
+export const PARK_ASSET_PRICE_GROWTH = 1.5;
+export const parkAssetCost = (baseCost: number, owned: number): number => baseCost * Math.pow(PARK_ASSET_PRICE_GROWTH, Math.max(0, Math.floor(owned)));
+
+// Park Assets the player owns: parkAssets is { itemId: count } (untrusted, so tolerate bad values).
+export function ownedAssetCount(parkAssets: any, id: string): number {
+  const n = parkAssets && typeof parkAssets === 'object' ? parkAssets[id] : 0;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+// --- Court longevity caps (2026-09-21) ----------------------------------------------------------------
+// Same idea as the Challenge ladder and Friend Battle: only a limited number of matches per UTC day pay
+// Tickets/Materials/full XP; extra matches are friendly (25% XP, no Tickets), so nothing can be farmed all day.
+// Golden Games: purses were 20-300 Tickets per win on a 3-minute cooldown (thousands of Tickets/hour), plus
+// Materials that grew linearly with tier and were paid on LOSSES too. Base purses cut to ~25%, growth per
+// tier unchanged (1.04x), Materials capped, and the first clear of each tier pays 3x once.
+export const GOLDEN_GAMES_DAILY_PAID_MATCHES = 5;
+export const GOLDEN_GAMES_FIRST_CLEAR_MULT = 3;
+export const GOLDEN_GAMES_UNPAID_XP_SHARE = 0.25;
+export function goldenGamesMaterials(leagueIndex: number, won: boolean): number {
+  return won ? Math.min(12, 2 + leagueIndex) : 1;
+}
+// Auto-Play: steady background progress, deliberately the lowest-paying mode.
+export const AUTO_PLAY_INTERVAL_MS = 30 * 60 * 1000;
+export const AUTO_PLAY_DAILY_PAID = 8;
+export const AUTO_PLAY_MIN_TICKETS = 2;
+export const AUTO_PLAY_TICKET_SPAN = 12; // + up to span x readiness (max 150%) on top of the minimum
+export const AUTO_PLAY_UNPAID_XP_SHARE = 0.25;
+// Daily Tournament: only the best throw counts on the leaderboard, so unlimited throws just meant the player
+// who threw the most won. A fixed number of throws per tournament window makes the board about squads.
+export const TOURNAMENT_DAILY_THROWS = 5;
+// { day, count } counters that reset each UTC day (untrusted saves: any shape is tolerated).
+export function dailyCountToday(x: any): number {
+  return x && typeof x === 'object' && x.day === utcDayKey() && typeof x.count === 'number' && Number.isFinite(x.count) && x.count > 0 ? Math.floor(x.count) : 0;
+}
+export function bumpDaily(x: any): { day: string; count: number } {
+  return { day: utcDayKey(), count: dailyCountToday(x) + 1 };
+}
+
+// --- Arenas (see ARENA_DESIGN.md). The server (api/arena.ts) is the source of truth for the rules; the
+// numbers below are the ones the client needs to DISPLAY prices and limits. Keep them in sync with the top of
+// api/arena.ts. Arenas never pay PP or raise passive income.
+export type FactionId = 'early_birds' | 'night_owls' | 'sunday_drivers';
+export const FACTIONS: { id: FactionId; name: string; icon: string; art?: string; color: string; blurb: string }[] = [
+  { id: 'early_birds', name: 'Early Birds', icon: '🌅', art: factionBirdsImg, color: '#f59e0b', blurb: 'Dinner at 4pm sharp. First in line, every time.' },
+  { id: 'night_owls', name: 'Night Owls', icon: '🦉', art: factionOwlsImg, color: '#6366f1', blurb: 'Still up for the late-late show. Reading glasses on.' },
+  { id: 'sunday_drivers', name: 'Sunday Drivers', icon: '🚗', art: factionDriversImg, color: '#14b8a6', blurb: 'Fifteen under the limit, blinker on since Tuesday.' },
+];
+export const factionById = (id: any) => FACTIONS.find(f => f.id === id);
+export const ARENA_FACTION_LOCK_DAYS = 30;
+
+// --- Raid bosses (Phase B, 2026-09-22) ---------------------------------------------------------------
+// Two per tier, one from each of three themes so the joke doesn't wear thin. `hp` here is DISPLAY ONLY
+// -- api/arena.ts computes the real max_hp server-side from the same seeded roll; this array must stay
+// in this exact order (index = boss_index from services/worldMap.ts / the server).
+export interface RaidBoss { name: string; icon: string; art?: string; flavor: string; mechanic: string; tier: 1 | 2 | 3 | 4 | 5 }
+export const RAID_BOSSES: RaidBoss[] = [
+  { tier: 1, name: 'The HOA President', icon: '🏘️', art: bossHoaImg, flavor: 'Cites you for a garden gnome "in violation of Article 12, Subsection C."', mechanic: 'A slice of the health bar is "Pending Appeal" — it creeps back up unless the whole community piles on together.' },
+  { tier: 1, name: 'The DMV Clerk', icon: '🪪', art: bossDmvImg, flavor: '"Now serving number 47." You are number 112.', mechanic: 'Absurdly padded health for its tier. The fight isn\'t dangerous — it\'s just long.' },
+  { tier: 2, name: 'The Golf-Cart Marshal', icon: '🛺', art: bossMarshalImg, flavor: 'Terrorizes the walking paths at a blistering 12 mph. Writes tickets for socks with sandals.', mechanic: 'Zips around unpredictably — a tougher-than-average fight for its tier.' },
+  { tier: 2, name: 'The Early-Bird Buffet Line', icon: '🍽️', art: bossBuffetImg, flavor: 'Camped at the dining hall since 3:45 for the 4:00 special. Will not be moved.', mechanic: 'More of a crowd than a single foe — a bit easier to whittle down than the Marshal.' },
+  { tier: 3, name: 'Charley Horse', icon: '🦵', art: bossHorseImg, flavor: 'Strikes mid-shuffleboard-swing with zero warning.', mechanic: 'Comes and goes — check back often, since a fresh cramp can flare up any time the window is open.' },
+  { tier: 3, name: 'The Prune Juice Reckoning', icon: '🧃', art: bossPruneImg, flavor: '"Hits like nature intended."', mechanic: 'Everyone gets exactly 2 attempts. A 3rd "isn\'t happening."' },
+  { tier: 4, name: 'The Property Tax Assessor', icon: '🧾', art: bossTaxImg, flavor: 'Reassesses your garden gnome as a \"detached outbuilding.\"', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 4, name: 'The Thermostat Wars', icon: '🌡️', art: bossThermostatImg, flavor: 'Seventy-two degrees. Seventy-four. Someone touched it again.', mechanic: 'Epic. Needs a crowd: no squad can finish it alone.' },
+  { tier: 5, name: 'The Casino Bus Tour', icon: '🚌', art: bossBusImg, flavor: 'Next stop: every gift shop, buffet and slot machine in the state.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
+  { tier: 5, name: 'Father Time Himself', icon: '⏳', art: bossTimeImg, flavor: 'Undefeated. Slightly behind schedule. Very well-rested.', mechanic: 'Legendary event boss. Appears only during seasonal events.' },
+];
+export const RAID_FREE_ATTEMPTS = 2;
+export const RAID_EXTRA_ATTEMPT_COST = 15; // Tickets, for a 3rd+ attempt beyond the free 2
+export const RAID_MAX_REWARDED_PER_DAY = 10; // raised from 3 (2026-10-10) so dedicated raiders can chase rewards; every raid still pays flat, tier-scaled rewards
+// Tier tables (index = tier-1). Keep in sync with api/arena.ts and services/worldMap.ts.
+export const RAID_TIER_NAMES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
+export const RAID_TIER_DAMAGE_CAP = [0.5, 0.25, 0.12, 0.09, 0.05]; // max share of boss HP one hit can do
+export const RAID_TIER_SATURATION = [1500, 5000, 16000, 24000, 24000]; // squad power at which a hit reaches the cap
+export const RAID_POWER_EXPONENT = 0.65;
+export const DINERS_RAID_HIT_BY_TIER = [3, 4, 5, 7, 10];
+export const RAID_MAX_ATTEMPTS_PER_PLAYER = 10; // matches api/arena.ts (restored from 4, 2026-09-27 round 3 -- tier's damage cap now governs solo-feasibility instead of attempt count)
+export const raidBossByIndex = (i: number) => RAID_BOSSES[Math.max(0, Math.min(RAID_BOSSES.length - 1, i))];
+export function raidCountdownLabel(msUntil: number): string {
+  if (msUntil <= 0) return 'now';
+  const mins = Math.round(msUntil / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ${mins % 60}m`;
+}
+export const ARENA_MAX_SLOTS = 6;
+export const ARENA_MAX_PER_PLAYER = 3;
+export const ARENA_FREE_ATTACKS = 10; // 5 -> 10 (2026-10-11)
+export const ARENA_MAX_ATTACKS_PER_DAY = 40; // 20 -> 40 (2026-10-11), matches api/arena.ts
+export const ARENA_ATTACK_COST_BASE = 10;
+export const ARENA_ATTACK_COST_GROWTH = 1.4;
+export const ARENA_ATTACK_COOLDOWN_MIN = 5; // 10 -> 5 (2026-10-11), matches api/arena.ts
+export const ARENA_REWARDED_WINS_PER_DAY = 10;
+export const ARENA_DUES_MAX_HOURS = 12;
+// Attack number n (0-based, how many attacks you already made today): free for the first few, then Tickets.
+export function arenaAttackCost(attacksToday: number): number {
+  const n = Math.max(0, Math.floor(attacksToday) || 0);
+  return n < ARENA_FREE_ATTACKS ? 0 : Math.round(ARENA_ATTACK_COST_BASE * Math.pow(ARENA_ATTACK_COST_GROWTH, n - ARENA_FREE_ATTACKS));
+}
+
+// ─── Friend Battle (Phase 3, social system) ──────────────────────────────────
+// Async PvP against a friend's synced Squad Power snapshot -- not a live
+// match, no coordination needed. Resolved the same squad-power-vs-difficulty
+// way every other Court mode already is: variance is applied to the
+// opponent's known power (not invented from nothing) so it reads as "their
+// real squad, on a given day" rather than a pure coin flip. Only the
+// challenger's resources change; the friend being battled is untouched --
+// keeps this safe to build without a second layer of cross-account
+// transaction coordination.
+export const FRIEND_BATTLE_COOLDOWN_MS = 5 * 60 * 1000; // per opponent: attacking one friend never makes you wait to attack another
+export const FRIEND_BATTLE_DAILY_ATTACK_CAP = 60; // 30 -> 60 (2026-10-11) // soft total so nobody can spam players all day (rewards are separately capped)
+export const FRIEND_BATTLE_VARIANCE = 0.15; // opponent power can swing +-15%
+// Longevity pass (2026-09-20): was 40-80 Tickets + 6 Materials per win on a 5-minute cooldown, i.e. up to
+// ~720 Tickets and ~72 Materials an hour for anyone who could win. Now small rewards, and only the first
+// FRIEND_BATTLE_DAILY_REWARDS wins each day pay anything; extra battles are just for fun.
+export const FRIEND_BATTLE_WIN_TICKETS_MIN = 12;
+export const FRIEND_BATTLE_WIN_TICKETS_MAX = 24;
+export const FRIEND_BATTLE_WIN_MATERIALS = 2;
+export const FRIEND_BATTLE_DAILY_REWARDS = 10; // 6 -> 10 (2026-10-11)
+export const FRIEND_BATTLE_UNREWARDED_XP_SHARE = 0.25; // Elder/player XP share once the daily rewards are used up
+export const FRIEND_BATTLE_LOSS_TICKETS = 15;
+export const FRIEND_BATTLE_WIN_ELDER_XP = 50;
+export const FRIEND_BATTLE_LOSS_ELDER_XP = 15;
+export const FRIEND_BATTLE_WIN_COMMUNITY_SCORE = 25;
+
+// One shared roll used by BOTH the Court tab and the Friends list, so the two
+// entry points can never drift apart on odds or rewards.
+export function rollFriendBattle(myPower: number, friendPower: number): { won: boolean; ticketsEarned: number } {
+  const opponentPower = friendPower * (1 - FRIEND_BATTLE_VARIANCE + Math.random() * FRIEND_BATTLE_VARIANCE * 2);
+  const won = myPower > opponentPower;
+  const ticketsEarned = won
+    ? Math.floor(FRIEND_BATTLE_WIN_TICKETS_MIN + Math.random() * (FRIEND_BATTLE_WIN_TICKETS_MAX - FRIEND_BATTLE_WIN_TICKETS_MIN))
+    : 0;
+  return { won, ticketsEarned };
+}
+// Auto-Play (Court) benchmark: a squad at exactly this power clears a match
+// at 100% progress. Used to make Auto-Play's outcome mostly power-driven and
+// gradual rather than a coin-flip, distinguishing it from Challenge/Tower.
+export const AUTO_PLAY_BENCHMARK_POWER = 100; // floor for the very first bracket
+// The benchmark follows the player's power bracket (midway between its floor and the next bracket's floor, 1.25x the
+// floor for the top bracket) so readiness stays meaningful from a 100-power squad to a 20,000-power one. A fixed 100
+// capped every squad above 150 power at the same 150% result. Ticket payouts stay flat across brackets (economy).
+export function autoPlayBenchmark(squadPower: number): number {
+  const b = getBracket(squadPower);
+  const next = (POWER_BRACKETS as readonly { n: number; min: number }[])[b.n]; // undefined for the top bracket
+  const mid = next ? (b.min + next.min) / 2 : b.min * 1.25;
+  return Math.max(AUTO_PLAY_BENCHMARK_POWER, Math.round(mid));
+}
+
+// ─── UI Color Themes ──────────────────────────────────────────────────────────
+// The app's single brand/accent color (previously hardcoded as Tailwind's
+// `indigo` family everywhere: buttons, active tab states, progress fills,
+// highlighted numbers like PWR/Squad Power) is now driven by CSS custom
+// properties instead, so switching themes recolors every one of those
+// elements app-wide at once. This is intentionally scoped to the accent only
+// -- the light/dark mode background and secondary-text grey system (just
+// fixed for legibility) is a separate, orthogonal axis and is untouched here.
+// Semantic colors (emerald=success, rose=danger, amber=currency/gold) are
+// also untouched since they carry meaning, not brand identity.
+export type AccentShade = '50' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '900' | '950';
+export interface UITheme {
+  id: string;
+  name: string;
+  swatch: string; // 600-shade hex, used for the picker button itself
+  colors: Record<AccentShade, string>;
+}
+export const UI_THEMES: UITheme[] = [
+  {
+    id: 'brown', name: 'Rustic Brown', swatch: '#8b4d24',
+    colors: { '50': '#fdf6ee', '100': '#f8e8d4', '200': '#f0d0a8', '300': '#e3b17d', '400': '#cd8a52', '500': '#b06a35', '600': '#8b4d24', '700': '#6b3a1c', '900': '#3e2210', '950': '#24140a' },
+  },
+  {
+    id: 'ocean', name: 'Ocean Teal', swatch: '#0d9488',
+    colors: { '50': '#f0fdfa', '100': '#ccfbf1', '200': '#99f6e4', '300': '#5eead4', '400': '#2dd4bf', '500': '#14b8a6', '600': '#0d9488', '700': '#0f766e', '900': '#134e4a', '950': '#042f2e' },
+  },
+  {
+    id: 'sunset', name: 'Sunset Amber', swatch: '#d97706',
+    colors: { '50': '#fffbeb', '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d', '400': '#fbbf24', '500': '#f59e0b', '600': '#d97706', '700': '#b45309', '900': '#78350f', '950': '#451a03' },
+  },
+  {
+    id: 'crimson', name: 'Crimson Red', swatch: '#dc2626',
+    colors: { '50': '#fef2f2', '100': '#fee2e2', '200': '#fecaca', '300': '#fca5a5', '400': '#f87171', '500': '#ef4444', '600': '#dc2626', '700': '#b91c1c', '900': '#7f1d1d', '950': '#450a0a' },
+  },
+  {
+    id: 'trueblue', name: 'True Blue', swatch: '#2563eb',
+    colors: { '50': '#eff6ff', '100': '#dbeafe', '200': '#bfdbfe', '300': '#93c5fd', '400': '#60a5fa', '500': '#3b82f6', '600': '#2563eb', '700': '#1d4ed8', '900': '#1e3a8a', '950': '#172554' },
+  },
+  {
+    id: 'royal', name: 'Royal Violet', swatch: '#7c3aed',
+    colors: { '50': '#f5f3ff', '100': '#ede9fe', '200': '#ddd6fe', '300': '#c4b5fd', '400': '#a78bfa', '500': '#8b5cf6', '600': '#7c3aed', '700': '#6d28d9', '900': '#4c1d95', '950': '#2e1065' },
+  },
+];
+export const DEFAULT_UI_THEME_ID = 'brown';
+
+function hexToRgbTriplet(hex: string): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+// Applies a theme's colors as CSS custom properties on the document root:
+// --accent-{shade} as plain hex for normal use, plus precomputed rgba()
+// variants at the specific opacity fractions the app actually uses (avoids
+// relying on Tailwind's opacity-modifier support for arbitrary var() colors,
+// which is inconsistent across versions).
+const ACCENT_OPACITY_VARIANTS: { shade: AccentShade; alphas: number[] }[] = [
+  { shade: '500', alphas: [10, 20, 30] },
+  { shade: '900', alphas: [10, 20, 30] },
+];
+export function applyUITheme(themeId: string) {
+  const theme = UI_THEMES.find(t => t.id === themeId) || UI_THEMES[0];
+  const root = document.documentElement;
+  (Object.keys(theme.colors) as AccentShade[]).forEach(shade => {
+    root.style.setProperty(`--accent-${shade}`, theme.colors[shade]);
+  });
+  ACCENT_OPACITY_VARIANTS.forEach(({ shade, alphas }) => {
+    const [r, g, b] = hexToRgbTriplet(theme.colors[shade]).split(' ');
+    alphas.forEach(alpha => {
+      root.style.setProperty(`--accent-${shade}-a${alpha}`, `rgba(${r}, ${g}, ${b}, ${alpha / 100})`);
+    });
+  });
+}
+export const LEVEL_UP_TICKET_REWARD  = 10;    // Tickets reward per level gained — PP-free, see App.tsx level-up effect
+export function isImagePath(src: string): boolean {
+  return /^(\/|https?:|data:)/.test(src);
+}
+
+// `icon` stays an emoji for plain-text uses (toasts); `art` is the real medal image shown wherever an icon is drawn.
+export const RANK_TIERS: { minLevel: number, title: string, icon: string, art: string }[] = [
+  { minLevel: 1,  title: 'Newcomer', icon: '🌱', art: RANK_ART[0] },
+  { minLevel: 5,  title: 'Regular',  icon: '🎯', art: RANK_ART[1] },
+  { minLevel: 10, title: 'Veteran',  icon: '🏅', art: RANK_ART[2] },
+  { minLevel: 15, title: 'Champion', icon: '🏆', art: RANK_ART[3] },
+  { minLevel: 20, title: 'Legend',   icon: '👑', art: RANK_ART[4] },
+  { minLevel: 30, title: 'Park Icon', icon: '⭐', art: RANK_ART[5] },
+];
+export function getRankForLevel(level: number): { title: string, icon: string, art: string } {
   let rank = RANK_TIERS[0];
   for (const tier of RANK_TIERS) {
     if (level >= tier.minLevel) rank = tier;
@@ -67,26 +892,374 @@ export function getRankForLevel(level: number): { title: string, icon: string } 
   return rank;
 }
 
+// A cosmetic is one unlocked {icon, title} pair the player can pick from --
+// currently sourced from rank tiers already reached (ranks are never "lost"
+// on further leveling) and completed achievements. Icon and title are chosen
+// independently in the profile picker, so `key` identifies one axis at a time
+// (e.g. a player can show the Legend rank icon with the Early Bird title).
+export interface UnlockedCosmetic { key: string; icon: string; title: string; }
+
+// Court ladder honors: finishing in the top 3 of a power bracket earns a permanent title (key `court:<bracket>:<place>`),
+// like ranks they are never lost. Cosmetic only.
+export const COURT_PLACE_LABELS = ['Champion', 'Runner-Up', 'Third Place'] as const;
+export const COURT_PLACE_ICONS = ['\u{1F947}', '\u{1F948}', '\u{1F949}'] as const;
+export function parseCourtHonor(key: string): { bracket: number; place: number } | null {
+  const m = /^court:(\d{1,2}):([123])$/.exec(key || '');
+  if (!m) return null;
+  const bracket = Number(m[1]);
+  return bracket >= 1 && bracket <= POWER_BRACKETS.length ? { bracket, place: Number(m[2]) } : null;
+}
+export function courtHonorCosmetic(key: string): UnlockedCosmetic | null {
+  const h = parseCourtHonor(key);
+  if (!h) return null;
+  return { key, icon: HONOR_ART[h.bracket - 1]?.[h.place - 1] || PLACE_ART[h.place - 1] || COURT_PLACE_ICONS[h.place - 1], title: `${POWER_BRACKETS[h.bracket - 1].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+}
+
+// Weekly leaderboard honors: finishing top 3 of a bracket on a weekly board (Arena / Raid / Friend Battle) earns a permanent
+// title (key `board:<mode>:<bracket>:<place>`), recorded by the server when the week is settled. Cosmetic only.
+export const BOARD_HONOR_MODES: Record<string, { name: string; icon: string }> = {
+  arena: { name: 'Arena', icon: '\u{1F3DF}\uFE0F' }, raid: { name: 'Raid', icon: '\u{1F432}' }, friend: { name: 'Duel', icon: '\u{1F19A}' },
+};
+export function parseBoardHonor(key: string): { mode: string; bracket: number; place: number } | null {
+  const m = /^board:(arena|raid|friend):(\d{1,2}):([123])$/.exec(key || '');
+  if (!m) return null;
+  const bracket = Number(m[2]);
+  return bracket >= 1 && bracket <= POWER_BRACKETS.length ? { mode: m[1], bracket, place: Number(m[3]) } : null;
+}
+export function boardHonorCosmetic(key: string): UnlockedCosmetic | null {
+  const h = parseBoardHonor(key);
+  if (!h) return null;
+  return { key, icon: HONOR_ART[h.bracket - 1]?.[h.place - 1] || PLACE_ART[h.place - 1] || BOARD_HONOR_MODES[h.mode].icon, title: `${POWER_BRACKETS[h.bracket - 1].name} ${BOARD_HONOR_MODES[h.mode].name} ${COURT_PLACE_LABELS[h.place - 1]}` };
+}
+export const honorCosmetic = (key: string): UnlockedCosmetic | null => courtHonorCosmetic(key) ?? boardHonorCosmetic(key);
+
+// Mode badges: lifetime activity counts per mode unlock Bronze -> Legend tiers (a medal and a title each).
+// Counts only ever go up, so earned badges are permanent. Cosmetic only; never a currency reward.
+export const MODE_BADGES: { mode: string; name: string; kinds: string[] }[] = [
+  { mode: 'battle', name: 'Park Brawler', kinds: ['battle'] },
+  { mode: 'court', name: 'Court Regular', kinds: ['shuffleboard', 'tournament', 'challenge'] },
+  { mode: 'friend', name: 'Friendly Rival', kinds: ['friend_battle'] },
+  { mode: 'arena', name: 'Arena Defender', kinds: ['arena'] },
+  { mode: 'exchange', name: 'Good Neighbor', kinds: ['exchange_send', 'exchange_host'] },
+  { mode: 'bingo', name: 'Bingo Buff', kinds: ['bingo'] },
+  { mode: 'collect', name: 'Park Collector', kinds: ['collect'] },
+  { mode: 'evolve', name: 'Evolution Expert', kinds: ['evolve'] },
+];
+export const MODE_BADGE_TIERS = [
+  { tier: 1, name: 'Bronze', min: 10, icon: '\u{1F949}' }, { tier: 2, name: 'Silver', min: 50, icon: '\u{1F948}' },
+  { tier: 3, name: 'Gold', min: 150, icon: '\u{1F947}' }, { tier: 4, name: 'Platinum', min: 400, icon: '\u{1F48E}' },
+  { tier: 5, name: 'Legend', min: 1000, icon: '\u{1F451}' },
+] as const;
+// One-time rewards for reaching each mode-badge tier (milestones are bragging rights first; these are small and
+// never repeat). Lifetime total per mode: 840 Tickets + 35 Materials. Never PP.
+export const MODE_MILESTONE_REWARDS = [
+  { tickets: 20, materials: 0 }, { tickets: 50, materials: 0 }, { tickets: 120, materials: 5 }, { tickets: 250, materials: 10 }, { tickets: 400, materials: 20 },
+] as const;
+
+export const modeCount = (stats: Record<string, number> | undefined, mode: string): number => {
+  const def = MODE_BADGES.find(m => m.mode === mode);
+  return def ? def.kinds.reduce((sum, k) => sum + Math.max(0, Number(stats?.[k]) || 0), 0) : 0;
+};
+// Art for a mode badge tier (glyph on the tier frame) and for the bare glyph; undefined falls back to the emoji.
+export const modeBadgeArt = (mode: string, tier: number): string | undefined => MODE_BADGE_ART[mode]?.[tier - 1];
+export const modeGlyphArt = (mode: string): string | undefined => MODE_GLYPH_ART[mode];
+export const modeTierReached = (count: number): number => MODE_BADGE_TIERS.reduce((t, x) => (count >= x.min ? x.tier : t), 0);
+export const modeKindKnown = (kind: string): boolean => MODE_BADGES.some(m => m.kinds.includes(kind));
+export function modeBadgeCosmetic(key: string, stats: Record<string, number> | undefined): UnlockedCosmetic | null {
+  const m = /^mode:([a-z]+):([1-5])$/.exec(key || '');
+  const def = m && MODE_BADGES.find(x => x.mode === m[1]);
+  if (!m || !def) return null;
+  const tier = MODE_BADGE_TIERS[Number(m[2]) - 1];
+  return modeTierReached(modeCount(stats, def.mode)) >= tier.tier ? { key, icon: MODE_BADGE_ART[def.mode]?.[tier.tier - 1] || tier.icon, title: `${def.name} ${tier.name}` } : null;
+}
+
+// ---- Seasonal events (calendar based, UTC, repeat every year). Progress = how much your lifetime mode counts grew
+// since you joined the event (no new tracking hooks). Rewards: Tickets / Materials / XP only (never PP), plus a
+// permanent earned-only title + icon for finishing every goal. Total per event is small on purpose (see ECONOMY.md).
+export interface SeasonalEventGoal { id: string; label: string; kinds: string[]; target: number; tickets: number; materials: number; xp: number }
+export interface SeasonalEvent { id: string; name: string; icon: string; blurb: string; title: string; start: [number, number]; end: [number, number]; goals: SeasonalEventGoal[] }
+// Gold Pass emblem is the winged golden ticket from sheet S10 (replaces the purple tickets).
+export const UI_ART = { ...UI_ART_BASE, goldPass: PASS_ART.goldWinged };
+export { PASS_ART, GLYPH_ART };
+export const eventArt = (id: string): string | undefined => EVENT_ART[id];
+export const SEASONAL_EVENTS: SeasonalEvent[] = [
+  { id: 'sweetheart', name: 'Sweetheart Social', icon: '\u{1F49D}', title: 'Sweetheart', start: [2, 7], end: [2, 16], blurb: 'Dances, visits and friendly rivalries. Bring a friend.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 5, tickets: 60, materials: 4, xp: 80 }, { id: 'b', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 8, tickets: 70, materials: 4, xp: 100 }, { id: 'c', label: 'Play Bingo', kinds: ['bingo'], target: 6, tickets: 60, materials: 4, xp: 80 }] },
+  { id: 'springfling', name: 'Spring Garden Fling', icon: '\u{1F337}', title: 'Green Thumb', start: [4, 1], end: [4, 14], blurb: 'Everything is blooming. Get out and collect.',
+    goals: [{ id: 'a', label: 'Collect map items', kinds: ['collect'], target: 30, tickets: 70, materials: 6, xp: 90 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 15, tickets: 70, materials: 4, xp: 100 }, { id: 'c', label: 'Evolve an Elder', kinds: ['evolve'], target: 1, tickets: 80, materials: 6, xp: 120 }] },
+  { id: 'summerpicnic', name: 'Summer Picnic & Fireworks', icon: '\u{1F386}', title: 'Picnic Champion', start: [6, 28], end: [7, 6], blurb: 'Potato salad, fireworks and shuffleboard in the sun.',
+    goals: [{ id: 'a', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 15, tickets: 70, materials: 4, xp: 100 }, { id: 'b', label: 'Fight in Arenas', kinds: ['arena'], target: 8, tickets: 70, materials: 5, xp: 100 }, { id: 'c', label: 'Collect map items', kinds: ['collect'], target: 25, tickets: 60, materials: 5, xp: 80 }] },
+  { id: 'grandparents', name: "Grandparents' Day Week", icon: '\u{1F475}', title: 'Favorite Grandparent', start: [9, 4], end: [9, 13], blurb: 'The whole family visits. Show off the park.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 6, tickets: 70, materials: 5, xp: 90 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 12, tickets: 60, materials: 4, xp: 80 }, { id: 'c', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 6, tickets: 70, materials: 4, xp: 100 }] },
+  { id: 'spooky', name: 'Spooky Bingo Night', icon: '\u{1F383}', title: 'Haunted Hall Regular', start: [10, 24], end: [11, 2], blurb: 'Lights out, daubers up. Something is rattling in the pavilion.',
+    goals: [{ id: 'a', label: 'Play Bingo', kinds: ['bingo'], target: 10, tickets: 80, materials: 5, xp: 100 }, { id: 'b', label: 'Win Park battles', kinds: ['battle'], target: 15, tickets: 70, materials: 5, xp: 100 }, { id: 'c', label: 'Join Arena fights', kinds: ['arena'], target: 6, tickets: 80, materials: 6, xp: 120 }] },
+  { id: 'potluck', name: 'Thanksgiving Potluck', icon: '\u{1F983}', title: 'Casserole Captain', start: [11, 20], end: [11, 30], blurb: 'Everyone brings a dish. Somebody always brings three.',
+    goals: [{ id: 'a', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 6, tickets: 70, materials: 6, xp: 100 }, { id: 'b', label: 'Collect map items', kinds: ['collect'], target: 30, tickets: 70, materials: 6, xp: 90 }, { id: 'c', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 12, tickets: 70, materials: 4, xp: 100 }] },
+  { id: 'wintergames', name: 'Winter Holiday Games', icon: '\u2744\uFE0F', title: 'Winter Games Veteran', start: [12, 15], end: [1, 2], blurb: 'Sweaters, cocoa and a very competitive gift swap.',
+    goals: [{ id: 'a', label: 'Play Court matches', kinds: ['shuffleboard', 'tournament', 'challenge'], target: 20, tickets: 90, materials: 6, xp: 120 }, { id: 'b', label: 'Win Friend Battles', kinds: ['friend_battle'], target: 10, tickets: 90, materials: 6, xp: 120 }, { id: 'c', label: 'Visit or host friends', kinds: ['exchange_send', 'exchange_host'], target: 8, tickets: 90, materials: 8, xp: 120 }] },
+];
+const eventInWindow = (ev: SeasonalEvent, m: number, d: number): boolean => {
+  const v = m * 100 + d, a = ev.start[0] * 100 + ev.start[1], b = ev.end[0] * 100 + ev.end[1];
+  return a <= b ? v >= a && v <= b : v >= a || v <= b;
+};
+// The event running right now (null between events). `ms` defaults to the current time.
+export function activeSeasonalEvent(ms: number = Date.now()): { event: SeasonalEvent; year: number; endsAt: number } | null {
+  const dt = new Date(ms), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+  for (const ev of SEASONAL_EVENTS) {
+    if (!eventInWindow(ev, m, d)) continue;
+    const wraps = ev.start[0] > ev.end[0];
+    const year = wraps && m <= ev.end[0] ? dt.getUTCFullYear() - 1 : dt.getUTCFullYear();
+    const endYear = wraps ? year + 1 : year;
+    return { event: ev, year, endsAt: Date.UTC(endYear, ev.end[0] - 1, ev.end[1] + 1) };
+  }
+  return null;
+}
+// The next event to start after `ms` (for the "coming up" line).
+export function nextSeasonalEvent(ms: number = Date.now()): { event: SeasonalEvent; startsAt: number } {
+  const y = new Date(ms).getUTCFullYear();
+  let best: { event: SeasonalEvent; startsAt: number } | null = null;
+  for (const ev of SEASONAL_EVENTS) for (const yy of [y, y + 1]) {
+    const t = Date.UTC(yy, ev.start[0] - 1, ev.start[1]);
+    if (t > ms && (!best || t < best.startsAt)) best = { event: ev, startsAt: t };
+  }
+  return best!;
+}
+export const eventGoalProgress = (g: SeasonalEventGoal, stats: Record<string, number> | undefined, base: Record<string, number> | undefined): number =>
+  Math.min(g.target, g.kinds.reduce((t, k) => t + Math.max(0, (Number(stats?.[k]) || 0) - (Number(base?.[k]) || 0)), 0));
+export function eventCosmetic(key: string): UnlockedCosmetic | null {
+  if ((key || '').startsWith('pass:')) return passCosmetic(key);
+  const m = /^event:([a-z]+)-(\d{4})$/.exec(key || '');
+  const ev = m && SEASONAL_EVENTS.find(e => e.id === m[1]);
+  return ev && m ? { key, icon: EVENT_ART[ev.id] || ev.icon, title: `${ev.title} ${m[2]}` } : null;
+}
+
+/** One plain line saying what the player did to earn a title/icon, shown under it in the profile picker. */
+const MODE_GOAL_NOUN: Record<string, string> = { battle: 'battles', court: 'Court matches', friend: 'Friend Battles', arena: 'Arena fights', exchange: 'Resident Exchange visits', bingo: 'Bingo sessions', collect: 'map pickups', evolve: 'Elder evolutions' };
+export function cosmeticGoal(key: string, achievements: Achievement[] = []): string {
+  let m: RegExpExecArray | null;
+  if ((m = /^rank:(.+)$/.exec(key))) { const t = RANK_TIERS.find(r => r.title === m![1]); return t ? `Reach level ${t.minLevel}` : ''; }
+  if ((m = /^achievement:(.+)$/.exec(key))) { const a = achievements.find(x => x.id === m![1]); return a ? a.description : 'Complete this Feat'; }
+  if ((m = /^mode:([a-z]+):([1-5])$/.exec(key))) { const t = MODE_BADGE_TIERS[Number(m[2]) - 1]; return t ? `${t.min} ${MODE_GOAL_NOUN[m[1]] ?? 'activities'} (lifetime)` : ''; }
+  const court = parseCourtHonor(key);
+  if (court) return `Finish #${court.place} on the Court Ladder in ${POWER_BRACKETS[court.bracket - 1]?.name ?? 'your bracket'}`;
+  if ((m = /^board:([a-z_]+):(\d{1,2}):([123])$/.exec(key))) return `Finish #${m[3]} on the weekly ${m[1].replace('_', ' ')} board in ${POWER_BRACKETS[Number(m[2]) - 1]?.name ?? 'your bracket'}`;
+  if (/^antique:/.test(key)) return 'Collect it in the PvP Shop (TV Dinners)';
+  if ((m = /^event:([a-z]+)-(\d{4})$/.exec(key))) { const ev = SEASONAL_EVENTS.find(e => e.id === m![1]); return ev ? `Complete all goals of ${ev.title} ${m[2]}` : ''; }
+  if ((m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key))) return `Reach Elder Pass rank ${m[2]} in ${SEASON_NAMES[(Number(m[1]) - 1) % SEASON_NAMES.length]}${m[3] === 'gold' ? ' (Gold Pass)' : ''}`;
+  if (/^memento:/.test(key)) return 'Keepsake from the Mementos Shop';
+  return '';
+}
+
+export function getUnlockedCosmetics(level: number, achievements: Achievement[], courtHonors: string[] = [], modeStats?: Record<string, number>, antiquesOwned: string[] = [], mementosOwned: string[] = [], eventCosmetics: string[] = []): UnlockedCosmetic[] {
+  const rankUnlocks: UnlockedCosmetic[] = RANK_TIERS
+    .filter(t => level >= t.minLevel)
+    .map(t => ({ key: `rank:${t.title}`, icon: t.art || t.icon, title: t.title }));
+  const achievementUnlocks: UnlockedCosmetic[] = achievements
+    .filter(a => a.completed)
+    .map(a => ({ key: `achievement:${a.id}`, icon: ACHIEVEMENT_ICON_ASSETS[a.id] || a.icon, title: a.title }));
+  const honorUnlocks = courtHonors.map(honorCosmetic).filter((c): c is UnlockedCosmetic => !!c);
+  const badgeUnlocks: UnlockedCosmetic[] = [];
+  for (const def of MODE_BADGES) {
+    const reached = modeTierReached(modeCount(modeStats, def.mode));
+    for (let t = 1; t <= reached; t++) { const c = modeBadgeCosmetic(`mode:${def.mode}:${t}`, modeStats); if (c) badgeUnlocks.push(c); }
+  }
+  const antiqueUnlocks = antiquesOwned.map(id => antiqueCosmetic(`antique:${id}`)).filter((c): c is UnlockedCosmetic => !!c);
+  return [...rankUnlocks, ...achievementUnlocks, ...honorUnlocks, ...badgeUnlocks, ...antiqueUnlocks, ...eventCosmetics.map(eventCosmetic).filter((c): c is UnlockedCosmetic => !!c), ...mementosOwned.map(id => mementoCosmetic(`memento:${id}`)).filter((c): c is UnlockedCosmetic => !!c)];
+}
+
+// Resolves what to actually show in the header: the player's chosen icon/title
+// if they picked one and it's still unlocked, otherwise falls back to their
+// current rank -- so an unset or since-invalidated selection never breaks.
+export function resolveProfileDisplay(
+  level: number,
+  achievements: Achievement[],
+  selectedAccountIcon: string,
+  selectedTitle: string,
+  courtHonors?: string[], // own profile: honors must be earned. Omitted for other players' profiles (display only)
+  modeStats?: Record<string, number>,
+  antiquesOwned?: string[],
+  mementosOwned?: string[],
+  eventCosmetics?: string[]
+): { icon: string; title: string } {
+  const unlocked = getUnlockedCosmetics(level, achievements, courtHonors ?? [], modeStats, antiquesOwned ?? [], mementosOwned ?? [], eventCosmetics ?? []);
+  if (courtHonors === undefined) { // viewing someone else: show a well-formed court title they selected
+    const other = honorCosmetic(selectedTitle);
+    if (other) unlocked.push(other);
+    for (const k of [selectedAccountIcon, selectedTitle]) { const a = antiqueCosmetic(k) || mementoCosmetic(k) || eventCosmetic(k); if (a) unlocked.push(a); } // display only: another player's chosen antique
+  }
+  const rank = getRankForLevel(level);
+  const iconMatch = unlocked.find(c => c.key === selectedAccountIcon);
+  const titleMatch = unlocked.find(c => c.key === selectedTitle);
+  return {
+    icon: iconMatch ? iconMatch.icon : (rank.art || rank.icon),
+    title: titleMatch ? titleMatch.title : rank.title,
+  };
+}
+
+// ─── Park Amenities (Phase 3 social/visiting system) ──────────────────────────
+// Distinct from INVESTMENT_TIERS below (Parcels): those raise your PP rate and
+// are bought with PP, tied to the ad-revenue-only PP rule. Amenities are
+// bought with Building Materials, a separate currency, and carry NO passive
+// bonus of any kind -- per user request, purely a decorative/social layer for
+// what friends see when they visit your park, plus Housing (capacity only).
+export type AmenityCategory = 'housing' | 'production' | 'decoration';
+export interface Amenity {
+  id: string;
+  name: string;
+  icon: string; // image path (game-assets/amenities/) or an emoji fallback
+  category: AmenityCategory;
+  cost: number; // Building Materials
+  flavor: string;
+  capacityBonus?: number; // housing only: how many more Elders this houses at level 1
+  capacityPerLevel?: number; // housing only: extra capacity for each level above 1
+  // Working buildings make a limited amount of one resource. Benefits are Tickets/Materials only:
+  // buildings NEVER pay PP or raise passive income (economy rule, see ECONOMY.md).
+  producer?: { output: 'materials' | 'tickets'; basePerHour: number; perLevelPerHour: number };
+  // Other real uses (2026-09-22): every non-producer building used to level up for nothing. These give
+  // each one a distinct, level-scaling effect. Still Tickets/Materials/comfort/QoL only -- never PP or
+  // passive income, same standing rule as producers.
+  hpRegen?: { basePerHour: number; perLevelPerHour: number };       // % of max HP restored per hour, all Team Elders
+  producerBoost?: { basePct: number; perLevelPct: number };         // % bonus to every OTHER producing building's output
+  structureDiscount?: { basePct: number; perLevelPct: number };     // % off every map-building's Ticket price
+  scoreTrickle?: { basePerHour: number; perLevelPerHour: number };  // Community Score gained per hour, just for existing
+  courtPurseBonus?: { perLevel: number };                           // flat Tickets added to the Court Champion purse
+  hub?: 'lodge' | 'workshop';                                       // a working place, not a producer: opens its own window
+}
+export const AMENITIES: Amenity[] = [
+  { id: 'cottage', name: 'Retirement Cottage', icon: amenityCottage, category: 'housing', cost: 40, flavor: 'A cozy little place for a few more Folks to call home. Upgrade it to make room for more residents.', capacityBonus: 6, capacityPerLevel: 3 },
+  { id: 'trail', name: 'Nature Trail', icon: amenityTrail, category: 'production', cost: 25, flavor: 'A gently paved loop. Walkers drop off Building Materials they find along the way.', producer: { output: 'materials', basePerHour: 1, perLevelPerHour: 0.5 } },
+  { id: 'grocery', name: 'Grocery Store', icon: amenityGrocery, category: 'production', cost: 30, flavor: 'Coupon day is sacred here. The savings turn into Tickets.', producer: { output: 'tickets', basePerHour: 3, perLevelPerHour: 1.5 } },
+  { id: 'aerobics', name: 'Water Aerobics Pool', icon: amenityAerobics, category: 'decoration', cost: 35, flavor: 'Splashing counts as cardio. Also, somehow, therapeutic.', hpRegen: { basePerHour: 4, perLevelPerHour: 2 } },
+  { id: 'birdwatch', name: 'Bird Watching Post', icon: amenityBirdwatch, category: 'production', cost: 20, flavor: 'Binoculars mandatory. Arguments about which bird that was: also mandatory. Dropped feathers and lost lens caps add up.', producer: { output: 'materials', basePerHour: 0.75, perLevelPerHour: 0.35 } },
+  { id: 'earlybird', name: 'Early Bird Line', icon: amenityEarlybird, category: 'decoration', cost: 15, flavor: 'Dinner starts at 4:00pm sharp, and this line starts at 3:15. Loyalty has its perks.', structureDiscount: { basePct: 3, perLevelPct: 1.5 } },
+  { id: 'complaints', name: 'Complaint Desk', icon: amenityComplaints, category: 'decoration', cost: 20, flavor: 'Open 24/7. Business is always booming. Somehow this counts as community involvement.', scoreTrickle: { basePerHour: 0.5, perLevelPerHour: 0.25 } },
+  { id: 'nappod', name: 'Nap Pod Row', icon: amenityNappod, category: 'decoration', cost: 25, flavor: 'Strictly for "resting the eyes," never napping. A well-rested park is a productive park.', producerBoost: { basePct: 4, perLevelPct: 2 } },
+  { id: 'prunebar', name: 'Prune Juice Bar', icon: amenityPrunebar, category: 'production', cost: 15, flavor: 'Two-for-one Tuesdays. It moves product.', producer: { output: 'tickets', basePerHour: 2, perLevelPerHour: 1 } },
+  { id: 'shuffleboard_deco', name: 'Shuffleboard Court', icon: amenityShuffleboard, category: 'decoration', cost: 30, flavor: 'The real action happens over in Court -- but a nicer court means a richer champion\'s purse.', courtPurseBonus: { perLevel: 5 } },
+  { id: 'workshop', name: "Tinker's Workshop", icon: amenityWorkshop, category: 'production', cost: 45, hub: 'workshop', flavor: 'Nothing is ever really broken, just "in progress." Upgrade, sell and salvage gear here. Higher levels also help the Lodge: more room for visitors and extra Elder XP.' },
+  { id: 'lodge', name: "Visitors' Lodge", icon: amenityLodge, category: 'production', cost: 40, hub: 'lodge', flavor: 'Where your Folks go to stay with friends, and where friends\' Folks stay with you. Every level makes room for more visitors and sends them home with more Elder XP.' },
+];
+// Max residents. The Retirement Cottage is the housing building: it raises capacity, and every level
+// raises it more. Existing rosters above capacity are grandfathered (nothing is removed) -- the cap
+// only blocks bringing NEW residents into the park via Guide.
+export const BASE_HOUSING_CAPACITY = 20;
+// Owned map Parcels each add a little room (this replaced the old passive "Parcel Rent").
+export const PARCEL_HOUSING_PER = 1;
+export const PARCEL_HOUSING_CAP = 10;
+export const MAX_BUILDING_LEVEL = 10;
+export const BUILDING_STORAGE_HOURS = 8; // a working building stops producing once it holds 8 hours of output
+export function getBuildingLevel(levels: Record<string, number> | undefined, id: string): number {
+  const v = levels?.[id];
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(v))) : 1;
+}
+// ---- Lodge + Workshop perks (neither building is required; without them the base values apply).
+// Mirrored in api/resident-exchange.ts (the server decides the real cap and XP).
+export const EXCHANGE_BASE_VISITORS = 3;
+const hubLevel = (built: string[], levels: Record<string, number> | undefined, id: string) => built.includes(id) ? getBuildingLevel(levels, id) : 0;
+export function lodgeVisitorCap(built: string[], levels?: Record<string, number>): number {
+  const l = hubLevel(built, levels, 'lodge'), w = hubLevel(built, levels, 'workshop');
+  return EXCHANGE_BASE_VISITORS + Math.ceil(l / 2) + Math.floor(w / 3);
+}
+export function exchangeXpBonusPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(100, 6 * hubLevel(built, levels, 'lodge') + 3 * hubLevel(built, levels, 'workshop'));
+}
+export function workshopUpgradeDiscountPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(30, 3 * hubLevel(built, levels, 'workshop'));
+}
+export const applyUpgradeDiscount = (c: { tickets: number; materials: number }, pct: number) =>
+  ({ tickets: Math.max(1, Math.round(c.tickets * (1 - pct / 100))), materials: Math.max(1, Math.round(c.materials * (1 - pct / 100))) });
+export const applySalvageBonus = (v: { tickets: number; materials: number }, pct: number) =>
+  ({ tickets: Math.round(v.tickets * (1 + pct / 100)), materials: Math.round(v.materials * (1 + pct / 100)) });
+export function workshopSalvageBonusPct(built: string[], levels?: Record<string, number>): number {
+  return Math.min(50, 5 * hubLevel(built, levels, 'workshop'));
+}
+
+export function getHousingCapacity(builtAmenityIds: string[], levels?: Record<string, number>, parcelCount = 0, premiumRooms = 0): number {
+  const parcelRooms = Math.min(PARCEL_HOUSING_CAP, Math.max(0, Math.floor(parcelCount))) * PARCEL_HOUSING_PER + Math.min(PREMIUM_ROOM_MAX, Math.max(0, Math.floor(premiumRooms)));
+  const cottage = AMENITIES.find(a => a.id === 'cottage');
+  if (!cottage || !builtAmenityIds.includes('cottage')) return BASE_HOUSING_CAPACITY + parcelRooms;
+  const lvl = getBuildingLevel(levels, 'cottage');
+  return BASE_HOUSING_CAPACITY + parcelRooms + (cottage.capacityBonus ?? 0) + (cottage.capacityPerLevel ?? 0) * (lvl - 1);
+}
+// Level-up costs: Building Materials (grows 1.4x per level: slow, never dead) plus Tickets as a second sink.
+export function buildingUpgradeMaterials(amenity: Amenity, currentLevel: number): number {
+  return Math.round(amenity.cost * 0.8 * Math.pow(1.4, currentLevel - 1));
+}
+export function buildingUpgradeTickets(currentLevel: number): number {
+  return 25 * currentLevel;
+}
+export function producerRatePerHour(amenity: Amenity, level: number): number {
+  if (!amenity.producer) return 0;
+  return amenity.producer.basePerHour + amenity.producer.perLevelPerHour * (level - 1);
+}
+// How much a working building is holding right now (whole units), capped at its storage limit.
+// Sum of every OTHER built producing building's boost (Nap Pod Row), as a fraction (0.04 = +4%).
+// Passed into producerStored's `outputBonus` for every OTHER producer -- Nap Pod Row does not boost itself.
+export function totalProducerBoost(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.producerBoost && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + (a.producerBoost!.basePct + a.producerBoost!.perLevelPct * (getBuildingLevel(levels, a.id) - 1)) / 100, 0);
+}
+// HP restored per PASSIVE_TICK_MS tick, from every built Water-Aerobics-style building, as a fraction of max HP.
+export function totalHpRegenPerTick(builtIds: string[], levels: Record<string, number> | undefined): number {
+  const perHour = AMENITIES
+    .filter(a => a.hpRegen && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.hpRegen!.basePerHour + a.hpRegen!.perLevelPerHour * (getBuildingLevel(levels, a.id) - 1), 0);
+  return (perHour / 100) * (PASSIVE_TICK_MS / 3600000);
+}
+// Community Score gained per PASSIVE_TICK_MS tick, from every built Complaint-Desk-style building.
+export function totalScoreTricklePerTick(builtIds: string[], levels: Record<string, number> | undefined): number {
+  const perHour = AMENITIES
+    .filter(a => a.scoreTrickle && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.scoreTrickle!.basePerHour + a.scoreTrickle!.perLevelPerHour * (getBuildingLevel(levels, a.id) - 1), 0);
+  return perHour * (PASSIVE_TICK_MS / 3600000);
+}
+// % off map-building Ticket prices (0.03 = 3% off), from every built Early-Bird-Line-style building.
+export function totalStructureDiscountPct(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.structureDiscount && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.structureDiscount!.basePct + a.structureDiscount!.perLevelPct * (getBuildingLevel(levels, a.id) - 1), 0) / 100;
+}
+// Flat Tickets added to the Court Champion purse, from every built Shuffleboard-Court-style building.
+export function totalCourtPurseBonus(builtIds: string[], levels: Record<string, number> | undefined): number {
+  return AMENITIES
+    .filter(a => a.courtPurseBonus && builtIds.includes(a.id))
+    .reduce((sum, a) => sum + a.courtPurseBonus!.perLevel * getBuildingLevel(levels, a.id), 0);
+}
+
+export function producerStored(amenity: Amenity, level: number, lastCollectedAt: number | undefined, now: number, outputBonus = 0): number {
+  const rate = producerRatePerHour(amenity, level);
+  if (rate <= 0) return 0;
+  const since = typeof lastCollectedAt === 'number' && Number.isFinite(lastCollectedAt) ? Math.max(0, now - lastCollectedAt) : 0;
+  const hours = Math.min(BUILDING_STORAGE_HOURS, since / 3600000);
+  return Math.floor(rate * hours * (1 + outputBonus));
+}
+// Materials granted for visiting a friend's park (once per friend per day,
+// enforced client-side via GameState.lastVisitedFriends -- Materials aren't
+// real-money-adjacent, same lighter trust bar as Tickets elsewhere in Court).
+export const VISIT_MATERIALS_REWARD = 8;
+export const VISIT_COOLDOWN_MS = 20 * 60 * 60 * 1000; // slightly under 24h so "once a day" doesn't creep later each day
+
 export const INVESTMENT_TIERS = [
   {
     category: 'Community Micro-Assets',
     items: [
-      { id: 'i1', name: 'Garden Plot', cost: 0.50, rateBoost: 0.000005, icon: '🌱' },
-      { id: 'i2', name: 'Park Bench Sponsor', cost: 1.00, rateBoost: 0.000012, icon: '🪑' }
+      { id: 'i1', name: 'Garden Plot', cost: 0.006, rateBoost: 0.000000006, icon: '🌱' },
+      { id: 'i2', name: 'Park Bench Sponsor', cost: 0.012, rateBoost: 0.0000000144, icon: '🪑' }
     ]
   },
   {
     category: 'Neighborhood Portfolio',
     items: [
-      { id: 'i3', name: 'Bingo Hall Equity', cost: 2.50, rateBoost: 0.000035, icon: '🎰' },
-      { id: 'i4', name: 'Shuttle Van Fleet', cost: 5.00, rateBoost: 0.00008, icon: '🚐' }
+      { id: 'i3', name: 'Bingo Hall Equity', cost: 0.03, rateBoost: 0.000000042, icon: '🎰' },
+      { id: 'i4', name: 'Shuttle Van Fleet', cost: 0.06, rateBoost: 0.000000096, icon: '🚐' }
     ]
   },
   {
     category: 'Legacy Investments',
     items: [
-      { id: 'i5', name: 'The Golden Wing', cost: 15.00, rateBoost: 0.00025, icon: '🏛️' },
-      { id: 'i6', name: 'Park Directorship', cost: 50.00, rateBoost: 0.001, icon: '🏆' }
+      { id: 'i5', name: 'The Golden Wing', cost: 0.18, rateBoost: 0.0000003, icon: '🏛️' },
+      { id: 'i6', name: 'Park Directorship', cost: 0.60, rateBoost: 0.0000012, icon: '🏆' }
     ]
   }
 ];
@@ -107,30 +1280,256 @@ export const ELDER_TYPE_STYLING: Record<ElderType, { color: string; bg: string; 
   [ElderType.KNITTING_NINJA]: { color: 'text-teal-700', bg: 'bg-teal-100', border: 'border-teal-300', label: 'STITCH' },
 };
 
+// Index 0 = base art. Index 1/2 are evolution-stage art (stage 1 = "Veteran",
+// stage 2 = "Legend"), generated 9-9-26 to close the art gap flagged in the
+// 9-8-26 evolution spec. Read by ElderAvatarImg via the `stage` prop, which
+// App.tsx/UIPanels.tsx now thread from Elder.evolutionStage everywhere an
+// Elder is rendered.
 export const ELDER_AVATARS: Record<ElderType, string[]> = {
-  [ElderType.BINGO_WARRIOR]: ['🧙‍♂️', '👵', '🧓'],
-  [ElderType.GRUMPY_GARDENER]: ['👨‍🌾', '👩‍🌾', '🌵'],
-  [ElderType.STORYTELLER]: ['👴', '🧓', '📜'],
-  [ElderType.TECH_WIZARD]: ['👓', '🕹️', '📟'],
-  [ElderType.MALL_WALKER]: ['👟', '🚶‍♀️', '🚶‍♂️'],
-  [ElderType.KNITTING_NINJA]: ['🧶', '🥢', '🧤'],
+  [ElderType.BINGO_WARRIOR]: [bingoWarriorStage1, bingoWarriorStage2, bingoWarriorStage3],
+  [ElderType.GRUMPY_GARDENER]: [grumpyGardenerStage1, grumpyGardenerStage2, grumpyGardenerStage3],
+  [ElderType.STORYTELLER]: [storytellerStage1, storytellerStage2, storytellerStage3],
+  [ElderType.TECH_WIZARD]: [techWizardStage1, techWizardStage2, techWizardStage3],
+  [ElderType.MALL_WALKER]: [mallWalkerStage1, mallWalkerStage2, mallWalkerStage3],
+  [ElderType.KNITTING_NINJA]: [knittingNinjaStage1, knittingNinjaStage2, knittingNinjaStage3],
 };
 
+// Shared avatar renderer so every call site gets the same img/rounding/fallback
+// behavior instead of re-implementing <img> markup 9+ times.
+// - fill=true: image fills its parent container (parent must set width/height).
+// - fill=false: image uses the explicit `size` (px) itself.
+// Seasonal-event Elders (owner request 2026-10-24): finishing every goal of a seasonal event grants that event's Elder (Legendary, level =
+// average of your top 6 Elders). They keep their own portrait at every evolution stage. Stats still follow canonicalElderStats.
+export const EVENT_ELDERS: Record<string, { name: string; type: ElderType; powerType: PowerType; bio: string }> = {
+  sweetheart: { name: 'Cupid Carl', type: ElderType.STORYTELLER, powerType: PowerType.SOCIAL, bio: 'Retired from the arrow business but never from matchmaking.' },
+  springfling: { name: 'Blossom Betty', type: ElderType.GRUMPY_GARDENER, powerType: PowerType.PHYSICAL, bio: 'Her watering can has never once run dry in spring.' },
+  summerpicnic: { name: 'Picnic Pete', type: ElderType.MALL_WALKER, powerType: PowerType.SOCIAL, bio: 'Always brings enough lemonade for the whole park.' },
+  grandparents: { name: 'Gran-Gran Gertie', type: ElderType.KNITTING_NINJA, powerType: PowerType.SOCIAL, bio: 'Cookies in one hand, family photo in the other.' },
+  spooky: { name: 'Boo Bernice', type: ElderType.BINGO_WARRIOR, powerType: PowerType.TECH, bio: 'The haunted hall is hers, and the ghosts call her Boss.' },
+  potluck: { name: 'Casserole Clarence', type: ElderType.STORYTELLER, powerType: PowerType.PHYSICAL, bio: 'Nobody has ever left his table hungry or with an empty dish.' },
+  wintergames: { name: 'Frosty Frank', type: ElderType.BINGO_WARRIOR, powerType: PowerType.PHYSICAL, bio: 'Sweeps the ice like it owes him money.' },
+};
+// Event Keepsakes (one per seasonal event): earned together with the Event Elder, shown in the Mementos Shop. Buying them during the event
+// window for Mementos is planned with the Memento rework (see ECONOMY_V5_PLAN.md).
+export const EVENT_KEEPSAKES: { id: string; eventId: string; name: string; art: string }[] = [
+  { id: 'sweetheart', eventId: 'sweetheart', name: "Cupid's Locket", art: EVENT_KEEPSAKE_ART.sweetheart },
+  { id: 'springfling', eventId: 'springfling', name: 'Blossom Vase', art: EVENT_KEEPSAKE_ART.springfling },
+  { id: 'summerpicnic', eventId: 'summerpicnic', name: 'Picnic Blanket & Hat', art: EVENT_KEEPSAKE_ART.summerpicnic },
+  { id: 'grandparents', eventId: 'grandparents', name: 'Family Tree Hoop', art: EVENT_KEEPSAKE_ART.grandparents },
+  { id: 'spooky', eventId: 'spooky', name: 'Haunted Bingo Cage', art: EVENT_KEEPSAKE_ART.spooky },
+  { id: 'potluck', eventId: 'potluck', name: 'Harvest Cornucopia', art: EVENT_KEEPSAKE_ART.potluck },
+  { id: 'wintergames', eventId: 'wintergames', name: 'Golden Curling Stone', art: EVENT_KEEPSAKE_ART.wintergames },
+];
+/** SEASONAL_EVENTS ids the player has fully completed (any year), from the permanent event titles. */
+export const completedEventIds = (eventCosmetics: string[] = []): string[] => {
+  const out = new Set<string>();
+  for (const k of eventCosmetics) { const m = /^event:([a-z]+)-\d{4}$/.exec(String(k)); if (m) out.add(m[1]); }
+  return [...out];
+};
+export const ElderAvatarImg: React.FC<{
+  type: ElderType;
+  stage?: number;
+  size?: number;
+  fill?: boolean;
+  className?: string;
+  eventId?: string;
+}> = ({ type, stage = 0, size = 48, fill = false, className = '', eventId }) => EVENT_ELDER_ART[eventId ?? '']?.[Math.max(0, Math.min(2, stage))] ? (
+  <img
+    src={EVENT_ELDER_ART[eventId as string][Math.max(0, Math.min(2, stage))]}
+    alt={eventId}
+    draggable={false}
+    className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className.replace('rounded-[2rem]', '').replace('rounded-2xl', '')}`}
+    style={fill ? undefined : { width: size, height: size, minWidth: size, minHeight: size }}
+  />
+) : (
+  <img
+    src={ELDER_AVATARS[type][stage]}
+    alt={type}
+    draggable={false}
+    className={`object-cover rounded-full select-none ${fill ? 'w-full h-full' : ''} ${className}`}
+    style={fill ? undefined : { width: size, height: size, minWidth: size, minHeight: size }}
+  />
+);
+
+// Keyed by item NAME, not id: SHOP_ITEMS ids (s1-s4) only exist in the shop
+// browsing list -- once an item is purchased or collected from the map, App.tsx
+// gives it a fresh runtime id ('shop_'+Date.now() / 'garden_'+Date.now()), so an
+// id-keyed lookup would silently stop matching the moment it enters inventory.
+// `name` is the one field that survives spawn -> purchase/collection -> inventory
+// -> equip unchanged, and is unique across both SHOP_ITEMS and ITEM_POOL.
+export const ITEM_ICON_ASSETS: Record<string, string> = {
+  ...NEW_GEAR_ART, // Arena/Raid set pieces and the Golden Reading Glasses / Heirloom Pocket Watch / Four-Leaf Clover Pin
+  ...ITEM_ART3, // PvP gear sets, shop boosters, 12 keepsakes and all 60 antiques with art
+  ...ITEM_ART4, // N4a/N4b redo of the first-generation shop and found items + Antique Pocket Watch (replaces the older paintings)
+  ...Object.fromEntries(Object.entries(NEW_GEAR_ART_W7).map(([k, v]) => [k, v.art])), // W7-E: 8 new drop gear pieces
+  ...NEW_KEEPSAKE_ART_W7, // W7-F: 6 new Keepsakes (art by name; shown 'coming soon' until prices are approved)
+  ...NEW_ANTIQUE_ART_W7, // W7-G: 6 new Antiques
+};
+
+// Universal item rarity glow (owner rule 2026-10-20): Rare = blue, Epic = purple, Legendary = gold, applied to every item icon
+// drawn through ItemIcon. Pass `rarity` when the caller knows it; otherwise it is looked up by item name (antiques, PvP gear).
+let _itemRarityByName: Record<string, GearRarity> | null = null;
+export const itemRarityByName = (name?: string): GearRarity | undefined => {
+  if (!name) return undefined;
+  if (!_itemRarityByName) {
+    _itemRarityByName = {};
+    for (const a of ANTIQUES) _itemRarityByName[a.name] = a.rarity as GearRarity;
+    for (const g of PVP_GEAR) if (g.rarity) _itemRarityByName[g.name] = g.rarity as GearRarity;
+    for (const k of MEMENTO_ITEMS) _itemRarityByName[k.name] = k.rarity;
+  }
+  return _itemRarityByName[name];
+};
+export const rarityGlowFilter = (rarity?: GearRarity): string | undefined => {
+  if (!rarity || rarity === 'Common') return undefined;
+  const c = GEAR_RARITY_COLOR[rarity];
+  return rarity === 'Legendary'
+    ? `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 10px ${c}cc) drop-shadow(0 0 16px ${c}88)`
+    : `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 9px ${c}99)`;
+};
+
+export const ItemIcon: React.FC<{
+  name?: string;
+  icon: string;
+  size?: number;
+  fill?: boolean;
+  className?: string;
+  rarity?: GearRarity;
+}> = ({ name, icon, size = 32, fill = false, className = '', rarity }) => {
+  const src = name ? ITEM_ICON_ASSETS[name] : undefined;
+  const glow = rarityGlowFilter(rarity ?? itemRarityByName(name));
+  if (!src) {
+    return <span className={className} style={{ ...(fill ? {} : { fontSize: size }), ...(glow ? { filter: glow } : {}) }}>{icon}</span>;
+  }
+  return (
+    <img
+      src={src}
+      alt={icon}
+      draggable={false}
+      className={`object-contain select-none ${fill ? 'w-full h-full' : ''} ${className}`}
+      style={{ ...(fill ? {} : { width: size, height: size }), ...(glow ? { filter: glow } : {}) }}
+    />
+  );
+};
+
+// Keyed by `type` -- the one field on STRUCTURE_TEMPLATES that's stable and
+// unique (unlike a runtime id, these templates are read directly from this
+// array, never regenerated).
+export const STRUCTURE_ICON_ASSETS: Record<string, string> = {
+  Blitz: bingoBlitzHallImg,
+  Heal: silverSpringsRehabImg,
+  Shuffleboard: grandShuffleCourtImg,
+  Market: farmersMarketImg,
+  Garden: communityGardenImg,
+  Walk: mallCircuitImg,
+  Pavilion: potluckPavilionImg,
+};
+
+// Keyed by id -- INVESTMENT_TIERS items are read directly from this array
+// (unlike shop/pool items, they never get a fresh runtime id), so id is safe.
+export const PARCEL_ICON_ASSETS: Record<string, string> = PARCEL_ART4;
+
 export const NAV_ITEMS = [
-  { id: 'map', label: 'Map', icon: <MapIcon className="w-6 h-6" /> },
-  { id: 'team', label: 'Team', icon: <UserGroupIcon className="w-6 h-6" /> },
-  { id: 'base', label: 'Park', icon: <HomeIcon className="w-6 h-6" /> },
-  { id: 'shop', label: 'Shop', icon: <ShoppingBagIcon className="w-6 h-6" /> },
-  { id: 'quests', label: 'Tasks', icon: <ClipboardDocumentListIcon className="w-6 h-6" /> },
-  { id: 'pass', label: 'Pass', icon: <TicketIcon className="w-6 h-6" /> },
-  { id: 'bank', label: 'Bank', icon: <CurrencyDollarIcon className="w-6 h-6" /> },
+  { id: 'map', label: 'Map', icon: <img src={NAV_ART.map} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'team', label: 'Team', icon: <img src={NAV_ART.team} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'base', label: 'Park', icon: <img src={NAV_ART.park} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'shop', label: 'Shop', icon: <img src={NAV_ART.shop} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'quests', label: 'Tasks', icon: <img src={NAV_ART.tasks} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'pass', label: 'Pass', icon: <img src={NAV_ART.pass} alt="" className="w-7 h-7 object-contain" /> },
+  { id: 'bank', label: 'Bank', icon: <img src={NAV_ART.bank} alt="" className="w-7 h-7 object-contain" /> },
+];
+
+// --- Task rotation (Bundle D, 2026-09-21) -------------------------------------------------------------
+// Replaces the fixed 8-quest list (never rotated) with pools the game draws from each UTC day/week, so
+// Tasks stay varied instead of being the same 5 dailies forever. `kind` is what handleQuestProgress
+// matches against -- add a kind here only once something in App.tsx actually reports progress for it.
+export interface QuestTemplate {
+  kind: string; title: string; description: string; target: number;
+  rewardXP: number; rewardTokens: number; rewardStars: number;
+}
+export const DAILY_QUEST_POOL: QuestTemplate[] = [
+  { kind: 'collect', title: 'Neighborhood Watch', description: 'Collect 6 items from the map.', target: 6, rewardXP: 150, rewardTokens: 25, rewardStars: 5 },
+  { kind: 'battle', title: 'Gentle Persuasion', description: 'Win 2 arguments with wild residents.', target: 2, rewardXP: 200, rewardTokens: 50, rewardStars: 8 },
+  { kind: 'shuffleboard', title: 'Court Presence', description: 'Play 3 Court matches (any mode).', target: 3, rewardXP: 175, rewardTokens: 40, rewardStars: 6 },
+  { kind: 'ad', title: 'Sponsor Support', description: 'Watch 3 sponsor videos.', target: 3, rewardXP: 100, rewardTokens: 30, rewardStars: 4 },
+  { kind: 'bingo', title: 'Bingo Night', description: 'Play 2 Bingo Blitz sessions.', target: 2, rewardXP: 150, rewardTokens: 35, rewardStars: 6 },
+  { kind: 'challenge', title: "Rival's Rematch", description: 'Fight 2 Elder Challenge duels.', target: 2, rewardXP: 180, rewardTokens: 30, rewardStars: 6 },
+  { kind: 'tournament', title: 'Practice Throws', description: 'Take 2 Daily Tournament throws.', target: 2, rewardXP: 120, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'market', title: 'Farmers Market Run', description: 'Visit the Farmers Market once.', target: 1, rewardXP: 90, rewardTokens: 15, rewardStars: 4 },
+  { kind: 'garden', title: 'Garden Scavenge', description: 'Scavenge the Community Garden twice.', target: 2, rewardXP: 100, rewardTokens: 20, rewardStars: 4 },
+  { kind: 'mall', title: 'Mall Circuit Laps', description: 'Train at the Mall Circuit twice.', target: 2, rewardXP: 100, rewardTokens: 20, rewardStars: 4 },
+  { kind: 'potluck', title: 'Potluck Pavilion', description: 'Host one Potluck.', target: 1, rewardXP: 90, rewardTokens: 15, rewardStars: 6 },
+  { kind: 'arena', title: 'Arena Skirmish', description: 'Attack an Arena once.', target: 1, rewardXP: 130, rewardTokens: 25, rewardStars: 6 },
+  { kind: 'friend_battle', title: 'Friendly Rivalry', description: 'Fight 1 Friend Battle.', target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'exchange_send', title: 'Good Neighbor', description: "Send an Elder to visit a friend's park.", target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+  { kind: 'exchange_host', title: 'Gracious Host', description: "Claim a thank-you gift from a visiting Elder.", target: 1, rewardXP: 110, rewardTokens: 20, rewardStars: 5 },
+];
+export const WEEKLY_QUEST_POOL: QuestTemplate[] = [
+  { kind: 'bingo', title: 'Bingo Marathon', description: 'Play 6 Bingo Blitz sessions.', target: 6, rewardXP: 1000, rewardTokens: 250, rewardStars: 30 },
+  { kind: 'shuffleboard', title: 'Court Dominator', description: 'Play 12 Court matches (any mode).', target: 12, rewardXP: 1500, rewardTokens: 400, rewardStars: 35 },
+  { kind: 'challenge', title: 'Ladder Climber', description: 'Fight 8 Elder Challenge duels.', target: 8, rewardXP: 1400, rewardTokens: 350, rewardStars: 30 },
+  { kind: 'arena', title: 'Arena Campaign', description: 'Attack Arenas 5 times.', target: 5, rewardXP: 1300, rewardTokens: 300, rewardStars: 35 },
+  { kind: 'friend_battle', title: 'Rivalry Week', description: 'Fight 4 Friend Battles.', target: 4, rewardXP: 1000, rewardTokens: 250, rewardStars: 25 },
+  { kind: 'battle', title: 'Neighborhood Legend', description: 'Win 12 wild-resident battles.', target: 12, rewardXP: 1400, rewardTokens: 300, rewardStars: 30 },
+  { kind: 'evolve', title: 'Grow the Family', description: 'Evolve 1 Elder.', target: 1, rewardXP: 1200, rewardTokens: 200, rewardStars: 30 },
+  { kind: 'ad', title: 'Sponsor Champion', description: 'Watch 12 sponsor videos this week.', target: 12, rewardXP: 800, rewardTokens: 200, rewardStars: 20 },
+  { kind: 'exchange_send', title: 'Friendly Visitor', description: "Send Elders to friends' parks 3 times.", target: 3, rewardXP: 900, rewardTokens: 220, rewardStars: 25 },
+  { kind: 'exchange_host', title: 'Open House', description: 'Claim 3 thank-you gifts from visiting Elders.', target: 3, rewardXP: 900, rewardTokens: 220, rewardStars: 25 },
+];
+export function utcWeekKey(ts: number = Date.now()): string {
+  const d = new Date(ts); const day = (d.getUTCDay() + 6) % 7; // Monday = 0
+  d.setUTCDate(d.getUTCDate() - day); d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+// Deterministic-enough shuffle keyed by a day/week string, so a given day's picks don't change on reload.
+function seededShuffle<T>(arr: T[], seedStr: string): T[] {
+  let h = 0; for (let i = 0; i < seedStr.length; i++) h = (Math.imul(h, 31) + seedStr.charCodeAt(i)) | 0;
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    h = (Math.imul(h, 1103515245) + 12345) | 0;
+    const j = Math.abs(h) % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+export function generateQuests(pool: QuestTemplate[], type: 'Daily' | 'Weekly', seedKey: string, count: number): Quest[] {
+  return seededShuffle(pool, `${type}:${seedKey}`).slice(0, count).map((t, i) => ({
+    id: `${type === 'Daily' ? 'd' : 'w'}-${seedKey}-${i}`, type, title: t.title, description: t.description, kind: t.kind,
+    progress: 0, target: t.target, completed: false, rewardXP: t.rewardXP, rewardTokens: t.rewardTokens, rewardStars: t.rewardStars,
+  }));
+}
+
+// --- Achievements ("Feats"): now actually evaluated (2026-09-21) --------------------------------------
+// Previously these 4 entries existed but nothing ever checked or completed them. Conditions read only from
+// the saved GameState, are checked in one place (checkAchievements in App.tsx), and are STICKY: once an
+// achievement's condition has ever been true it stays completed even if the underlying value later drops
+// (e.g. Park Assets sold, Elders released) -- checkAchievements only evaluates achievements that are not
+// already completed.
+export const ACHIEVEMENT_CONDITIONS: Record<string, (s: any) => boolean> = {
+  a1: s => s.allElders.length > 0,
+  a2: s => s.parkCommunityScore >= 100,
+  a3: s => (s.battleWins ?? 0) >= 5,
+  a4: s => s.pensionBalance >= 1.0,
+  a5: s => Object.values(s.parkAssets ?? {}).some((n: any) => typeof n === 'number' && n > 0),
+  a6: s => (s.challengeLadder?.highestCleared ?? -1) >= 9,           // cleared rank 10
+  a7: s => (s.goldenGames?.highestLeagueCleared ?? -1) >= 4,          // cleared the 5th league
+  a8: s => Object.keys(s.stationedAt ?? {}).length > 0,               // defended an Arena at least once
+  a9: s => !!s.faction,
+  a10: s => (s.battleWins ?? 0) >= 25,
+};
+export const NEW_ACHIEVEMENTS: Achievement[] = [
+  { id: 'a5', title: 'Investor', description: 'Buy your first Park Asset.', completed: false, rewardType: 'Tokens', rewardValue: 40, icon: '📦' },
+  { id: 'a6', title: 'Rival Slayer', description: 'Clear rank 10 on the Elder Challenge ladder.', completed: false, rewardType: 'Diners', rewardValue: 15, icon: '⚔️' },
+  { id: 'a7', title: 'Tower Climber', description: 'Clear the 5th Golden Games league.', completed: false, rewardType: 'Diners', rewardValue: 20, icon: '🏆' },
+  { id: 'a8', title: 'Arena Defender', description: 'Station an Elder at an Arena.', completed: false, rewardType: 'Diners', rewardValue: 10, icon: '🏟️' },
+  { id: 'a9', title: 'Faction Founder', description: 'Join a faction.', completed: false, rewardType: 'CommunityScore', rewardValue: 10, icon: '🚩' },
+  { id: 'a10', title: 'Neighborhood Legend', description: 'Win 25 wild-resident battles.', completed: false, rewardType: 'Diners', rewardValue: 15, icon: '🎖️' },
 ];
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
-  { id: 'a1', title: 'Early Bird', description: 'Recruit your first Elder.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00001, icon: '🌅' },
+  { id: 'a1', title: 'Early Bird', description: 'Recruit your first Elder.', completed: false, rewardType: 'Tokens', rewardValue: 25, icon: '🌅' },
   { id: 'a2', title: 'Community Pillar', description: 'Reach Park Community Score 100.', completed: false, rewardType: 'Tokens', rewardValue: 50, icon: '🏛️' },
-  { id: 'a3', title: 'Debate Champion', description: 'Win 5 Wild Battles.', completed: false, rewardType: 'CommunityScore', rewardValue: 20, icon: '🗣️' },
-  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of 1.00 PP.', completed: false, rewardType: 'YieldBonus', rewardValue: 0.00005, icon: '💎' },
+  { id: 'a3', title: 'Debate Champion', description: 'Win 5 Wild Battles.', completed: false, rewardType: 'Diners', rewardValue: 8, icon: '🗣️' },
+  { id: 'a4', title: 'Wealthy Pensioner', description: 'Earn a total of 1.00 PP.', completed: false, rewardType: 'Tokens', rewardValue: 50, icon: '💎' },
 ];
 
 export const DAILY_REWARDS = [
@@ -174,6 +1573,45 @@ const generateNeighborhoodPaths = () => {
 
 export const WORLD_PATHS = generateNeighborhoodPaths();
 
+// Map-building pricing. Ticket cost is flat for `freeUses` visits per UTC day, then multiplies
+// by `growth` for every further visit; `dailyCap` is a hard stop. Resets at midnight UTC.
+// Tune here only -- handlers and buttons all read this table.
+export const STRUCTURE_PRICING: Record<string, { base: number; growth: number; freeUses: number; dailyCap?: number }> = {
+  Blitz:        { base: 10, growth: 1.35, freeUses: 0, dailyCap: 12 }, // Bingo pays +13 Tickets on average at base price, so it must climb fast
+  Heal:         { base: 25, growth: 1.25, freeUses: 2 },
+  Shuffleboard: { base: 20, growth: 1.25, freeUses: 2, dailyCap: 15 },
+  Market:       { base: 30, growth: 1.50, freeUses: 1, dailyCap: 8 },  // permanent +2 squad stat per visit -- the steepest climb
+  Garden:       { base: 10, growth: 1.30, freeUses: 2, dailyCap: 12 },
+  Walk:         { base: 15, growth: 1.40, freeUses: 2, dailyCap: 10 }, // 250 XP per visit
+  Pavilion:     { base: 10, growth: 1.35, freeUses: 2, dailyCap: 10 }, // +50 Stars per visit
+};
+
+export function utcDayKey(ts: number = Date.now()): string {
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+// `uses` comes from a save/cloud row, so it is treated as untrusted (wrong types -> 0 uses).
+export function structureUsesToday(uses: any, type: string): number {
+  if (!uses || typeof uses !== 'object' || uses.day !== utcDayKey()) return 0;
+  const n = uses.counts && typeof uses.counts === 'object' ? uses.counts[type] : 0;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+export function getStructurePrice(uses: any, type: string): { cost: number; used: number; cap?: number; soldOut: boolean } {
+  const rule = STRUCTURE_PRICING[type];
+  const used = structureUsesToday(uses, type);
+  if (!rule) return { cost: 10, used, soldOut: false };
+  const steps = Math.max(0, used - rule.freeUses);
+  return { cost: Math.round(rule.base * Math.pow(rule.growth, steps)), used, cap: rule.dailyCap, soldOut: rule.dailyCap !== undefined && used >= rule.dailyCap };
+}
+
+export function bumpStructureUses(uses: any, type: string): { day: string; counts: Record<string, number> } {
+  const today = utcDayKey();
+  const counts: Record<string, number> = uses && uses.day === today && uses.counts && typeof uses.counts === 'object' ? { ...uses.counts } : {};
+  counts[type] = structureUsesToday(uses, type) + 1;
+  return { day: today, counts };
+}
+
 export const STRUCTURE_TEMPLATES = [
   { 
     type: 'Blitz', 
@@ -193,7 +1631,7 @@ export const STRUCTURE_TEMPLATES = [
     type: 'Shuffleboard', 
     name: 'Grand Shuffle Court', 
     icon: '🥏', 
-    description: 'Team King of the Hill. Hold the court to boost your passive income!',
+    description: 'Team King of the Hill. Beat the court to be Champion for 24 hours and collect a Ticket purse!',
     requirement: 'Cost: 20 Tokens'
   },
   { 
@@ -227,33 +1665,302 @@ export const STRUCTURE_TEMPLATES = [
 ];
 
 export const ITEM_POOL = [
-  { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 2, slot: 'Head', description: 'Increases Wit by 2.' },
-  { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 2, slot: 'Accessory', description: 'Increases Strength and Agility.' },
+  { name: 'Straw Sunhat', icon: '🧢', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Comfy Loafers', icon: '🥿', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Hearing Aid Plus', icon: '🔔', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
   { name: 'Hard Candy', icon: '🍭', type: 'Snack', boost: 15, slot: 'Accessory', description: 'Restores 15 HP to a resident.' },
-  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 4, slot: 'Accessory', description: 'Increases stats via nostalgic vibes.' },
+  { name: 'Vintage Radio', icon: '📻', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
   { name: 'Lost Dentures', icon: '💎', type: 'LegacyToken', boost: 25, slot: 'Accessory', description: 'Worth 25 Tickets.' },
   { name: 'Old Map', icon: '🗺️', type: 'Snack', boost: 50, slot: 'Accessory', description: 'Grants 50 XP to the Park.' },
-  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity by 3.' },
-  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 5, slot: 'Accessory', description: 'A classic piece that boosts efficiency.' }
+  { name: 'Garden Charm', icon: '🍀', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  { name: 'Antique Pocket Watch', icon: '⏱️', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  // W7-E (2026-11-03): same uniform base as the pieces above (rarity + level curve decides the bonus, nothing custom).
+  { name: 'Wool Beret', icon: '🎩', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Bifocal Chain Glasses', icon: '👓', type: 'Equipment', boost: 3, slot: 'Head', description: 'Increases Wit.' },
+  { name: 'Knitted Shawl', icon: '🧣', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Elbow Patch Cardigan', icon: '🧥', type: 'Equipment', boost: 3, slot: 'Body', description: 'Increases Tenacity.' },
+  { name: 'Pearl Necklace', icon: '📿', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
+  { name: 'Garden Gloves', icon: '🧤', type: 'Equipment', boost: 3, slot: 'Accessory', description: 'Increases Strength.' },
+  { name: 'Lucky Horseshoe', icon: '🧲', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' },
+  { name: 'Brass Bell Keychain', icon: '🔔', type: 'Equipment', boost: 3, slot: 'Charm', description: 'Increases Agility.' }
 ];
 
 export const SHOP_ITEMS = [
   { id: 's1', name: 'High-Fiber Muffin', icon: '🧁', price: 50, description: 'Instantly restores 50 HP.' },
-  { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity by 6.', slot: 'Body', boost: 6 },
-  { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit by 4.', slot: 'Head', boost: 4 },
-  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts competitive spirit slightly.', slot: 'Accessory', boost: 5 }
+  { id: 's2', name: 'Tennis Ball Walker', icon: '🎾', price: 250, description: 'Increases Tenacity.', slot: 'Body', boost: 6 },
+  { id: 's3', name: 'Reading Glasses', icon: '👓', price: 150, description: 'Increases Wit.', slot: 'Head', boost: 4 },
+  { id: 's4', name: 'Bingo Lucky Charm', icon: '🍀', price: 300, description: 'Boosts Agility with a touch of luck.', slot: 'Charm', boost: 5 }
 ];
 
-export const SEASONAL_REWARDS = [
-  { level: 1, icon: '🎟️', name: 'Starter Kit', free: '100 Tickets', tickets: 100 },
-  { level: 2, icon: '🍭', name: 'Sweet Treat', free: '15 Tickets', tickets: 15 },
-  { level: 3, icon: '🌅', name: 'Morning Badge', free: '20 Tickets', tickets: 20 },
-  { level: 4, icon: '🥿', name: 'Fast Feet', free: '25 Tickets', tickets: 25 },
-  { level: 5, icon: '💎', name: 'Ticket Cache', free: '500 Tickets', tickets: 500 },
-  { level: 6, icon: '🧢', name: 'Sun Protection', free: '20 Tickets', tickets: 20 },
-  { level: 7, icon: '📻', name: 'Broadcast', free: '30 Tickets', tickets: 30 },
-  { level: 8, icon: '💎', name: 'Artifact', free: '40 Tickets', tickets: 40 },
-  { level: 9, icon: '🍀', name: 'Crafting', free: '35 Tickets', tickets: 35 },
-  { level: 10, icon: '🏆', name: 'Grand Prize', free: '1000 Tickets', tickets: 1000 }
+// --- Gear rarity & upgrades ---
+// Equipment items (found on the map, from the Garden, or daily rewards) roll a rarity tier that
+// scales their stat boost; Shop items are a guaranteed purchase (no luck involved) so they're
+// always Common. An item can then be upgraded in the Inventory (spending Tickets + Materials)
+// before it's given to an Elder -- boost is baked into the Elder's stats at that point (existing
+// consume-on-equip behavior), so upgrade before equipping, not after.
+export type GearRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+
+// Maps an item's display slot to its key on Elder.equipment. Kept in one place since every stat-
+// mutation site (equip/unequip/battle) needs to agree on it -- adding a 5th slot only means
+// touching this function and the stat-effect switch in App.tsx's equip/unequip handlers.
+// Which stat each slot always boosts (the single source of truth the equip handlers follow).
+export const GEAR_SLOT_STAT_SHORT: Record<'head' | 'body' | 'accessory' | 'charm', string> = { head: 'WIT', body: 'TEN', accessory: 'STR', charm: 'AGI' };
+export function gearSlotKey(slot: 'Head' | 'Body' | 'Accessory' | 'Charm'): 'head' | 'body' | 'accessory' | 'charm' {
+  if (slot === 'Head') return 'head';
+  if (slot === 'Body') return 'body';
+  if (slot === 'Charm') return 'charm';
+  return 'accessory';
+}
+
+export const GEAR_RARITY_MULTIPLIER: Record<GearRarity, number> = {
+  Common: 1, Rare: 1.3, Epic: 1.7, Legendary: 2.2,
+};
+
+export const GEAR_RARITY_COLOR: Record<GearRarity, string> = {
+  Common: '#94a3b8', Rare: '#3b82f6', Epic: '#a855f7', Legendary: '#f59e0b',
+};
+/** Border + glow + tint for an item card. Uses inset box-shadow and a gradient image, which the theme's border/background colour overrides (!important) cannot hide. */
+export const rarityCardStyle = (rarity?: GearRarity): React.CSSProperties => {
+  const c = GEAR_RARITY_COLOR[rarity ?? 'Common'];
+  return { borderColor: c, boxShadow: `inset 0 0 0 2px ${c}, 0 0 ${rarity && rarity !== 'Common' ? 12 : 0}px ${c}66`, backgroundImage: `linear-gradient(160deg, ${c}38, transparent 75%)` };
+};
+
+const GEAR_RARITY_WEIGHTS: [GearRarity, number][] = [
+  ['Common', 60], ['Rare', 28], ['Epic', 10], ['Legendary', 2],
 ];
+
+export function rollGearRarity(): GearRarity {
+  const total = GEAR_RARITY_WEIGHTS.reduce((sum, [, w]) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (const [rarity, weight] of GEAR_RARITY_WEIGHTS) {
+    if (roll < weight) return rarity;
+    roll -= weight;
+  }
+  return 'Common';
+}
+
+// Gear upgrades scale with rarity like Elder stats do: rarer gear has a higher level cap, grows faster per level
+// past level 5, and costs somewhat more to push. Levels 1-5 are IDENTICAL to the old formula for every rarity
+// (old max was 5), so gear already equipped (its boost is baked into an Elder's stats) needs no migration.
+export const GEAR_MAX_LEVEL_BY_RARITY: Record<GearRarity, number> = { Common: 10, Rare: 15, Epic: 20, Legendary: 30 };
+export function getGearMaxLevel(item: { rarity?: GearRarity }): number {
+  return GEAR_MAX_LEVEL_BY_RARITY[item.rarity ?? 'Common'] ?? 10;
+}
+const GEAR_LEGACY_MAX_LEVEL = 5;
+const GEAR_UPGRADE_BONUS_PER_LEVEL = 0.15; // +15% of base boost per level up to 5, for every rarity
+const GEAR_LATE_BONUS_PER_LEVEL = 0.10; // past level 5: +10% of base per level, x rarity (Common 1.0 ... Legendary 1.8)
+const GEAR_UPGRADE_COST_BASE = { tickets: 40, materials: 3 };
+const GEAR_UPGRADE_COST_GROWTH = 1.5; // levels 1-5 (unchanged)
+const GEAR_LATE_TICKET_GROWTH = 1.12; // past level 5, costs climb gently so the higher caps stay reachable
+const GEAR_LATE_MATERIAL_GROWTH = 1.10;
+
+export function getEffectiveGearBoost(item: { boost: number; rarity?: GearRarity; level?: number }): number {
+  const mult = GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1;
+  const lvl = Math.max(1, item.level ?? 1);
+  const early = (Math.min(lvl, GEAR_LEGACY_MAX_LEVEL) - 1) * GEAR_UPGRADE_BONUS_PER_LEVEL;
+  // Past level 5 the per-level gain also scales with rarity (Common x1.0 ... Legendary x1.8), same as Elder growth.
+  const late = Math.max(0, lvl - GEAR_LEGACY_MAX_LEVEL) * GEAR_LATE_BONUS_PER_LEVEL * (RARITY_STAT_MULTIPLIER[item.rarity ?? 'Common'] ?? 1);
+  return Math.round(item.boost * mult * (1 + early + late));
+}
+
+export function getGearUpgradeCost(item: { level?: number; rarity?: GearRarity }): { tickets: number; materials: number } {
+  const lvl = Math.max(1, item.level ?? 1);
+  if (lvl < GEAR_LEGACY_MAX_LEVEL) {
+    const scale = Math.pow(GEAR_UPGRADE_COST_GROWTH, lvl - 1);
+    return { tickets: Math.round(GEAR_UPGRADE_COST_BASE.tickets * scale), materials: Math.round(GEAR_UPGRADE_COST_BASE.materials * scale) };
+  }
+  const steps = lvl - GEAR_LEGACY_MAX_LEVEL + 1; // upgrading 5->6 is step 1
+  const baseT = GEAR_UPGRADE_COST_BASE.tickets * Math.pow(GEAR_UPGRADE_COST_GROWTH, GEAR_LEGACY_MAX_LEVEL - 1);
+  const baseM = GEAR_UPGRADE_COST_BASE.materials * Math.pow(GEAR_UPGRADE_COST_GROWTH, GEAR_LEGACY_MAX_LEVEL - 1);
+  const rarityCost = 1 + ((GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1) - 1) * 0.5; // Rare 1.15, Epic 1.35, Legendary 1.6
+  return {
+    tickets: Math.round(baseT * Math.pow(GEAR_LATE_TICKET_GROWTH, steps) * rarityCost),
+    materials: Math.round(baseM * Math.pow(GEAR_LATE_MATERIAL_GROWTH, steps) * rarityCost),
+  };
+}
+
+// Selling/salvaging an unwanted item -- gives back a fraction of what upgrading it that far
+// would have cost, so items are never a total dead end once a slot has something better in it.
+export function getGearSellValue(item: { boost: number; rarity?: GearRarity; level?: number }): { tickets: number; materials: number } {
+  const mult = GEAR_RARITY_MULTIPLIER[item.rarity ?? 'Common'] ?? 1;
+  const lvl = item.level ?? 1;
+  return {
+    tickets: Math.round(6 * mult * lvl),
+    materials: Math.round(1 * mult * lvl),
+  };
+}
+
+export interface PassCosmeticDef { rank: number; lane: 'free' | 'gold'; icon: string; label: string }
+// Cosmetic titles/icons from the Pass: free lane at ranks 10/20/30, Gold lane every 5 ranks. Cosmetic only, never power, PP or passive income.
+export const PASS_COSMETICS: PassCosmeticDef[] = [
+  { rank: 10, lane: 'free', icon: '\u{1F3C5}', label: 'Regular' }, { rank: 20, lane: 'free', icon: '\u{1F396}\uFE0F', label: 'Veteran' }, { rank: 30, lane: 'free', icon: '\u{1F3C6}', label: 'Champion' },
+  { rank: 5, lane: 'gold', icon: '\u{1FA99}', label: 'Gilded Guest' }, { rank: 10, lane: 'gold', icon: '\u2728', label: 'Golden Regular' }, { rank: 15, lane: 'gold', icon: '\u{1F4AB}', label: 'Gilded Veteran' },
+  { rank: 20, lane: 'gold', icon: '\u{1F947}', label: 'Golden Champion' }, { rank: 25, lane: 'gold', icon: '\u{1F451}', label: 'Gold Legend' }, { rank: 30, lane: 'gold', icon: '\u{1F31F}', label: 'Golden Icon' },
+];
+PASS_COSMETICS.forEach(d => { const art = PASS_LANE_ART[d.label]; if (art) d.icon = art; }); // lane titles/icons use the sheet S09 art
+// Lane icon for a label in a season: the season's themed art if it has one, else the default sheet S09 art (never throws).
+export const passLaneArtFor = (label: string, seasonName?: string): string | undefined => (seasonName ? PASS_THEME_ART[seasonName]?.[label] : undefined) ?? PASS_LANE_ART[label];
+export const passCosmeticKey = (seasonId: number, rank: number, lane: 'free' | 'gold') => `pass:${seasonId}:${rank}:${lane}`;
+export function passCosmetic(key: string): UnlockedCosmetic | null {
+  const m = /^pass:(\d{1,4}):(\d{1,2}):(free|gold)$/.exec(key || '');
+  if (!m) return null;
+  const def = PASS_COSMETICS.find(d => d.rank === Number(m[2]) && d.lane === m[3]);
+  if (!def) return null;
+  const season = SEASON_NAMES[(Number(m[1]) - 1) % SEASON_NAMES.length];
+  return { key, icon: passLaneArtFor(def.label, season) ?? def.icon, title: `${season} ${def.label}` };
+}
+// 30 ranks. Ranks 1-10 keep the original Ticket payouts; every 3rd rank also pays Materials; ranks 15/20/25/30 are big milestones.
+const PASS_FREE_TICKETS = [100, 15, 20, 25, 500, 20, 30, 40, 35, 1000, 40, 45, 50, 55, 400, 60, 65, 70, 75, 500, 80, 85, 90, 95, 400, 100, 110, 120, 130, 800];
+export interface SeasonalReward { level: number; icon: string; name: string; free: string; tickets: number; materials: number; freeCosmetic?: PassCosmeticDef; gold: string; goldTickets: number; goldMaterials: number; goldCosmetic?: PassCosmeticDef }
+export const SEASONAL_REWARDS: SeasonalReward[] = PASS_FREE_TICKETS.map((tickets, i) => {
+  const level = i + 1;
+  const materials = level % 3 === 0 ? 5 + Math.floor(level / 3) * 2 : 0;
+  const goldTickets = Math.max(25, Math.round(tickets * 0.5 / 5) * 5);
+  const goldMaterials = level % 2 === 0 ? 4 + Math.floor(level / 2) : 0;
+  const freeCosmetic = PASS_COSMETICS.find(d => d.rank === level && d.lane === 'free');
+  const goldCosmetic = PASS_COSMETICS.find(d => d.rank === level && d.lane === 'gold');
+  const bits = (t: number, m: number, c?: PassCosmeticDef) => [`${t} Tickets`, m ? `${m} Materials` : '', c ? `Title: ${c.label}` : ''].filter(Boolean).join(' + ');
+  return { level, icon: level % 10 === 0 ? '\u{1F3C6}' : level % 5 === 0 ? '\u{1F381}' : '\u{1F39F}\uFE0F', name: level % 5 === 0 ? 'Milestone' : `Rank ${level}`, free: bits(tickets, materials, freeCosmetic), tickets, materials, freeCosmetic, gold: bits(goldTickets, goldMaterials, goldCosmetic), goldTickets, goldMaterials, goldCosmetic };
+});
+
+// --- TV Dinners: the PvP / Arena / Raid currency and its shop (2026-10-06) ---------------------------------
+// Earned ONLY from social/competitive play (daily-capped), spent ONLY in the PvP shop. Never PP, never passive income.
+export const DINERS_DAILY_CAP = 180; // 40 -> 100 -> 180 (2026-10-11): TV Dinners were too scarce for how often players battle // raised from 40 (2026-10-10): raids now allow up to 10 rewarded raids a day
+export const DINERS_FRIEND_WIN = 5;
+export const DINERS_ARENA_WIN = 6;
+export const DINERS_RAID_HIT = 3;
+export const DINERS_COURT_WIN = 6;
+
+export type AntiqueRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+export interface Antique { id: string; name: string; icon: string; rarity: AntiqueRarity; price: number; title: string }
+export const ANTIQUE_PRICE: Record<AntiqueRarity, number> = { Common: 20, Rare: 45, Epic: 90, Legendary: 180 };
+// [name, icon, rarity] -- 66 items: 32 Common, 21 Rare, 10 Epic, 3 Legendary.
+const ANTIQUE_SOURCE: [string, string, AntiqueRarity][] = [
+  ['Brass Bugle', '📯', 'Common'], ['Doily Set', '🧶', 'Common'], ['Hard Candy Dish', '🍬', 'Common'], ['Rotary Phone', '☎️', 'Common'],
+  ['Cuckoo Clock', '🕰️', 'Common'], ['Plaid Thermos', '🫖', 'Common'], ['Seed Packet Tin', '🌱', 'Common'], ['Crossword Book', '📰', 'Common'],
+  ['Wool Cardigan', '🧥', 'Common'], ['Mason Jar', '🫙', 'Common'], ['Checkers Board', '♟️', 'Common'], ['Porch Lantern', '🏮', 'Common'],
+  ['Recipe Box', '📦', 'Common'], ['Sewing Tin', '🧵', 'Common'], ['Garden Gnome', '🧙', 'Common'], ['Polka Record', '💿', 'Common'],
+  ['Pocket Comb', '🪮', 'Common'], ['Butter Dish', '🧈', 'Common'], ['Church Fan', '🪭', 'Common'], ['Reading Lamp', '💡', 'Common'],
+  ['Pinochle Deck', '🃏', 'Common'], ['Lemon Drops Tin', '🍋', 'Common'], ['Rain Bonnet', '☔', 'Common'], ['Garden Trowel', '🪴', 'Common'],
+  ['Pill Organizer', '💊', 'Common'], ['Quilting Hoop', '🪡', 'Common'], ['Almanac', '📅', 'Common'], ['Tea Cozy', '☕', 'Common'],
+  ['Hand Bell', '🔔', 'Common'], ['Clothespin Bag', '🧺', 'Common'],
+  ['Silver Teapot', '🫖', 'Rare'], ['Phonograph', '🎶', 'Rare'], ['Brass Telescope', '🔭', 'Rare'], ['Cast-Iron Skillet', '🍳', 'Rare'],
+  ['Typewriter', '⌨️', 'Rare'], ['Grandfather Clock', '⏰', 'Rare'], ['Quilted Heirloom', '🛏️', 'Rare'], ['Pocket Compass', '🧭', 'Rare'],
+  ['Wooden Cane', '🦯', 'Rare'], ['Victory Garden Sign', '🪧', 'Rare'], ['Banjo', '🪕', 'Rare'], ['Gramophone Horn', '📻', 'Rare'],
+  ['Porcelain Teacups', '🍵', 'Rare'], ['Spinning Wheel', '🎡', 'Rare'], ['Dance Hall Poster', '🎟️', 'Rare'], ['War Bond Frame', '🖼️', 'Rare'],
+  ['Hand-Cranked Radio', '📡', 'Rare'], ['Fishing Creel', '🎣', 'Rare'],
+  ['Golden Bingo Cage', '🎰', 'Epic'], ['Crystal Chandelier', '🪔', 'Epic'], ['Velvet Armchair', '🛋️', 'Epic'], ['Jeweled Hearing Horn', '👂', 'Epic'],
+  ['Mahogany Radio Cabinet', '📺', 'Epic'], ['Opera Glasses', '🎭', 'Epic'], ['Ballroom Trophy', '🏆', 'Epic'], ['Stained-Glass Lamp', '🏺', 'Epic'],
+  ['Ivory Chess Set', '♞', 'Epic'],
+  ['The First Casserole Dish', '🥘', 'Legendary'], ['Founder\'s Shuffleboard Cue', '🥏', 'Legendary'], ['Gilded TV Dinner Tray', '🍽️', 'Legendary'],  // W7-G (2026-11-03): appended so existing antique ids a01-a60 never change; rarities follow the existing ladder, price is the existing per-rarity price.
+  ['Brass Bingo Bell', '🔔', 'Common'], ['Cast-Iron Doorstop', '🐈', 'Common'], ['Crank Coffee Grinder', '☕', 'Rare'], ['Gold Pocket Compass', '🧭', 'Rare'],
+  ['Embroidered Footstool', '🪑', 'Rare'], ['Silver Trophy Spoon', '🥄', 'Epic'],
+];
+export const ANTIQUES: Antique[] = ANTIQUE_SOURCE.map(([name, icon, rarity], i) => ({
+  id: `a${String(i + 1).padStart(2, '0')}`, name, icon, rarity, price: ANTIQUE_PRICE[rarity], title: `${name} Collector`,
+}));
+export const ANTIQUES_PER_DAY = 4;
+export const ANTIQUE_CYCLE_DAYS = Math.ceil(ANTIQUES.length / ANTIQUES_PER_DAY); // 17 for 66 antiques: every antique shows up once per cycle (the last day of a cycle shows the 2 left over)
+export const antiqueDayIndex = (now = Date.now()): number => Math.floor(now / 86400000);
+const antiqueSeedRand = (seed: number) => { let s = (seed * 2654435761) >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+// Deterministic for everyone, no server needed: each cycle uses its own shuffle, so the order differs every 15 days
+// but no antique can repeat inside a cycle -- miss one and it returns later (between 1 and ~29 days away).
+export function antiquesForDay(dayIndex: number): Antique[] {
+  const cycle = Math.floor(dayIndex / ANTIQUE_CYCLE_DAYS);
+  const pos = ((dayIndex % ANTIQUE_CYCLE_DAYS) + ANTIQUE_CYCLE_DAYS) % ANTIQUE_CYCLE_DAYS;
+  const order = ANTIQUES.map((_, i) => i);
+  const rnd = antiqueSeedRand(cycle + 7919);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order.slice(pos * ANTIQUES_PER_DAY, pos * ANTIQUES_PER_DAY + ANTIQUES_PER_DAY).map(i => ANTIQUES[i]);
+}
+// Days from `fromDay` until this antique is next on sale (0 = today).
+export function daysUntilAntique(id: string, fromDay: number): number {
+  for (let d = 0; d <= ANTIQUE_CYCLE_DAYS * 2 + 1; d++) if (antiquesForDay(fromDay + d).some(a => a.id === id)) return d;
+  return -1;
+}
+export const antiqueById = (id: string) => ANTIQUES.find(a => a.id === id);
+export const antiqueCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
+  if (typeof key !== 'string' || !key.startsWith('antique:')) return null;
+  const a = antiqueById(key.slice(8));
+  return a ? { key, icon: ITEM_ICON_ASSETS[a.name] || a.icon, title: a.title } : null;
+};
+
+// Gear sold only for TV Dinners (stronger than most drops; the sink for the PvP currency). Slot decides the stat.
+export const PVP_GEAR: { id: string; name: string; icon: string; slot: 'Head' | 'Body' | 'Accessory' | 'Charm'; boost: number; rarity: 'Rare' | 'Epic' | 'Legendary'; price: number; description: string; set: 'porch' | 'club' | 'heirloom' }[] = [
+  // Porch League: the cheap starter set (Rare, 40 TV Dinners a piece, 160 for all four), smallest set bonus.
+  { id: 'pg9', name: 'Porch Sun Visor', icon: '👒', slot: 'Head', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Wit.', set: 'porch' },
+  { id: 'pg10', name: 'League Windbreaker', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Tenacity.', set: 'porch' },
+  { id: 'pg11', name: 'Lucky Bocce Ball', icon: '🎱', slot: 'Accessory', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Strength.', set: 'porch' },
+  { id: 'pg12', name: 'Lemonade Lucky Pin', icon: '🍋', slot: 'Charm', boost: 4, rarity: 'Rare', price: 40, description: 'Increases Agility.', set: 'porch' },
+  // Tournament Club (Epic, 120 each) and Heirloom Collection (Legendary, 320 each).
+  { id: 'pg1', name: 'Tournament Visor', icon: '🧢', slot: 'Head', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Wit.', set: 'club' },
+  { id: 'pg2', name: 'Club Blazer', icon: '🧥', slot: 'Body', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Tenacity.', set: 'club' },
+  { id: 'pg3', name: 'Champion Cufflinks', icon: '🔗', slot: 'Accessory', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Strength.', set: 'club' },
+  { id: 'pg4', name: 'Lucky Rabbit Foot', icon: '🐇', slot: 'Charm', boost: 4, rarity: 'Epic', price: 120, description: 'Increases Agility.', set: 'club' },
+  { id: 'pg5', name: 'Golden Reading Glasses', icon: '👓', slot: 'Head', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Wit.', set: 'heirloom' },
+  { id: 'pg6', name: 'Velvet Smoking Jacket', icon: '🧣', slot: 'Body', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Tenacity.', set: 'heirloom' },
+  { id: 'pg7', name: 'Heirloom Pocket Watch', icon: '⏱️', slot: 'Accessory', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Strength.', set: 'heirloom' },
+  { id: 'pg8', name: 'Four-Leaf Clover Pin', icon: '🍀', slot: 'Charm', boost: 4, rarity: 'Legendary', price: 320, description: 'Increases Agility.', set: 'heirloom' },
+];
+
+// --- Mementos: premium currency (2026-10-06) -----------------------------------------------------------------
+// Bought with real money through the store build (not wired yet; no free source on purpose). Spent ONLY on convenience
+// and cosmetics. Never PP, never passive income, never PvP/Arena/Raid power.
+export const PREMIUM_ROOM_MAX = 10;
+export const premiumRoomPrice = (owned: number): number => 15 + 5 * Math.max(0, Math.floor(owned)); // 15, 20, ... 60 (375 for all 10)
+export interface MementoItem { id: string; name: string; icon: string; price: number; title: string; rarity: GearRarity }
+// Keepsake prices follow rarity bands (owner decision 2026-11-07): Common 60-70, Rare 80-90, Epic 100-120, Legendary 150 Mementos.
+// Existing keepsakes keep their prices (they already sat in these bands); new ones use the band's usual price. Keep in sync with
+// ITEM_PRICES in api/mementos.ts (scripts/check-keepsakes.mjs verifies). Event keepsakes get discounts only during their event.
+const MEMENTO_SOURCE: [string, string, number, GearRarity][] = [
+  ['Anniversary Locket', '\u{1F49B}', 60, 'Common'], ['Silver Wedding Bells', '\u{1F514}', 80, 'Rare'], ['Pressed Prom Corsage', '\u{1F338}', 60, 'Common'], ['Grandkid Crayon Portrait', '\u{1F58D}\uFE0F', 70, 'Common'],
+  ['Postcard from the Coast', '\u{1F3D6}\uFE0F', 60, 'Common'], ['Wartime Love Letters', '\u{1F48C}', 90, 'Rare'], ['Family Reunion Photo', '\u{1F4F8}', 80, 'Rare'], ['First Car Hood Ornament', '\u{1F698}', 100, 'Epic'],
+  ['Golden Retirement Watch', '\u231A', 150, 'Legendary'], ['Hand-Knit Baby Booties', '\u{1F9E6}', 70, 'Common'], ['County Fair Blue Ribbon', '\u{1F397}\uFE0F', 90, 'Rare'], ['Porch Swing Plaque', '\u{1FA91}', 120, 'Epic'],
+  ['Wedding Album', '\u{1F4D6}', 85, 'Rare'], ["Grandpa's Harmonica", '\u{1F3B5}', 85, 'Rare'], ['Sewing Basket Heirloom', '\u{1F9FA}', 60, 'Common'],
+  ['Porch Music Box', '\u{1F3B6}', 110, 'Epic'], ['Victory Garden Seed Jar', '\u{1FAD9}', 60, 'Common'], ['Hand-Painted Teapot', '\u{1FAD6}', 85, 'Rare'],
+];
+export const MEMENTO_ITEMS: MementoItem[] = MEMENTO_SOURCE.map(([name, icon, price, rarity], i) => ({ id: `m${String(i + 1).padStart(2, '0')}`, name, icon, price, rarity, title: `Keeper of the ${name}` }));
+// All keepsakes are on sale in the weekly rotation now; nothing is "coming soon".
+export const MEMENTO_COMING_SOON: { name: string; icon: string }[] = [];
+export const MEMENTO_ITEMS_PER_WEEK = 2;
+export const MEMENTO_CYCLE_WEEKS = MEMENTO_ITEMS.length / MEMENTO_ITEMS_PER_WEEK; // 6
+export const mementoWeekIndex = (now = Date.now()): number => Math.floor((now / 86400000 + 3) / 7); // weeks roll over on Mondays UTC (epoch day 0 was a Thursday)
+export function mementoItemsForWeek(week: number): MementoItem[] {
+  const cycle = Math.floor(week / MEMENTO_CYCLE_WEEKS);
+  const pos = ((week % MEMENTO_CYCLE_WEEKS) + MEMENTO_CYCLE_WEEKS) % MEMENTO_CYCLE_WEEKS;
+  const order = MEMENTO_ITEMS.map((_, i) => i);
+  const rnd = antiqueSeedRand(cycle + 104729);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order.slice(pos * MEMENTO_ITEMS_PER_WEEK, pos * MEMENTO_ITEMS_PER_WEEK + MEMENTO_ITEMS_PER_WEEK).map(i => MEMENTO_ITEMS[i]);
+}
+export function weeksUntilMemento(id: string, fromWeek: number): number {
+  for (let w = 0; w <= MEMENTO_CYCLE_WEEKS * 2 + 1; w++) if (mementoItemsForWeek(fromWeek + w).some(m => m.id === id)) return w;
+  return -1;
+}
+export const mementoCosmetic = (key: string): { key: string; icon: string; title: string } | null => {
+  if (typeof key !== 'string' || !key.startsWith('memento:')) return null;
+  const m = MEMENTO_ITEMS.find(x => x.id === key.slice(8));
+  return m ? { key, icon: ITEM_ICON_ASSETS[m.name] || m.icon, title: m.title } : null;
+};
+
+// PvP boosts (TV Dinners): one-use passes that waive the Ticket fee on a paid Arena attack / extra Raid attempt.
+// They never raise the server's daily attempt caps and never change power or rewards -- they only pay a fee for you.
+export const PASS_PRICE = { arena: 6, raid: 6 } as const;
+export const PASS_HOLD_MAX = 10;
+
+// Drops and the Commissary now follow one rule: every piece has the same base boost (3) and the rarity + level curve
+// does the rest, so the same rarity and level always gives the same bonus. Names of the pieces that used other bases:
+export const UNIFORM_GEAR_BASE = 3;
+export const UNIFORM_GEAR_NAMES = ['Straw Sunhat', 'Comfy Loafers', 'Hearing Aid Plus', 'Vintage Radio', 'Garden Charm', 'Antique Pocket Watch', 'Wool Beret', 'Bifocal Chain Glasses', 'Knitted Shawl', 'Elbow Patch Cardigan', 'Pearl Necklace', 'Garden Gloves', 'Lucky Horseshoe', 'Brass Bell Keychain'];
+
+// PP -> Mementos (one direction only, never back): spending earned PP on premium goods. Owner-tunable rate.
+export const MEMENTOS_PER_PP = 100;
+export const PP_TO_MEMENTOS_MIN = 0.01;
+
+// Mementos packs sold through Google Play (ids must match the in-app products in Play Console AND api/purchase.ts, which
+// is the one that decides what each is worth). About 100 Mementos per USD, a little more on the bigger packs.
+export const MEMENTO_PACKS = [
+  { id: 'mementos_100', mementos: 100, usd: 0.99, label: 'Pocket Change' },
+  { id: 'mementos_550', mementos: 550, usd: 4.99, label: 'Shoebox of Keepsakes' },
+  { id: 'mementos_1150', mementos: 1150, usd: 9.99, label: 'Attic Trunk' },
+] as const;

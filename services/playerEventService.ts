@@ -1,4 +1,5 @@
 import { getAccessToken } from './authService';
+import { apiUrl } from './api';
 
 export interface PlayerEvent {
   id: string;
@@ -25,7 +26,7 @@ export async function submitPlayerEvent(
   clientNonce: string,
   payload: Record<string, unknown> = {},
 ): Promise<{ event: PlayerEvent | null; duplicate: boolean }> {
-  return parse(await fetch('/api/account/events', {
+  return parse(await fetch(apiUrl('/api/account/events'), {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({ eventType, clientNonce, payload }),

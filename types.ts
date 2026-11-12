@@ -21,6 +21,14 @@ export interface MailMessage {
   subject: string;
   body: string;
   reward?: { type: 'Tokens' | 'Gear'; value: number | Gear };
+  materials?: number; // Building Materials, claimed together with `reward`
+  diners?: number; // TV Dinners, claimed together with `reward`
+  honor?: string; // a permanent title key granted with this message (weekly board honors)
+  auto?: boolean; // paid automatically as soon as it arrives (weekly board rewards)
+  posseInvite?: { inviteId: string; kind: 'invite' | 'request' }; // a Posse invitation (or a join request for the owner): Accept / Decline in the Mailbox
+  friendRequest?: { requestId: string }; // a pending friend request: Accept / Decline right in the Mailbox
+  exchangeHost?: boolean; // Resident Exchange host mail (claiming it counts toward the hosting quests)
+  gift?: { type: 'quest' | 'boost'; amount: number; from: string; targetId?: string; targetLabel?: string }; // Resident Exchange host gift: the host picks a target when claiming
   claimed: boolean;
   timestamp: number;
 }
@@ -30,7 +38,7 @@ export interface Achievement {
   title: string;
   description: string;
   completed: boolean;
-  rewardType: 'Tokens' | 'YieldBonus' | 'CommunityScore';
+  rewardType: 'Tokens' | 'YieldBonus' | 'CommunityScore' | 'Diners'; // Diners = TV Dinners (battle / PvP feats)
   rewardValue: number;
   icon: string;
 }
@@ -38,6 +46,7 @@ export interface Achievement {
 export interface Quest {
   id: string;
   type: 'Daily' | 'Weekly';
+  kind: string; // matches the `type` string handleQuestProgress reports (see constants.tsx pools)
   title: string;
   description: string;
   progress: number;
@@ -56,15 +65,22 @@ export interface Season {
   startDate: number;
   endDate: number;
   claimedLevels: number[];
+  claimedGold?: number[]; // Gold lane ranks already paid (only meaningful when isPremium)
+  activityDay?: string; // UTC day for the activity-XP cap
+  activityXpToday?: number;
 }
 
+export type GearSetId = 'porch' | 'club' | 'heirloom' | 'arena' | 'raid';
 export interface Gear {
   id: string;
   name: string;
   boost: number;
   description: string;
   icon: string;
-  slot: 'Head' | 'Body' | 'Accessory';
+  slot: 'Head' | 'Body' | 'Accessory' | 'Charm';
+  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
+  level: number; // upgrade level, starts at 1
+  set?: GearSetId; // which gear set the piece belongs to (see GEAR_SET_INFO in constants.tsx)
 }
 
 export interface BingoBlitzState {
@@ -86,8 +102,10 @@ export interface ShuffleboardState {
 
 export interface GameSettings {
   darkTheme: boolean;
+  altTheme?: boolean | 'teal' | 'purple' | ''; // dark colour variant: 'teal' (Teal Night) or 'purple' (Purple Night); true = old saves = teal. The Light theme was removed.
   musicEnabled: boolean;
   sfxEnabled: boolean;
+  uiTheme: string; // one of UI_THEMES' ids -- the app's accent color scheme
 }
 
 export interface Parcel {
@@ -115,6 +133,20 @@ export interface GameState {
   isLinkedToGoogle: boolean;
   googleEmail?: string;
   pensionBalance: number;
+  structureUses?: { day: string; counts: Record<string, number> }; // map-building visits today (UTC) -> escalating Ticket prices
+  autoPlayPaid?: { day: string; count: number }; // Auto-Play collections that paid today (UTC)
+  tournamentThrows?: number; // throws used in the current tournament window
+  stationedAt?: Record<string, string>;
+  questsGeneratedDay?: string;
+  questsGeneratedWeek?: string;
+  battleWins?: number;
+  faction?: string | null; // local mirror of the server faction, for achievements/UI only -- api/arena.ts is the source of truth
+ // elderId -> Arena id (server is the source of truth; locks the Elder)
+  parkAssets?: Record<string, number>; // Park Assets bought with Pending Yield: itemId -> how many
+  challengeLadder?: { highestCleared: number; day: string; paidWins: number }; // Elder Challenge rival ladder progress (-1 = none cleared)
+  lastCourtPurseClaim?: number; // when the Champion's purse was last collected (once per reign)
+  economyVersion?: number; // 2 = PP scaled to the $0.008/ad assumption (Bundle B)
+  pendingYield: number; // uncapped passive accrual; not cash until converted via Cash Out (or spent on Park Assets)
   communityReserve: number; 
   earningsBreakdown: {
     passive: number;
@@ -138,6 +170,32 @@ export interface GameState {
   heldStructureIds: string[];
   quests: Quest[];
   achievements: Achievement[];
+  // Up to 3 Elder ids the player has chosen to feature on their Social
+  // Profile -- purely cosmetic, independent of the battle Team.
+  favoriteElderIds: string[];
+  // Building Materials (Phase 3 park-building system): a currency
+  // completely separate from PP -- never touches the ad-revenue-only rule,
+  // since it isn't real-money-adjacent. Spent on Amenities (see
+  // constants.tsx) -- decorations with no passive bonus, plus Housing which
+  // raises total roster capacity.
+  buildingMaterials: number;
+  boardStats?: { week: string; arena: number; raid: number; friend: number }; // this week's counts, reported to the per-mode leaderboards
+  discoveredArenas?: { id: string; name: string; lat: number; lng: number }[]; // every Arena the player has been near; stays on the map
+  activityLog?: { t: number; kind: string; text: string }[]; // newest first, capped at 100 (header Activity Log)
+  parkLayout?: Record<string, { x: number; y: number }>; // moved Park buildings: 'b<index>' -> centre x / top y in backdrop px (no entry = default slot)
+  parkDecor?: { id: string; x: number; y: number }[]; // Park Assets placed on the grass (% of the scene)
+  tvDinners?: number; // PvP/Arena/Raid currency (spent only in the PvP shop)
+  dinersDay?: string; dinersToday?: number; // daily earn cap tracking
+  pvpPasses?: { arena: number; raid: number }; // consumables bought with TV Dinners: each waives one Ticket attempt fee
+  mementoPurchaseIds?: string[]; // verified store purchases already credited (so a retry can never credit twice)
+  mementos?: number; mementoItemsOwned?: string[]; premiumRooms?: number; // premium currency, owned premium cosmetics, bought roster rooms
+  antiquesOwned?: string[]; // ids from ANTIQUES; each is a one-time collectible that unlocks an icon + title
+  builtAmenityIds: string[];
+  amenityLevels: Record<string, number>;      // building id -> level (missing = level 1)
+  amenityCollectedAt: Record<string, number>; // working building id -> when its output was last collected
+  // Per-friend timestamp of the last time visiting them granted a Materials
+  // reward, so the visit reward can be capped to once/day/friend client-side.
+  lastVisitedFriends: Record<string, number>;
   season: Season;
   hasStarted: boolean;
   inventory: Gear[];
@@ -154,13 +212,26 @@ export interface GameState {
   };
   profileColor: string;
   parkTheme: string;
+  // '' means "use current rank" (default, no regression for existing players).
+  // Otherwise a cosmetic key from getUnlockedCosmetics, e.g. 'achievement:a1'.
+  selectedAccountIcon: string;
+  selectedTitle: string;
+  eventProgress?: { id: string; base: Record<string, number>; claimed: string[] }; // the seasonal event in progress: baseline of modeStats when you joined, goals already paid
+  eventElders?: string[]; // SEASONAL_EVENTS ids whose Event Elder has already been granted
+  eventCosmetics?: string[]; // permanent event titles/icons earned, keys like event:spooky-2026
+  claimedMilestones?: string[]; // one-time milestone rewards already collected, keys like battle:3
+  modeStats?: Record<string, number>; // lifetime activity counts by quest kind (drives mode badges)
+  courtHonors?: string[]; // permanent Court ladder titles earned (keys like court:5:1)
   mailbox: MailMessage[];
   bingoBlitz: BingoBlitzState;
   shuffleboard: ShuffleboardState;
+  goldenGames: { highestLeagueCleared: number; nextMatchAt: number; paid?: { day: string; count: number } }; // -1 = none cleared yet
+  friendBattle: { nextMatchAt: number; rewardDay?: string; rewardsToday?: number; lastByFriend?: Record<string, number>; attackDay?: string; attacksToday?: number };
   settings: GameSettings;
   tournamentScore: number;
   tournamentEndsAt: number;
   passiveMatchAt: number;
+  setDrops?: { day: string; arena: number; raid: number }; // Arena/Raid set pieces dropped today (daily cap)
 }
 
 export interface Elder {
@@ -173,13 +244,23 @@ export interface Elder {
   bio: string;
   comfortGeneration: number; 
   captured: boolean;
+  xp: number;
+  evolutionStage: 0 | 1 | 2;
+  eventId?: string; // seasonal-event Elder (SEASONAL_EVENTS id): always shows its own portrait
   lat: number;
   lng: number;
   equipment: {
     head?: Gear;
     body?: Gear;
     accessory?: Gear;
+    charm?: Gear;
   };
+  obtainedAt?: number; // when this Elder joined the park (for sorting); older Elders may not have it
+  starterStatsV2?: boolean; // true once a starter Elder's too-low base stats have been corrected (2026-10-06)
+  eldersCanonicalV1?: boolean; // stats were reset to the one standard formula (level, rarity, evolution, gear) on 2026-10-11
+  preCanonical?: { strength: number; wit: number; agility: number; tenacity: number; maxHp: number }; // pre-reset stats, kept so the change can be undone
+  rarityStatsV1?: boolean; // true once the rarity stat bonus has been applied to this Elder (2026-10-02)
+  gearSlotsV2?: boolean; // true once an accessory item's old Strength/Agility split has been migrated (2026-09-27)
   happiness: number;
   hp: number;
   maxHp: number;
@@ -188,6 +269,12 @@ export interface Elder {
   agility: number;
   tenacity: number;
   status: 'Team' | 'Porch' | 'Base';
+  awayUntil?: number; // set while visiting a friend's park (Resident Exchange); status is parked at 'Base' meanwhile so every squad/combat filter skips it
+  awayPrevStatus?: 'Team' | 'Porch' | 'Base';
+  awayHost?: string;
+  awayLoan?: boolean; // the away Elder is on Squad Loan (not a plain visit)
+  borrowed?: boolean; // Squad Loan: a friend's Elder on loan to you (never saved; usable in Battle and Court only)
+  loanedBy?: string;
   isRoaming?: boolean;
   despawnAt?: number;
   pathId?: string;
