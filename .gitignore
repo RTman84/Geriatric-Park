@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 tests/.out/
+
+# Android signing material must never be committed
+*.jks
+*.keystore
+ANDROID_SIGNING_SECRETS.txt
