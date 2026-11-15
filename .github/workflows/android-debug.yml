@@ -40,6 +40,9 @@ jobs:
         run: npm ci
 
       - name: Build the native web bundle (AdSense stripped, native API base URL)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build:native
 
       - name: Sync into the Android project

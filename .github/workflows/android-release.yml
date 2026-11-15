@@ -4,6 +4,8 @@ name: Android release build (signed)
 # Run it by hand: GitHub -> Actions -> "Android release build (signed)" -> Run workflow.
 # Needs 4 repository secrets (Settings -> Secrets and variables -> Actions):
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# and 2 account-connection secrets (public values, copied from Supabase -> Project Settings -> API):
+#   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
 # Each Play upload needs a HIGHER version code than the last one.
 on:
   workflow_dispatch:
@@ -46,7 +48,18 @@ jobs:
             if [ -z "${!v}" ]; then echo "Missing a signing secret ($v). Add all four secrets first."; exit 1; fi
           done
 
+      - name: Check the account connection values exist (without them the app has no sign-in)
+        env:
+          SB_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SB_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SB_URL" ] || [ -z "$SB_KEY" ]; then echo "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY repository secret. Add both (Supabase -> Project Settings -> API)."; exit 1; fi
+          case "$SB_URL" in https://*.supabase.co) ;; *) echo "VITE_SUPABASE_URL must look like https://xxxx.supabase.co with nothing after .co"; exit 1;; esac
+
       - name: Build the native web bundle with the REAL ad unit
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build:native:release
 
       - name: Sync into the Android project
