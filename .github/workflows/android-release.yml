@@ -53,12 +53,21 @@ jobs:
           SB_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SB_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          if [ -z "$SB_URL" ] || [ -z "$SB_KEY" ]; then echo "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY repository secret. Add both (Supabase -> Project Settings -> API)."; exit 1; fi
-          case "$SB_URL" in https://*.supabase.co) ;; *) echo "VITE_SUPABASE_URL must look like https://xxxx.supabase.co with nothing after .co"; exit 1;; esac
+          if [ -z "$SB_URL" ] || [ -z "$SB_KEY" ]; then echo "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY repository secret. Add both (Supabase -> Project Settings)."; exit 1; fi
+          # Forgive copy/paste noise: spaces, line breaks, quotes, a trailing slash or a leftover /rest/v1.
+          CLEAN=$(python3 -c 'import os,re; u=os.environ["SB_URL"]; u=re.sub(r"[\s\"\x27]","",u); u=re.sub(r"/rest/v1/*$","",u); print(u.rstrip("/"))')
+          if ! echo "$CLEAN" | grep -Eq '^https://[a-z0-9]+\.supabase\.co$'; then
+            echo "VITE_SUPABASE_URL is set but is not a Supabase project address. It must look like https://abcdefgh.supabase.co"
+            echo "What was found (values are never printed): length=${#SB_URL}, starts with https://: $(case "$SB_URL" in https://*) echo yes;; *) echo no;; esac), contains .supabase.co: $(case "$SB_URL" in *.supabase.co*) echo yes;; *) echo no;; esac), starts like a key (sb_ or eyJ): $(case "$SB_URL" in sb_*|eyJ*) echo YES-you-pasted-a-key-here;; *) echo no;; esac), contains supabase.com/dashboard: $(case "$SB_URL" in *supabase.com*) echo YES-wrong-address;; *) echo no;; esac)"
+            exit 1
+          fi
+          case "$SB_KEY" in sb_secret_*|*service_role*) echo "VITE_SUPABASE_PUBLISHABLE_KEY looks like a SECRET key. Use the PUBLISHABLE key only."; exit 1;; esac
+          echo "VITE_SUPABASE_URL_CLEAN=$CLEAN" >> "$GITHUB_ENV"
+          echo "Account connection values look good."
 
       - name: Build the native web bundle with the REAL ad unit
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_URL: ${{ env.VITE_SUPABASE_URL_CLEAN }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build:native:release
 
