@@ -30,3 +30,10 @@ Pending Yield ---------> Cash Out to Pension Fund (cash-eligible, minimum 5) | o
 
 ## 5. Risks to keep visible
 Verified-ads dependency: personal funding needs the AdMob server-side verification callback live on the production domain. Rewarded-ad revenue per view is unknown until launch; every rate must be server-side. Level milestones read the client-synced level (small, once-only, capped total of 410 Mementos); harden with server-authoritative level later.
+
+## 6. GOOGLE PLAY POLICY WARNING (found 2026-11-18, changes the model before any payout is built)
+Google Play's Real-Money Gambling, Games and Contests policy prohibits apps that "accept money and offer prizes of cash or other real world value" unless the app holds a gambling licence and is approved, or fits the narrow gamified loyalty program allowance. The loyalty allowance says rewards may not be subject to purchase or tied to any mode of exchange. Our approved v7 model has two links that fail that test: (1) 40% of a player's Memento purchases funds their own cash-eligible growth, and (2) the app has chance-based Bingo. Google also says Play Billing may not be used for real-money gaming transactions, and gambling-style apps are rated adults-only. Consequences and the plan:
+- **Launch on Play with NO payouts and NO "earn real money / play to earn" wording** anywhere (listing, screenshots, in-app text). The Pension Fund, if shown at all, is a virtual number that cannot be withdrawn.
+- **Purchases must never fund cash-eligible balances.** If payouts are ever enabled, funding can come only from ad revenue, and only after a lawyer confirms the program fits Google's loyalty rules (or another store/payment route is chosen). Remove the purchase-funds-yield link from the design before building personal funding.
+- Do not build personal funding / Pension Fund rename until the legal review happens; Memento faucets, ads-pay-Mementos, keepsakes, Posse and everything cosmetic can ship now.
+
