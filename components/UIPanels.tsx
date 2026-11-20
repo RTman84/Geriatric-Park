@@ -9,7 +9,7 @@ import { Elder, Gear, Quest, Achievement, Season, ElderType, MailMessage } from 
 import { 
   ELDER_AVATARS, ElderAvatarImg, ItemIcon, PARCEL_ICON_ASSETS, ACHIEVEMENT_ICON_ASSETS, TEAM_SIZE_LIMIT, SHOP_ITEMS, SEASONAL_REWARDS, 
   SEASON_XP_PER_LEVEL, sortEldersBy, sortEldersByPref, readElderSortPref, writeElderSortPref, type ElderSortMode, countSetPieces, getSetBonusPct, getBestSetBonus, GLYPH_ART, isImagePath, GEAR_SET_INFO, GEAR_SET_ORDER, getSetPieces, withSetBonus, eventArt, UI_ART, SEASON_ACTIVITY_DAILY_CAP, GOLD_PASS_PRICE_MEMENTOS, ELDER_TYPE_STYLING, DAILY_REWARDS, 
-  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, REVENUE_SPLIT, xpForElderLevel,
+  MAX_ADS_PER_DAY, DIVIDEND_COOLDOWN, INVESTMENT_TIERS, PARK_ASSET_MAX_OWNED, parkAssetCost, PASSIVE_TICKS_PER_HOUR, AD_REVENUE_PAYOUT, PAYOUTS_UI_ENABLED, REVENUE_SPLIT, xpForElderLevel,
   isCourtChampion, COURT_PURSE_TICKETS, COURT_CHAMPION_DURATION_MS, comfortPoints, comfortOutputBonus, RESERVE_HEALTHY_THRESHOLD, getYieldExchangeRate,
   ELDER_EVOLUTION_STAGE1_LEVEL, ELDER_EVOLUTION_STAGE2_LEVEL,
   ELDER_EVOLUTION_STAGE2_ELITE_RARITIES, EVOLUTION_STAGE1_COST,
@@ -230,9 +230,9 @@ export const BankPanel: React.FC<{
       <div className={`rounded-[3rem] p-10 text-white shadow-2xl mb-8 relative italic overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-[var(--accent-950)]'}`}>
         <h2 className="text-[16px] font-black opacity-60 uppercase mb-3 tracking-widest relative z-10">Pension Points</h2>
         <div className="text-5xl font-black tracking-tighter mb-8 tabular-nums relative z-10">{balance.toFixed(4)} <Gfx e="💰" size={40} className="mx-1" /> PP</div>
-        <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
+        {PAYOUTS_UI_ENABLED && <button onClick={onWithdraw} className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase text-[15px] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform relative z-10">
           <SparklesIcon className="w-4 h-4" /> Redeem Pension Points
-        </button>
+        </button>}
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 relative z-10">
           <div>
             <span className="block text-[13px] font-black opacity-60 uppercase truncate mb-1">Rate/hr</span>
@@ -263,11 +263,11 @@ export const BankPanel: React.FC<{
           disabled={pendingYield <= 0}
           className={`w-full mt-6 py-4 rounded-2xl uppercase text-[15px] font-black flex flex-col items-center justify-center gap-1 shadow-lg active:scale-95 transition-transform ${pendingYield > 0 ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
         >
-          <span>Cash Out to PP</span>
-          <span className="text-[13px] opacity-90 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate · loose PP, ready to redeem</span>
+          <span>Collect as PP</span>
+          <span className="text-[13px] opacity-90 font-bold normal-case">at {(exchangeRate * 100).toFixed(0)}% rate · adds loose PP to your balance</span>
         </button>
         <p className={`text-[13px] ${isDark ? 'text-slate-200' : 'text-slate-700'} font-black uppercase text-center leading-relaxed italic mt-4`}>
-          Cash Out turns yield into PP, capped by Community Reserve health. Or leave it as is — Pending Yield keeps growing and is what you spend on Park Assets below to raise your passive rate.
+          Collect turns yield into PP, capped by Community Reserve health. Or leave it as is — Pending Yield keeps growing and is what you spend on Park Assets below to raise your passive rate.
         </p>
       </div>
 
@@ -279,9 +279,9 @@ export const BankPanel: React.FC<{
         </div>
         <div className="flex justify-between items-center mb-2">
           <span className={`text-[14px] font-black uppercase tracking-widest ${reserveHealthColor}`}>{reserveHealthLabel}</span>
-          <span className={`text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Cash Out rate: {(exchangeRate * 100).toFixed(0)}%</span>
+          <span className={`text-[14px] font-black uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Collect rate: {(exchangeRate * 100).toFixed(0)}%</span>
         </div>
-        <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} uppercase font-bold tracking-widest`}>{Math.round(REVENUE_SPLIT.community * 100)}% of every ad view goes into this pool. It pays Dividends and Cash Outs for everyone.</p>
+        <p className={`text-[14px] ${isDark ? 'text-slate-200' : 'text-slate-700'} uppercase font-bold tracking-widest`}>{Math.round(REVENUE_SPLIT.community * 100)}% of every ad view goes into this pool. It pays Dividends and Collects for everyone.</p>
       </div>
 
       {/* Sponsorship Slots */}

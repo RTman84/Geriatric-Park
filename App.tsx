@@ -2125,7 +2125,7 @@ const App: React.FC = () => {
   // failing, so the shortfall is visible; any yield the rate/reserve couldn't
   // cover simply stays in pendingYield for next time, never lost.
   const handleCashOutYield = useCallback(() => {
-    if (state.pendingYield <= 0) { notify("No Pending Yield to cash out yet — it builds up automatically over time."); return; }
+    if (state.pendingYield <= 0) { notify("No Pending Yield to collect yet — it builds up automatically over time."); return; }
     const rate = getYieldExchangeRate(state.communityReserve);
     // Capped by the pool AND by a per-cash-out share of it, so one player can't drain it.
     const maxPayout = state.communityReserve * CASHOUT_MAX_RESERVE_SHARE;

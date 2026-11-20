@@ -115,6 +115,8 @@ export const PP_SCALE_V2 = 0.08;        // = 0.008 / 0.10, the old simulated pay
 export const AD_REVENUE_PAYOUT = ASSUMED_AD_REVENUE_PER_VIEW_USD;
 export const MAX_ADS_PER_DAY = 15; // typical casual-game rewarded cap; resets at local midnight
 export const WITHDRAWAL_MINIMUM = 5.00;
+// Payouts do NOT exist (Google Play real-money policy; see ECONOMY_V7 section 6). While false, the Bank hides the old placeholder redeem button.
+export const PAYOUTS_UI_ENABLED = false;
 // Passive rates are PER 30-SECOND TICK (see PASSIVE_TICK_MS). Deliberately tiny,
 // many-decimal numbers: passive earning is a slow loyalty layer, reached through
 // long-term investment, and is only ever cashable through the reserve-capped Cash Out.
